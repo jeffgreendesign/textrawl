@@ -50,3 +50,6 @@ uploads/
 *.pem
 *.key
 *.crt
+
+# Converted files
+converted/
