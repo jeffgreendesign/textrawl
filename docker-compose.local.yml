@@ -1,0 +1,66 @@
+# Local development stack - fully self-hosted, no external APIs required
+#
+# Usage:
+#   docker-compose -f docker-compose.local.yml up -d
+#
+# With Ollama for local embeddings:
+#   docker-compose -f docker-compose.local.yml --profile ollama up -d
+#
+# Initialize database (use setup-db-ollama.sql for Ollama):
+#   docker exec -i textrawl-postgres psql -U postgres -d textrawl < scripts/setup-db-ollama.sql
+
+services:
+  postgres:
+    image: pgvector/pgvector:pg16
+    container_name: textrawl-postgres
+    environment:
+      POSTGRES_USER: postgres
+      POSTGRES_PASSWORD: postgres
+      POSTGRES_DB: textrawl
+    ports:
+      - "5432:5432"
+    volumes:
+      - textrawl_pgdata:/var/lib/postgresql/data
+    healthcheck:
+      test: ["CMD-SHELL", "pg_isready -U postgres -d textrawl"]
+      interval: 5s
+      timeout: 5s
+      retries: 5
+
+  # Ollama for local embeddings (no OpenAI API key needed)
+  # After starting, pull the model: docker exec textrawl-ollama ollama pull nomic-embed-text
+  ollama:
+    image: ollama/ollama:latest
+    container_name: textrawl-ollama
+    ports:
+      - "11434:11434"
+    volumes:
+      - textrawl_ollama:/root/.ollama
+    profiles:
+      - ollama
+    healthcheck:
+      test: ["CMD-SHELL", "curl -f http://localhost:11434/api/tags || exit 1"]
+      interval: 10s
+      timeout: 5s
+      retries: 5
+
+  # Optional: pgAdmin for database management
+  # Access at http://localhost:5050
+  # Login: admin@textrawl.local / admin
+  pgadmin:
+    image: dpage/pgadmin4:latest
+    container_name: textrawl-pgadmin
+    environment:
+      PGADMIN_DEFAULT_EMAIL: admin@textrawl.local
+      PGADMIN_DEFAULT_PASSWORD: admin
+      PGADMIN_CONFIG_SERVER_MODE: "False"
+    ports:
+      - "5050:80"
+    depends_on:
+      - postgres
+    profiles:
+      - tools
+
+volumes:
+  textrawl_pgdata:
+  textrawl_ollama:
