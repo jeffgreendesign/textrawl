@@ -9,7 +9,7 @@ Thanks for your interest in contributing! This guide will help you get started.
 - Node.js >= 22.0.0
 - Docker (for local database)
 - A Supabase account OR local PostgreSQL with pgvector
-- OpenAI API key (for embeddings)
+- OpenAI API key OR [Ollama](https://ollama.com) (free, local) for embeddings
 
 ### Quick Start
 
@@ -41,6 +41,11 @@ npm run dev         # Watch mode with hot reload
 npm run build       # Production build
 npm run typecheck   # Type-check without emitting
 npm run inspector   # Test with MCP Inspector
+
+# File conversion (see docs/CLI.md)
+npm run convert     # Convert files (mbox, eml, html, takeout)
+npm run upload      # Upload converted markdown to Supabase
+npm run ui          # Web UI for conversion
 ```
 
 ## Code Style
@@ -107,6 +112,12 @@ src/
 ├── tools/         # MCP tool definitions
 ├── types/         # TypeScript type definitions
 └── utils/         # Config, logger, errors
+
+scripts/
+├── cli/           # CLI conversion tools
+│   ├── converters/  # Format-specific converters (mbox, eml, html, takeout)
+│   └── lib/         # Shared CLI utilities
+└── ui/            # Web UI for file conversion
 ```
 
 ## Pull Request Process

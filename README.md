@@ -15,6 +15,7 @@ Personal Knowledge MCP Server - semantic search over your documents from Claude.
 
 - **Hybrid Search** - Vector similarity + full-text search with Reciprocal Rank Fusion
 - **Multi-format Support** - PDF, Word (.docx), Markdown, and plain text
+- **File Conversion** - Import emails (MBOX/EML), HTML, Google Takeout archives
 - **MCP Integration** - Works with Claude Desktop and other MCP clients
 - **Smart Chunking** - Paragraph-aware splitting with overlap for context
 
@@ -25,6 +26,7 @@ Personal Knowledge MCP Server - semantic search over your documents from Claude.
 - [Configuration](#configuration)
 - [MCP Tools](#mcp-tools)
 - [REST API](#rest-api)
+- [CLI Tools](docs/CLI.md) - File conversion and upload utilities
 - [Claude Desktop Setup](#claude-desktop-setup)
 - [Deployment](#deployment)
 - [Development](#development)
@@ -170,6 +172,11 @@ npm run start       # Run production
 npm run typecheck   # Type check
 npm run inspector   # MCP Inspector
 npm run setup       # Generate .env with secure token
+
+# File conversion tools (see docs/CLI.md)
+npm run convert     # Convert files (mbox, eml, html, takeout)
+npm run upload      # Upload converted markdown to Supabase
+npm run ui          # Web UI for conversion at localhost:3001
 ```
 
 ### Local Database (Optional)

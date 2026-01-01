@@ -15,6 +15,11 @@ npm run build       # TypeScript compile + esbuild bundle to dist/
 npm run start       # Run production build
 npm run typecheck   # Type-check without emitting
 npm run inspector   # MCP Inspector at http://localhost:5173
+
+# CLI conversion tools (see docs/CLI.md for full documentation)
+npm run convert     # Convert files (mbox, eml, html, takeout)
+npm run upload      # Upload converted markdown to Supabase
+npm run ui          # Web UI for conversion at http://localhost:3001
 ```
 
 **Requirements:** Node.js >= 22.0.0
@@ -27,6 +32,7 @@ Copy `.env.example` to `.env` and configure:
 - `OPENAI_API_KEY` - Required if using OpenAI (text-embedding-3-small, 1536 dimensions)
 - `OLLAMA_BASE_URL` / `OLLAMA_MODEL` - Required if using Ollama (nomic-embed-text, 1024 dimensions)
 - `API_BEARER_TOKEN` - Optional auth token (min 32 chars)
+- `UI_PORT` - Web UI port (default: 3001)
 
 Database schema must be initialized via `scripts/setup-db.sql` (OpenAI) or `scripts/setup-db-ollama.sql` (Ollama) in Supabase SQL Editor.
 
@@ -57,6 +63,8 @@ Express Server
 - `src/api/` - Express routes and middleware
 - `src/utils/` - Configuration, custom errors, logger
 - `src/types/` - TypeScript type definitions
+- `scripts/cli/` - CLI conversion tools and upload utility
+- `scripts/ui/` - Web UI for file conversion
 
 ### Database
 PostgreSQL (Supabase) with:
