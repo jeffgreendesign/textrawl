@@ -12,7 +12,14 @@
     "start": "node dist/index.js",
     "typecheck": "tsc --noEmit",
     "inspector": "npx @modelcontextprotocol/inspector http://localhost:3000/mcp",
-    "setup": "bash scripts/setup.sh"
+    "setup": "bash scripts/setup.sh",
+    "convert": "tsx scripts/cli/convert.ts",
+    "convert:mbox": "tsx scripts/cli/converters/mbox.ts",
+    "convert:eml": "tsx scripts/cli/converters/eml.ts",
+    "convert:takeout": "tsx scripts/cli/converters/takeout.ts",
+    "convert:html": "tsx scripts/cli/converters/html.ts",
+    "upload": "tsx scripts/cli/upload.ts",
+    "ui": "tsx scripts/ui/server.ts"
   },
   "dependencies": {
     "@modelcontextprotocol/sdk": "^1.24.0",
@@ -29,13 +36,31 @@
     "zod": "^3.23.0"
   },
   "devDependencies": {
+    "@types/cli-progress": "^3.11.0",
     "@types/cors": "^2.8.19",
     "@types/express": "^5.0.0",
+    "@types/jsdom": "^21.0.0",
+    "@types/mailparser": "^3.4.0",
     "@types/multer": "^1.4.12",
     "@types/node": "^22.0.0",
+    "@types/sanitize-html": "^2.13.0",
+    "@types/turndown": "^5.0.0",
+    "cli-progress": "^3.12.0",
+    "commander": "^12.0.0",
     "esbuild": "^0.24.0",
+    "glob": "^10.3.0",
+    "gray-matter": "^4.0.3",
+    "ical.js": "^2.0.0",
+    "jsdom": "^24.0.0",
+    "mailparser": "^3.6.0",
+    "node-mbox": "^2.0.0",
+    "p-limit": "^5.0.0",
+    "sanitize-html": "^2.12.0",
     "tsx": "^4.19.0",
-    "typescript": "^5.7.0"
+    "turndown": "^7.1.0",
+    "turndown-plugin-gfm": "^1.0.2",
+    "typescript": "^5.7.0",
+    "unzipper": "^0.12.0"
   },
   "keywords": [
     "mcp",
