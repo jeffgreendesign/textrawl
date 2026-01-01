@@ -1,0 +1,85 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>Textrawl Converter</title>
+  <link rel="stylesheet" href="styles.css">
+</head>
+<body>
+  <div class="container">
+    <header>
+      <h1>Textrawl Converter</h1>
+      <p class="subtitle">Convert emails, takeout data, and web pages to searchable markdown</p>
+    </header>
+
+    <main>
+      <!-- Drop Zone -->
+      <div id="dropzone" class="dropzone">
+        <div class="dropzone-content">
+          <div class="dropzone-icon">📁</div>
+          <div class="dropzone-text">
+            <strong>Drop files here or click to browse</strong>
+            <span>MBOX • EML • ZIP (Takeout) • HTML</span>
+          </div>
+        </div>
+        <input type="file" id="fileInput" accept=".mbox,.eml,.zip,.html,.htm" hidden>
+      </div>
+
+      <!-- Options -->
+      <div class="options">
+        <div class="option-group">
+          <label for="outputDir">Output Directory:</label>
+          <input type="text" id="outputDir" value="./converted" placeholder="./converted">
+        </div>
+        <div class="option-group">
+          <label for="tags">Tags (comma-separated):</label>
+          <input type="text" id="tags" placeholder="imported, personal">
+        </div>
+        <div class="option-group checkbox">
+          <input type="checkbox" id="autoUpload">
+          <label for="autoUpload">Auto-upload after conversion</label>
+        </div>
+      </div>
+
+      <!-- Progress Section -->
+      <div id="progressSection" class="progress-section hidden">
+        <div class="progress-header">
+          <span id="progressStatus">Processing...</span>
+          <span id="progressPercent">0%</span>
+        </div>
+        <div class="progress-bar">
+          <div id="progressFill" class="progress-fill"></div>
+        </div>
+        <div id="uploadButtonContainer" class="upload-button-container hidden">
+          <button id="uploadButton" class="btn-upload">
+            <span class="btn-icon">⬆</span>
+            Upload to Textrawl
+          </button>
+          <span class="upload-hint">Skips already-uploaded files</span>
+        </div>
+      </div>
+
+      <!-- Log Section -->
+      <div id="logSection" class="log-section hidden">
+        <div class="log-header">
+          <span>Processing Log</span>
+          <button id="clearLogs" class="btn-small">Clear</button>
+        </div>
+        <div id="logContainer" class="log-container">
+          <!-- Log entries will be inserted here -->
+        </div>
+      </div>
+    </main>
+
+    <footer>
+      <p>
+        <a href="http://localhost:3000" target="_blank">MCP Server</a> •
+        <a href="https://github.com/anthropics/textrawl" target="_blank">GitHub</a>
+      </p>
+    </footer>
+  </div>
+
+  <script src="app.js"></script>
+</body>
+</html>
