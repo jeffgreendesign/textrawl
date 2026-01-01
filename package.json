@@ -1,0 +1,49 @@
+{
+  "name": "textrawl",
+  "version": "0.1.0",
+  "description": "Personal Knowledge MCP Server - semantic search over your documents from Claude",
+  "type": "module",
+  "engines": {
+    "node": ">=22.0.0"
+  },
+  "scripts": {
+    "dev": "tsx watch --env-file=.env src/index.ts",
+    "build": "tsc && node esbuild.config.mjs",
+    "start": "node dist/index.js",
+    "typecheck": "tsc --noEmit",
+    "inspector": "npx @modelcontextprotocol/inspector http://localhost:3000/mcp",
+    "setup": "bash scripts/setup.sh"
+  },
+  "dependencies": {
+    "@modelcontextprotocol/sdk": "^1.24.0",
+    "@supabase/supabase-js": "^2.45.0",
+    "cors": "^2.8.5",
+    "express": "^5.0.0",
+    "express-rate-limit": "^7.4.0",
+    "file-type": "^21.2.0",
+    "helmet": "^8.1.0",
+    "mammoth": "^1.8.0",
+    "multer": "^2.0.2",
+    "openai": "^4.70.0",
+    "pdf-parse": "^1.1.1",
+    "zod": "^3.23.0"
+  },
+  "devDependencies": {
+    "@types/cors": "^2.8.19",
+    "@types/express": "^5.0.0",
+    "@types/multer": "^1.4.12",
+    "@types/node": "^22.0.0",
+    "esbuild": "^0.24.0",
+    "tsx": "^4.19.0",
+    "typescript": "^5.7.0"
+  },
+  "keywords": [
+    "mcp",
+    "rag",
+    "knowledge-base",
+    "semantic-search",
+    "claude"
+  ],
+  "author": "Jeff",
+  "license": "MIT"
+}
