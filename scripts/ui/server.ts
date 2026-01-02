@@ -9,6 +9,7 @@
  *   npx tsx scripts/ui/server.ts
  */
 
+import 'dotenv/config';
 import express from 'express';
 import { resolve, join, dirname } from 'path';
 import { fileURLToPath } from 'url';
