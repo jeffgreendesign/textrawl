@@ -10,6 +10,10 @@
  *   npx tsx scripts/cli/upload.ts <directory> [options]
  */
 
+// Load .env BEFORE any other imports to ensure env vars are available
+// when the main project's config module is loaded
+import 'dotenv/config';
+
 import { readFileSync, existsSync, statSync } from 'fs';
 import { resolve, relative } from 'path';
 import { glob } from 'glob';

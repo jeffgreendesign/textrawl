@@ -25,6 +25,7 @@
     "@modelcontextprotocol/sdk": "^1.24.0",
     "@supabase/supabase-js": "^2.45.0",
     "cors": "^2.8.5",
+    "dotenv": "^17.2.3",
     "express": "^5.0.0",
     "express-rate-limit": "^7.4.0",
     "file-type": "^21.2.0",
