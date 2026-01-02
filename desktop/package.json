@@ -1,0 +1,50 @@
+{
+  "name": "textrawl-desktop",
+  "version": "0.1.0",
+  "description": "Textrawl Desktop - Convert files to searchable markdown",
+  "author": "Textrawl",
+  "license": "MIT",
+  "main": "dist/main/index.js",
+  "scripts": {
+    "dev": "npm run build && env -u ELECTRON_RUN_AS_NODE electron .",
+    "dev:vite": "vite",
+    "build": "npm run build:main && npm run build:preload && npm run build:renderer",
+    "build:main": "esbuild src/main/index.ts --bundle --platform=node --target=node20 --outfile=dist/main/index.js --format=cjs --external:electron --external:electron-store --external:pdf-parse --external:mammoth --external:xlsx --external:csv-parse --external:rtf-parser --external:unzipper --external:gray-matter --external:fast-xml-parser",
+    "build:preload": "esbuild src/preload/index.ts --bundle --platform=node --target=node20 --outfile=dist/preload/index.js --format=cjs --packages=external",
+    "build:renderer": "vite build",
+    "start": "env -u ELECTRON_RUN_AS_NODE electron .",
+    "pack": "npm run build && env -u ELECTRON_RUN_AS_NODE electron-builder --dir",
+    "dist": "npm run build && env -u ELECTRON_RUN_AS_NODE electron-builder",
+    "dist:mac": "npm run build && env -u ELECTRON_RUN_AS_NODE electron-builder --mac --x64",
+    "typecheck": "tsc --noEmit -p tsconfig.main.json && tsc --noEmit -p tsconfig.preload.json"
+  },
+  "dependencies": {
+    "csv-parse": "^5.5.6",
+    "electron": "^31.7.4",
+    "electron-store": "^8.2.0",
+    "fast-xml-parser": "^4.5.1",
+    "gray-matter": "^4.0.3",
+    "mammoth": "^1.8.0",
+    "p-limit": "^5.0.0",
+    "pdf-parse": "^1.1.1",
+    "rtf-parser": "^1.3.3",
+    "unzipper": "^0.12.3",
+    "xlsx": "^0.18.5"
+  },
+  "devDependencies": {
+    "@preact/preset-vite": "^2.9.3",
+    "@types/node": "^22.10.2",
+    "@types/unzipper": "^0.10.11",
+    "electron-builder": "^25.1.8",
+    "esbuild": "^0.24.2",
+    "preact": "^10.25.4",
+    "typescript": "^5.7.2",
+    "vite": "^6.0.6"
+  },
+  "build": {
+    "extends": "./electron-builder.yml"
+  },
+  "engines": {
+    "node": ">=22.0.0"
+  }
+}
