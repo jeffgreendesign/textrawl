@@ -9,57 +9,116 @@
 [![Ollama](https://img.shields.io/badge/Ollama-000000?logo=ollama&logoColor=white)](https://ollama.com)
 [![MCP](https://img.shields.io/badge/MCP-Compatible-8A2BE2)](https://modelcontextprotocol.io)
 
-Personal Knowledge MCP Server - semantic search over your documents from Claude.
+**Turn your documents into Claude's memory.**
+
+Textrawl is a personal knowledge base that lets Claude search through your emails, PDFs, notes, and web pages. Ask questions about your own documents right from Claude Desktop - no copy-pasting, no context limits.
+
+## How It Works
+
+```
+                                    Your Knowledge Base
+                                    ┌─────────────────────────────────┐
+┌──────────────┐                    │                                 │
+│              │                    │   Emails      PDFs      Notes   │
+│    Claude    │◄───── search ─────►│     │          │          │     │
+│   Desktop    │                    │     ▼          ▼          ▼     │
+│              │                    │  ┌──────────────────────────┐   │
+└──────────────┘                    │  │   Hybrid Search Engine   │   │
+       │                            │  │  (semantic + keywords)   │   │
+       │                            │  └──────────────────────────┘   │
+       ▼                            │              │                  │
+  "What did                         │              ▼                  │
+   Sarah say                        │     PostgreSQL + pgvector       │
+   about the                        │         (Supabase)              │
+   project?"                        │                                 │
+                                    └─────────────────────────────────┘
+                                                   ▲
+                                                   │
+                                        ┌──────────┴──────────┐
+                                        │                     │
+                                   Desktop App            CLI Tools
+                                  (drag & drop)        (batch import)
+```
+
+## Why Textrawl?
+
+**Beyond keyword search.** Most search tools only match exact words. Textrawl combines semantic understanding (finds "automobile" when you search "car") with traditional keyword matching - so you get relevant results without missing exact phrases.
+
+**Your data, your choice.** Use OpenAI's embeddings for best accuracy, or run completely locally with Ollama - no API costs, no data leaving your machine.
+
+**Import everything.** Emails from Gmail exports, PDFs from your research, saved web pages, Google Takeout archives - Textrawl converts them all into searchable knowledge.
 
 ## Features
 
-- **Hybrid Search** - Vector similarity + full-text search with Reciprocal Rank Fusion
-- **Multi-format Support** - PDF, Word (.docx), Markdown, and plain text
-- **File Conversion** - Import emails (MBOX/EML), HTML, Google Takeout archives
-- **Desktop App** - Electron app for drag-and-drop file conversion and upload
-- **MCP Integration** - Works with Claude Desktop and other MCP clients
-- **Smart Chunking** - Paragraph-aware splitting with overlap for context
-
-## Table of Contents
-
-- [Prerequisites](#prerequisites)
-- [Quick Start](#quick-start)
-- [Configuration](#configuration)
-- [MCP Tools](#mcp-tools)
-- [REST API](#rest-api)
-- [CLI Tools](docs/CLI.md) - File conversion and upload utilities
-- [Desktop App](docs/DESKTOP.md) - Electron app for file conversion
-- [Claude Desktop Setup](#claude-desktop-setup)
-- [Deployment](#deployment)
-- [Development](#development)
-- [Troubleshooting](#troubleshooting)
-- [Contributing](#contributing)
-- [License](#license)
-
-## Prerequisites
-
-- Node.js >= 22.0.0
-- [Supabase](https://supabase.com) account (PostgreSQL with pgvector)
-- Embeddings: [OpenAI](https://platform.openai.com) API key **OR** [Ollama](https://ollama.com) (free, local)
+| Feature | Description |
+|---------|-------------|
+| **Hybrid Search** | Vector similarity + full-text search with Reciprocal Rank Fusion |
+| **Desktop App** | Drag-and-drop file conversion and upload (macOS, Windows, Linux) |
+| **Multi-Format** | PDF, DOCX, XLSX, PPTX, HTML, MBOX/EML emails, Google Takeout |
+| **MCP Integration** | Works natively with Claude Desktop and other MCP clients |
+| **Flexible Embeddings** | OpenAI (cloud) or Ollama (free, local) |
+| **Smart Chunking** | Paragraph-aware splitting with overlap for context |
+| **CLI Tools** | Batch processing for large archives |
+| **Cloud Ready** | Deploy to Docker, Cloud Run, or any container platform |
 
 ## Quick Start
 
+### 1. Set Up the Server
+
 ```bash
+git clone https://github.com/your-username/textrawl.git
+cd textrawl
 npm install
-npm run setup           # Generate .env with secure token + enter credentials
-npm run dev             # Start dev server
-npm run inspector       # Test with MCP Inspector at http://localhost:5173
+npm run setup    # Interactive setup for credentials
+npm run dev      # Start the server
 ```
 
-### Supabase Setup
+### 2. Set Up Supabase
 
-1. Create project at [supabase.com](https://supabase.com)
-2. Run `scripts/setup-db.sql` in SQL Editor (or `setup-db-ollama.sql` for Ollama)
-3. Run `scripts/security-rls.sql` to enable Row Level Security
-4. Create private storage bucket named `documents`
-5. Get credentials from Settings > API (use **service role key**, not anon key)
+1. Create a free project at [supabase.com](https://supabase.com)
+2. Run `scripts/setup-db.sql` in the SQL Editor (or `setup-db-ollama.sql` for Ollama)
+3. Run `scripts/security-rls.sql` for security hardening
+4. Copy your project URL and service role key to `.env`
 
-> **Security Note**: The security script enables RLS and blocks access from `anon`/`authenticated` roles. This is defense-in-depth since the app uses the service role key. See [docs/SECURITY.md](docs/SECURITY.md).
+### 3. Connect Claude Desktop
+
+Add to your Claude config (`~/Library/Application Support/Claude/claude_desktop_config.json`):
+
+```json
+{
+  "mcpServers": {
+    "textrawl": {
+      "url": "http://localhost:3000/mcp"
+    }
+  }
+}
+```
+
+Restart Claude Desktop - you'll now see Textrawl's tools available.
+
+### 4. Add Your Documents
+
+**Option A: Desktop App** (easiest)
+```bash
+cd desktop && npm install && npm run dev
+```
+Drag files onto the window to convert and upload.
+
+**Option B: CLI** (for batch imports)
+```bash
+npm run convert -- mbox ~/Mail/archive.mbox
+npm run upload -- ./converted/
+```
+
+## Documentation
+
+| Guide | Description |
+|-------|-------------|
+| [CLI Tools](docs/CLI.md) | Batch conversion and upload from command line |
+| [Desktop App](docs/DESKTOP.md) | Electron app for drag-and-drop imports |
+| [Security](docs/SECURITY.md) | Row Level Security and access controls |
+
+---
 
 ## Configuration
 
@@ -130,37 +189,6 @@ curl -X POST http://localhost:3000/api/upload \
 - `GET /health/ready` - Readiness probe (checks DB)
 - `GET /health/live` - Liveness probe
 
-## Claude Desktop Setup
-
-**Config location:**
-- macOS: `~/Library/Application Support/Claude/claude_desktop_config.json`
-- Windows: `%APPDATA%\Claude\claude_desktop_config.json`
-- Linux: `~/.config/Claude/claude_desktop_config.json`
-
-```json
-{
-  "mcpServers": {
-    "textrawl": {
-      "url": "http://localhost:3000/mcp"
-    }
-  }
-}
-```
-
-For remote deployment, add `"headers": { "Authorization": "Bearer YOUR_TOKEN" }`.
-
-Restart Claude Desktop after config changes.
-
-## Desktop App
-
-Cross-platform Electron app for converting and uploading files. See [docs/DESKTOP.md](docs/DESKTOP.md) for full documentation.
-
-```bash
-cd desktop
-npm install
-npm run dev      # Development mode
-```
-
 ## Deployment
 
 ### Docker Compose
@@ -187,11 +215,6 @@ npm run start       # Run production
 npm run typecheck   # Type check
 npm run inspector   # MCP Inspector
 npm run setup       # Generate .env with secure token
-
-# File conversion tools (see docs/CLI.md)
-npm run convert     # Convert files (mbox, eml, html, takeout)
-npm run upload      # Upload converted markdown to Supabase
-npm run ui          # Web UI for conversion at localhost:3001
 ```
 
 ### Local Database (Optional)
@@ -208,8 +231,6 @@ docker exec -i textrawl-postgres psql -U postgres -d textrawl < scripts/setup-db
 # Optional: Start pgAdmin at http://localhost:5050
 docker-compose -f docker-compose.local.yml --profile tools up -d
 ```
-
-For local Postgres, you'll still need to configure the Supabase client to connect to `localhost:5432` or use a direct PostgreSQL adapter (contribution welcome!).
 
 ### Local Embeddings with Ollama (No API Key Required)
 
