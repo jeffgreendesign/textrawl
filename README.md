@@ -52,9 +52,12 @@ npm run inspector       # Test with MCP Inspector at http://localhost:5173
 ### Supabase Setup
 
 1. Create project at [supabase.com](https://supabase.com)
-2. Run `scripts/setup-db.sql` in SQL Editor
-3. Create private storage bucket named `documents`
-4. Get credentials from Settings > API (use **service role key**, not anon key)
+2. Run `scripts/setup-db.sql` in SQL Editor (or `setup-db-ollama.sql` for Ollama)
+3. Run `scripts/security-rls.sql` to enable Row Level Security
+4. Create private storage bucket named `documents`
+5. Get credentials from Settings > API (use **service role key**, not anon key)
+
+> **Security Note**: The security script enables RLS and blocks access from `anon`/`authenticated` roles. This is defense-in-depth since the app uses the service role key. See [docs/SECURITY.md](docs/SECURITY.md).
 
 ## Configuration
 

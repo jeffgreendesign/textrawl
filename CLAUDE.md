@@ -17,12 +17,17 @@ npm run typecheck   # Type-check without emitting
 npm run inspector   # MCP Inspector at http://localhost:5173
 
 # CLI conversion tools (see docs/CLI.md for full documentation)
-npm run convert     # Convert files (mbox, eml, html, takeout)
-npm run upload      # Upload converted markdown to Supabase
-npm run ui          # Web UI for conversion at http://localhost:3001
+npm run convert -- mbox ~/Mail/archive.mbox    # Convert MBOX to markdown
+npm run convert -- html ./saved-pages/ -r      # Convert HTML recursively
+npm run upload -- ./converted/                 # Upload to Supabase
+npm run ui                                     # Web UI at http://localhost:3001
 ```
 
+**Note:** CLI scripts require `--` before arguments (npm run convert `--` mbox file.mbox)
+
 **Requirements:** Node.js >= 22.0.0
+
+**Testing:** No test suite yet. Use `npm run inspector` to manually test MCP tools.
 
 ## Environment Setup
 
@@ -50,6 +55,8 @@ Express Server
 
 **Rate limits:** API: 100 req/min, Upload: 10 req/min
 
+**MCP Transport:** Uses stateless `StreamableHTTPServerTransport` (no session persistence) for Cloud Run/serverless compatibility. Each request creates a fresh server instance.
+
 ### MCP Tools
 - `search_knowledge` - Hybrid search with configurable FTS/semantic weights (RRF fusion)
 - `get_document` / `list_documents` - Document retrieval
@@ -66,11 +73,21 @@ Express Server
 - `scripts/cli/` - CLI conversion tools and upload utility
 - `scripts/ui/` - Web UI for file conversion
 
+**Upload Manifest:** The upload utility creates `.manifest.json` in each directory to track uploaded files (prevents duplicates). Use `--force` to re-upload.
+
 ### Database
 PostgreSQL (Supabase) with:
 - `documents` table with full-text search (`tsvector`)
 - `chunks` table with vector embeddings (`vector[1536]`, HNSW index)
 - `hybrid_search()` RPC for Reciprocal Rank Fusion
+
+### Database Security
+Row Level Security (RLS) is enabled with defense-in-depth policies:
+- RLS enabled with restrictive policies denying `anon`/`authenticated` roles
+- All permissions revoked from `anon`/`authenticated`
+- App uses service role key which bypasses RLS (intentional for single-tenant design)
+
+Run `scripts/security-rls.sql` after schema setup. See `docs/SECURITY.md` for details.
 
 ## Critical Conventions
 
