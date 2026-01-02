@@ -193,7 +193,7 @@ npm run ui
 - Drag-and-drop file upload
 - Real-time conversion progress
 - Auto-upload option after conversion
-- Supports MBOX, EML, ZIP (Takeout), HTML
+- Supports MBOX, EML, ZIP (Takeout), HTML, PDF, DOCX, TXT, MD
 
 **Environment:**
 | Variable | Default | Description |

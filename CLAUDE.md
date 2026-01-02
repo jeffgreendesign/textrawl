@@ -71,7 +71,7 @@ Express Server
 - `src/utils/` - Configuration, custom errors, logger
 - `src/types/` - TypeScript type definitions
 - `scripts/cli/` - CLI conversion tools and upload utility
-- `scripts/ui/` - Web UI for file conversion
+- `scripts/ui/` - Web UI for file conversion (MBOX, EML, ZIP, HTML, PDF, DOCX, TXT, MD)
 
 **Upload Manifest:** The upload utility creates `.manifest.json` in each directory to track uploaded files (prevents duplicates). Use `--force` to re-upload.
 
