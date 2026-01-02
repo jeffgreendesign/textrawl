@@ -12,6 +12,9 @@ import { tmpdir } from 'os';
 import { spawn, type ChildProcess } from 'child_process';
 import { fileURLToPath } from 'url';
 
+// Document processing imports
+import { extractText, validateFileType } from '../../src/services/processor.js';
+
 const __filename = fileURLToPath(import.meta.url);
 const __dirname = dirname(__filename);
 
@@ -90,8 +93,9 @@ export function setupRoutes(app: Express, upload: Multer): void {
 
       // Detect format from extension
       const ext = extname(originalname).toLowerCase();
-      let converter: string | null = null;
 
+      // Converter types (spawn CLI subprocess)
+      let converter: string | null = null;
       if (ext === '.mbox') {
         converter = 'mbox';
       } else if (ext === '.eml') {
@@ -102,8 +106,17 @@ export function setupRoutes(app: Express, upload: Multer): void {
         converter = 'html';
       }
 
-      if (!converter) {
+      // Document types (direct upload to database)
+      const documentTypes = ['.pdf', '.docx', '.txt', '.md'];
+      const isDocument = documentTypes.includes(ext);
+
+      if (!converter && !isDocument) {
         return res.status(400).json({ error: `Unsupported file type: ${ext}` });
+      }
+
+      // Handle document types (convert to markdown, like other converters)
+      if (isDocument) {
+        return handleDocumentUpload(req, res, { originalname, buffer, mimetype, tags, outputDir, autoUpload });
       }
 
       // Generate job ID
@@ -300,14 +313,31 @@ async function runUpload(jobId: string, directory: string, tags: string[]): Prom
     args.push('-t', ...tags);
   }
 
+  console.error(`[UPLOAD] Starting upload for ${directory}`);
+  console.error(`[UPLOAD] Command: npx ${args.join(' ')}`);
+
+  // Initialize job tracking for upload
+  activeConversions.set(jobId, {
+    process: null as unknown as ChildProcess,
+    logs: [],
+    status: 'processing',
+    progress: 0,
+  });
+
+  const conversion = activeConversions.get(jobId)!;
+
   const child = spawn('npx', args, {
     cwd: process.cwd(),
     stdio: ['ignore', 'pipe', 'pipe'],
   });
 
+  conversion.process = child;
+
   child.stdout?.on('data', (data: Buffer) => {
     const lines = data.toString().split('\n').filter(Boolean);
     for (const line of lines) {
+      console.error(`[UPLOAD stdout] ${line}`);
+      conversion.logs.push(line);
       sendSSE(jobId, { type: 'log', message: `[UPLOAD] ${line}` });
     }
   });
@@ -315,15 +345,179 @@ async function runUpload(jobId: string, directory: string, tags: string[]): Prom
   child.stderr?.on('data', (data: Buffer) => {
     const lines = data.toString().split('\n').filter(Boolean);
     for (const line of lines) {
+      console.error(`[UPLOAD stderr] ${line}`);
+      conversion.logs.push(line);
       sendSSE(jobId, { type: 'log', message: `[UPLOAD] ${line}` });
     }
   });
 
+  child.on('error', (error) => {
+    console.error(`[UPLOAD] Process error:`, error);
+    conversion.status = 'error';
+    sendSSE(jobId, { type: 'upload_error', message: `Upload process error: ${error.message}` });
+  });
+
   child.on('exit', (code) => {
+    console.error(`[UPLOAD] Process exited with code ${code}`);
     if (code === 0) {
+      conversion.status = 'complete';
       sendSSE(jobId, { type: 'upload_complete', message: 'Upload complete!' });
     } else {
+      conversion.status = 'error';
       sendSSE(jobId, { type: 'upload_error', message: `Upload failed with code ${code}` });
     }
   });
+}
+
+/**
+ * Extension to MIME type mapping for document types
+ */
+const EXT_TO_MIME: Record<string, string> = {
+  '.pdf': 'application/pdf',
+  '.docx': 'application/vnd.openxmlformats-officedocument.wordprocessingml.document',
+  '.txt': 'text/plain',
+  '.md': 'text/markdown',
+};
+
+/**
+ * Generate a content hash for deduplication
+ */
+function generateHash(content: string): string {
+  // Simple hash using string reduction (matches CLI behavior)
+  let hash = 0;
+  for (let i = 0; i < content.length; i++) {
+    const char = content.charCodeAt(i);
+    hash = ((hash << 5) - hash) + char;
+    hash = hash & hash; // Convert to 32bit integer
+  }
+  return Math.abs(hash).toString(16).padStart(8, '0');
+}
+
+/**
+ * Handle document conversion (PDF, DOCX, TXT, MD)
+ * Converts to markdown files (like other converters), then optionally uploads
+ */
+async function handleDocumentUpload(
+  req: Request,
+  res: Response,
+  { originalname, buffer, mimetype, tags, outputDir, autoUpload }: {
+    originalname: string;
+    buffer: Buffer;
+    mimetype: string;
+    tags: string[];
+    outputDir: string;
+    autoUpload: boolean;
+  }
+): Promise<void> {
+  const jobId = `doc-${Date.now()}-${Math.random().toString(36).slice(2, 8)}`;
+  const ext = extname(originalname).toLowerCase();
+  const baseName = originalname.replace(/\.[^.]+$/, ''); // Remove extension
+
+  // Get proper MIME type from extension (browser MIME can be unreliable)
+  const effectiveMime = EXT_TO_MIME[ext] || mimetype;
+
+  // Resolve output directory
+  const resolvedOutputDir = resolve(outputDir, 'documents');
+
+  // Initialize job tracking
+  activeConversions.set(jobId, {
+    process: null as unknown as ChildProcess,
+    logs: [],
+    status: 'processing',
+    progress: 0,
+  });
+
+  // Return job ID immediately, process in background
+  res.json({
+    jobId,
+    format: ext.slice(1), // Remove leading dot
+    filename: originalname,
+    outputDir: resolvedOutputDir,
+  });
+
+  const conversion = activeConversions.get(jobId)!;
+
+  try {
+    console.error(`[DOC] Starting conversion: ${originalname} (${effectiveMime})`);
+    console.error(`[DOC] Output dir: ${resolvedOutputDir}`);
+    console.error(`[DOC] Buffer size: ${buffer.length} bytes`);
+
+    sendSSE(jobId, { type: 'log', message: `Processing ${originalname}...` });
+    sendSSE(jobId, { type: 'progress', value: 10 });
+    conversion.progress = 10;
+    conversion.logs.push(`Processing ${originalname}...`);
+
+    // Validate file content matches MIME type
+    console.error(`[DOC] Validating file type...`);
+    const isValidType = await validateFileType(buffer, effectiveMime);
+    console.error(`[DOC] File type valid: ${isValidType}`);
+    if (!isValidType) {
+      throw new Error(`File content does not match expected type: ${effectiveMime}`);
+    }
+
+    sendSSE(jobId, { type: 'log', message: 'Extracting text...' });
+    sendSSE(jobId, { type: 'progress', value: 30 });
+    conversion.progress = 30;
+    conversion.logs.push('Extracting text...');
+
+    // Extract text from document
+    console.error(`[DOC] Extracting text...`);
+    const content = await extractText(buffer, effectiveMime);
+    console.error(`[DOC] Extracted ${content.length} characters`);
+    sendSSE(jobId, { type: 'log', message: `Extracted ${content.length} characters` });
+    sendSSE(jobId, { type: 'progress', value: 60 });
+    conversion.progress = 60;
+    conversion.logs.push(`Extracted ${content.length} characters`);
+
+    // Create output directory
+    mkdirSync(resolvedOutputDir, { recursive: true });
+
+    // Generate markdown with frontmatter (matching CLI converter format)
+    const now = new Date().toISOString();
+    const sourceHash = generateHash(content);
+    const tagsYaml = tags.length > 0
+      ? `tags:\n${tags.map(t => `  - ${t}`).join('\n')}`
+      : 'tags:\n  - imported';
+
+    const markdown = `---
+title: "${baseName.replace(/"/g, '\\"')}"
+source_type: file
+source_hash: "${sourceHash}"
+${tagsYaml}
+converted_at: "${now}"
+metadata:
+  original_file: "${originalname}"
+  mime_type: "${effectiveMime}"
+  size: ${buffer.length}
+---
+
+# ${baseName}
+
+${content}
+`;
+
+    // Write markdown file
+    const outputFile = join(resolvedOutputDir, `${baseName}.md`);
+    writeFileSync(outputFile, markdown, 'utf-8');
+
+    sendSSE(jobId, { type: 'log', message: `Saved to ${outputFile}` });
+    sendSSE(jobId, { type: 'progress', value: 100 });
+    conversion.progress = 100;
+    conversion.status = 'complete';
+    sendSSE(jobId, { type: 'complete', message: `Converted ${originalname} to markdown` });
+
+    // Auto-upload if requested
+    if (autoUpload) {
+      await runUpload(jobId, resolvedOutputDir, tags);
+    }
+
+  } catch (error) {
+    conversion.status = 'error';
+    const message = error instanceof Error ? error.message : String(error);
+    const stack = error instanceof Error ? error.stack : '';
+    conversion.logs.push(`Error: ${message}`);
+    sendSSE(jobId, { type: 'error', message });
+    console.error('[DOC CONVERT] Error:', message);
+    console.error('[DOC CONVERT] Stack:', stack);
+  }
 }

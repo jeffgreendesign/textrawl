@@ -72,7 +72,7 @@ async function handleFile(file) {
   console.log('[APP] handleFile called with:', file.name);
 
   // Validate file type
-  const validTypes = ['.mbox', '.eml', '.zip', '.html', '.htm'];
+  const validTypes = ['.mbox', '.eml', '.zip', '.html', '.htm', '.pdf', '.docx', '.txt', '.md'];
   const ext = '.' + file.name.split('.').pop().toLowerCase();
 
   if (!validTypes.includes(ext)) {

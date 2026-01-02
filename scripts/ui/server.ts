@@ -49,5 +49,9 @@ app.listen(PORT, () => {
   console.error('  • MBOX - Email archives');
   console.error('  • EML - Individual emails');
   console.error('  • ZIP - Google Takeout archives');
-  console.error('  • HTML - Web pages\n');
+  console.error('  • HTML - Web pages');
+  console.error('  • PDF - PDF documents');
+  console.error('  • DOCX - Word documents');
+  console.error('  • TXT - Plain text');
+  console.error('  • MD - Markdown\n');
 });
