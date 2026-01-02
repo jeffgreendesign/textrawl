@@ -16,6 +16,7 @@ Personal Knowledge MCP Server - semantic search over your documents from Claude.
 - **Hybrid Search** - Vector similarity + full-text search with Reciprocal Rank Fusion
 - **Multi-format Support** - PDF, Word (.docx), Markdown, and plain text
 - **File Conversion** - Import emails (MBOX/EML), HTML, Google Takeout archives
+- **Desktop App** - Electron app for drag-and-drop file conversion and upload
 - **MCP Integration** - Works with Claude Desktop and other MCP clients
 - **Smart Chunking** - Paragraph-aware splitting with overlap for context
 
@@ -27,6 +28,7 @@ Personal Knowledge MCP Server - semantic search over your documents from Claude.
 - [MCP Tools](#mcp-tools)
 - [REST API](#rest-api)
 - [CLI Tools](docs/CLI.md) - File conversion and upload utilities
+- [Desktop App](docs/DESKTOP.md) - Electron app for file conversion
 - [Claude Desktop Setup](#claude-desktop-setup)
 - [Deployment](#deployment)
 - [Development](#development)
@@ -148,6 +150,16 @@ curl -X POST http://localhost:3000/api/upload \
 For remote deployment, add `"headers": { "Authorization": "Bearer YOUR_TOKEN" }`.
 
 Restart Claude Desktop after config changes.
+
+## Desktop App
+
+Cross-platform Electron app for converting and uploading files. See [docs/DESKTOP.md](docs/DESKTOP.md) for full documentation.
+
+```bash
+cd desktop
+npm install
+npm run dev      # Development mode
+```
 
 ## Deployment
 
