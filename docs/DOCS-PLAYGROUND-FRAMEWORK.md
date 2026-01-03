@@ -4,12 +4,20 @@
 
 ## Executive Summary
 
-This framework outlines the structure for creating modern, interactive documentation that serves both human developers and AI agents. Based on January 2025 best practices, it combines:
+This framework outlines the structure for creating modern, interactive documentation that serves both human developers and AI agents. Based on **January 2026** best practices, it combines:
 
-- **Starlight (Astro)** for blazing-fast, accessible documentation
-- **Custom MCP Playground** for interactive tool exploration
-- **Agent-optimized content** with llms.txt and structured schemas
-- **Dark mode with neon accents** following 2025 design trends
+- **Starlight (Astro) v0.37+** for blazing-fast, accessible documentation
+- **MCP Playground** leveraging the mature MCP ecosystem (2,000+ servers in registry)
+- **Agent-optimized content** with llms.txt, RFC 2119 language, and JSON schemas
+- **"Imperfect by Design" aesthetics** with liquid glass effects (2026 trends)
+- **AI chatbot integration** and cognitive accessibility features
+
+### Key 2026 Context
+
+- **MCP is now the de-facto standard** - Donated to Linux Foundation's Agentic AI Foundation (Dec 2025)
+- **OpenAI officially adopted MCP** (March 2025) - Cross-platform compatibility
+- **97M+ monthly SDK downloads** - Massive ecosystem growth
+- **WCAG 2.1 AA compliance deadline: April 24, 2026** - Accessibility is mandatory
 
 ---
 
@@ -19,23 +27,26 @@ This framework outlines the structure for creating modern, interactive documenta
 
 | Layer | Technology | Why |
 |-------|------------|-----|
-| **Static Site Generator** | [Starlight](https://starlight.astro.build/) (Astro) | Fastest performance, eco-friendly, modern defaults, built-in dark mode + search |
-| **API Reference** | [Scalar](https://scalar.com/) or custom React component | OpenAPI integration, interactive explorer, modern UI |
-| **Diagrams** | [Mermaid](https://mermaid.js.org/) | Git version-controllable, CI/CD integration, no drawing needed |
-| **Code Playground** | [Sandpack 2.0](https://sandpack.codesandbox.io/) with Nodebox | Works in Safari/iOS, lightweight, fast initial load |
-| **Hosting** | Vercel, Netlify, or GitHub Pages | Fast CDN, free tier, automatic deploys |
+| **Static Site Generator** | [Starlight v0.37+](https://starlight.astro.build/) (Astro) | Fastest performance, Island Architecture, <50KB first load, built-in dark mode + search |
+| **API Reference** | [Scalar](https://scalar.com/) or [Mintlify](https://mintlify.com/) | OpenAPI integration, interactive explorer, modern UI |
+| **Diagrams** | [Mermaid](https://mermaid.js.org/) + AI-assisted tools (Lucidchart, Miro) | Git version-controllable + AI auto-generation |
+| **Code Playground** | [Sandpack 2.0](https://sandpack.codesandbox.io/) with Nodebox | Works in Safari/iOS, universal browser support |
+| **MCP Playground** | [Cloudflare Workers AI Playground](https://blog.cloudflare.com/remote-model-context-protocol-servers-mcp/) or [Plugged.in](https://plugged.in/) | Purpose-built for MCP servers, remote testing |
+| **Hosting** | Vercel, Netlify, or Cloudflare Pages | Fast CDN, free tier, automatic deploys |
 
 ### Alternative Stacks
 
-**Option B: Mintlify (SaaS)**
-- Pros: Polished out-of-box, AI writing assistance, built-in playground
-- Cons: Not fully open source, less infrastructure control
-- Best for: Teams wanting faster setup with premium aesthetics
+**Option B: Mintlify (SaaS) - Recommended for API-first**
+- Pros: Used by Cursor, Perplexity, Coinbase, Anthropic; beautiful defaults; AI-assisted writing
+- Cons: ~$300/month Pro tier, managed platform
+- Best for: Teams wanting premium aesthetics with minimal setup
 
 **Option C: Docusaurus (React)**
-- Pros: Mature ecosystem, proven at scale (React Native, Redux)
-- Cons: Heavier, requires React knowledge
-- Best for: Large projects needing extensive customization
+- Pros: Mature ecosystem (61,800+ GitHub stars), proven at scale
+- Cons: Higher JavaScript overhead (SPA architecture)
+- Best for: Large projects with React expertise
+
+**Note:** GitBook underwent major pricing restructure in 2025 (2-3x increase), causing many teams to migrate to alternatives.
 
 ---
 
@@ -162,21 +173,27 @@ docs.textrawl.dev/
 
 ### Implementation Options
 
-**Option A: Embedded in Docs (Recommended)**
+**Option A: Cloudflare Workers MCP Playground (Recommended for 2026)**
+- Use Cloudflare's remote MCP client infrastructure
+- Built-in auth support, no local installation required
+- Online chat interface for instant testing
+- Leverage the MCP ecosystem's maturity
+
+**Option B: Embedded in Docs**
 ```
 /docs/playground/           → Full playground page
 /docs/mcp-tools/search     → Embedded mini-playground per tool
 ```
 
-**Option B: Standalone App**
+**Option C: Plugged.in Integration**
+- Comprehensive proxy combining multiple MCP servers
+- Built-in playground for debugging
+- Discovery and management of tools, prompts, resources
+
+**Option D: Custom Standalone App**
 - Separate subdomain: `playground.textrawl.dev`
 - React SPA with Vite
-- Connects to demo MCP server or user's instance
-
-**Option C: Use Existing MCP Playground**
-- Link to [MCP Playground](https://www.scriptbyai.com/mcp-server-playground/)
-- Add "Connect to Textrawl" tutorial
-- Less custom work, less branded experience
+- Two-panel layout (Stripe standard): explanations left, code right
 
 ### Technology Stack for Custom Playground
 
@@ -202,6 +219,19 @@ Code Display: Shiki (syntax highlighting)
 
 ## Part 4: Agent-Friendly Documentation
 
+### 2026 Reality Check: llms.txt Adoption
+
+**Current state (as of Jan 2026):**
+- Only ~784 websites (0.3% of top 1,000) have implemented llms.txt
+- Major AI companies have NOT officially committed to using llms.txt files
+- Google explicitly rejected it (Gary Illyes, July 2025)
+
+**However, still implement it because:**
+- Google included llms.txt in their A2A (Agents to Agents) protocol
+- Foundation for future standards evolution
+- Good content curation practice regardless of AI adoption
+- MCP ecosystem benefits from structured discovery
+
 ### Files to Create
 
 #### 1. `/llms.txt` - AI Sitemap
@@ -209,17 +239,28 @@ Code Display: Shiki (syntax highlighting)
 # Textrawl - Personal Knowledge MCP Server
 > Hybrid semantic + full-text search over documents for Claude
 
+## MCP Server Capabilities
+- Protocol: Model Context Protocol (MCP) via StreamableHTTPServerTransport
+- Transport: Stateless HTTP (serverless-compatible)
+- Authentication: Bearer token (API_BEARER_TOKEN)
+
+## Tools (RFC 2119 Language)
+- search_knowledge: MUST provide query; MAY specify weights, tags, limits
+- get_document: MUST provide documentId; MAY request chunks
+- list_documents: MAY filter by sourceType, tags; SHOULD paginate
+- update_document: MUST provide documentId; MAY update title, tags
+- add_note: MUST provide title, content; MAY add tags
+
 ## Documentation
 - /README.md: Overview, features, quick start
-- /CLAUDE.md: AI coding assistant instructions
+- /CLAUDE.md: AI coding assistant instructions (RECOMMENDED for agents)
 - /docs/CLI.md: Command-line tools
 - /docs/SECURITY.md: Row Level Security
-- /docs/DESKTOP.md: Electron desktop app
-- /docs/MCP-TOOLS.md: Complete MCP tool reference (NEW)
-- /docs/API-REFERENCE.md: REST API documentation (NEW)
+- /docs/MCP-TOOLS.md: Complete MCP tool reference with JSON schemas
+- /api/schema: Machine-readable tool definitions (JSON)
 
 ## Quick Facts
-- 5 MCP tools: search_knowledge, get_document, list_documents, update_document, add_note
+- 5 MCP tools available
 - Embedding providers: OpenAI (1536 dim) or Ollama (1024 dim)
 - Database: Supabase PostgreSQL with pgvector
 - Rate limits: API 100/min, Upload 10/min
@@ -228,6 +269,9 @@ Code Display: Shiki (syntax highlighting)
 
 #### 2. `/llms-full.txt` - Consolidated Docs
 Single file containing all documentation concatenated for single-request AI ingestion.
+
+#### 3. `/api/schema` - Machine-Readable Tool Definitions
+Expose JSON schemas at runtime for dynamic agent discovery.
 
 #### 3. Enhanced `/CLAUDE.md` Additions
 
@@ -362,10 +406,24 @@ Hybrid semantic + full-text search using Reciprocal Rank Fusion.
 
 ## Part 5: Visual Design System
 
+### 2026 Design Trends
+
+**"Imperfect by Design"** - 2026 is the year of human-centered aesthetics:
+- Moving away from sterile corporate perfection
+- Embracing organic, personal visual tones
+- Custom illustrations over generic icons
+
+**Key Visual Patterns:**
+- **Liquid Glass / Glassmorphism** - Translucent overlays, frosted backgrounds
+- **Monospaced Typography** - Beyond code blocks, into headings and UI
+- **Two-Panel Layout** (Stripe standard) - Explanations left, code right
+- **AI Chatbot Integration** - Embedded assistants in docs (Docker, Netlify pattern)
+- **Cognitive Accessibility** - Design for ADHD, autism, dyslexia
+
 ### Color Palette (Dark Mode Default)
 
 ```css
-/* Based on 2025 trends: dark mode + neon accents */
+/* Based on 2026 trends: liquid glass + subtle gradients */
 
 :root {
   /* Backgrounds - Use dark grays, not pure black */
@@ -693,57 +751,104 @@ export async function POST(req: Request) {
 | Metric | Target | How to Measure |
 |--------|--------|----------------|
 | llms.txt fetches | Growing | Server logs |
-| AI referral traffic | 10% by EOY 2025 | Analytics (referrer) |
+| AI referral traffic | 15% by EOY 2026 | Analytics (referrer: ChatGPT, Claude, Perplexity) |
+| MCP Registry listing | Listed + discoverable | MCP.so, official registry |
 | Claude Desktop installs | Track via MCP inspector | Community survey |
 
 ---
 
-## Appendix A: Competitor Documentation Analysis
+## Appendix A: Competitor Documentation Analysis (2026)
 
 | Site | Strengths | Adopt for Textrawl |
 |------|-----------|-------------------|
-| **Stripe** | 3-panel layout, multi-language examples, governance-driven | Tool parameter tables, language tabs |
-| **OpenAI** | Playground with view code, parameter sliders | Slider controls for weights |
-| **Supabase** | Dark mode default, clean sidebar, quick start focus | Visual style, 5-min quick start |
-| **Vercel** | Minimal, fast, excellent search | Performance focus, cmd+K search |
-| **Linear** | Modern aesthetics, smooth animations | Microinteraction polish |
+| **Stripe** | Two-panel layout, Stripe Shell (browser-based testing), governance-driven | Two-panel layout, interactive playground |
+| **Docker** | Night/Day mode, AI chatbot, Recap & Cheat Sheet sections | AI chatbot integration |
+| **Netlify** | Minimal sleek design, video tutorials, AI chatbot | Video tutorials alongside written docs |
+| **Plaid** | Pragmatic, clean design for quick navigation | Fast navigation patterns |
+| **Render** | Colorful homepage, Quickstarts for multiple languages | Language-specific quickstarts |
+| **OpenAI** | API Playground with View Code, Anthropic's similar feature | View Code button for all examples |
 
 ---
 
-## Appendix B: Accessibility Checklist
+## Appendix B: Accessibility Checklist (WCAG 2.2 + April 2026 Deadline)
 
-- [ ] Color contrast: 4.5:1 for text, 3:1 for UI elements
-- [ ] Focus indicators visible in both themes
-- [ ] All images have alt text
+**Critical for Compliance:**
+- [ ] Color contrast: 4.5:1 for text, 3:1 for UI elements (WCAG 2.1 AA)
+- [ ] Focus indicators visible and clear (WCAG 2.2 emphasis)
+- [ ] Touch targets: minimum 48x48px (WCAG 2.2)
 - [ ] Keyboard navigation for all interactions
+- [ ] `prefers-reduced-motion` support (MANDATORY)
+
+**Standard Requirements:**
+- [ ] All images have alt text
 - [ ] Screen reader tested (VoiceOver, NVDA)
-- [ ] Reduced motion support (`prefers-reduced-motion`)
 - [ ] Form labels and error messages
 - [ ] Skip-to-content link
 - [ ] Semantic HTML (headings, landmarks)
 - [ ] ARIA labels where needed
 
+**Cognitive Accessibility (2026 Focus):**
+- [ ] Clear information hierarchy
+- [ ] Minimal notification fatigue
+- [ ] Optional minimalist/reduced-distraction mode
+- [ ] Focus drift prevention for ADHD users
+- [ ] Clear, simple language (benefits ESL users too)
+
+**Legal Note:** U.S. compliance deadline for WCAG 2.1 Level AA is **April 24, 2026** for state/local government digital services (pop. 50k+).
+
 ---
 
-## Appendix C: Resources
+## Appendix C: Resources (Updated 2026)
 
 ### Documentation Frameworks
-- [Starlight Docs](https://starlight.astro.build/)
+- [Starlight Docs v0.37+](https://starlight.astro.build/)
 - [Docusaurus](https://docusaurus.io/)
-- [Mintlify](https://mintlify.com/)
+- [Mintlify](https://mintlify.com/) - Used by Anthropic, Cursor, Perplexity
+
+### MCP Ecosystem
+- [MCP Official Specification (Nov 2025)](https://modelcontextprotocol.io/specification/2025-11-25)
+- [MCP Registry](https://mcp.so/) - 2,000+ servers
+- [Cloudflare Workers AI MCP](https://blog.cloudflare.com/remote-model-context-protocol-servers-mcp/)
+- [Plugged.in MCP Proxy](https://plugged.in/)
+- [Agentic AI Foundation (Linux Foundation)](https://www.anthropic.com/news/donating-the-model-context-protocol-and-establishing-of-the-agentic-ai-foundation)
 
 ### Design Inspiration
-- [Stripe API Reference](https://docs.stripe.com/api)
-- [OpenAI Platform](https://platform.openai.com/docs)
-- [Supabase Docs](https://supabase.com/docs)
-- [Linear Changelog](https://linear.app/changelog)
+- [Stripe API Reference](https://docs.stripe.com/api) - Two-panel gold standard
+- [Docker Docs](https://docs.docker.com/) - AI chatbot integration
+- [OpenAI Platform](https://platform.openai.com/docs) - Playground with View Code
 
 ### Agent-Friendly Standards
-- [llms.txt Specification](https://llmstxt.org/)
+- [llms.txt Specification](https://llmstxt.org/) - Evolving standard
 - [MCP Best Practices](https://modelcontextprotocol.io/docs/best-practices/)
+- [OpenAI Practical Guide to Building Agents](https://cdn.openai.com/business-guides-and-resources/a-practical-guide-to-building-agents.pdf)
 
 ### Tools
 - [Mermaid Live Editor](https://mermaid.live/)
-- [Sandpack](https://sandpack.codesandbox.io/)
+- [Sandpack 2.0](https://sandpack.codesandbox.io/)
 - [Scalar API Reference](https://scalar.com/)
 - [WebAIM Contrast Checker](https://webaim.org/resources/contrastchecker/)
+- [Lucidchart](https://www.lucidchart.com/) - AI-assisted diagramming
+- [Miro](https://miro.com/) - AI-powered system design
+
+---
+
+## Appendix D: Sources
+
+This framework is based on research conducted January 2026, including:
+
+- Kinsta - Top 5 Static Site Generators in 2026
+- Astro Blog - What's New December 2025
+- Starlight vs. Docusaurus - LogRocket Blog
+- MCP Blog - One Year of MCP: November 2025 Spec Release
+- Anthropic - Donating MCP to Agentic AI Foundation
+- Ferndesk - Best API Documentation Tools in 2026
+- StackBlitz - WebContainer API Documentation
+- CodeSandbox - Announcing Sandpack 2.0
+- Cloudflare Blog - Remote MCP Servers
+- llms-txt.io - Is llms.txt Dead? The Current State
+- Document360 - Major AI Documentation Trends for 2026
+- Canva Newsroom - Design Trends 2026
+- Index.dev - 12 UI/UX Design Trends That Will Dominate 2026
+- Zapier Engineering - 8 Great Examples of Developer Documentation
+- accessiBe - WCAG 2.2: What You Need to Know in 2026
+- UNC ITS - ADA Compliance Deadline April 24, 2026
