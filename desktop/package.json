@@ -36,7 +36,7 @@
     "@types/node": "^22.10.2",
     "@types/unzipper": "^0.10.11",
     "electron-builder": "^25.1.8",
-    "esbuild": "^0.24.2",
+    "esbuild": "^0.25.0",
     "preact": "^10.25.4",
     "typescript": "^5.7.2",
     "vite": "^6.0.6"
