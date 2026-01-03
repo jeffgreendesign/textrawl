@@ -46,7 +46,8 @@ Database schema must be initialized via `scripts/setup-db.sql` (OpenAI) or `scri
 ## Architecture
 
 ### Request Flow
-```
+
+```text
 Express Server
 ├── POST /mcp              → MCP JSON-RPC handler (StreamableHTTPServerTransport)
 ├── POST /api/upload       → File upload → text extraction → chunking → embeddings

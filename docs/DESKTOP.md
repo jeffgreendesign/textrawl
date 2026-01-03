@@ -72,7 +72,7 @@ Settings are stored at:
 
 ## Architecture
 
-```
+```text
 desktop/
 ├── src/
 │   ├── main/           # Electron main process

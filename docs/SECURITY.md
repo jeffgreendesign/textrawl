@@ -6,7 +6,7 @@ This document describes the security architecture of Textrawl.
 
 Textrawl uses a backend-only database access pattern:
 
-```
+```text
 User → Express Backend → Supabase (service_role) → PostgreSQL
             │
       API_BEARER_TOKEN auth
