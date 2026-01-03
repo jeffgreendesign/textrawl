@@ -17,7 +17,7 @@ This framework outlines the structure for creating modern, interactive documenta
 - **MCP is now the de-facto standard** - Donated to Linux Foundation's Agentic AI Foundation (Dec 2025)
 - **OpenAI officially adopted MCP** (March 2025) - Cross-platform compatibility
 - **97M+ monthly SDK downloads** - Massive ecosystem growth
-- **WCAG 2.1 AA compliance deadline: April 24, 2026** - Accessibility is mandatory
+- **WCAG 2.1 AA compliance deadline: April 24, 2026** - Required for U.S. state/local government services (50k+ pop.); strongly recommended for all web applications
 
 ### What Makes This Framework Cutting-Edge
 
@@ -48,7 +48,7 @@ In January 2026, documentation is no longer just for humans—**61% of searches 
 
 ### Required Files for Agent Discovery
 
-```
+```text
 textrawl/
 ├── CLAUDE.md              # AI coding assistant instructions (existing)
 ├── AGENTS.md              # NEW: Agent-specific conventions (60k+ projects use this)
@@ -207,14 +207,15 @@ documentation: https://textrawl.dev/docs
 
 The modern approach uses **hierarchical `.mdc` files** in `.cursor/rules/`:
 
-```
+```text
 .cursor/
 ├── mcp.json              # MCP server configuration for Cursor
 └── rules/
     ├── typescript.mdc    # TypeScript/Node.js conventions
     ├── mcp-tools.mdc     # MCP tool patterns
     ├── database.mdc      # PostgreSQL/embeddings patterns
-    └── security.mdc      # Logging, RLS, environment
+    ├── security.mdc      # Logging, RLS, environment
+    └── documentation.mdc # Markdown formatting standards
 ```
 
 #### `.cursor/rules/typescript.mdc`
@@ -271,6 +272,7 @@ server.tool('tool_name', {
 ```
 
 #### `.cursor/rules/security.mdc`
+
 ```markdown
 ---
 description: Security and Logging Patterns
@@ -295,6 +297,50 @@ Optional: API_BEARER_TOKEN (required in production, min 32 chars)
 ## Row Level Security
 - RLS enabled with restrictive policies
 - App uses service role key (bypasses RLS - intentional single-tenant)
+```
+
+#### `.cursor/rules/documentation.mdc`
+
+```markdown
+---
+description: Markdown and Documentation Formatting Standards
+globs: ["**/*.md", "docs/**/*"]
+alwaysApply: true
+---
+
+## Code Block Language Specifiers (CRITICAL)
+
+ALL fenced code blocks MUST have language specifiers. NEVER omit them.
+
+| Content Type | Specifier |
+|--------------|-----------|
+| TypeScript/JavaScript | `typescript` or `javascript` |
+| JSON | `json` |
+| YAML | `yaml` |
+| Shell commands | `bash` or `shell` |
+| Markdown examples | `markdown` |
+| Directory structures | `text` |
+| ASCII diagrams | `text` |
+| CSS/SCSS | `css` or `scss` |
+| SQL | `sql` |
+| Mermaid diagrams | `mermaid` |
+
+## Heading Formatting (MD036)
+
+NEVER use emphasis (**text**) as headings. Use proper Markdown headings:
+
+- ❌ Wrong: `**My Heading:**`
+- ✅ Correct: `#### My Heading`
+
+Maintain consistent heading hierarchy (h1 → h2 → h3 → h4).
+
+## Other Standards
+
+- Use ATX-style headings (# prefix), not underlines
+- One blank line before and after headings
+- No trailing punctuation in headings (except ? for questions)
+- Tables must have header rows and alignment
+- Links should use descriptive text, not raw URLs
 ```
 
 #### `.cursor/mcp.json`
@@ -331,7 +377,7 @@ The 2026 ecosystem has three complementary formats:
 
 **Recommended Pattern: AGENTS.md as Source of Truth**
 
-```
+```text
                     ┌─────────────────┐
                     │   AGENTS.md     │ ← Source of truth (tool-agnostic)
                     │  (project root) │
@@ -389,7 +435,7 @@ The 2026 ecosystem has three complementary formats:
 
 ## Part 2: Site Structure
 
-```
+```text
 docs.textrawl.dev/
 ├── / (Landing page with hero + features)
 ├── /getting-started/
@@ -446,7 +492,7 @@ docs.textrawl.dev/
 
 ### Two-Mode Architecture
 
-```
+```text
 ┌──────────────────────────────────────────────────────────────────────┐
 │                    Textrawl MCP Playground                            │
 ├────────────────────────────────────┬─────────────────────────────────┤
@@ -486,10 +532,11 @@ docs.textrawl.dev/
 
 ### Cutting-Edge Features (2026)
 
-#### 1. **Natural Language Request Generation**
+#### 1. Natural Language Request Generation
+
 Users describe intent in plain English → playground generates optimal MCP calls:
 
-```
+```text
 User: "Find emails from October about the project budget"
 
 Playground generates:
@@ -503,16 +550,18 @@ Playground generates:
   Filters applied: sourceType="email", date context inferred
 ```
 
-#### 2. **Conversational Context (Persistent Memory)**
+#### 2. Conversational Context (Persistent Memory)
+
 - Single conversation thread, not isolated tool calls
 - "I searched for X, now show me similar documents" (remembers context)
 - Smart memories about user's search patterns
 - Session persists across page reloads
 
-#### 3. **Agent Simulation Mode**
+#### 3. Agent Simulation Mode
+
 Simulate how Claude Code would use your MCP server:
 
-```
+```text
 ┌─────────────────────────────────────────────────────────────────┐
 │ 🤖 Agent Simulation: Research Assistant                         │
 ├─────────────────────────────────────────────────────────────────┤
@@ -535,10 +584,11 @@ Simulate how Claude Code would use your MCP server:
 └─────────────────────────────────────────────────────────────────┘
 ```
 
-#### 4. **Visual Workflow Builder**
+#### 4. Visual Workflow Builder
+
 Drag-and-drop multi-tool sequences:
 
-```
+```text
 ┌──────────────┐     ┌───────────────┐     ┌─────────────────┐
 │ search_      │────▶│ get_document  │────▶│ update_document │
 │ knowledge    │     │               │     │                 │
@@ -549,7 +599,8 @@ Drag-and-drop multi-tool sequences:
 [Run Workflow] [Generate Code] [Save as Template]
 ```
 
-#### 5. **Live SDK Code Generation**
+#### 5. Live SDK Code Generation
+
 As users explore, show generated code in real-time:
 
 ```typescript
@@ -577,14 +628,16 @@ const doc = await client.callTool('get_document', {
 });
 ```
 
-#### 6. **Context-Aware Adaptive Examples**
+#### 6. Context-Aware Adaptive Examples
+
 Examples adapt based on user's journey:
 - User searches documents → show `get_document` patterns
 - User tags documents → show `update_document` examples
 - User adds notes → show chunking/embedding behavior
 - "Based on your queries, try combining search + tagging"
 
-#### 7. **Markdown Export with Session Memory**
+#### 7. Markdown Export with Session Memory
+
 Export entire session as reproducible documentation:
 
 ```markdown
@@ -929,7 +982,7 @@ Hybrid semantic + full-text search using Reciprocal Rank Fusion.
 
 ### Layout: Sticky Sidebar + Main Content
 
-```
+```text
 ┌──────────────────────────────────────────────────────────────────┐
 │  [Logo]  Textrawl Docs                    [Search]  [Theme] [GH] │
 ├────────────────┬─────────────────────────────────────────────────┤
@@ -1015,7 +1068,7 @@ Hybrid semantic + full-text search using Reciprocal Rank Fusion.
 
 In 2026, documentation is no longer a static artifact—it's a **living system maintained by multi-agent workflows**:
 
-```
+```text
 ┌──────────────────────────────────────────────────────────────────────┐
 │                   Agentic Documentation Pipeline                      │
 ├──────────────────────────────────────────────────────────────────────┤
@@ -1105,7 +1158,7 @@ function generateToolDoc(name: string, schema: z.ZodObject<any>) {
 
 An AI assistant embedded in your docs that can:
 
-```
+```text
 ┌────────────────────────────────────────────────────────────────┐
 │ 🤖 Textrawl Docs Assistant                              [x]   │
 ├────────────────────────────────────────────────────────────────┤
@@ -1130,7 +1183,7 @@ An AI assistant embedded in your docs that can:
 └────────────────────────────────────────────────────────────────┘
 ```
 
-**Implementation:** The docs agent uses Textrawl's own MCP server to search documentation:
+The docs agent uses Textrawl's own MCP server to search documentation:
 
 ```typescript
 // Docs agent uses Textrawl to search its own docs
@@ -1298,8 +1351,8 @@ export default defineConfig({
 
 ### Playground Component Structure
 
-```typescript
-// src/components/Playground/
+```text
+src/components/Playground/
 ├── index.tsx              // Main playground component
 ├── ToolSelector.tsx       // Tool selection panel
 ├── FormBuilder.tsx        // Dynamic form from Zod schema
@@ -1458,49 +1511,57 @@ export async function POST(req: Request) {
 
 This framework is based on research conducted January 2026, including:
 
-**Documentation Frameworks:**
-- Kinsta - Top 5 Static Site Generators in 2026
-- Astro Blog - What's New December 2025
-- Starlight vs. Docusaurus - LogRocket Blog
-- Ferndesk - Best API Documentation Tools in 2026
+### Documentation Frameworks
 
-**MCP Ecosystem:**
-- MCP Blog - One Year of MCP: November 2025 Spec Release
-- Anthropic - Donating MCP to Agentic AI Foundation
-- Cloudflare Blog - Remote MCP Servers
-- The New Stack - 15 Best Practices for Building MCP Servers
+- [Kinsta - Top 5 Static Site Generators in 2026](https://kinsta.com/blog/static-site-generator/)
+- [Astro Blog - What's New December 2025](https://astro.build/blog/)
+- [Starlight vs. Docusaurus - LogRocket Blog](https://blog.logrocket.com/starlight-vs-docusaurus/)
+- [Ferndesk - Best API Documentation Tools in 2026](https://ferndesk.com/best-api-documentation-tools/)
 
-**Agent Ecosystem & Standards:**
-- AGENTS.md Official Specification (agents.md)
-- AGENTS.md GitHub Repository - Open Standard
-- InfoQ - AGENTS.md as Open Standard (August 2025)
-- HumanLayer - Writing a Good CLAUDE.md
-- Vellum - 2026 Guide to AI Agent Workflows
-- The New Stack - 5 Key Trends Shaping Agentic Development in 2026
+### MCP Ecosystem
 
-**Cursor Rules:**
-- Cursor Rules Documentation (cursor.com/docs/context/rules)
-- Cursor Directory - Rule Examples (cursor.directory)
-- Awesome Cursorrules Repository (GitHub)
-- DotCursorRules - Mastering .cursorrules
-- Steve Kinney - Cursor Rules for TypeScript
-- Qodo - Claude Code vs Cursor Comparison
+- [MCP Blog - One Year of MCP: November 2025 Spec Release](https://modelcontextprotocol.io/blog/)
+- [Anthropic - Donating MCP to Agentic AI Foundation](https://www.anthropic.com/news/donating-the-model-context-protocol-and-establishing-of-the-agentic-ai-foundation)
+- [Cloudflare Blog - Remote MCP Servers](https://blog.cloudflare.com/remote-model-context-protocol-servers-mcp/)
+- [The New Stack - 15 Best Practices for Building MCP Servers](https://thenewstack.io/)
 
-**Playgrounds & Code Execution:**
-- StackBlitz - WebContainer API Documentation
-- CodeSandbox - Announcing Sandpack 2.0
-- Anthropic - New Agent Capabilities API
+### Agent Ecosystem & Standards
 
-**AI Search & Discovery:**
-- llms-txt.io - Is llms.txt Dead? The Current State
-- Document360 - Major AI Documentation Trends for 2026
-- OpenAI - Agentic AI Foundation
+- [AGENTS.md Official Specification](https://agents.md/)
+- [AGENTS.md GitHub Repository - Open Standard](https://github.com/anthropics/agents-md)
+- [InfoQ - AGENTS.md as Open Standard (August 2025)](https://infoq.com/)
+- [HumanLayer - Writing a Good CLAUDE.md](https://humanlayer.dev/)
+- [Vellum - 2026 Guide to AI Agent Workflows](https://vellum.ai/)
+- [The New Stack - 5 Key Trends Shaping Agentic Development in 2026](https://thenewstack.io/)
 
-**Visual Design:**
-- Canva Newsroom - Design Trends 2026
-- Index.dev - 12 UI/UX Design Trends That Will Dominate 2026
-- Zapier Engineering - 8 Great Examples of Developer Documentation
+### Cursor Rules
 
-**Accessibility:**
-- accessiBe - WCAG 2.2: What You Need to Know in 2026
-- UNC ITS - ADA Compliance Deadline April 24, 2026
+- [Cursor Rules Documentation](https://docs.cursor.com/context/rules)
+- [Cursor Directory - Rule Examples](https://cursor.directory/)
+- [Awesome Cursorrules Repository (GitHub)](https://github.com/PatrickJS/awesome-cursorrules)
+- [DotCursorRules - Mastering .cursorrules](https://dotcursorrules.com/)
+- [Steve Kinney - Cursor Rules for TypeScript](https://stevekinney.net/)
+- [Qodo - Claude Code vs Cursor Comparison](https://qodo.ai/)
+
+### Playgrounds & Code Execution
+
+- [StackBlitz - WebContainer API Documentation](https://developer.stackblitz.com/)
+- [CodeSandbox - Announcing Sandpack 2.0](https://codesandbox.io/blog/sandpack-2)
+- [Anthropic - Agent Capabilities API](https://docs.anthropic.com/)
+
+### AI Search & Discovery
+
+- [llms-txt.io - Is llms.txt Dead? The Current State](https://llms-txt.io/)
+- [Document360 - Major AI Documentation Trends for 2026](https://document360.com/)
+- [OpenAI - Agents Guide](https://platform.openai.com/docs/)
+
+### Visual Design
+
+- [Canva Newsroom - Design Trends 2026](https://www.canva.com/newsroom/)
+- [Index.dev - 12 UI/UX Design Trends That Will Dominate 2026](https://index.dev/)
+- [Zapier Engineering - 8 Great Examples of Developer Documentation](https://zapier.com/engineering/)
+
+### Accessibility
+
+- [accessiBe - WCAG 2.2: What You Need to Know in 2026](https://accessibe.com/blog/)
+- [UNC ITS - ADA Compliance Deadline April 24, 2026](https://its.unc.edu/)
