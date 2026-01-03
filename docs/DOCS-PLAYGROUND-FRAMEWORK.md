@@ -203,6 +203,159 @@ repository: https://github.com/jeffgreendesign/textrawl
 documentation: https://textrawl.dev/docs
 ```
 
+### Cursor Rules (`.cursor/rules/` - 2026 Standard)
+
+The modern approach uses **hierarchical `.mdc` files** in `.cursor/rules/`:
+
+```
+.cursor/
+├── mcp.json              # MCP server configuration for Cursor
+└── rules/
+    ├── typescript.mdc    # TypeScript/Node.js conventions
+    ├── mcp-tools.mdc     # MCP tool patterns
+    ├── database.mdc      # PostgreSQL/embeddings patterns
+    └── security.mdc      # Logging, RLS, environment
+```
+
+#### `.cursor/rules/typescript.mdc`
+```markdown
+---
+description: TypeScript and Node.js conventions for Textrawl
+globs: ["**/*.ts", "**/*.tsx"]
+alwaysApply: false
+---
+
+## Type Standards
+- No `any` or `unknown` types; use explicit interfaces
+- Prefer functions over classes; avoid OOP patterns
+- Early returns; handle errors at function start, happy path last
+- Descriptive names with auxiliary verbs: `isLoading`, `hasError`
+
+## ESM Module Pattern (CRITICAL)
+- All imports MUST use `.js` extensions even for TypeScript files
+- Correct: `import { logger } from '../utils/logger.js'`
+- Wrong: `import { logger } from '../utils/logger'`
+
+## Node.js Requirements
+- Node.js >= 22.0.0 required
+- Use ES modules (type: "module" in package.json)
+```
+
+#### `.cursor/rules/mcp-tools.mdc`
+```markdown
+---
+description: MCP Server Tool Patterns
+globs: ["src/tools/**/*.ts", "src/api/**/*.ts"]
+alwaysApply: false
+---
+
+## Tool Registration Pattern
+Tools registered with `server.tool()` using inline Zod schemas:
+\`\`\`typescript
+server.tool('tool_name', {
+  param: z.string().describe('Description'),
+}, async ({ param }) => {
+  return { content: [{ type: 'text', text: JSON.stringify(result, null, 2) }] };
+});
+\`\`\`
+
+## Transport Layer
+- Uses StreamableHTTPServerTransport (stateless, serverless-compatible)
+- Each request creates fresh server instance (no session persistence)
+- HTTP POST `/mcp` endpoint for JSON-RPC
+
+## Error Handling
+- Use custom error hierarchy from `src/utils/errors.ts`
+- NotFoundError, ValidationError for proper HTTP status codes
+- Errors returned in result objects, NOT protocol-level errors
+```
+
+#### `.cursor/rules/security.mdc`
+```markdown
+---
+description: Security and Logging Patterns
+globs: ["**/*.ts"]
+alwaysApply: true
+---
+
+## Logging (CRITICAL)
+- ALL logs MUST use `console.error()` (stderr)
+- NEVER use `console.log()` - stdout reserved for MCP JSON-RPC
+- Import logger from `src/utils/logger.ts`
+
+## Rate Limits
+- API: 100 req/min
+- Upload: 10 req/min
+
+## Environment Variables
+Required: SUPABASE_URL, SUPABASE_SERVICE_KEY
+Embedding: OPENAI_API_KEY or OLLAMA_BASE_URL + OLLAMA_MODEL
+Optional: API_BEARER_TOKEN (required in production, min 32 chars)
+
+## Row Level Security
+- RLS enabled with restrictive policies
+- App uses service role key (bypasses RLS - intentional single-tenant)
+```
+
+#### `.cursor/mcp.json`
+```json
+{
+  "mcpServers": {
+    "textrawl-dev": {
+      "command": "npm",
+      "args": ["run", "dev"],
+      "env": {
+        "PORT": "3000"
+      }
+    },
+    "textrawl-inspector": {
+      "command": "npm",
+      "args": ["run", "inspector"],
+      "env": {
+        "MCP_PORT": "5173"
+      }
+    }
+  }
+}
+```
+
+### Integration: AGENTS.md + CLAUDE.md + Cursor Rules
+
+The 2026 ecosystem has three complementary formats:
+
+| Format | Owner | Consumed By | Purpose |
+|--------|-------|-------------|---------|
+| **AGENTS.md** | Open Standard (Google/OpenAI/Sourcegraph) | Cursor, Claude Code, Aider, Zed, Factory | Cross-tool agent instructions (60k+ projects) |
+| **CLAUDE.md** | Anthropic | Claude Code CLI | Hierarchical system rules, recursive discovery |
+| **`.cursor/rules/`** | Cursor | Cursor IDE only | File-scoped, composable IDE rules |
+
+**Recommended Pattern: AGENTS.md as Source of Truth**
+
+```
+                    ┌─────────────────┐
+                    │   AGENTS.md     │ ← Source of truth (tool-agnostic)
+                    │  (project root) │
+                    └────────┬────────┘
+                             │
+              ┌──────────────┴──────────────┐
+              ▼                              ▼
+     ┌─────────────────┐           ┌─────────────────┐
+     │   CLAUDE.md     │           │ .cursor/rules/  │
+     │  (references    │           │ (granular IDE   │
+     │   AGENTS.md)    │           │  patterns)      │
+     └─────────────────┘           └─────────────────┘
+              │                              │
+              ▼                              ▼
+        Claude Code                    Cursor IDE
+```
+
+**Why This Works:**
+- **No duplication**: Single source of truth in AGENTS.md
+- **Cursor v1.6+** reads AGENTS.md automatically
+- **Claude Code** can reference AGENTS.md from CLAUDE.md
+- **Future tools** can consume AGENTS.md standard
+- **Backward compatible**: Existing CLAUDE.md rules remain functional
+
 ---
 
 ## Part 1: Documentation Framework
@@ -1015,10 +1168,21 @@ async function answerQuestion(question: string) {
 ### Phase 1: Agent-First Foundation (Week 1-2)
 
 **Agent Discovery Files (CRITICAL)**
-- [ ] Create `AGENTS.md` with agent conventions
+- [ ] Create `AGENTS.md` with agent conventions (source of truth)
 - [ ] Create `.well-known/mcp.json` for MCP discovery
 - [ ] Add Schema.org JSON-LD structured data
 - [ ] Register in MCP Registry (mcp.so)
+
+**Cursor Rules Setup**
+- [ ] Create `.cursor/rules/typescript.mdc` - TypeScript/ESM conventions
+- [ ] Create `.cursor/rules/mcp-tools.mdc` - Tool registration patterns
+- [ ] Create `.cursor/rules/database.mdc` - Embeddings/chunking patterns
+- [ ] Create `.cursor/rules/security.mdc` - Logging/RLS patterns
+- [ ] Create `.cursor/mcp.json` - MCP server configuration for Cursor
+
+**Update Existing Agent Files**
+- [ ] Enhance `/CLAUDE.md` with tool selection guide + AGENTS.md reference
+- [ ] Add JSON schemas at `/api/schema`
 
 **Documentation Site Setup**
 - [ ] Initialize Starlight project
@@ -1029,8 +1193,6 @@ async function answerQuestion(question: string) {
 **Agent-Friendly Content**
 - [ ] Create `/llms.txt` and `/llms-full.txt`
 - [ ] Create `/docs/MCP-TOOLS.md` with RFC 2119 language
-- [ ] Enhance `/CLAUDE.md` with tool selection guide
-- [ ] Add JSON schemas at `/api/schema`
 
 ### Phase 2: Core Content + Auto-Sync (Week 3-4)
 
@@ -1296,19 +1458,49 @@ export async function POST(req: Request) {
 
 This framework is based on research conducted January 2026, including:
 
+**Documentation Frameworks:**
 - Kinsta - Top 5 Static Site Generators in 2026
 - Astro Blog - What's New December 2025
 - Starlight vs. Docusaurus - LogRocket Blog
+- Ferndesk - Best API Documentation Tools in 2026
+
+**MCP Ecosystem:**
 - MCP Blog - One Year of MCP: November 2025 Spec Release
 - Anthropic - Donating MCP to Agentic AI Foundation
-- Ferndesk - Best API Documentation Tools in 2026
+- Cloudflare Blog - Remote MCP Servers
+- The New Stack - 15 Best Practices for Building MCP Servers
+
+**Agent Ecosystem & Standards:**
+- AGENTS.md Official Specification (agents.md)
+- AGENTS.md GitHub Repository - Open Standard
+- InfoQ - AGENTS.md as Open Standard (August 2025)
+- HumanLayer - Writing a Good CLAUDE.md
+- Vellum - 2026 Guide to AI Agent Workflows
+- The New Stack - 5 Key Trends Shaping Agentic Development in 2026
+
+**Cursor Rules:**
+- Cursor Rules Documentation (cursor.com/docs/context/rules)
+- Cursor Directory - Rule Examples (cursor.directory)
+- Awesome Cursorrules Repository (GitHub)
+- DotCursorRules - Mastering .cursorrules
+- Steve Kinney - Cursor Rules for TypeScript
+- Qodo - Claude Code vs Cursor Comparison
+
+**Playgrounds & Code Execution:**
 - StackBlitz - WebContainer API Documentation
 - CodeSandbox - Announcing Sandpack 2.0
-- Cloudflare Blog - Remote MCP Servers
+- Anthropic - New Agent Capabilities API
+
+**AI Search & Discovery:**
 - llms-txt.io - Is llms.txt Dead? The Current State
 - Document360 - Major AI Documentation Trends for 2026
+- OpenAI - Agentic AI Foundation
+
+**Visual Design:**
 - Canva Newsroom - Design Trends 2026
 - Index.dev - 12 UI/UX Design Trends That Will Dominate 2026
 - Zapier Engineering - 8 Great Examples of Developer Documentation
+
+**Accessibility:**
 - accessiBe - WCAG 2.2: What You Need to Know in 2026
 - UNC ITS - ADA Compliance Deadline April 24, 2026
