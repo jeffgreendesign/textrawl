@@ -375,7 +375,7 @@ The 2026 ecosystem has three complementary formats:
 | **CLAUDE.md** | Anthropic | Claude Code CLI | Hierarchical system rules, recursive discovery |
 | **`.cursor/rules/`** | Cursor | Cursor IDE only | File-scoped, composable IDE rules |
 
-**Recommended Pattern: AGENTS.md as Source of Truth**
+### Recommended Pattern: AGENTS.md as Source of Truth
 
 ```text
                     ┌─────────────────┐
@@ -395,7 +395,8 @@ The 2026 ecosystem has three complementary formats:
         Claude Code                    Cursor IDE
 ```
 
-**Why This Works:**
+#### Why This Works
+
 - **No duplication**: Single source of truth in AGENTS.md
 - **Cursor v1.6+** reads AGENTS.md automatically
 - **Claude Code** can reference AGENTS.md from CLAUDE.md
@@ -681,7 +682,8 @@ For users who prefer traditional form-based exploration:
 - Leverage the MCP ecosystem's maturity
 
 **Option B: Embedded in Docs**
-```
+
+```text
 /docs/playground/           → Full playground page
 /docs/mcp-tools/search     → Embedded mini-playground per tool
 ```
@@ -698,7 +700,7 @@ For users who prefer traditional form-based exploration:
 
 ### Technology Stack for Custom Playground
 
-```typescript
+```text
 // Stack
 Framework: React 18 + TypeScript
 Build: Vite
@@ -1220,46 +1222,54 @@ async function answerQuestion(question: string) {
 
 ### Phase 1: Agent-First Foundation (Week 1-2)
 
-**Agent Discovery Files (CRITICAL)**
+#### Agent Discovery Files (CRITICAL)
+
 - [ ] Create `AGENTS.md` with agent conventions (source of truth)
 - [ ] Create `.well-known/mcp.json` for MCP discovery
 - [ ] Add Schema.org JSON-LD structured data
 - [ ] Register in MCP Registry (mcp.so)
 
-**Cursor Rules Setup**
+#### Cursor Rules Setup
+
 - [ ] Create `.cursor/rules/typescript.mdc` - TypeScript/ESM conventions
 - [ ] Create `.cursor/rules/mcp-tools.mdc` - Tool registration patterns
 - [ ] Create `.cursor/rules/database.mdc` - Embeddings/chunking patterns
 - [ ] Create `.cursor/rules/security.mdc` - Logging/RLS patterns
 - [ ] Create `.cursor/mcp.json` - MCP server configuration for Cursor
 
-**Update Existing Agent Files**
+#### Update Existing Agent Files
+
 - [ ] Enhance `/CLAUDE.md` with tool selection guide + AGENTS.md reference
 - [ ] Add JSON schemas at `/api/schema`
 
-**Documentation Site Setup**
+#### Documentation Site Setup
+
 - [ ] Initialize Starlight project
 - [ ] Configure dark mode theme with color palette
 - [ ] Set up Mermaid integration
 - [ ] Deploy to Vercel/Netlify
 
-**Agent-Friendly Content**
+#### Agent-Friendly Content
+
 - [ ] Create `/llms.txt` and `/llms-full.txt`
 - [ ] Create `/docs/MCP-TOOLS.md` with RFC 2119 language
 
 ### Phase 2: Core Content + Auto-Sync (Week 3-4)
 
-**Getting Started**
+#### Getting Started
+
 - [ ] 5-minute quick start with video walkthrough
 - [ ] Step-by-step Supabase setup (interactive)
 - [ ] Claude Desktop configuration (Desktop Extension .mcpb)
 
-**MCP Tools Documentation**
+#### MCP Tools Documentation
+
 - [ ] Document all 5 tools with LLM-readable descriptions
 - [ ] Add tool selection flowchart (Mermaid)
 - [ ] Write agent patterns guide
 
-**Auto-Sync Pipeline**
+#### Auto-Sync Pipeline
+
 - [ ] GitHub Actions for schema-to-docs generation
 - [ ] Example validation tests
 - [ ] Changelog automation
@@ -1280,13 +1290,15 @@ async function answerQuestion(question: string) {
 - [ ] Add "Test your connection" interactive flow
 - [ ] Deploy as embedded widget
 
-**Visual Polish**
+#### Visual Polish
+
 - [ ] Custom illustrations (hand-drawn "Imperfect by Design" style)
 - [ ] Microinteraction animations
 - [ ] Mobile responsive testing
 - [ ] Accessibility audit (WCAG AA)
 
-**Additional Content**
+#### Additional Content
+
 - [ ] API Reference (REST endpoints)
 - [ ] Web UI guide with screenshots
 - [ ] Architecture deep dive

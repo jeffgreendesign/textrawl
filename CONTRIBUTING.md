@@ -104,7 +104,7 @@ server.tool('tool_name', {
 
 ## Project Structure
 
-```
+```text
 src/
 ├── api/           # Express routes and middleware
 ├── db/            # Database queries (Supabase)

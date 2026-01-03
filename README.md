@@ -15,7 +15,7 @@ Textrawl is a personal knowledge base that lets Claude search through your email
 
 ## How It Works
 
-```
+```text
                                     Your Knowledge Base
                                     ┌─────────────────────────────────┐
 ┌──────────────┐                    │                                 │
