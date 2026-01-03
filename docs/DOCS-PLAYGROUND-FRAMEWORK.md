@@ -19,6 +19,190 @@ This framework outlines the structure for creating modern, interactive documenta
 - **97M+ monthly SDK downloads** - Massive ecosystem growth
 - **WCAG 2.1 AA compliance deadline: April 24, 2026** - Accessibility is mandatory
 
+### What Makes This Framework Cutting-Edge
+
+This framework goes beyond traditional documentation to embrace **agent-first architecture**:
+
+| Traditional (2024-2025) | Cutting-Edge (2026) |
+|-------------------------|---------------------|
+| Static docs with examples | Docs auto-update from code changes |
+| Manual tool explorer | Natural language request generation |
+| llms.txt only | MCP Registry + Schema.org + .well-known/mcp.json |
+| CLAUDE.md only | CLAUDE.md + AGENTS.md + Agent Skills |
+| Form-based playground | Conversational agentic playground |
+| Human-written docs | Agentic documentation workflows |
+| Passive tool testing | Agent simulation mode |
+
+---
+
+## Part 0: Agent-First Architecture (Critical for 2026)
+
+### The Paradigm Shift
+
+In January 2026, documentation is no longer just for humans—**61% of searches now begin on AI platforms**. Your docs must be:
+
+1. **Discoverable by agents** without human pointing
+2. **Parseable by LLMs** with machine-readable schemas
+3. **Maintainable by agents** via agentic documentation workflows
+4. **Testable by agents** via agent simulation modes
+
+### Required Files for Agent Discovery
+
+```
+textrawl/
+├── CLAUDE.md              # AI coding assistant instructions (existing)
+├── AGENTS.md              # NEW: Agent-specific conventions (60k+ projects use this)
+├── llms.txt               # AI sitemap (foundation, not sufficient alone)
+├── llms-full.txt          # Consolidated docs for single-request ingestion
+├── .well-known/
+│   └── mcp.json           # NEW: MCP capability advertisement
+└── public/
+    └── schema.json        # NEW: Schema.org structured data
+```
+
+### AGENTS.md (Required - 60,000+ Projects Use This)
+
+```markdown
+# AGENTS.md - Agent Conventions for Textrawl
+
+## When Modifying This Codebase
+- Run `npm run typecheck` before committing
+- Always validate Zod schemas in `src/tools/`
+- Use `npm run inspector` to verify MCP tools work
+- All logs MUST use `console.error()` (stdout reserved for MCP)
+
+## When Using Textrawl as an MCP Server
+- Connect via StreamableHTTPServerTransport (stateless HTTP)
+- Bearer token required in production (API_BEARER_TOKEN)
+- Rate limits: 100 req/min (API), 10 req/min (uploads)
+
+## Tool Selection Guide
+| User Intent | Tool | Key Parameters |
+|-------------|------|----------------|
+| Find content by meaning | search_knowledge | query, semanticWeight |
+| Find exact phrases | search_knowledge | query, fullTextWeight |
+| Get full document | get_document | documentId |
+| Browse all docs | list_documents | limit, offset, sourceType |
+| Add new content | add_note | title, content, tags |
+| Update metadata | update_document | documentId, title, tags |
+
+## Error Handling
+Errors are returned in result objects (isError: true), NOT as protocol-level errors.
+LLM-readable error messages help agents self-correct.
+
+## Testing Pattern
+1. Use MCP Inspector: `npm run inspector`
+2. Test tool sequence: search → get_document → update_document
+3. Verify error messages are agent-readable
+```
+
+### .well-known/mcp.json (MCP Capability Advertisement)
+
+```json
+{
+  "name": "textrawl",
+  "version": "1.0.0",
+  "description": "Personal Knowledge MCP Server - Hybrid semantic + full-text search",
+  "transport": "streamable-http",
+  "endpoint": "/mcp",
+  "authentication": {
+    "type": "bearer",
+    "required": true
+  },
+  "tools": [
+    {
+      "name": "search_knowledge",
+      "description": "Hybrid semantic + full-text search using Reciprocal Rank Fusion",
+      "inputSchema": { "$ref": "/api/schema/search_knowledge" }
+    },
+    {
+      "name": "get_document",
+      "description": "Retrieve full document content by ID",
+      "inputSchema": { "$ref": "/api/schema/get_document" }
+    },
+    {
+      "name": "list_documents",
+      "description": "List documents with pagination and filtering",
+      "inputSchema": { "$ref": "/api/schema/list_documents" }
+    },
+    {
+      "name": "update_document",
+      "description": "Update document title and/or tags",
+      "inputSchema": { "$ref": "/api/schema/update_document" }
+    },
+    {
+      "name": "add_note",
+      "description": "Create markdown notes with automatic chunking and embedding",
+      "inputSchema": { "$ref": "/api/schema/add_note" }
+    }
+  ],
+  "resources": [
+    {
+      "uri": "textrawl://docs",
+      "mimeType": "text/markdown",
+      "description": "Complete documentation as MCP resource"
+    }
+  ],
+  "rateLimit": {
+    "api": "100/minute",
+    "upload": "10/minute"
+  }
+}
+```
+
+### Schema.org Structured Data (public/schema.json)
+
+```json
+{
+  "@context": "https://schema.org",
+  "@type": "SoftwareApplication",
+  "name": "Textrawl",
+  "description": "Personal Knowledge MCP Server with hybrid semantic + full-text search",
+  "applicationCategory": "DeveloperApplication",
+  "operatingSystem": "Cross-platform",
+  "softwareRequirements": "Node.js >= 22.0.0",
+  "offers": {
+    "@type": "Offer",
+    "price": "0",
+    "priceCurrency": "USD"
+  },
+  "featureList": [
+    "Hybrid semantic + full-text search",
+    "MCP (Model Context Protocol) integration",
+    "OpenAI and Ollama embedding support",
+    "PDF, DOCX, MBOX, HTML conversion",
+    "Vector embeddings with pgvector"
+  ],
+  "potentialAction": {
+    "@type": "UseAction",
+    "target": {
+      "@type": "EntryPoint",
+      "urlTemplate": "https://textrawl.dev/playground",
+      "actionPlatform": ["http://schema.org/DesktopWebPlatform"]
+    }
+  }
+}
+```
+
+### MCP Registry Listing (Required for Discovery)
+
+Register at MCP.so and the official registry with:
+
+```yaml
+# registry-entry.yaml
+name: textrawl
+namespace: jeffgreendesign  # Verified via DNS/HTTP challenge
+version: 1.0.0
+description: Personal Knowledge MCP Server - Turn documents into Claude's memory
+capabilities:
+  - tools: 5
+  - resources: 1
+transport: streamable-http
+authentication: bearer
+repository: https://github.com/jeffgreendesign/textrawl
+documentation: https://textrawl.dev/docs
+```
+
 ---
 
 ## Part 1: Documentation Framework
@@ -103,73 +287,184 @@ docs.textrawl.dev/
 
 ---
 
-## Part 3: Interactive MCP Playground
+## Part 3: Agent-Native MCP Playground (Cutting-Edge 2026)
 
-### Architecture
+> **Key Shift:** The cutting-edge playground in 2026 is not a tool explorer—it's an **agentic environment** where the playground itself becomes an agent that helps developers understand and use your MCP server.
+
+### Two-Mode Architecture
+
+```
+┌──────────────────────────────────────────────────────────────────────┐
+│                    Textrawl MCP Playground                            │
+├────────────────────────────────────┬─────────────────────────────────┤
+│  [💬 Conversational] [🔧 Classic]  │  [Agent Simulation] [Workflows] │
+├────────────────────────────────────┴─────────────────────────────────┤
+│                                                                      │
+│  ┌────────────────────────────────────────────────────────────────┐  │
+│  │ 💬 What would you like to do?                                   │  │
+│  │                                                                 │  │
+│  │ > Find all my notes about Q4 revenue that mention customers    │  │
+│  │                                                                 │  │
+│  │ ┌─────────────────────────────────────────────────────────────┐│  │
+│  │ │ I'll use search_knowledge with hybrid search:               ││  │
+│  │ │ • Query: "Q4 revenue customers"                             ││  │
+│  │ │ • Semantic weight: 0.6 (meaning-based)                      ││  │
+│  │ │ • Full-text weight: 0.8 (exact phrases)                     ││  │
+│  │ │                                                             ││  │
+│  │ │ [Execute] [Edit Parameters] [Show JSON]                     ││  │
+│  │ └─────────────────────────────────────────────────────────────┘│  │
+│  │                                                                 │  │
+│  │ 📄 Results (3 documents found):                                │  │
+│  │ ├─ Q4 Planning Document (score: 0.89)                          │  │
+│  │ ├─ Customer Revenue Analysis (score: 0.76)                     │  │
+│  │ └─ Budget Meeting Notes (score: 0.71)                          │  │
+│  │                                                                 │  │
+│  │ 💡 Suggested next steps:                                       │  │
+│  │ • "Get the full Q4 Planning Document"                          │  │
+│  │ • "Search for similar documents"                               │  │
+│  │ • "Tag these as Q4-related"                                    │  │
+│  └────────────────────────────────────────────────────────────────┘  │
+│                                                                      │
+│  ┌────────────────────────────────────────────────────────────────┐  │
+│  │ 📝 Session Memory (3 queries)  [Export as Markdown] [Clear]    │  │
+│  └────────────────────────────────────────────────────────────────┘  │
+└──────────────────────────────────────────────────────────────────────┘
+```
+
+### Cutting-Edge Features (2026)
+
+#### 1. **Natural Language Request Generation**
+Users describe intent in plain English → playground generates optimal MCP calls:
+
+```
+User: "Find emails from October about the project budget"
+
+Playground generates:
+→ search_knowledge({
+    query: "project budget",
+    sourceType: "email",
+    semanticWeight: 0.8,
+    fullTextWeight: 1.0
+  })
+
+  Filters applied: sourceType="email", date context inferred
+```
+
+#### 2. **Conversational Context (Persistent Memory)**
+- Single conversation thread, not isolated tool calls
+- "I searched for X, now show me similar documents" (remembers context)
+- Smart memories about user's search patterns
+- Session persists across page reloads
+
+#### 3. **Agent Simulation Mode**
+Simulate how Claude Code would use your MCP server:
 
 ```
 ┌─────────────────────────────────────────────────────────────────┐
-│                      MCP Playground                              │
+│ 🤖 Agent Simulation: Research Assistant                         │
 ├─────────────────────────────────────────────────────────────────┤
-│  ┌───────────────┐  ┌─────────────────────────────────────────┐ │
-│  │ Tool Selector │  │            Request Builder              │ │
-│  │               │  │                                         │ │
-│  │ ○ search_     │  │  Query: [project timeline________]     │ │
-│  │   knowledge   │  │  Limit: [10 ▼]                         │ │
-│  │ ○ get_doc     │  │  Full-text Weight: [1.0 ────●────]     │ │
-│  │ ○ list_docs   │  │  Semantic Weight:  [1.0 ────●────]     │ │
-│  │ ○ update_doc  │  │  Tags: [emails] [work]  [+ Add]        │ │
-│  │ ○ add_note    │  │                                         │ │
-│  │               │  │  [Execute] [Copy as cURL] [View JSON]   │ │
-│  └───────────────┘  └─────────────────────────────────────────┘ │
-├─────────────────────────────────────────────────────────────────┤
-│  ┌─────────────────────────────────────────────────────────────┐│
-│  │                    Response Viewer                          ││
-│  │                                                             ││
-│  │  {                                                          ││
-│  │    "results": [                                             ││
-│  │      {                                                      ││
-│  │        "id": "550e8400-e29b-41d4...",                       ││
-│  │        "title": "Q3 Project Timeline",                     ││
-│  │        "score": 0.87,                                       ││
-│  │        "snippet": "The project is scheduled for..."        ││
-│  │      }                                                      ││
-│  │    ],                                                       ││
-│  │    "total": 15                                              ││
-│  │  }                                                          ││
-│  │                                                             ││
-│  │  Status: 200 OK  │  Time: 127ms  │  3 results              ││
-│  └─────────────────────────────────────────────────────────────┘│
+│                                                                 │
+│ Task: "Find and summarize all Q4 planning documents"            │
+│                                                                 │
+│ Step 1: search_knowledge("Q4 planning", limit: 10)              │
+│ └─ Found 5 documents                                            │
+│                                                                 │
+│ Step 2: get_document("doc-123") → Q4 Planning v2.md             │
+│ └─ Retrieved 2,048 tokens                                       │
+│                                                                 │
+│ Step 3: get_document("doc-456") → Budget Allocation.md          │
+│ └─ Retrieved 1,536 tokens                                       │
+│                                                                 │
+│ Agent Decision: Sufficient context gathered                     │
+│ Total tokens: 3,584 | Tools called: 3 | Time: 847ms            │
+│                                                                 │
+│ [Replay] [Edit Task] [Export Workflow]                          │
 └─────────────────────────────────────────────────────────────────┘
 ```
 
-### Key Features
+#### 4. **Visual Workflow Builder**
+Drag-and-drop multi-tool sequences:
 
-1. **Tool Selector Panel**
-   - Radio buttons for 5 MCP tools
-   - Shows tool description on hover
-   - Highlights required vs optional params
+```
+┌──────────────┐     ┌───────────────┐     ┌─────────────────┐
+│ search_      │────▶│ get_document  │────▶│ update_document │
+│ knowledge    │     │               │     │                 │
+│              │     │ (for each     │     │ (add tags)      │
+│ query: "..."│     │  result)      │     │                 │
+└──────────────┘     └───────────────┘     └─────────────────┘
 
-2. **Dynamic Form Builder**
-   - Auto-generates UI from Zod schemas
-   - Inline validation with helpful errors
-   - Type-aware inputs (text, number, multi-select for tags)
+[Run Workflow] [Generate Code] [Save as Template]
+```
 
-3. **Request Preview**
-   - "View JSON" shows raw MCP JSON-RPC payload
-   - "Copy as cURL" for command-line testing
-   - "Copy for Claude" formats as Claude Desktop prompt
+#### 5. **Live SDK Code Generation**
+As users explore, show generated code in real-time:
 
-4. **Response Visualization**
-   - Syntax-highlighted JSON
-   - Collapsible nested objects
-   - Quick stats (status, latency, result count)
-   - Error states with resolution hints
+```typescript
+// Generated TypeScript - Copy to your project
+import { MCPClient } from '@modelcontextprotocol/sdk';
 
-5. **Demo Mode**
-   - Pre-populated sample data for first-time users
-   - "Try example queries" buttons
-   - No authentication required for read-only demo
+const client = new MCPClient({
+  transport: 'streamable-http',
+  endpoint: 'https://your-textrawl-instance/mcp',
+  auth: { type: 'bearer', token: process.env.TEXTRAWL_TOKEN }
+});
+
+// Your exploration session:
+const results = await client.callTool('search_knowledge', {
+  query: 'Q4 revenue customers',
+  semanticWeight: 0.6,
+  fullTextWeight: 0.8,
+  limit: 10
+});
+
+// Next step (suggested by playground):
+const doc = await client.callTool('get_document', {
+  documentId: results.content[0].id,
+  includeChunks: true
+});
+```
+
+#### 6. **Context-Aware Adaptive Examples**
+Examples adapt based on user's journey:
+- User searches documents → show `get_document` patterns
+- User tags documents → show `update_document` examples
+- User adds notes → show chunking/embedding behavior
+- "Based on your queries, try combining search + tagging"
+
+#### 7. **Markdown Export with Session Memory**
+Export entire session as reproducible documentation:
+
+```markdown
+# Research Session: Q4 Analysis
+Exported: 2026-01-03T14:32:00Z
+
+## Query 1: Find revenue mentions
+```json
+{ "tool": "search_knowledge", "args": { "query": "Q4 revenue" } }
+```
+Results: 3 documents found
+
+## Query 2: Get full document
+```json
+{ "tool": "get_document", "args": { "documentId": "doc-123" } }
+```
+
+## Generated Integration Code
+[TypeScript code block]
+
+## Agent Simulation Log
+[Decision chain and token usage]
+```
+
+### Classic Mode (Fallback)
+
+For users who prefer traditional form-based exploration:
+
+1. **Tool Selector Panel** - Radio buttons for 5 MCP tools
+2. **Dynamic Form Builder** - Auto-generates UI from Zod schemas
+3. **Request Preview** - View JSON, Copy as cURL, Copy for Claude
+4. **Response Visualization** - Syntax-highlighted JSON with stats
+5. **Demo Mode** - Pre-populated sample data for first-time users
 
 ### Implementation Options
 
@@ -561,52 +856,217 @@ Hybrid semantic + full-text search using Reciprocal Rank Fusion.
 
 ---
 
-## Part 6: Implementation Roadmap
+## Part 5.5: Agentic Documentation Workflows (2026 Standard)
 
-### Phase 1: Foundation (Week 1-2)
+### The Shift: Docs Maintained by Agents
+
+In 2026, documentation is no longer a static artifact—it's a **living system maintained by multi-agent workflows**:
+
+```
+┌──────────────────────────────────────────────────────────────────────┐
+│                   Agentic Documentation Pipeline                      │
+├──────────────────────────────────────────────────────────────────────┤
+│                                                                      │
+│  ┌─────────────┐    ┌─────────────┐    ┌─────────────┐              │
+│  │   Code      │    │   Writing   │    │   Review    │              │
+│  │   Change    │───▶│   Agent     │───▶│   Agent     │              │
+│  │             │    │             │    │             │              │
+│  │ src/tools/  │    │ Generates   │    │ Validates   │              │
+│  │ *.ts        │    │ doc updates │    │ accuracy    │              │
+│  └─────────────┘    └─────────────┘    └──────┬──────┘              │
+│                                               │                      │
+│                     ┌─────────────────────────┴──────────────┐      │
+│                     ▼                                        ▼      │
+│              ┌─────────────┐                          ┌───────────┐ │
+│              │   Example   │                          │   Human   │ │
+│              │ Validation  │                          │   Review  │ │
+│              │   Agent     │                          │ (optional)│ │
+│              │             │                          │           │ │
+│              │ Tests code  │                          │ PR merge  │ │
+│              │ examples    │                          │ approval  │ │
+│              └─────────────┘                          └───────────┘ │
+│                                                                      │
+└──────────────────────────────────────────────────────────────────────┘
+```
+
+### Auto-Sync Documentation from Code
+
+**GitHub Actions Workflow:**
+
+```yaml
+# .github/workflows/docs-sync.yml
+name: Sync Documentation from Code
+
+on:
+  push:
+    paths:
+      - 'src/tools/**/*.ts'
+      - 'src/types/**/*.ts'
+
+jobs:
+  sync-docs:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+
+      - name: Extract Zod Schemas
+        run: npm run generate:schemas
+
+      - name: Generate Tool Documentation
+        run: npm run generate:tool-docs
+
+      - name: Validate Examples
+        run: npm run test:doc-examples
+
+      - name: Create PR if changes
+        uses: peter-evans/create-pull-request@v6
+        with:
+          title: "docs: auto-sync from code changes"
+          body: "Automated documentation update from Zod schema changes"
+```
+
+**Schema-to-Docs Generator:**
+
+```typescript
+// scripts/generate-tool-docs.ts
+import { z } from 'zod';
+import { searchKnowledgeSchema } from '../src/tools/search.js';
+
+function generateToolDoc(name: string, schema: z.ZodObject<any>) {
+  const shape = schema.shape;
+  let doc = `## ${name}\n\n`;
+
+  for (const [key, value] of Object.entries(shape)) {
+    const zodValue = value as z.ZodTypeAny;
+    doc += `### ${key}\n`;
+    doc += `- Type: ${zodValue._def.typeName}\n`;
+    doc += `- Description: ${zodValue.description || 'No description'}\n`;
+    doc += `- Required: ${!zodValue.isOptional()}\n\n`;
+  }
+
+  return doc;
+}
+```
+
+### Embedded Docs Agent (Table Stakes in 2026)
+
+An AI assistant embedded in your docs that can:
+
+```
+┌────────────────────────────────────────────────────────────────┐
+│ 🤖 Textrawl Docs Assistant                              [x]   │
+├────────────────────────────────────────────────────────────────┤
+│                                                                │
+│ 💬 How can I help you with Textrawl?                           │
+│                                                                │
+│ User: How do I import my Gmail inbox?                          │
+│                                                                │
+│ Assistant: Here's how to import Gmail:                         │
+│                                                                │
+│ 1. Export from Google Takeout (select Gmail, MBOX format)      │
+│ 2. Run: npm run convert -- mbox ~/path/to/All\ mail.mbox       │
+│ 3. Upload: npm run upload -- ./converted-emails/               │
+│                                                                │
+│ Would you like me to:                                          │
+│ • [Test your MCP connection]                                   │
+│ • [Generate the full command for your setup]                   │
+│ • [Show related troubleshooting tips]                          │
+│                                                                │
+│ ─────────────────────────────────────────────────────────────  │
+│ Type your question...                              [Send]     │
+└────────────────────────────────────────────────────────────────┘
+```
+
+**Implementation:** The docs agent uses Textrawl's own MCP server to search documentation:
+
+```typescript
+// Docs agent uses Textrawl to search its own docs
+const docsAgent = new MCPClient({
+  endpoint: '/mcp',
+  tools: ['search_knowledge', 'get_document']
+});
+
+async function answerQuestion(question: string) {
+  // Search docs using Textrawl itself
+  const results = await docsAgent.callTool('search_knowledge', {
+    query: question,
+    sourceType: 'documentation',
+    limit: 5
+  });
+
+  // Retrieve relevant docs
+  const context = await Promise.all(
+    results.map(r => docsAgent.callTool('get_document', { documentId: r.id }))
+  );
+
+  // Generate answer using Claude
+  return await claude.generate({
+    system: 'You are a Textrawl documentation assistant.',
+    context: context.map(d => d.content).join('\n\n'),
+    question
+  });
+}
+```
+
+---
+
+## Part 6: Implementation Roadmap (Updated for 2026)
+
+### Phase 1: Agent-First Foundation (Week 1-2)
+
+**Agent Discovery Files (CRITICAL)**
+- [ ] Create `AGENTS.md` with agent conventions
+- [ ] Create `.well-known/mcp.json` for MCP discovery
+- [ ] Add Schema.org JSON-LD structured data
+- [ ] Register in MCP Registry (mcp.so)
 
 **Documentation Site Setup**
 - [ ] Initialize Starlight project
 - [ ] Configure dark mode theme with color palette
 - [ ] Set up Mermaid integration
-- [ ] Create site structure (all pages as stubs)
 - [ ] Deploy to Vercel/Netlify
 
-**Agent-Friendly Files**
-- [ ] Create `/llms.txt`
-- [ ] Create `/docs/MCP-TOOLS.md` with full tool reference
-- [ ] Enhance `/CLAUDE.md` with quick reference values
-- [ ] Add JSON schemas for all tools
+**Agent-Friendly Content**
+- [ ] Create `/llms.txt` and `/llms-full.txt`
+- [ ] Create `/docs/MCP-TOOLS.md` with RFC 2119 language
+- [ ] Enhance `/CLAUDE.md` with tool selection guide
+- [ ] Add JSON schemas at `/api/schema`
 
-### Phase 2: Core Content (Week 3-4)
+### Phase 2: Core Content + Auto-Sync (Week 3-4)
 
 **Getting Started**
-- [ ] 5-minute quick start with visuals
-- [ ] Step-by-step Supabase setup
-- [ ] Claude Desktop configuration
+- [ ] 5-minute quick start with video walkthrough
+- [ ] Step-by-step Supabase setup (interactive)
+- [ ] Claude Desktop configuration (Desktop Extension .mcpb)
 
 **MCP Tools Documentation**
-- [ ] Document all 5 tools with examples
-- [ ] Add tool selection flowchart
+- [ ] Document all 5 tools with LLM-readable descriptions
+- [ ] Add tool selection flowchart (Mermaid)
 - [ ] Write agent patterns guide
 
-**CLI Documentation**
-- [ ] Recipe-based examples
-- [ ] Gmail import walkthrough
-- [ ] Batch processing guide
+**Auto-Sync Pipeline**
+- [ ] GitHub Actions for schema-to-docs generation
+- [ ] Example validation tests
+- [ ] Changelog automation
 
-### Phase 3: Playground MVP (Week 5-6)
+### Phase 3: Agent-Native Playground (Week 5-6)
 
-- [ ] Build React playground component
-- [ ] Implement tool selector + form builder
-- [ ] Add response viewer with syntax highlighting
-- [ ] Create demo mode with sample data
-- [ ] Embed in docs site
+- [ ] Conversational interface with natural language input
+- [ ] Agent simulation mode
+- [ ] Visual workflow builder
+- [ ] Live SDK code generation
+- [ ] Session memory with markdown export
+- [ ] Classic mode fallback
 
-### Phase 4: Polish & Expand (Week 7-8)
+### Phase 4: Embedded Docs Agent (Week 7-8)
+
+- [ ] Build docs agent using Textrawl's own MCP server
+- [ ] Implement guided troubleshooting
+- [ ] Add "Test your connection" interactive flow
+- [ ] Deploy as embedded widget
 
 **Visual Polish**
-- [ ] Custom illustrations (hand-drawn style)
+- [ ] Custom illustrations (hand-drawn "Imperfect by Design" style)
 - [ ] Microinteraction animations
 - [ ] Mobile responsive testing
 - [ ] Accessibility audit (WCAG AA)
