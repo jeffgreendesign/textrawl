@@ -1,0 +1,51 @@
+---
+title: Email Import Guide
+description: Complete guide to importing email archives
+---
+
+Import your email archives into textrawl for AI-powered search across your correspondence.
+
+## Supported Formats
+
+- **MBOX**: Gmail exports, Thunderbird backups
+- **EML**: Individual email files
+- **ZIP**: Google Takeout archives
+
+## Gmail Export
+
+1. Go to [Google Takeout](https://takeout.google.com)
+2. Select only "Mail"
+3. Choose MBOX format
+4. Download the archive
+
+## Import Process
+
+```bash
+# Convert MBOX to markdown
+npm run convert -- mbox ~/Downloads/All\ mail.mbox -o ./emails
+
+# Upload to knowledge base
+npm run upload -- ./emails
+```
+
+## Filtering Emails
+
+Use tags to organize:
+
+```bash
+npm run convert -- mbox work.mbox -t work professional
+npm run convert -- mbox personal.mbox -t personal
+```
+
+## Searching Emails
+
+```text
+"Find emails from John about the project deadline"
+"What did marketing say about Q4 budget?"
+```
+
+## Privacy Considerations
+
+- Emails are stored in your Supabase instance
+- Embeddings go through OpenAI/Ollama
+- Consider Ollama for sensitive data

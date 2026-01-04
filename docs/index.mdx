@@ -1,0 +1,100 @@
+---
+title: Introduction
+description: Personal Knowledge MCP Server - Turn your documents into Claude's memory
+---
+
+# textrawl
+
+**textrawl** is a Personal Knowledge MCP Server that gives Claude access to your documents, emails, notes, and other knowledge. It uses hybrid search combining semantic understanding with keyword matching to find the most relevant content.
+
+## What is MCP?
+
+The **Model Context Protocol (MCP)** is an open standard for connecting AI assistants to external data sources and tools. Adopted by Anthropic for Claude and donated to the Linux Foundation's Agentic AI Foundation, MCP enables:
+
+- **Tool Use**: Claude can call functions to search, retrieve, and create content
+- **Context Sharing**: Your documents become part of Claude's working knowledge
+- **Privacy**: Data stays on your infrastructure, not uploaded to the cloud
+
+## Why textrawl?
+
+Give Claude access to your personal documents, emails, notes, and knowledge. textrawl combines **semantic understanding** with **keyword precision** using Reciprocal Rank Fusion to deliver the most relevant results.
+
+### Hybrid Search
+
+Combine semantic similarity with full-text keyword matching. Adjust weights to optimize for your use case.
+
+### Multi-Format Support
+
+Import MBOX emails, HTML pages, PDFs, DOCX files, and more. Convert once, search forever.
+
+### MCP Native
+
+Native Model Context Protocol integration. Works with Claude Desktop, Cursor IDE, and any MCP client.
+
+### Privacy First
+
+Self-hosted on your infrastructure. Your documents never leave your control.
+
+## Quick Start
+
+```bash
+# Clone and setup
+git clone https://github.com/jeffgreendesign/textrawl.git
+cd textrawl
+npm run setup
+
+# Start the server
+npm run dev
+
+# Test with MCP Inspector
+npm run inspector
+```
+
+## MCP Tools
+
+textrawl exposes 5 tools via MCP:
+
+| Tool | Purpose |
+|------|---------|
+| `search_knowledge` | Hybrid search with configurable weights |
+| `get_document` | Retrieve full document content |
+| `list_documents` | Browse documents with pagination |
+| `update_document` | Update document title and tags |
+| `add_note` | Create notes with automatic embedding |
+
+[View all tools →](/docs/mcp-tools)
+
+## Architecture
+
+```
+┌─────────────────────────────────────────────────────────┐
+│                    Claude Desktop                        │
+│                    or Cursor IDE                         │
+└────────────────────────┬────────────────────────────────┘
+                         │ MCP Protocol
+                         ▼
+┌─────────────────────────────────────────────────────────┐
+│                    textrawl Server                       │
+│  ┌─────────────┐  ┌─────────────┐  ┌─────────────────┐  │
+│  │   Search    │  │  Documents  │  │     Notes       │  │
+│  │  (Hybrid)   │  │  (CRUD)     │  │  (Add + Embed)  │  │
+│  └──────┬──────┘  └──────┬──────┘  └────────┬────────┘  │
+│         │                │                   │           │
+│         └────────────────┼───────────────────┘           │
+│                          ▼                               │
+│  ┌─────────────────────────────────────────────────────┐│
+│  │           Supabase PostgreSQL + pgvector            ││
+│  │  • documents (full-text search)                     ││
+│  │  • chunks (vector embeddings)                       ││
+│  │  • hybrid_search() RPC                              ││
+│  └─────────────────────────────────────────────────────┘│
+└─────────────────────────────────────────────────────────┘
+```
+
+[Learn more about hybrid search →](/docs/architecture/hybrid-search)
+
+## Next Steps
+
+- [Quick Start](/docs/getting-started/quick-start) - Get running in 5 minutes
+- [Installation](/docs/getting-started/installation) - Detailed setup guide
+- [CLI Tools](/docs/cli) - Import your documents

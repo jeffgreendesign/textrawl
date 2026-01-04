@@ -1,0 +1,11 @@
+{
+	"title": "MCP Tools",
+	"pages": [
+		"index",
+		"search-knowledge",
+		"get-document",
+		"list-documents",
+		"update-document",
+		"add-note"
+	]
+}

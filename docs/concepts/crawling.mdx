@@ -1,0 +1,55 @@
+---
+title: Document Crawling
+description: How textrawl discovers and processes your documents
+---
+
+textrawl's converter tools walk through your directories, extract text content, and prepare it for embedding.
+
+## Supported Formats
+
+| Format | Extension | Notes |
+|--------|-----------|-------|
+| Markdown | `.md`, `.mdx` | Full support including frontmatter |
+| Plain text | `.txt` | Direct text extraction |
+| PDF | `.pdf` | Text extraction, no OCR |
+| HTML | `.html` | Strips tags, keeps structure |
+| Email | `.mbox`, `.eml` | Full email parsing |
+| DOCX | `.docx` | Microsoft Word documents |
+
+## Conversion Pipeline
+
+```text
+Source Files
+     │
+     ▼
+┌─────────────┐
+│  Converter  │  npm run convert
+└─────────────┘
+     │
+     ▼
+Markdown + YAML frontmatter
+     │
+     ▼
+┌─────────────┐
+│   Upload    │  npm run upload
+└─────────────┘
+     │
+     ▼
+Documents + Chunks + Embeddings
+```
+
+## Deduplication
+
+Each converted file gets a `source_hash` in its frontmatter. This prevents duplicate uploads when re-running the upload command.
+
+## Configuration
+
+Conversion is currently not configurable beyond CLI options. Common options:
+
+```bash
+-o, --output <dir>   Output directory
+-r, --recursive      Process subdirectories
+-v, --verbose        Enable verbose logging
+--dry-run            Preview without writing
+-t, --tags <tags>    Add custom tags
+```

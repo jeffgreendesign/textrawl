@@ -1,0 +1,69 @@
+---
+title: Search Optimization
+description: Tips for getting better search results
+---
+
+Optimize your textrawl searches for better relevance and accuracy.
+
+## Weight Tuning
+
+### For Questions
+
+Increase semantic weight:
+
+```json
+{ "semanticWeight": 1.5, "fullTextWeight": 0.5 }
+```
+
+### For Exact Terms
+
+Increase full-text weight:
+
+```json
+{ "semanticWeight": 0.5, "fullTextWeight": 1.5 }
+```
+
+## Query Tips
+
+### Be Specific
+
+Instead of: "meeting notes"
+Try: "Q4 planning meeting notes about budget"
+
+### Use Natural Language
+
+Instead of: "authentication config"
+Try: "how do I configure user authentication"
+
+### Add Context
+
+Instead of: "error handling"
+Try: "error handling patterns in the payment service"
+
+## Using Tags
+
+Organize with consistent tags:
+
+- Source: `email`, `notes`, `docs`
+- Topic: `project-x`, `finance`, `technical`
+- Status: `archived`, `active`, `reference`
+
+Then filter searches:
+
+```json
+{
+  "query": "budget updates",
+  "tags": ["project-x", "finance"]
+}
+```
+
+## Score Interpretation
+
+| Score Range | Meaning |
+|-------------|---------|
+| 0.8 - 1.0 | Highly relevant |
+| 0.6 - 0.8 | Good match |
+| 0.4 - 0.6 | Related content |
+| < 0.4 | Weak match |
+
+If scores are low, try rephrasing or broadening your query.

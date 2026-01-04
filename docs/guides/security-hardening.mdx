@@ -1,0 +1,76 @@
+---
+title: Security Hardening
+description: Secure your textrawl deployment
+---
+
+Security best practices for production deployments.
+
+## Authentication
+
+Always set `API_BEARER_TOKEN` in production:
+
+```bash
+API_BEARER_TOKEN=$(openssl rand -base64 32)
+```
+
+All API endpoints require `Authorization: Bearer <token>` header.
+
+## Row Level Security
+
+Run the RLS script after schema setup:
+
+```sql
+-- scripts/security-rls.sql
+
+-- Revoke public access
+REVOKE ALL ON ALL TABLES IN SCHEMA public FROM anon, authenticated;
+
+-- Enable RLS
+ALTER TABLE documents ENABLE ROW LEVEL SECURITY;
+ALTER TABLE chunks ENABLE ROW LEVEL SECURITY;
+
+-- Deny all for public roles
+CREATE POLICY "Deny anon" ON documents FOR ALL TO anon USING (false);
+CREATE POLICY "Deny auth" ON documents FOR ALL TO authenticated USING (false);
+```
+
+## Environment Security
+
+- Never commit `.env` to version control
+- Use secret managers in production
+- Rotate API keys regularly
+- Use separate keys for dev/prod
+
+## Network Security
+
+- Deploy behind reverse proxy (nginx, Caddy)
+- Enable HTTPS/TLS
+- Set `ALLOWED_ORIGINS` for CORS
+- Use private networking for database
+
+## Rate Limiting
+
+Built-in limits (not configurable):
+
+| Endpoint | Limit |
+|----------|-------|
+| API | 100/min |
+| Upload | 10/min |
+| Health | 300/min |
+
+## Logging
+
+- All logs go to stderr (stdout reserved for MCP)
+- Set `LOG_LEVEL=info` in production
+- Monitor for authentication failures
+- Alert on repeated 401/403 errors
+
+## Checklist
+
+- [ ] API_BEARER_TOKEN set (32+ chars)
+- [ ] RLS script executed
+- [ ] HTTPS enabled
+- [ ] CORS configured
+- [ ] Secrets in secret manager
+- [ ] Logging configured
+- [ ] Health monitoring active

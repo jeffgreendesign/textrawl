@@ -1,0 +1,51 @@
+---
+title: Embeddings
+description: How textrawl creates vector representations of your documents
+---
+
+Embeddings are numerical representations of text that capture semantic meaning. textrawl uses them to enable semantic search.
+
+## What Are Embeddings?
+
+An embedding converts text into a high-dimensional vector (array of numbers). Similar texts have similar vectors, enabling "search by meaning."
+
+```text
+"How do I configure auth?"  →  [0.12, -0.34, 0.56, ...]
+"Setting up authentication" →  [0.11, -0.35, 0.55, ...]  (similar!)
+"The weather is nice"       →  [0.89, 0.23, -0.45, ...]  (different)
+```
+
+## Embedding Models
+
+textrawl supports multiple embedding providers:
+
+| Provider | Model | Dimensions | Notes |
+|----------|-------|------------|-------|
+| OpenAI | text-embedding-3-small | 1536 | Cloud, fast |
+| Ollama | nomic-embed-text | 1024 | Local, private |
+
+## How It Works
+
+1. **Chunk**: Document split into ~512 token pieces
+2. **Embed**: Each chunk sent to embedding API
+3. **Store**: Vectors stored in pgvector column
+4. **Index**: HNSW index for fast similarity search
+
+## Query Time
+
+1. Query text embedded using same model
+2. pgvector finds similar chunks by cosine distance
+3. Results combined with full-text search via RRF
+
+## Configuration
+
+```bash
+# OpenAI (default)
+EMBEDDING_PROVIDER=openai
+OPENAI_API_KEY=sk-...
+
+# Ollama (local)
+EMBEDDING_PROVIDER=ollama
+OLLAMA_BASE_URL=http://localhost:11434
+OLLAMA_MODEL=nomic-embed-text
+```

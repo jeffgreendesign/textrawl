@@ -1,0 +1,82 @@
+---
+title: get_document
+description: Retrieve full document content by ID
+---
+
+Retrieve the complete content of a document, optionally including its chunks.
+
+## Parameters
+
+| Parameter | Type | Required | Default | Description |
+|-----------|------|----------|---------|-------------|
+| `documentId` | string | Yes | - | UUID of the document |
+| `includeChunks` | boolean | No | `false` | Include document chunks |
+
+## Example Request
+
+```json
+{
+  "documentId": "550e8400-e29b-41d4-a716-446655440000",
+  "includeChunks": true
+}
+```
+
+## Response
+
+```json
+{
+  "id": "550e8400-e29b-41d4-a716-446655440000",
+  "title": "Q4 Planning Notes",
+  "content": "Full document content...",
+  "sourceType": "note",
+  "tags": ["work", "planning", "q4"],
+  "createdAt": "2024-10-15T14:30:00Z",
+  "updatedAt": "2024-10-15T14:30:00Z",
+  "chunks": [
+    {
+      "id": "7c9e6679-7425-40de-944b-e07fc1f90ae7",
+      "content": "First chunk content...",
+      "chunkIndex": 0
+    },
+    {
+      "id": "f47ac10b-58cc-4372-a567-0e02b2c3d479",
+      "content": "Second chunk content...",
+      "chunkIndex": 1
+    }
+  ]
+}
+```
+
+## Use Cases
+
+### Full Context Retrieval
+
+After searching, get the complete document for context:
+
+```text
+1. search_knowledge returns chunk with documentId
+2. get_document(documentId) returns full content
+3. Use full content for comprehensive answers
+```
+
+### Document Inspection
+
+View all chunks for debugging:
+
+```json
+{
+  "documentId": "...",
+  "includeChunks": true
+}
+```
+
+## Error Responses
+
+### Document not found
+
+```json
+{
+  "error": "Document not found",
+  "message": "No document with ID '550e8400-e29b-41d4-a716-446655440000'"
+}
+```

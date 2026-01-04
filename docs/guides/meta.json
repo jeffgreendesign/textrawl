@@ -1,0 +1,10 @@
+{
+	"title": "Guides",
+	"pages": [
+		"email-import",
+		"search-optimization",
+		"docker-deployment",
+		"cloud-run-deployment",
+		"security-hardening"
+	]
+}

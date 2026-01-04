@@ -1,0 +1,101 @@
+---
+title: Chunking Strategy
+description: How textrawl splits documents for optimal search
+---
+
+Large documents must be split into smaller chunks for effective embedding and retrieval. textrawl uses a paragraph-aware chunking strategy.
+
+## Default Parameters
+
+| Parameter | Value | Description |
+|-----------|-------|-------------|
+| Chunk size | 512 tokens | ~2048 characters |
+| Overlap | 50 tokens | Context preservation |
+| Min chunk | 100 tokens | Avoid tiny fragments |
+
+## Chunking Algorithm
+
+```text
+Document
+    │
+    ▼
+┌─────────────────────────────────────────┐
+│ 1. Split on paragraph boundaries (\n\n) │
+└─────────────────────────────────────────┘
+    │
+    ▼
+┌─────────────────────────────────────────┐
+│ 2. Combine paragraphs up to 512 tokens  │
+└─────────────────────────────────────────┘
+    │
+    ▼
+┌─────────────────────────────────────────┐
+│ 3. Add 50-token overlap between chunks  │
+└─────────────────────────────────────────┘
+    │
+    ▼
+Chunks with metadata
+```
+
+## Why This Approach?
+
+### Paragraph-Aware Splitting
+
+- Preserves semantic coherence
+- Doesn't cut sentences mid-thought
+- Respects document structure
+
+### 512-Token Chunks
+
+- Optimal for most embedding models
+- Balances context vs. precision
+- Fits within Claude's context window
+
+### 50-Token Overlap
+
+- Prevents losing context at boundaries
+- Ensures queries match across chunk edges
+- Small overhead (~10% redundancy)
+
+## Example
+
+Original document (1500 tokens):
+
+```text
+## Introduction
+First paragraph about topic...
+
+## Details
+Second paragraph with specifics...
+Third paragraph continuing...
+
+## Conclusion
+Final thoughts...
+```
+
+Becomes 3 chunks:
+
+```text
+Chunk 1 (512 tokens):
+"## Introduction\nFirst paragraph about topic..."
+
+Chunk 2 (512 tokens, 50-token overlap):
+"...end of first paragraph\n\n## Details\nSecond paragraph..."
+
+Chunk 3 (476 tokens + overlap):
+"...continuing...\n\n## Conclusion\nFinal thoughts..."
+```
+
+## Configuration
+
+Chunking parameters are currently not user-configurable. They're optimized for general-purpose search.
+
+## Trade-offs
+
+| Smaller Chunks | Larger Chunks |
+|----------------|---------------|
+| More precise retrieval | More context per result |
+| More chunks to search | Fewer embedding calls |
+| Risk of missing context | Risk of diluted relevance |
+
+The 512-token default balances these trade-offs for most use cases.

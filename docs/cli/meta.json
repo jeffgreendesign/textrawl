@@ -1,0 +1,4 @@
+{
+	"title": "CLI Tools",
+	"pages": ["index", "mbox-conversion", "html-conversion", "batch-upload"]
+}

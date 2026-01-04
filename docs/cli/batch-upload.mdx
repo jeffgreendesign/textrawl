@@ -1,0 +1,89 @@
+---
+title: Batch Upload
+description: Upload converted files to Supabase with automatic embedding
+---
+
+Upload converted markdown files to your Supabase knowledge base with automatic chunking and embedding.
+
+## Usage
+
+```bash
+npm run upload -- <path> [options]
+```
+
+## Options
+
+| Option | Default | Description |
+|--------|---------|-------------|
+| `--force` | `false` | Re-upload even if already uploaded |
+| `-v, --verbose` | `false` | Enable verbose logging |
+| `--dry-run` | `false` | Preview without uploading |
+| `--batch-size <n>` | `10` | Files per batch |
+
+## Example
+
+```bash
+# Upload directory
+npm run upload -- ./converted/emails
+
+# Force re-upload
+npm run upload -- ./converted/emails --force
+
+# Dry run
+npm run upload -- ./converted/ --dry-run
+```
+
+## Upload Process
+
+1. **Scan Directory**: Find all `.md` files
+2. **Check Manifest**: Skip already-uploaded files
+3. **Parse Frontmatter**: Extract metadata
+4. **Chunk Content**: Split into ~512 token chunks
+5. **Generate Embeddings**: Via OpenAI or Ollama
+6. **Store in Supabase**: Documents + chunks + embeddings
+7. **Update Manifest**: Track uploaded files
+
+## Manifest File
+
+A `.manifest.json` file tracks uploaded files:
+
+```json
+{
+  "version": 1,
+  "files": {
+    "email-001.md": {
+      "hash": "abc123",
+      "documentId": "550e8400-...",
+      "uploadedAt": "2024-03-20T14:22:00Z"
+    }
+  }
+}
+```
+
+Use `--force` to ignore the manifest and re-upload everything.
+
+## Rate Limiting
+
+Uploads are rate-limited to avoid API throttling:
+
+- **Embedding API**: 60 requests/minute
+- **Supabase**: 100 requests/minute
+
+## Error Handling
+
+### Partial Failures
+
+If some files fail, the upload continues. Failed files are logged and can be retried.
+
+### Resume After Error
+
+Re-run the same command. Successfully uploaded files are skipped via manifest.
+
+```bash
+# Retry after failure
+npm run upload -- ./converted/emails
+```
+
+## Next Steps
+
+- [Search your knowledge](/docs/mcp-tools/search-knowledge) using MCP tools

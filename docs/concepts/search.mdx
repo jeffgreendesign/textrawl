@@ -1,0 +1,75 @@
+---
+title: Semantic Search
+description: How textrawl finds relevant documents
+---
+
+textrawl uses vector similarity to find documents related to your query, not just keyword matching.
+
+## Keyword vs Semantic Search
+
+| Keyword Search | Semantic Search |
+|----------------|-----------------|
+| Exact matches | Meaning matches |
+| "auth config" → "auth config" | "auth config" → "setting up authentication" |
+| Fast, precise | Understands synonyms |
+| Misses paraphrases | May miss exact terms |
+
+## Hybrid Approach
+
+textrawl combines both:
+
+1. **Full-text search**: PostgreSQL tsvector for keywords
+2. **Semantic search**: pgvector cosine similarity for meaning
+3. **RRF fusion**: Reciprocal Rank Fusion combines results
+
+## How It Works
+
+```text
+Query: "How do I set up user login?"
+         │
+    ┌────┴────┐
+    │         │
+    ▼         ▼
+ Keywords   Embedding
+    │         │
+    ▼         ▼
+ FTS Match  Cosine Similarity
+    │         │
+    └────┬────┘
+         │
+         ▼
+    RRF Fusion
+         │
+         ▼
+   Ranked Results
+```
+
+## Query Examples
+
+| Query | Best Match | Why |
+|-------|------------|-----|
+| "PRJ-12345" | Exact document | Keyword match |
+| "authentication setup" | Auth docs | Semantic + keyword |
+| "how do I log in" | Auth docs | Semantic understanding |
+
+## Tuning Weights
+
+Control the balance:
+
+```json
+{
+  "fullTextWeight": 1.5,   // Favor keywords
+  "semanticWeight": 0.5    // Less semantic
+}
+```
+
+Or:
+
+```json
+{
+  "fullTextWeight": 0.5,   // Less keywords
+  "semanticWeight": 1.5    // Favor semantic
+}
+```
+
+Default is 1.0 for both (balanced).
