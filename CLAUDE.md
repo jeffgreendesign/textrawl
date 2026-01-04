@@ -122,3 +122,34 @@ Custom error hierarchy in `src/utils/errors.ts` - use specific error types (`Not
 
 ### External Dependencies
 `pdf-parse` is externalized in esbuild (native module) - must be in `node_modules` at runtime.
+
+## Agent Discovery Files
+
+For AI agents using Textrawl as an MCP server:
+
+- `AGENTS.md` - Tool selection guide, error handling patterns, integration examples
+- `.well-known/mcp.json` - MCP capability advertisement (tools, auth, rate limits)
+- `llms.txt` - AI sitemap with RFC 2119 language for tool requirements
+- `llms-full.txt` - Complete documentation in single file
+
+## Documentation Website
+
+The documentation site is in `website/` (Astro + Starlight):
+
+```bash
+cd website
+npm install
+npm run dev      # Dev server at http://localhost:4321
+npm run build    # Build to website/dist/
+```
+
+Deploy to Vercel with custom domain. See `.github/workflows/deploy-website.yml`.
+
+## Cursor IDE Integration
+
+Cursor rules in `.cursor/rules/`:
+- `typescript.mdc` - ESM imports, Node.js patterns
+- `mcp-tools.mdc` - Tool registration, Zod schemas
+- `database.mdc` - Embeddings, chunking
+- `security.mdc` - Logging, RLS
+- `documentation.mdc` - Markdown standards
