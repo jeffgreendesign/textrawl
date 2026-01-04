@@ -1,0 +1,112 @@
+---
+title: Textrawl
+description: Personal Knowledge MCP Server - Turn your documents into Claude's memory
+template: splash
+hero:
+  tagline: Hybrid semantic + full-text search over your documents, accessible to Claude via MCP.
+  image:
+    file: ../../assets/logo-dark.svg
+  actions:
+    - text: Get Started
+      link: /getting-started/quick-start/
+      icon: right-arrow
+      variant: primary
+    - text: View on GitHub
+      link: https://github.com/jeffgreendesign/textrawl
+      icon: external
+      variant: minimal
+---
+
+import { Card, CardGrid } from '@astrojs/starlight/components';
+
+## Why Textrawl?
+
+Give Claude access to your personal documents, emails, notes, and knowledge. Textrawl combines **semantic understanding** with **keyword precision** using Reciprocal Rank Fusion to deliver the most relevant results.
+
+<CardGrid stagger>
+  <Card title="Hybrid Search" icon="magnifier">
+    Combine semantic similarity with full-text keyword matching. Adjust weights to optimize for your use case.
+  </Card>
+  <Card title="Multi-Format Support" icon="document">
+    Import MBOX emails, HTML pages, PDFs, DOCX files, and more. Convert once, search forever.
+  </Card>
+  <Card title="MCP Protocol" icon="puzzle">
+    Native Model Context Protocol integration. Works with Claude Desktop, Cursor IDE, and any MCP client.
+  </Card>
+  <Card title="Privacy First" icon="shield">
+    Self-hosted on your infrastructure. Your documents never leave your control.
+  </Card>
+</CardGrid>
+
+## Quick Start
+
+```bash
+# Clone and setup
+git clone https://github.com/jeffgreendesign/textrawl.git
+cd textrawl
+npm run setup
+
+# Start the server
+npm run dev
+
+# Test with MCP Inspector
+npm run inspector
+```
+
+## MCP Tools
+
+Textrawl exposes 5 tools via MCP:
+
+| Tool | Purpose |
+|------|---------|
+| `search_knowledge` | Hybrid search with configurable weights |
+| `get_document` | Retrieve full document content |
+| `list_documents` | Browse documents with pagination |
+| `update_document` | Update document title and tags |
+| `add_note` | Create notes with automatic embedding |
+
+[View all tools →](/mcp-tools/overview/)
+
+## Architecture
+
+```
+┌─────────────────────────────────────────────────────────┐
+│                    Claude Desktop                        │
+│                    or Cursor IDE                         │
+└────────────────────────┬────────────────────────────────┘
+                         │ MCP Protocol
+                         ▼
+┌─────────────────────────────────────────────────────────┐
+│                    Textrawl Server                       │
+│  ┌─────────────┐  ┌─────────────┐  ┌─────────────────┐  │
+│  │   Search    │  │  Documents  │  │     Notes       │  │
+│  │  (Hybrid)   │  │  (CRUD)     │  │  (Add + Embed)  │  │
+│  └──────┬──────┘  └──────┬──────┘  └────────┬────────┘  │
+│         │                │                   │           │
+│         └────────────────┼───────────────────┘           │
+│                          ▼                               │
+│  ┌─────────────────────────────────────────────────────┐│
+│  │           Supabase PostgreSQL + pgvector            ││
+│  │  • documents (full-text search)                     ││
+│  │  • chunks (vector embeddings)                       ││
+│  │  • hybrid_search() RPC                              ││
+│  └─────────────────────────────────────────────────────┘│
+└─────────────────────────────────────────────────────────┘
+```
+
+[Learn more about hybrid search →](/architecture/hybrid-search/)
+
+## Get Started
+
+<CardGrid>
+  <Card title="Installation" icon="laptop">
+    Set up Textrawl on your machine with Node.js and Supabase.
+
+    [Installation guide →](/getting-started/installation/)
+  </Card>
+  <Card title="Import Your Data" icon="add-document">
+    Convert emails, web pages, and documents to searchable knowledge.
+
+    [CLI tools →](/cli/overview/)
+  </Card>
+</CardGrid>

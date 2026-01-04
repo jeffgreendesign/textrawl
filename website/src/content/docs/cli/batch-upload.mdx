@@ -1,0 +1,223 @@
+---
+title: Batch Upload
+description: Upload converted files to your knowledge base
+---
+
+import { Aside } from '@astrojs/starlight/components';
+
+Upload converted Markdown files to Supabase with automatic chunking and embedding generation.
+
+## Usage
+
+```bash
+npm run upload -- <directory> [options]
+```
+
+## Examples
+
+```bash
+# Upload a directory
+npm run upload -- ./converted/emails
+
+# Recursive upload with force re-upload
+npm run upload -- ./converted/ -r --force
+
+# Higher concurrency for faster uploads
+npm run upload -- ./converted/web --concurrency 10
+```
+
+## Options
+
+| Option | Default | Description |
+|--------|---------|-------------|
+| `-r, --recursive` | `true` | Process subdirectories |
+| `--force` | `false` | Re-upload even if already in manifest |
+| `--concurrency <n>` | `5` | Parallel document processing |
+| `--batch-size <n>` | `50` | Embeddings per batch |
+| `--pattern <glob>` | `**/*.md` | Glob pattern for files |
+| `-c, --config <path>` | `.env` | Path to .env file |
+
+## Requirements
+
+Before uploading, ensure:
+
+1. **Database configured**: `SUPABASE_URL` and `SUPABASE_SERVICE_KEY` in `.env`
+2. **Embedding provider**: Either OpenAI or Ollama configured
+3. **Schema initialized**: Run `setup-db.sql` in Supabase
+
+```bash
+# Verify configuration
+npm run upload -- ./converted/ --dry-run
+```
+
+## How It Works
+
+For each Markdown file:
+
+1. **Parse frontmatter**: Extract title, tags, source_type, metadata
+2. **Create document**: Insert into `documents` table
+3. **Chunk content**: Split into ~512 token chunks
+4. **Generate embeddings**: Create vectors for each chunk
+5. **Store chunks**: Insert into `chunks` table with embeddings
+6. **Update manifest**: Track uploaded files
+
+## Manifest Tracking
+
+The upload utility creates a `.manifest.json` in each directory:
+
+```json
+{
+  "uploaded": {
+    "email-subject.md": {
+      "hash": "a1b2c3d4...",
+      "documentId": "550e8400-e29b-41d4-a716-446655440000",
+      "uploadedAt": "2024-03-20T14:22:00Z"
+    }
+  }
+}
+```
+
+<Aside type="tip">
+  The manifest prevents duplicate uploads. Delete `.manifest.json` or use `--force` to re-upload.
+</Aside>
+
+## Concurrency
+
+Adjust based on your setup:
+
+| Scenario | Concurrency | Batch Size |
+|----------|-------------|------------|
+| OpenAI (default) | 5 | 50 |
+| OpenAI (fast) | 10 | 100 |
+| Ollama (local) | 2-3 | 20 |
+| Rate-limited | 2 | 25 |
+
+```bash
+# Higher throughput with OpenAI
+npm run upload -- ./converted/ --concurrency 10 --batch-size 100
+
+# Conservative for Ollama
+npm run upload -- ./converted/ --concurrency 2 --batch-size 20
+```
+
+## Progress Output
+
+```
+Uploading ./converted/emails...
+[1/50] email-subject-1.md ✓ (3 chunks)
+[2/50] email-subject-2.md ✓ (2 chunks)
+[3/50] email-subject-3.md ✓ (1 chunk)
+...
+Upload complete: 50 documents, 127 chunks, 45s
+```
+
+## Error Handling
+
+### Partial Uploads
+
+If upload fails mid-way:
+- Successfully uploaded files are tracked in manifest
+- Re-run the command to continue from where it stopped
+- Failed files are retried automatically
+
+### Common Errors
+
+**"Database not configured"**
+```bash
+# Check .env file
+cat .env | grep SUPABASE
+```
+
+**"OpenAI not configured"**
+```bash
+# Verify API key
+cat .env | grep OPENAI
+```
+
+**"Rate limit exceeded"**
+```bash
+# Reduce concurrency
+npm run upload -- ./converted/ --concurrency 2
+```
+
+**"Document already exists"**
+```bash
+# Use force to re-upload
+npm run upload -- ./converted/ --force
+```
+
+## File Selection
+
+### Default Pattern
+
+Uploads all `.md` files:
+
+```bash
+npm run upload -- ./converted/  # Uploads **/*.md
+```
+
+### Custom Pattern
+
+```bash
+# Only specific files
+npm run upload -- ./converted/ --pattern "emails/*.md"
+
+# Exclude drafts
+npm run upload -- ./converted/ --pattern "**/!(*draft*).md"
+```
+
+## Best Practices
+
+1. **Convert first, upload second**: Keep conversion and upload as separate steps
+
+2. **Use manifests**: Let the utility track what's uploaded
+   ```bash
+   # First run - uploads all
+   npm run upload -- ./converted/
+
+   # Second run - skips already uploaded
+   npm run upload -- ./converted/
+   ```
+
+3. **Monitor embedding costs**: OpenAI embeddings cost money
+   ```bash
+   # Preview before uploading
+   npm run upload -- ./converted/ --dry-run
+   ```
+
+4. **Batch by category**: Upload in logical groups for easier management
+   ```bash
+   npm run upload -- ./converted/emails --tags email
+   npm run upload -- ./converted/web --tags web
+   ```
+
+5. **Check chunk counts**: Very large documents create many chunks
+   ```
+   document.md ✓ (47 chunks)  # Consider splitting this document
+   ```
+
+## After Upload
+
+Verify in Supabase:
+
+```sql
+-- Count documents
+SELECT COUNT(*) FROM documents;
+
+-- Count chunks
+SELECT COUNT(*) FROM chunks;
+
+-- Check recent uploads
+SELECT title, source_type, created_at
+FROM documents
+ORDER BY created_at DESC
+LIMIT 10;
+```
+
+Or test with MCP:
+
+```bash
+npm run inspector
+# Use list_documents to see uploaded files
+# Use search_knowledge to search
+```

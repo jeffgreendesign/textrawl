@@ -1,0 +1,216 @@
+---
+title: How Hybrid Search Works
+description: Understanding Textrawl's hybrid search architecture
+---
+
+Textrawl combines semantic similarity with full-text keyword matching using Reciprocal Rank Fusion (RRF) to deliver highly relevant search results.
+
+## The Problem
+
+Traditional search approaches have trade-offs:
+
+| Approach | Strength | Weakness |
+|----------|----------|----------|
+| **Keyword search** | Exact matches, names, codes | Misses synonyms, paraphrases |
+| **Semantic search** | Meaning, concepts, questions | May miss exact terms |
+
+Users often need both: "Find documents about quarterly planning" (semantic) AND "Find PRJ-12345" (keyword).
+
+## The Solution: Hybrid Search
+
+Textrawl runs both searches in parallel and combines results:
+
+```text
+Query: "Q4 planning meeting notes"
+         │
+         ├─────────────────────┬─────────────────────┐
+         ▼                     ▼                     │
+    ┌─────────────┐     ┌─────────────┐             │
+    │  Full-Text  │     │  Semantic   │             │
+    │   Search    │     │   Search    │             │
+    │  (tsvector) │     │  (pgvector) │             │
+    └──────┬──────┘     └──────┬──────┘             │
+           │                   │                     │
+           ▼                   ▼                     │
+    Rank by BM25        Rank by Cosine              │
+    Similarity          Similarity                   │
+           │                   │                     │
+           └─────────┬─────────┘                     │
+                     ▼                               │
+              ┌─────────────┐                        │
+              │    RRF      │◄───────────────────────┘
+              │   Fusion    │      Weights
+              └──────┬──────┘
+                     ▼
+              Combined Results
+```
+
+## Reciprocal Rank Fusion (RRF)
+
+RRF is a simple but effective algorithm for combining ranked lists.
+
+### The Formula
+
+For each result appearing in either list:
+
+```
+RRF_score = Σ (weight / (k + rank))
+```
+
+Where:
+- `weight` = fullTextWeight or semanticWeight (user-configurable, 0-2)
+- `k` = 60 (standard RRF constant, smooths rank differences)
+- `rank` = position in that result list (1-based)
+
+### Example
+
+Query: "quarterly budget report"
+
+**Full-text results:**
+1. "Q4 Budget Report 2024" (rank 1)
+2. "Quarterly Financial Summary" (rank 2)
+3. "Budget Planning Guide" (rank 3)
+
+**Semantic results:**
+1. "Financial Overview Q4" (rank 1)
+2. "Q4 Budget Report 2024" (rank 2)
+3. "Expense Tracking Document" (rank 3)
+
+**RRF calculation (with weight=1.0):**
+
+| Document | FTS Rank | Semantic Rank | RRF Score |
+|----------|----------|---------------|-----------|
+| Q4 Budget Report 2024 | 1 | 2 | 1/(60+1) + 1/(60+2) = 0.0327 |
+| Financial Overview Q4 | - | 1 | 1/(60+1) = 0.0164 |
+| Quarterly Financial Summary | 2 | - | 1/(60+2) = 0.0161 |
+| Budget Planning Guide | 3 | - | 1/(60+3) = 0.0159 |
+| Expense Tracking Document | - | 3 | 1/(60+3) = 0.0159 |
+
+**Final ranking:**
+1. Q4 Budget Report 2024 (appears in both → highest score)
+2. Financial Overview Q4
+3. Quarterly Financial Summary
+4. Budget Planning Guide
+5. Expense Tracking Document
+
+## Weight Tuning
+
+### Default (Balanced)
+
+```json
+{ "fullTextWeight": 1.0, "semanticWeight": 1.0 }
+```
+
+Both strategies contribute equally.
+
+### Keyword-Heavy
+
+For specific terms, codes, names:
+
+```json
+{ "fullTextWeight": 1.5, "semanticWeight": 0.5 }
+```
+
+### Semantic-Heavy
+
+For natural language questions:
+
+```json
+{ "fullTextWeight": 0.5, "semanticWeight": 1.5 }
+```
+
+### Pure Keyword
+
+When you know the exact term:
+
+```json
+{ "fullTextWeight": 2.0, "semanticWeight": 0 }
+```
+
+### Pure Semantic
+
+For conceptual exploration:
+
+```json
+{ "fullTextWeight": 0, "semanticWeight": 2.0 }
+```
+
+## Database Implementation
+
+### hybrid_search() RPC
+
+PostgreSQL function that runs both searches:
+
+```sql
+CREATE FUNCTION hybrid_search(
+  query_text TEXT,
+  query_embedding VECTOR(1536),
+  match_limit INT,
+  fts_weight FLOAT,
+  semantic_weight FLOAT
+) RETURNS TABLE (...) AS $$
+  -- Full-text search with BM25
+  WITH fts_results AS (
+    SELECT id, ts_rank_cd(search_vector, query) AS rank
+    FROM chunks
+    WHERE search_vector @@ plainto_tsquery(query_text)
+    ORDER BY rank DESC
+    LIMIT match_limit * 2
+  ),
+  -- Semantic search with cosine distance
+  semantic_results AS (
+    SELECT id, 1 - (embedding <=> query_embedding) AS similarity
+    FROM chunks
+    ORDER BY embedding <=> query_embedding
+    LIMIT match_limit * 2
+  ),
+  -- RRF combination
+  combined AS (
+    SELECT id,
+      COALESCE(fts_weight / (60 + fts_rank), 0) +
+      COALESCE(semantic_weight / (60 + semantic_rank), 0) AS score
+    FROM fts_results
+    FULL OUTER JOIN semantic_results USING (id)
+  )
+  SELECT * FROM combined ORDER BY score DESC LIMIT match_limit;
+$$ LANGUAGE sql;
+```
+
+### Indexes
+
+| Index | Table | Type | Purpose |
+|-------|-------|------|---------|
+| search_vector_idx | chunks | GIN | Full-text search |
+| embedding_idx | chunks | HNSW | Vector similarity |
+
+HNSW (Hierarchical Navigable Small World) provides fast approximate nearest neighbor search.
+
+## Performance Characteristics
+
+### Query Time
+
+| Knowledge Base Size | Typical Latency |
+|---------------------|-----------------|
+| < 10,000 chunks | 50-100ms |
+| 10,000-100,000 chunks | 100-300ms |
+| 100,000+ chunks | 300-500ms |
+
+### Scaling Considerations
+
+- HNSW index: O(log n) query time
+- Full-text index: O(log n) query time
+- RRF fusion: O(n) where n = match_limit * 2
+
+## Why This Approach?
+
+1. **Best of both worlds**: Captures exact matches AND semantic meaning
+2. **Simple fusion**: RRF is easy to understand and tune
+3. **No training required**: Works out of the box, no ML training needed
+4. **Configurable**: Users can adjust weights for their use case
+5. **Efficient**: Single database query, parallel execution
+
+## References
+
+- [Reciprocal Rank Fusion Outperforms Condorcet and Individual Rank Learning Methods](https://plg.uwaterloo.ca/~gvcormac/cormacksigir09-rrf.pdf) - Original RRF paper
+- [pgvector Documentation](https://github.com/pgvector/pgvector) - Vector similarity in PostgreSQL
+- [PostgreSQL Full Text Search](https://www.postgresql.org/docs/current/textsearch.html) - Built-in FTS

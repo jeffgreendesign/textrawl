@@ -1,0 +1,248 @@
+---
+title: Email Import Guide
+description: Import your emails into Textrawl
+---
+
+import { Steps, Aside } from '@astrojs/starlight/components';
+
+A complete guide to importing emails from Gmail, Outlook, Thunderbird, and other email providers.
+
+## Gmail (Google Takeout)
+
+<Steps>
+
+1. **Request your data**
+
+   Go to [Google Takeout](https://takeout.google.com) and select only "Mail".
+
+2. **Choose format**
+
+   - Format: MBOX
+   - Delivery: Download link via email
+
+3. **Download and extract**
+
+   ```bash
+   unzip takeout-*.zip
+   # Creates: Takeout/Mail/All mail Including Spam and Trash.mbox
+   ```
+
+4. **Convert**
+
+   ```bash
+   npm run convert -- mbox "Takeout/Mail/All mail Including Spam and Trash.mbox" -o ./emails
+   ```
+
+5. **Upload**
+
+   ```bash
+   npm run upload -- ./emails --tags gmail email
+   ```
+
+</Steps>
+
+<Aside type="tip">
+  Gmail Takeout can take hours to days for large mailboxes. You'll receive an email when ready.
+</Aside>
+
+## Outlook
+
+### Outlook.com (Web)
+
+<Steps>
+
+1. Go to Settings > View all Outlook settings
+2. General > Privacy and data > Export mailbox
+3. Download the PST file when ready
+4. Convert PST to MBOX using a tool like `readpst`
+
+</Steps>
+
+```bash
+# Install libpst (macOS)
+brew install libpst
+
+# Convert PST to MBOX
+readpst -o ./outlook-mbox/ -M outlook.pst
+
+# Convert MBOX files
+npm run convert -- mbox ./outlook-mbox/*.mbox -o ./emails
+```
+
+### Outlook Desktop (Windows)
+
+<Steps>
+
+1. File > Open & Export > Import/Export
+2. Export to a file > Outlook Data File (.pst)
+3. Convert using `readpst` as above
+
+</Steps>
+
+## Thunderbird
+
+Thunderbird stores mail in MBOX format directly:
+
+```bash
+# macOS
+cd ~/Library/Thunderbird/Profiles/*/Mail/Local\ Folders/
+
+# Linux
+cd ~/.thunderbird/*.default/Mail/Local\ Folders/
+
+# Windows
+cd %APPDATA%\Thunderbird\Profiles\*.default\Mail\Local Folders\
+```
+
+Convert each mailbox:
+
+```bash
+npm run convert -- mbox Inbox -o ./emails/inbox
+npm run convert -- mbox "Sent" -o ./emails/sent
+```
+
+## Apple Mail
+
+Apple Mail uses `emlx` format. Export as MBOX:
+
+<Steps>
+
+1. Select mailbox in Apple Mail
+2. Mailbox > Export Mailbox
+3. Choose save location
+
+</Steps>
+
+```bash
+npm run convert -- mbox ~/Desktop/Inbox.mbox -o ./emails
+```
+
+## Filtering and Organizing
+
+### By Date Range
+
+Import only recent emails:
+
+```bash
+npm run convert -- mbox archive.mbox --date-after "2023-01-01"
+```
+
+### By Sender
+
+Import only specific senders:
+
+```bash
+# From a domain
+npm run convert -- mbox archive.mbox --from-filter "@company.com"
+
+# Specific person
+npm run convert -- mbox archive.mbox --from-filter "boss@company.com"
+```
+
+### With Tags
+
+Add tags during import:
+
+```bash
+npm run convert -- mbox work.mbox --tags work email important
+npm run convert -- mbox personal.mbox --tags personal email
+```
+
+## Best Practices
+
+### 1. Import in Batches
+
+Large mailboxes are better processed in chunks:
+
+```bash
+# Q1 2024
+npm run convert -- mbox archive.mbox --date-after "2024-01-01" --date-before "2024-04-01"
+
+# Q2 2024
+npm run convert -- mbox archive.mbox --date-after "2024-04-01" --date-before "2024-07-01"
+```
+
+### 2. Remove Signatures
+
+Signatures add noise to search. Keep them off (default):
+
+```bash
+# Explicit: remove signatures
+npm run convert -- mbox archive.mbox  # --keep-signatures is false by default
+```
+
+### 3. Organize by Folder
+
+Create separate knowledge by category:
+
+```bash
+npm run convert -- mbox Inbox -o ./emails/inbox --tags inbox
+npm run convert -- mbox Sent -o ./emails/sent --tags sent
+npm run convert -- mbox Work -o ./emails/work --tags work
+```
+
+### 4. Skip Spam
+
+Filter out unwanted emails:
+
+```bash
+# Skip newsletters
+npm run convert -- mbox archive.mbox --from-filter "^(?!.*newsletter).*"
+```
+
+## After Import
+
+### Search Your Emails
+
+In Claude:
+
+> "Search for emails about the Q3 marketing campaign"
+
+> "Find all emails from Sarah about the budget"
+
+### Browse Imported Emails
+
+```bash
+npm run inspector
+# Use list_documents with sourceType: "email"
+```
+
+### Verify Upload
+
+```sql
+-- In Supabase SQL Editor
+SELECT COUNT(*) FROM documents WHERE source_type = 'email';
+```
+
+## Troubleshooting
+
+### "No emails found in MBOX"
+
+Verify the file format:
+
+```bash
+head -1 archive.mbox
+# Should start with "From "
+```
+
+### Encoding Issues
+
+Some old emails have encoding problems:
+
+```bash
+# Use verbose to see which emails fail
+npm run convert -- mbox archive.mbox -v
+```
+
+### Duplicate Emails
+
+The manifest prevents duplicates on re-upload. If you see duplicates:
+
+```bash
+# Check manifest
+cat ./emails/.manifest.json
+
+# Force re-upload to fix
+rm ./emails/.manifest.json
+npm run upload -- ./emails --force
+```

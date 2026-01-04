@@ -1,0 +1,255 @@
+---
+title: Security Hardening
+description: Secure your Textrawl deployment
+---
+
+import { Aside } from '@astrojs/starlight/components';
+
+Security best practices for production Textrawl deployments.
+
+## Authentication
+
+### API Bearer Token
+
+**Always set `API_BEARER_TOKEN` in production.**
+
+```bash
+# Generate a secure token
+openssl rand -base64 32
+
+# Set in .env
+API_BEARER_TOKEN=your-secure-32-char-minimum-token
+```
+
+All API endpoints require the token:
+
+```bash
+curl -H "Authorization: Bearer YOUR_TOKEN" https://your-instance/mcp
+```
+
+<Aside type="danger">
+  Without `API_BEARER_TOKEN`, your knowledge base is accessible to anyone who knows the URL.
+</Aside>
+
+### Unprotected Endpoints
+
+Health check endpoints are unprotected (for load balancers):
+
+- `/health`
+- `/health/live`
+- `/health/ready`
+
+These endpoints do not expose sensitive data.
+
+## Database Security
+
+### Row Level Security (RLS)
+
+Textrawl uses a defense-in-depth RLS strategy:
+
+1. RLS is enabled on all tables
+2. Restrictive policies deny all access to `anon` and `authenticated` roles
+3. The app uses the service role key, which bypasses RLS
+
+**Run the security script after schema setup:**
+
+```sql
+-- In Supabase SQL Editor
+-- Paste contents of scripts/security-rls.sql
+```
+
+### Service Role Key
+
+The `SUPABASE_SERVICE_KEY` bypasses RLS intentionally:
+
+- Single-tenant design (one user per instance)
+- Simplifies queries (no user context needed)
+- Full database access for all operations
+
+<Aside type="caution">
+  Never expose `SUPABASE_SERVICE_KEY` to clients. It's for server-side use only.
+</Aside>
+
+### Verify RLS
+
+```sql
+-- Check RLS is enabled
+SELECT tablename, rowsecurity
+FROM pg_tables
+WHERE schemaname = 'public';
+
+-- All should show 't' for rowsecurity
+```
+
+## Network Security
+
+### CORS Configuration
+
+Restrict allowed origins in production:
+
+```bash
+ALLOWED_ORIGINS=https://your-app.com,https://api.your-app.com
+```
+
+Default is `*` (allow all) - **change this in production**.
+
+### HTTPS Only
+
+Cloud Run and most container platforms provide HTTPS automatically.
+
+For self-hosted:
+- Use a reverse proxy (nginx, Caddy) with TLS
+- Configure TLS certificates (Let's Encrypt)
+
+### Rate Limiting
+
+Built-in rate limits:
+
+| Endpoint | Limit |
+|----------|-------|
+| API | 100 req/min |
+| Upload | 10 req/min |
+| Health | 300 req/min |
+
+Additional protection:
+- Use Cloudflare or similar CDN/WAF
+- Configure Cloud Run concurrency limits
+- Monitor for abuse patterns
+
+## Secrets Management
+
+### Environment Variables
+
+**Never commit secrets to version control.**
+
+✅ Use:
+- `.env` files (gitignored)
+- Cloud secret managers (GCP Secret Manager, AWS Secrets Manager)
+- Kubernetes secrets
+
+❌ Avoid:
+- Hardcoded values in code
+- Committed `.env` files
+- Secrets in Docker images
+
+### GCP Secret Manager
+
+```bash
+# Create secrets
+gcloud secrets create SUPABASE_URL --data-file=-
+gcloud secrets create SUPABASE_SERVICE_KEY --data-file=-
+gcloud secrets create OPENAI_API_KEY --data-file=-
+gcloud secrets create API_BEARER_TOKEN --data-file=-
+
+# Use in Cloud Run
+gcloud run deploy textrawl \
+  --set-secrets "SUPABASE_URL=SUPABASE_URL:latest,..."
+```
+
+## Logging Security
+
+### Sensitive Data
+
+The logger automatically excludes sensitive fields. Never log:
+
+- API keys
+- Bearer tokens
+- Full document content (log IDs instead)
+- User credentials
+
+### Log Levels
+
+Production:
+```bash
+LOG_LEVEL=info  # or warn
+```
+
+Debug logging may expose sensitive request details.
+
+## Dependency Security
+
+### Keep Dependencies Updated
+
+```bash
+# Check for vulnerabilities
+npm audit
+
+# Update dependencies
+npm update
+
+# Major version updates
+npx npm-check-updates -u
+```
+
+### Lock Files
+
+Always commit `package-lock.json` for reproducible builds.
+
+## Container Security
+
+### Distroless Base
+
+The Dockerfile uses a minimal distroless image:
+
+```dockerfile
+FROM gcr.io/distroless/nodejs22-debian12
+```
+
+Benefits:
+- No shell (reduces attack surface)
+- Minimal packages
+- Smaller image size
+
+### Non-Root User
+
+Distroless runs as non-root by default.
+
+### Image Scanning
+
+Scan images for vulnerabilities:
+
+```bash
+# Using Docker Scout
+docker scout cves textrawl:latest
+
+# Using Trivy
+trivy image textrawl:latest
+```
+
+## Monitoring & Alerts
+
+### Security Monitoring
+
+Set up alerts for:
+
+- Unusual request patterns
+- Failed authentication attempts
+- Error rate spikes
+- Resource exhaustion
+
+### Audit Logging
+
+Track access patterns:
+
+```sql
+-- Recent document access (add to your monitoring)
+SELECT created_at, title, source_type
+FROM documents
+ORDER BY created_at DESC
+LIMIT 100;
+```
+
+## Security Checklist
+
+Before going to production:
+
+- [ ] `API_BEARER_TOKEN` set (32+ characters)
+- [ ] `ALLOWED_ORIGINS` restricted
+- [ ] RLS script executed
+- [ ] Secrets in secret manager (not env vars on disk)
+- [ ] HTTPS enabled
+- [ ] Dependencies audited
+- [ ] Container image scanned
+- [ ] Monitoring configured
+- [ ] Backup strategy in place
+- [ ] Incident response plan documented

@@ -1,0 +1,206 @@
+---
+title: MBOX Conversion
+description: Convert email archives to searchable knowledge
+---
+
+import { Aside } from '@astrojs/starlight/components';
+
+Convert MBOX email archive files (Gmail exports, Thunderbird backups) to searchable Markdown.
+
+## Usage
+
+```bash
+npm run convert -- mbox <file> [options]
+```
+
+## Examples
+
+```bash
+# Basic conversion
+npm run convert -- mbox ~/Mail/archive.mbox
+
+# Organize by date with custom output
+npm run convert -- mbox inbox.mbox -o ./emails --date-folders
+
+# Filter by sender and add tags
+npm run convert -- mbox archive.mbox --from-filter "important@" --tags work
+
+# Limit to recent emails
+npm run convert -- mbox big-archive.mbox --date-after "2024-01-01"
+```
+
+## Options
+
+| Option | Default | Description |
+|--------|---------|-------------|
+| `-o, --output <dir>` | `./converted/emails` | Output directory |
+| `--date-folders` | `true` | Organize by YYYY-MM folders |
+| `--keep-signatures` | `false` | Preserve email signatures |
+| `--extract-attachments` | `false` | Extract attachments to subdirectory |
+| `--raw` | `false` | Preserve raw text without normalization |
+| `--max-emails <n>` | unlimited | Maximum emails to process |
+| `--from-filter <regex>` | - | Filter by sender (regex pattern) |
+| `--date-after <date>` | - | Only emails after date (ISO 8601) |
+| `--date-before <date>` | - | Only emails before date (ISO 8601) |
+
+## Output Structure
+
+With `--date-folders` (default):
+
+```
+./converted/emails/
+├── 2024-01/
+│   ├── email-subject-1.md
+│   └── email-subject-2.md
+├── 2024-02/
+│   └── email-subject-3.md
+└── 2024-03/
+    └── email-subject-4.md
+```
+
+Without `--date-folders`:
+
+```
+./converted/emails/
+├── email-subject-1.md
+├── email-subject-2.md
+└── email-subject-3.md
+```
+
+## Example Output
+
+```markdown
+---
+title: "Q4 Planning Discussion"
+source_type: email
+source_hash: "a1b2c3d4..."
+tags:
+  - imported
+  - email
+created_at: "2024-01-15T10:30:00Z"
+converted_at: "2024-03-20T14:22:00Z"
+metadata:
+  from: "alice@company.com"
+  to: "team@company.com"
+  cc: "manager@company.com"
+  subject: "Q4 Planning Discussion"
+  message_id: "<abc123@mail.company.com>"
+---
+
+# Q4 Planning Discussion
+
+Hi team,
+
+I wanted to follow up on our Q4 planning discussion...
+
+Best,
+Alice
+```
+
+## Filtering Emails
+
+### By Sender
+
+Use regex patterns to filter by sender:
+
+```bash
+# Exact sender
+npm run convert -- mbox archive.mbox --from-filter "alice@company.com"
+
+# Domain
+npm run convert -- mbox archive.mbox --from-filter "@company.com"
+
+# Multiple patterns (run multiple times)
+npm run convert -- mbox archive.mbox --from-filter "alice|bob"
+```
+
+### By Date Range
+
+ISO 8601 date format:
+
+```bash
+# After a date
+npm run convert -- mbox archive.mbox --date-after "2024-01-01"
+
+# Before a date
+npm run convert -- mbox archive.mbox --date-before "2024-06-01"
+
+# Date range
+npm run convert -- mbox archive.mbox --date-after "2024-01-01" --date-before "2024-03-31"
+```
+
+### Limiting Count
+
+For large archives, limit processing:
+
+```bash
+# First 100 emails
+npm run convert -- mbox large-archive.mbox --max-emails 100
+```
+
+## Handling Attachments
+
+<Aside type="caution">
+  Attachments are not indexed by default. Use `--extract-attachments` to save them to disk.
+</Aside>
+
+```bash
+npm run convert -- mbox archive.mbox --extract-attachments
+```
+
+Creates:
+
+```
+./converted/emails/
+├── 2024-01/
+│   ├── email-subject.md
+│   └── email-subject_attachments/
+│       ├── document.pdf
+│       └── image.png
+```
+
+## Best Practices
+
+1. **Start with dry-run**: Preview before converting large archives
+   ```bash
+   npm run convert -- mbox archive.mbox --dry-run -v
+   ```
+
+2. **Use date filters**: Process manageable chunks of large archives
+
+3. **Add tags during conversion**: Easier than tagging after upload
+   ```bash
+   npm run convert -- mbox work.mbox --tags work email
+   ```
+
+4. **Keep signatures off**: Reduces noise in search results (default)
+
+5. **Organize by date**: Makes browsing and archival easier (default)
+
+## Troubleshooting
+
+### "Invalid MBOX format"
+
+Ensure the file is a valid MBOX file (not EML or other format):
+
+```bash
+# Check first line - should start with "From "
+head -1 archive.mbox
+```
+
+### Large archive runs out of memory
+
+Process in chunks:
+
+```bash
+npm run convert -- mbox archive.mbox --max-emails 1000 --date-after "2024-01-01"
+npm run convert -- mbox archive.mbox --max-emails 1000 --date-after "2023-01-01" --date-before "2024-01-01"
+```
+
+### Encoding issues
+
+Some emails may have encoding problems. Use verbose mode to identify:
+
+```bash
+npm run convert -- mbox archive.mbox -v
+```

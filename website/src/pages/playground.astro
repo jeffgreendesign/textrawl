@@ -1,0 +1,37 @@
+---
+import StarlightPage from '@astrojs/starlight/components/StarlightPage.astro';
+import PlaygroundWrapper from '../components/Playground/PlaygroundWrapper';
+---
+
+<StarlightPage
+  frontmatter={{
+    title: 'MCP Playground',
+    description: 'Interactive tool explorer for Textrawl MCP tools',
+    template: 'doc',
+  }}
+>
+  <div class="playground-intro">
+    <p>
+      Explore Textrawl's MCP tools interactively. Select a tool, configure parameters,
+      and see example responses. Use <strong>Demo Mode</strong> to test without a
+      Textrawl instance, or connect to your own server.
+    </p>
+  </div>
+
+  <PlaygroundWrapper client:load />
+
+  <style>
+    .playground-intro {
+      margin-bottom: 2rem;
+      padding: 1rem;
+      background: var(--sl-color-bg-sidebar);
+      border-radius: 8px;
+      border: 1px solid var(--sl-color-hairline);
+    }
+
+    .playground-intro p {
+      margin: 0;
+      color: var(--sl-color-text);
+    }
+  </style>
+</StarlightPage>
