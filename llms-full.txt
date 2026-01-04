@@ -1,0 +1,202 @@
+# Textrawl - Complete Documentation
+
+> Personal Knowledge MCP Server - Turn your documents into Claude's memory
+
+## Overview
+
+Textrawl provides hybrid semantic + full-text search over documents via the Model Context Protocol (MCP). Connect Claude to your personal knowledge base backed by Supabase PostgreSQL with vector embeddings.
+
+## Quick Start
+
+```bash
+git clone https://github.com/jeffgreendesign/textrawl.git
+cd textrawl
+npm run setup
+npm run dev
+npm run inspector  # Test at http://localhost:5173
+```
+
+## MCP Server Configuration
+
+- Protocol: Model Context Protocol (MCP)
+- Transport: StreamableHTTPServerTransport (stateless HTTP)
+- Endpoint: POST /mcp
+- Authentication: Bearer token (API_BEARER_TOKEN)
+- Rate Limits: API 100/min, Upload 10/min
+
+### Claude Desktop Configuration
+
+```json
+{
+  "mcpServers": {
+    "textrawl": {
+      "url": "http://localhost:3000/mcp"
+    }
+  }
+}
+```
+
+## MCP Tools Reference
+
+### search_knowledge
+
+Hybrid semantic + full-text search using Reciprocal Rank Fusion.
+
+Parameters:
+- query (string, REQUIRED): Natural language search query (1-10000 chars)
+- limit (number): Max results 1-50, default 10
+- fullTextWeight (number): Keyword weight 0-2, default 1.0
+- semanticWeight (number): Semantic weight 0-2, default 1.0
+- tags (string[]): Filter to docs with ALL tags
+- sourceType (enum): 'note' | 'file' | 'url'
+- minScore (number): Minimum relevance 0-1
+
+Example:
+```json
+{
+  "query": "quarterly planning",
+  "limit": 5,
+  "semanticWeight": 1.5
+}
+```
+
+### get_document
+
+Retrieve full document by ID.
+
+Parameters:
+- documentId (UUID, REQUIRED): The document UUID
+- includeChunks (boolean): Include chunks, default false
+
+### list_documents
+
+List documents with pagination.
+
+Parameters:
+- limit (number): 1-100, default 20
+- offset (number): Pagination offset
+- sourceType (enum): 'note' | 'file' | 'url'
+- tags (string[]): Filter by tags
+
+### update_document
+
+Update document metadata.
+
+Parameters:
+- documentId (UUID, REQUIRED): Document to update
+- title (string): New title
+- tags (string[]): New tags (replaces existing)
+
+Note: MUST provide title or tags.
+
+### add_note
+
+Create markdown notes with automatic embedding.
+
+Parameters:
+- title (string, REQUIRED): Note title (max 500 chars)
+- content (string, REQUIRED): Markdown content (max 1MB)
+- tags (string[]): Tags for organization
+
+## Environment Variables
+
+Required:
+- SUPABASE_URL: Database connection URL
+- SUPABASE_SERVICE_KEY: Service role authentication
+
+Conditional:
+- OPENAI_API_KEY: For cloud embeddings (text-embedding-3-small, 1536 dims)
+- OLLAMA_BASE_URL + OLLAMA_MODEL: For local embeddings (nomic-embed-text, 1024 dims)
+
+Optional:
+- API_BEARER_TOKEN: Auth token (min 32 chars, required for production)
+- PORT: Server port (default 3000)
+- LOG_LEVEL: debug/info/warn/error
+- ALLOWED_ORIGINS: CORS whitelist
+
+## CLI Tools
+
+### Convert Files
+
+```bash
+npm run convert -- mbox ~/Mail/archive.mbox
+npm run convert -- html ./saved-pages/ -r
+npm run convert -- takeout ./Takeout.zip
+```
+
+### Upload to Supabase
+
+```bash
+npm run upload -- ./converted/
+npm run upload -- ./converted/ --force  # Re-upload
+```
+
+## Architecture
+
+### Hybrid Search
+
+Textrawl combines:
+1. Full-Text Search: PostgreSQL tsvector for exact keywords
+2. Semantic Search: pgvector for meaning-based matching
+
+Results merged using Reciprocal Rank Fusion (RRF).
+
+### Chunking
+
+- Max chunk: 512 tokens (~2048 chars)
+- Overlap: 50 tokens
+- Strategy: Paragraph-aware splitting
+
+### Database Schema
+
+- documents: Full documents with tsvector
+- chunks: Document chunks with vector embeddings
+- hybrid_search(): RPC for RRF fusion
+
+## Deployment
+
+### Docker
+
+```bash
+docker compose up -d
+```
+
+### Cloud Run
+
+```bash
+export GCP_PROJECT_ID=your-project
+./scripts/deploy.sh
+```
+
+## Security
+
+- API_BEARER_TOKEN required for production
+- RLS enabled on all tables
+- Health endpoints unprotected for load balancers
+
+## Source Types
+
+- note: Created via add_note tool
+- file: Uploaded via CLI (PDF, DOCX, MBOX, EML, HTML)
+- url: Web content (future)
+
+## Agent Conventions
+
+See /AGENTS.md for:
+- Tool selection guide
+- Error handling patterns
+- Testing procedures
+- Integration examples
+
+## Documentation
+
+- /AGENTS.md: Agent conventions
+- /CLAUDE.md: Development instructions
+- /docs/CLI.md: CLI tool documentation
+- /docs/SECURITY.md: Row Level Security
+- /.well-known/mcp.json: MCP capability advertisement
+
+## Support
+
+- GitHub: https://github.com/jeffgreendesign/textrawl
+- Issues: https://github.com/jeffgreendesign/textrawl/issues

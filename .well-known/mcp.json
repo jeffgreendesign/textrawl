@@ -1,0 +1,216 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "name": "textrawl",
+  "version": "0.1.0",
+  "description": "Personal Knowledge MCP Server - Hybrid semantic + full-text search over documents",
+  "homepage": "https://github.com/jeffgreendesign/textrawl",
+  "documentation": "/AGENTS.md",
+  "transport": {
+    "type": "streamable-http",
+    "endpoint": "/mcp",
+    "stateless": true
+  },
+  "authentication": {
+    "type": "bearer",
+    "header": "Authorization",
+    "required": true,
+    "description": "API_BEARER_TOKEN (minimum 32 characters)"
+  },
+  "rateLimit": {
+    "api": {
+      "requests": 100,
+      "window": "1m"
+    },
+    "upload": {
+      "requests": 10,
+      "window": "1m"
+    }
+  },
+  "tools": [
+    {
+      "name": "search_knowledge",
+      "description": "Hybrid semantic + full-text search using Reciprocal Rank Fusion",
+      "inputSchema": {
+        "type": "object",
+        "required": ["query"],
+        "properties": {
+          "query": {
+            "type": "string",
+            "minLength": 1,
+            "maxLength": 10000,
+            "description": "Natural language search query"
+          },
+          "limit": {
+            "type": "integer",
+            "minimum": 1,
+            "maximum": 50,
+            "default": 10,
+            "description": "Maximum results to return"
+          },
+          "fullTextWeight": {
+            "type": "number",
+            "minimum": 0,
+            "maximum": 2,
+            "default": 1.0,
+            "description": "Weight for keyword matching (0-2)"
+          },
+          "semanticWeight": {
+            "type": "number",
+            "minimum": 0,
+            "maximum": 2,
+            "default": 1.0,
+            "description": "Weight for semantic similarity (0-2)"
+          },
+          "tags": {
+            "type": "array",
+            "items": { "type": "string" },
+            "description": "Filter results to documents with ALL specified tags"
+          },
+          "sourceType": {
+            "type": "string",
+            "enum": ["note", "file", "url"],
+            "description": "Filter by document source type"
+          },
+          "minScore": {
+            "type": "number",
+            "minimum": 0,
+            "maximum": 1,
+            "description": "Minimum relevance score threshold (0-1)"
+          }
+        }
+      }
+    },
+    {
+      "name": "get_document",
+      "description": "Retrieve full document content by ID",
+      "inputSchema": {
+        "type": "object",
+        "required": ["documentId"],
+        "properties": {
+          "documentId": {
+            "type": "string",
+            "format": "uuid",
+            "description": "The document UUID"
+          },
+          "includeChunks": {
+            "type": "boolean",
+            "default": false,
+            "description": "Include document chunks in response"
+          }
+        }
+      }
+    },
+    {
+      "name": "list_documents",
+      "description": "List documents with pagination and filtering",
+      "inputSchema": {
+        "type": "object",
+        "properties": {
+          "limit": {
+            "type": "integer",
+            "minimum": 1,
+            "maximum": 100,
+            "default": 20,
+            "description": "Number of documents to return"
+          },
+          "offset": {
+            "type": "integer",
+            "minimum": 0,
+            "default": 0,
+            "description": "Pagination offset"
+          },
+          "sourceType": {
+            "type": "string",
+            "enum": ["note", "file", "url"],
+            "description": "Filter by source type"
+          },
+          "tags": {
+            "type": "array",
+            "items": { "type": "string" },
+            "description": "Filter to documents containing ALL specified tags"
+          }
+        }
+      }
+    },
+    {
+      "name": "update_document",
+      "description": "Update document title and/or tags",
+      "inputSchema": {
+        "type": "object",
+        "required": ["documentId"],
+        "properties": {
+          "documentId": {
+            "type": "string",
+            "format": "uuid",
+            "description": "The document UUID to update"
+          },
+          "title": {
+            "type": "string",
+            "minLength": 1,
+            "description": "New title for the document"
+          },
+          "tags": {
+            "type": "array",
+            "items": { "type": "string" },
+            "description": "New tags for the document (replaces existing tags)"
+          }
+        }
+      }
+    },
+    {
+      "name": "add_note",
+      "description": "Create markdown notes with automatic chunking and embedding",
+      "inputSchema": {
+        "type": "object",
+        "required": ["title", "content"],
+        "properties": {
+          "title": {
+            "type": "string",
+            "minLength": 1,
+            "maxLength": 500,
+            "description": "Note title"
+          },
+          "content": {
+            "type": "string",
+            "minLength": 1,
+            "maxLength": 1000000,
+            "description": "Note content (markdown supported, max 1MB)"
+          },
+          "tags": {
+            "type": "array",
+            "items": { "type": "string" },
+            "description": "Optional tags for organization"
+          }
+        }
+      }
+    }
+  ],
+  "capabilities": {
+    "search": {
+      "hybrid": true,
+      "semantic": true,
+      "fullText": true,
+      "fusion": "reciprocal-rank"
+    },
+    "embedding": {
+      "providers": ["openai", "ollama"],
+      "openai": {
+        "model": "text-embedding-3-small",
+        "dimensions": 1536
+      },
+      "ollama": {
+        "model": "nomic-embed-text",
+        "dimensions": 1024
+      }
+    },
+    "chunking": {
+      "maxTokens": 512,
+      "overlapTokens": 50,
+      "strategy": "paragraph-aware"
+    }
+  },
+  "healthEndpoints": {
+    "live": "/health/live",
+    "ready": "/health/ready"
+  }
+}

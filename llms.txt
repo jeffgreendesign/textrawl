@@ -1,0 +1,87 @@
+# Textrawl
+
+> Personal Knowledge MCP Server - Turn your documents into Claude's memory
+
+Textrawl provides hybrid semantic + full-text search over documents via the Model Context Protocol (MCP). Connect Claude to your personal knowledge base backed by Supabase PostgreSQL with vector embeddings.
+
+## MCP Server
+
+- Protocol: Model Context Protocol (MCP)
+- Transport: StreamableHTTPServerTransport (stateless HTTP)
+- Endpoint: POST /mcp
+- Authentication: Bearer token (API_BEARER_TOKEN)
+- Rate Limits: API 100/min, Upload 10/min
+
+## Tools
+
+### search_knowledge
+
+Hybrid semantic + full-text search using Reciprocal Rank Fusion.
+
+- query (string, REQUIRED): Natural language search query
+- limit (number): Max results 1-50, default 10
+- fullTextWeight (number): Keyword weight 0-2, default 1.0
+- semanticWeight (number): Semantic weight 0-2, default 1.0
+- tags (string[]): Filter to docs with ALL tags
+- sourceType (enum): 'note' | 'file' | 'url'
+- minScore (number): Minimum relevance 0-1
+
+### get_document
+
+Retrieve full document by ID.
+
+- documentId (UUID, REQUIRED): The document UUID
+- includeChunks (boolean): Include chunks, default false
+
+### list_documents
+
+List documents with pagination.
+
+- limit (number): 1-100, default 20
+- offset (number): Pagination offset
+- sourceType (enum): 'note' | 'file' | 'url'
+- tags (string[]): Filter by tags
+
+### update_document
+
+Update document metadata.
+
+- documentId (UUID, REQUIRED): Document to update
+- title (string): New title
+- tags (string[]): New tags (replaces existing)
+
+MUST provide title or tags.
+
+### add_note
+
+Create markdown notes with automatic embedding.
+
+- title (string, REQUIRED): Note title (max 500 chars)
+- content (string, REQUIRED): Markdown content (max 1MB)
+- tags (string[]): Tags for organization
+
+## Documentation
+
+- /AGENTS.md - Agent conventions and tool selection guide
+- /CLAUDE.md - Development conventions for Claude Code
+- /docs/CLI.md - CLI conversion tools (MBOX, HTML, PDF)
+- /docs/SECURITY.md - Row Level Security setup
+- /.well-known/mcp.json - MCP capability advertisement
+
+## Quick Facts
+
+- 5 MCP tools available
+- Embedding: OpenAI (1536 dim) or Ollama (1024 dim)
+- Database: Supabase PostgreSQL with pgvector
+- Chunking: 512 tokens, 50 token overlap, paragraph-aware
+- Node.js >= 22.0.0 required
+
+## Source Types
+
+- note: Created via add_note tool
+- file: Uploaded via CLI or Web UI (PDF, DOCX, MBOX, EML, HTML, TXT, MD)
+- url: Web content (future feature)
+
+## Optional
+
+- llms-full.txt: /llms-full.txt (complete documentation)
