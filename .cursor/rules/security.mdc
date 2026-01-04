@@ -1,0 +1,72 @@
+---
+description: Security, logging, and RLS patterns for Textrawl
+globs: ["**/*.ts"]
+---
+
+# Security & Logging
+
+## Critical: Logging to stderr
+
+**All logs MUST use `console.error()` (stderr)**
+
+stdout is reserved for MCP JSON-RPC communication. Using `console.log()` will corrupt the MCP protocol.
+
+```typescript
+// CORRECT - use the logger
+import { logger } from '../utils/logger.js';
+logger.info('Message');
+logger.error('Error', { details });
+logger.debug('Debug info');
+
+// WRONG - never use console.log
+console.log('This will break MCP!');
+```
+
+The logger automatically routes to stderr.
+
+## API Authentication
+
+Bearer token authentication for production:
+
+```typescript
+// Middleware checks Authorization header
+// Token must be minimum 32 characters
+// Set via API_BEARER_TOKEN environment variable
+```
+
+Health endpoints are unprotected (for load balancer probes):
+- `/health`
+- `/health/live`
+- `/health/ready`
+
+## Row Level Security (RLS)
+
+Database uses defense-in-depth RLS:
+
+1. RLS enabled with restrictive policies
+2. `anon` and `authenticated` roles denied
+3. App uses service role key (bypasses RLS)
+
+This is intentional for single-tenant design. See `scripts/security-rls.sql`.
+
+## Environment Variables
+
+Never log or expose:
+- `SUPABASE_SERVICE_KEY`
+- `OPENAI_API_KEY`
+- `API_BEARER_TOKEN`
+
+Check if configured without exposing values:
+
+```typescript
+export function isSupabaseConfigured(): boolean {
+  return !!(process.env.SUPABASE_URL && process.env.SUPABASE_SERVICE_KEY);
+}
+```
+
+## Rate Limiting
+
+Built-in rate limits:
+- API endpoints: 100 req/min
+- Upload endpoint: 10 req/min
+- Health checks: 300 req/min

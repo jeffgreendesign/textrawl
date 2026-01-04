@@ -1,0 +1,93 @@
+---
+description: MCP tool implementation patterns for Textrawl
+globs: ["src/tools/**/*.ts"]
+---
+
+# MCP Tool Patterns
+
+## Tool Registration
+
+Tools are registered using `server.tool()` with inline Zod schemas:
+
+```typescript
+import { McpServer } from '@modelcontextprotocol/sdk/server/mcp.js';
+import { z } from 'zod';
+
+server.tool(
+  'tool_name',
+  {
+    param: z.string().describe('Description shown to LLM'),
+    optionalParam: z.number().optional().default(10).describe('Optional with default'),
+  },
+  async ({ param, optionalParam }) => {
+    // Implementation
+    return {
+      content: [{ type: 'text', text: JSON.stringify(result, null, 2) }]
+    };
+  }
+);
+```
+
+## Response Format
+
+Always return JSON-stringified results:
+
+```typescript
+return {
+  content: [
+    {
+      type: 'text' as const,
+      text: JSON.stringify(result, null, 2),
+    },
+  ],
+};
+```
+
+## Error Responses
+
+Return errors in the result object (NOT as thrown exceptions):
+
+```typescript
+if (!isConfigured()) {
+  return {
+    content: [
+      {
+        type: 'text' as const,
+        text: JSON.stringify(
+          {
+            error: 'Service not configured',
+            message: 'Set REQUIRED_VAR to enable this feature.',
+          },
+          null,
+          2
+        ),
+      },
+    ],
+  };
+}
+```
+
+## Zod Schema Guidelines
+
+- Use `.describe()` on all parameters (shown to LLM)
+- Set sensible `.default()` values
+- Use `.min()` and `.max()` for validation
+- Use `.enum()` for fixed options
+
+```typescript
+{
+  query: z.string().min(1).max(10000).describe('Search query'),
+  limit: z.number().min(1).max(50).default(10).describe('Max results'),
+  type: z.enum(['note', 'file', 'url']).optional().describe('Filter by type'),
+}
+```
+
+## Logging
+
+Always log tool calls for debugging:
+
+```typescript
+logger.info('tool_name called', { param1, param2 });
+// ... implementation
+logger.debug('Registered tool: tool_name');
+```

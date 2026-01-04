@@ -1,0 +1,103 @@
+---
+description: Documentation and markdown standards for Textrawl
+globs: ["**/*.md", "**/*.mdx", "docs/**/*"]
+---
+
+# Documentation Standards
+
+## File Structure
+
+```
+docs/
+├── README.md          # Main overview (in docs/, not root)
+├── CLI.md             # CLI tool documentation
+├── SECURITY.md        # Security and RLS guide
+├── DESKTOP.md         # Desktop app documentation
+└── DOCS-PLAYGROUND-FRAMEWORK.md  # Framework spec
+```
+
+Root-level files:
+- `CLAUDE.md` - AI coding assistant instructions
+- `AGENTS.md` - Agent conventions and tool guide
+- `CONTRIBUTING.md` - Contribution guidelines
+- `llms.txt` - AI sitemap
+
+## Markdown Conventions
+
+### Headings
+
+Use ATX-style headings with blank lines:
+
+```markdown
+# Title
+
+## Section
+
+### Subsection
+```
+
+### Code Blocks
+
+Always specify language for syntax highlighting:
+
+```markdown
+```typescript
+const example = 'code';
+```
+```
+
+### Tables
+
+Use consistent alignment:
+
+```markdown
+| Column 1 | Column 2 |
+|----------|----------|
+| Value 1  | Value 2  |
+```
+
+### Links
+
+Use reference-style for repeated links:
+
+```markdown
+See the [CLI documentation][cli] for details.
+
+[cli]: docs/CLI.md
+```
+
+## RFC 2119 Language
+
+Use precise language for requirements in tool documentation:
+
+- **MUST** / **REQUIRED**: Absolute requirement
+- **SHOULD** / **RECOMMENDED**: Strong recommendation
+- **MAY** / **OPTIONAL**: Truly optional
+
+Example:
+> The `query` parameter MUST be provided. The `tags` parameter MAY be omitted.
+
+## Tool Documentation Template
+
+```markdown
+### tool_name
+
+Brief description of what the tool does.
+
+**Parameters:**
+
+- `param` (type, REQUIRED): Description
+- `optionalParam` (type, OPTIONAL): Description, default: value
+
+**Response:**
+
+```json
+{ "example": "response" }
+```
+
+**Errors:**
+
+| Error | Cause | Fix |
+|-------|-------|-----|
+| Error name | Why it happens | How to fix |
+```

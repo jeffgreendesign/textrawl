@@ -1,0 +1,82 @@
+---
+description: Database, embeddings, and chunking patterns for Textrawl
+globs: ["src/db/**/*.ts", "src/services/**/*.ts"]
+---
+
+# Database & Embeddings
+
+## Supabase Client
+
+Use the configured client from `src/db/client.js`:
+
+```typescript
+import { supabase, isSupabaseConfigured } from '../db/client.js';
+
+if (!isSupabaseConfigured()) {
+  // Handle gracefully
+}
+```
+
+## Embedding Providers
+
+Two providers supported (NOT interchangeable):
+
+| Provider | Model | Dimensions |
+|----------|-------|------------|
+| OpenAI | text-embedding-3-small | 1536 |
+| Ollama | nomic-embed-text | 1024 |
+
+Check configuration before use:
+
+```typescript
+import { isOpenAIConfigured, generateEmbedding } from '../services/embeddings.js';
+
+if (!isOpenAIConfigured()) {
+  // Return error to user
+}
+
+const embedding = await generateEmbedding(text);
+```
+
+## Text Chunking
+
+Use the chunker service for consistent chunking:
+
+```typescript
+import { chunkText } from '../services/chunker.js';
+
+const chunks = chunkText(content);
+// Returns: { content, index, startOffset, endOffset, tokenCount }[]
+```
+
+Chunking parameters:
+- Max chunk size: 512 tokens (~2048 chars)
+- Overlap: 50 tokens
+- Strategy: Paragraph-aware (splits on `\n\n`)
+
+## Hybrid Search
+
+Use `hybridSearch()` for combined FTS + semantic search:
+
+```typescript
+import { hybridSearch } from '../db/search.js';
+
+const results = await hybridSearch({
+  queryText: query,
+  queryEmbedding: embedding,
+  limit: 10,
+  fullTextWeight: 1.0,
+  semanticWeight: 1.0,
+});
+```
+
+Returns results ranked by Reciprocal Rank Fusion (RRF).
+
+## Database Schema
+
+Key tables:
+- `documents`: Full documents with `tsvector` for FTS
+- `chunks`: Document chunks with `vector[1536]` embeddings (HNSW index)
+
+RPC functions:
+- `hybrid_search()`: Performs RRF fusion of FTS + vector results
