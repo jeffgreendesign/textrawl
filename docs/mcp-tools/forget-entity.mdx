@@ -23,6 +23,20 @@ Permanently delete an entity and all its associated observations and relations.
 
 ## Response
 
+### Compact Mode (Default)
+
+When `COMPACT_RESPONSES=true` (default), responses use short keys to reduce token usage by 40-60%:
+
+```json
+{"ok":true,"id":"550e8400"}
+```
+
+**Key mapping:** `ok`=success, `id`=deletedEntityId
+
+### Verbose Mode
+
+When `COMPACT_RESPONSES=false`:
+
 ```json
 {
   "success": true,
@@ -35,6 +49,14 @@ Permanently delete an entity and all its associated observations and relations.
 
 If `confirm` is not `true`:
 
+### Compact Mode
+
+```json
+{"ok":false,"err":"confirm"}
+```
+
+### Verbose Mode
+
 ```json
 {
   "success": false,
@@ -44,6 +66,14 @@ If `confirm` is not `true`:
 ```
 
 ## Entity Not Found
+
+### Compact Mode
+
+```json
+{"ok":false,"err":"not_found"}
+```
+
+### Verbose Mode
 
 ```json
 {

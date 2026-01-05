@@ -34,6 +34,20 @@ Search stored memories using hybrid (keyword + semantic) or semantic-only search
 
 ## Response
 
+### Compact Mode (Default)
+
+When `COMPACT_RESPONSES=true` (default), responses use short keys to reduce token usage by 40-60%:
+
+```json
+{"n":3,"e":[{"n":"Jeff","t":"person","m":[{"c":"prefers TypeScript over JavaScript","s":0.92},{"c":"uses VS Code as primary editor","s":0.85}]},{"n":"Development Setup","t":"preference","m":[{"c":"dark mode enabled by default","s":0.78}]}]}
+```
+
+**Key mapping:** `n`=count/name, `e`=entities, `t`=type, `m`=memories, `c`=content, `s`=score
+
+### Verbose Mode
+
+When `COMPACT_RESPONSES=false`:
+
 ```json
 {
   "query": "user preferences for development tools",

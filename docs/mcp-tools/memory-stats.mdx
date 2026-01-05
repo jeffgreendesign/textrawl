@@ -17,6 +17,20 @@ This tool takes no parameters.
 
 ## Response
 
+### Compact Mode (Default)
+
+When `COMPACT_RESPONSES=true` (default), responses use short keys to reduce token usage by 40-60%:
+
+```json
+{"e":25,"o":150,"r":30,"by":{"person":10,"project":8,"concept":5,"organization":2}}
+```
+
+**Key mapping:** `e`=totalEntities, `o`=totalObservations, `r`=totalRelations, `by`=entitiesByType
+
+### Verbose Mode
+
+When `COMPACT_RESPONSES=false`:
+
 ```json
 {
   "totalEntities": 25,

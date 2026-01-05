@@ -40,6 +40,18 @@ Store atomic facts about entities (people, projects, concepts) with automatic se
 
 ## Response
 
+### Compact Mode (Default)
+
+When `COMPACT_RESPONSES=true` (default), responses use short keys to reduce token usage by 40-60%:
+
+```json
+{"ok":true,"entity":"550e8400","obs":"550e8401"}
+```
+
+### Verbose Mode
+
+When `COMPACT_RESPONSES=false`:
+
 ```json
 {
   "success": true,
@@ -53,15 +65,23 @@ Store atomic facts about entities (people, projects, concepts) with automatic se
 
 ## Duplicate Detection
 
-If you try to remember a fact that's already stored, the tool returns:
+If you try to remember a fact that's already stored:
+
+### Compact Mode
+
+```json
+{"ok":true,"dup":true,"entity":"550e8400","obs":"550e8401"}
+```
+
+### Verbose Mode
 
 ```json
 {
   "success": true,
   "duplicate": true,
   "message": "This fact was already remembered.",
-  "entityId": "...",
-  "observationId": "..."
+  "entityId": "550e8400-e29b-41d4-a716-446655440000",
+  "observationId": "550e8400-e29b-41d4-a716-446655440001"
 }
 ```
 

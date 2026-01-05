@@ -23,6 +23,20 @@ Get comprehensive context about an entity including all observations and relatio
 
 ## Response
 
+### Compact Mode (Default)
+
+When `COMPACT_RESPONSES=true` (default), responses use short keys to reduce token usage by 40-60%:
+
+```json
+{"ok":true,"n":"Jeff","t":"person","o":["prefers dark mode in IDEs","uses TypeScript for most projects"],"r":{"out":[{"rel":"works_at","to":"Acme Corp"},{"rel":"prefers","to":"TypeScript"}],"in":[{"rel":"manages","from":"Sarah"}]}}
+```
+
+**Key mapping:** `ok`=found, `n`=name, `t`=type, `o`=observations, `r`=relations, `rel`=relation_type
+
+### Verbose Mode
+
+When `COMPACT_RESPONSES=false`:
+
 ```json
 {
   "found": true,
@@ -76,6 +90,14 @@ Get comprehensive context about an entity including all observations and relatio
 ```
 
 ## Entity Not Found
+
+### Compact Mode
+
+```json
+{"ok":false}
+```
+
+### Verbose Mode
 
 ```json
 {

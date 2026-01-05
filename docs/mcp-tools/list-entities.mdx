@@ -25,6 +25,20 @@ List all entities stored in memory with optional filtering and pagination.
 
 ## Response
 
+### Compact Mode (Default)
+
+When `COMPACT_RESPONSES=true` (default), responses use short keys to reduce token usage by 40-60%:
+
+```json
+{"n":45,"e":[{"id":"550e8400","n":"Jeff","t":"person"},{"id":"550e8401","n":"Acme Corp","t":"organization"}]}
+```
+
+**Key mapping:** `n`=total count, `e`=entities, `t`=type
+
+### Verbose Mode
+
+When `COMPACT_RESPONSES=false`:
+
 ```json
 {
   "total": 45,
