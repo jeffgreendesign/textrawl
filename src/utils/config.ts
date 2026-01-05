@@ -41,6 +41,12 @@ const envSchema = z.object({
     .string()
     .default('true')
     .transform((val) => val.toLowerCase() === 'true'),
+
+  // Response format - compact saves 40-60% tokens but uses short keys
+  COMPACT_RESPONSES: z
+    .string()
+    .default('true')
+    .transform((val) => val.toLowerCase() === 'true'),
 });
 
 export type Config = z.infer<typeof envSchema>;

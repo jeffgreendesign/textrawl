@@ -11,6 +11,7 @@ Textrawl provides hybrid semantic + full-text search over documents via the Mode
 - Endpoint: POST /mcp
 - Authentication: Bearer token (API_BEARER_TOKEN)
 - Rate Limits: API 100/min, Upload 10/min
+- Response Format: Compact by default (COMPACT_RESPONSES=true, 40-60% fewer tokens)
 
 ## Tools
 

@@ -1,6 +1,7 @@
 import { McpServer } from '@modelcontextprotocol/sdk/server/mcp.js';
 import { z } from 'zod';
 import { logger } from '../utils/logger.js';
+import { config } from '../utils/config.js';
 import { isSupabaseConfigured } from '../db/client.js';
 import {
   getOrCreateEntity,
@@ -38,19 +39,24 @@ const EntityTypeSchema = z.enum([
 ]);
 
 /**
- * Compact JSON serialization - no pretty-printing to save tokens
- * Research shows pretty-printing adds ~30% token overhead
+ * Check if compact response mode is enabled
+ * Compact mode saves 40-60% tokens by using short keys and no pretty-printing
+ * Set COMPACT_RESPONSES=false for human-readable verbose responses
+ */
+const isCompact = () => config.COMPACT_RESPONSES;
+
+/**
+ * JSON serialization - compact (no whitespace) or pretty-printed
  */
 function toJSON(obj: unknown): string {
-  return JSON.stringify(obj);
+  return isCompact() ? JSON.stringify(obj) : JSON.stringify(obj, null, 2);
 }
 
 /**
- * Truncate UUID to first 8 chars for display (still unique enough)
- * Full UUIDs waste 28 chars per ID
+ * Format UUID - truncated (8 chars) in compact mode, full in verbose mode
  */
-function shortId(uuid: string): string {
-  return uuid.slice(0, 8);
+function formatId(uuid: string): string {
+  return isCompact() ? uuid.slice(0, 8) : uuid;
 }
 
 /**
@@ -145,11 +151,17 @@ export function registerMemoryTools(server: McpServer): void {
             content: [
               {
                 type: 'text' as const,
-                text: toJSON({
-                  ok: true,
-                  dup: true,
-                  id: shortId(existing.id),
-                }),
+                text: toJSON(
+                  isCompact()
+                    ? { ok: true, dup: true, id: formatId(existing.id) }
+                    : {
+                        success: true,
+                        duplicate: true,
+                        message: 'This fact was already remembered.',
+                        entityId: formatId(entity.id),
+                        observationId: formatId(existing.id),
+                      }
+                ),
               },
             ],
           };
@@ -178,16 +190,22 @@ export function registerMemoryTools(server: McpServer): void {
           observationId: obs.id,
         });
 
-        // Compact response - don't echo back the observation (caller already has it)
         return {
           content: [
             {
               type: 'text' as const,
-              text: toJSON({
-                ok: true,
-                entity: shortId(entity.id),
-                obs: shortId(obs.id),
-              }),
+              text: toJSON(
+                isCompact()
+                  ? { ok: true, entity: formatId(entity.id), obs: formatId(obs.id) }
+                  : {
+                      success: true,
+                      message: `Remembered: "${observation}" about ${entityName}`,
+                      entityId: formatId(entity.id),
+                      entityName: entity.name,
+                      entityType: entity.entity_type,
+                      observationId: formatId(obs.id),
+                    }
+              ),
             },
           ],
         };
@@ -296,32 +314,26 @@ export function registerMemoryTools(server: McpServer): void {
               });
         const searchLatencyMs = Date.now() - searchStart;
 
-        // Group results by entity - compact format
-        const groupedByEntity = new Map<
-          string,
-          {
-            n: string; // name (short key)
-            t: string; // type (short key)
-            m: Array<{
-              c: string; // content
-              s: number; // score (rounded)
-            }>;
-          }
-        >();
+        // Group results by entity
+        const groupedByEntity = new Map<string, {
+          entityName: string;
+          entityType: string;
+          memories: Array<{ content: string; source: string; score: number }>;
+        }>();
 
         for (const result of results) {
           const key = result.entity_id;
           if (!groupedByEntity.has(key)) {
             groupedByEntity.set(key, {
-              n: result.entity_name,
-              t: result.entity_type,
-              m: [],
+              entityName: result.entity_name,
+              entityType: result.entity_type,
+              memories: [],
             });
           }
-          // Only include content and score (source/confidence rarely used)
-          groupedByEntity.get(key)!.m.push({
-            c: result.observation_content,
-            s: Math.round(result.score * 100) / 100, // 2 decimal places
+          groupedByEntity.get(key)!.memories.push({
+            content: result.observation_content,
+            source: result.source,
+            score: Math.round(result.score * 100) / 100,
           });
         }
 
@@ -333,15 +345,27 @@ export function registerMemoryTools(server: McpServer): void {
           searchLatencyMs,
         });
 
-        // Compact response - don't echo query back (caller has it)
+        // Format based on compact mode
+        const response = isCompact()
+          ? {
+              n: results.length,
+              e: groupedResults.map((g) => ({
+                n: g.entityName,
+                t: g.entityType,
+                m: g.memories.map((m) => ({ c: m.content, s: m.score })),
+              })),
+            }
+          : {
+              query,
+              totalMemories: results.length,
+              entities: groupedResults,
+            };
+
         return {
           content: [
             {
               type: 'text' as const,
-              text: toJSON({
-                n: results.length, // count
-                e: groupedResults, // entities
-              }),
+              text: toJSON(response),
             },
           ],
         };
@@ -453,15 +477,21 @@ export function registerMemoryTools(server: McpServer): void {
           type: relation,
         });
 
-        // Compact response - caller knows the entity names
         return {
           content: [
             {
               type: 'text' as const,
-              text: toJSON({
-                ok: true,
-                id: shortId(rel.id),
-              }),
+              text: toJSON(
+                isCompact()
+                  ? { ok: true, id: formatId(rel.id) }
+                  : {
+                      success: true,
+                      message: `Created relation: ${fromEntity} ${relation} ${toEntity}`,
+                      relationId: formatId(rel.id),
+                      fromEntity: { id: formatId(fromEntityObj.id), name: fromEntityObj.name, type: fromEntityObj.entity_type },
+                      toEntity: { id: formatId(toEntityObj.id), name: toEntityObj.name, type: toEntityObj.entity_type },
+                    }
+              ),
             },
           ],
         };
@@ -532,7 +562,11 @@ export function registerMemoryTools(server: McpServer): void {
             content: [
               {
                 type: 'text' as const,
-                text: toJSON({ found: false }),
+                text: toJSON(
+                  isCompact()
+                    ? { found: false }
+                    : { found: false, message: `No entity found with name: ${entityName}` }
+                ),
               },
             ],
           };
@@ -543,23 +577,44 @@ export function registerMemoryTools(server: McpServer): void {
           observationCount: context.observations.length,
         });
 
-        // Compact observations - only content, limit count
-        const compactObs = context.observations.slice(0, maxObs).map((o) => o.content);
+        const limitedObs = context.observations.slice(0, maxObs);
+        const hasMore = context.observations.length > maxObs;
 
-        // Compact relations - just type and target name
-        const outRels = context.outgoing_relations.map((r) => `${r.relation_type}→${r.to_entity}`);
-        const inRels = context.incoming_relations.map((r) => `${r.from_entity}→${r.relation_type}`);
+        // Format based on compact mode
+        const response = isCompact()
+          ? {
+              t: context.entity_type,
+              o: limitedObs.map((o) => o.content),
+              r: context.outgoing_relations.length > 0 || context.incoming_relations.length > 0
+                ? {
+                    out: context.outgoing_relations.map((r) => `${r.relation_type}→${r.to_entity}`),
+                    in: context.incoming_relations.map((r) => `${r.from_entity}→${r.relation_type}`),
+                  }
+                : undefined,
+              more: hasMore ? context.observations.length - maxObs : undefined,
+            }
+          : {
+              found: true,
+              entity: {
+                id: formatId(context.entity_id),
+                name: context.entity_name,
+                type: context.entity_type,
+                description: context.entity_description,
+              },
+              observations: limitedObs,
+              relations: {
+                outgoing: context.outgoing_relations,
+                incoming: context.incoming_relations,
+              },
+              hasMore,
+              totalObservations: context.observations.length,
+            };
 
         return {
           content: [
             {
               type: 'text' as const,
-              text: toJSON({
-                t: context.entity_type, // type
-                o: compactObs, // observations (array of strings)
-                r: outRels.length > 0 || inRels.length > 0 ? { out: outRels, in: inRels } : undefined,
-                more: context.observations.length > maxObs ? context.observations.length - maxObs : undefined,
-              }),
+              text: toJSON(response),
             },
           ],
         };
@@ -630,15 +685,29 @@ export function registerMemoryTools(server: McpServer): void {
           offset,
         });
 
-        // Compact format - just name:type pairs
+        const response = isCompact()
+          ? {
+              n: total,
+              e: entities.map((e) => ({ n: e.name, t: e.entity_type })),
+            }
+          : {
+              total,
+              returned: entities.length,
+              offset,
+              entities: entities.map((e) => ({
+                id: formatId(e.id),
+                name: e.name,
+                type: e.entity_type,
+                description: e.description,
+                updatedAt: e.updated_at,
+              })),
+            };
+
         return {
           content: [
             {
               type: 'text' as const,
-              text: toJSON({
-                n: total, // total count
-                e: entities.map((e) => ({ n: e.name, t: e.entity_type })),
-              }),
+              text: toJSON(response),
             },
           ],
         };
@@ -726,7 +795,15 @@ export function registerMemoryTools(server: McpServer): void {
           content: [
             {
               type: 'text' as const,
-              text: toJSON({ ok: true }),
+              text: toJSON(
+                isCompact()
+                  ? { ok: true }
+                  : {
+                      success: true,
+                      message: `Forgotten: ${entityName} and all associated memories`,
+                      deletedEntityId: formatId(entity.id),
+                    }
+              ),
             },
           ],
         };
@@ -772,17 +849,25 @@ export function registerMemoryTools(server: McpServer): void {
     try {
       const stats = await getMemoryStats();
 
-      // Compact keys
+      const response = isCompact()
+        ? {
+            ent: stats.totalEntities,
+            obs: stats.totalObservations,
+            rel: stats.totalRelations,
+            byType: stats.entityTypeCounts,
+          }
+        : {
+            totalEntities: stats.totalEntities,
+            totalObservations: stats.totalObservations,
+            totalRelations: stats.totalRelations,
+            entitiesByType: stats.entityTypeCounts,
+          };
+
       return {
         content: [
           {
             type: 'text' as const,
-            text: toJSON({
-              ent: stats.totalEntities,
-              obs: stats.totalObservations,
-              rel: stats.totalRelations,
-              byType: stats.entityTypeCounts,
-            }),
+            text: toJSON(response),
           },
         ],
       };

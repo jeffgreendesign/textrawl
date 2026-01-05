@@ -38,6 +38,8 @@ Copy `.env.example` to `.env` and configure:
 - `OLLAMA_BASE_URL` / `OLLAMA_MODEL` - Required if using Ollama (nomic-embed-text, 1024 dimensions)
 - `API_BEARER_TOKEN` - Optional auth token (min 32 chars)
 - `UI_PORT` - Web UI port (default: 3001)
+- `ENABLE_MEMORY` - Enable/disable memory tools (default: true)
+- `COMPACT_RESPONSES` - Token-efficient response format (default: true)
 
 Database schema must be initialized via `scripts/setup-db.sql` (OpenAI) or `scripts/setup-db-ollama.sql` (Ollama) in Supabase SQL Editor. For persistent memory features, also run the matching memory schema:
 - OpenAI: `scripts/setup-db-memory.sql` (1536 dimensions)
@@ -108,6 +110,29 @@ Row Level Security (RLS) is enabled with defense-in-depth policies:
 - App uses service role key which bypasses RLS (intentional for single-tenant design)
 
 Run `scripts/security-rls.sql` after schema setup. See `docs/SECURITY.md` for details.
+
+### Compact Response Format
+
+Memory tools use a token-efficient response format by default (`COMPACT_RESPONSES=true`). This reduces LLM context usage by 40-60% through:
+
+- **No pretty-printing** - JSON without whitespace (~30% savings)
+- **Short keys** - `n`, `t`, `o`, `m` instead of `name`, `type`, `observations`, `memories`
+- **Truncated UUIDs** - First 8 chars only (still unique enough for display)
+- **Minimal data** - Only essential fields returned
+
+**Compact vs Verbose Examples:**
+
+| Tool | Compact | Verbose |
+|------|---------|---------|
+| `remember_fact` | `{"ok":true,"entity":"a1b2c3d4","obs":"e5f6g7h8"}` | `{"success":true,"message":"Remembered...","entityId":"a1b2c3d4-..."}` |
+| `recall_memories` | `{"n":3,"e":[{"n":"Jeff","t":"person","m":[{"c":"prefers dark mode","s":0.92}]}]}` | `{"query":"...","totalMemories":3,"entities":[...]}` |
+
+**Key mappings:**
+- `n` = name/count, `t` = type, `o` = observations, `m` = memories
+- `c` = content, `s` = score, `r` = relations
+- `ok` = success, `dup` = duplicate, `ent`/`obs`/`rel` = entity/observation/relation counts
+
+Set `COMPACT_RESPONSES=false` for human-readable debugging or when readability is preferred over token efficiency.
 
 ## Critical Conventions
 

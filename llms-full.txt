@@ -23,6 +23,25 @@ npm run inspector  # Test at http://localhost:5173
 - Endpoint: POST /mcp
 - Authentication: Bearer token (API_BEARER_TOKEN)
 - Rate Limits: API 100/min, Upload 10/min
+- Response Format: Compact by default (COMPACT_RESPONSES=true)
+
+### Compact Response Format
+
+Memory tools return token-efficient responses by default, reducing context usage by 40-60%. Set `COMPACT_RESPONSES=false` for verbose human-readable responses.
+
+**Key mappings (compact → verbose):**
+| Compact | Verbose | Used In |
+|---------|---------|---------|
+| `n` | `name` or `count` | All tools (context-dependent) |
+| `t` | `type` | Entity type |
+| `o` | `observations` | get_entity_context |
+| `m` | `memories` | recall_memories |
+| `c` | `content` | Memory content |
+| `s` | `score` | Search relevance |
+| `r` | `relations` | Entity relations |
+| `ok` | `success` | Operation status |
+| `dup` | `duplicate` | Dedupe detection |
+| `ent`/`obs`/`rel` | `totalEntities`/etc. | memory_stats |
 
 ### Claude Desktop Configuration
 

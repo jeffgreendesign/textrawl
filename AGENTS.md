@@ -11,6 +11,45 @@ Agent conventions for Textrawl - Personal Knowledge MCP Server.
 | Auth | Bearer token (`Authorization: Bearer <API_BEARER_TOKEN>`) |
 | Rate Limits | API: 100/min, Upload: 10/min |
 | Node.js | >= 22.0.0 |
+| Response Format | Compact by default (`COMPACT_RESPONSES=true`) |
+
+## Compact Response Format
+
+Memory tools return token-efficient responses by default (40-60% smaller). Set `COMPACT_RESPONSES=false` for verbose mode.
+
+**Key mappings (compact → verbose):**
+- `n` → `name` or `count` (context-dependent)
+- `t` → `type`
+- `o` → `observations`
+- `m` → `memories`
+- `c` → `content`
+- `s` → `score`
+- `r` → `relations`
+- `ok` → `success`
+- `dup` → `duplicate`
+- `ent`/`obs`/`rel` → `totalEntities`/`totalObservations`/`totalRelations`
+
+**Example (`recall_memories` compact response):**
+```json
+{"n":2,"e":[{"n":"Jeff","t":"person","m":[{"c":"prefers dark mode","s":0.92}]}]}
+```
+
+**Same response in verbose mode:**
+```json
+{
+  "query": "preferences",
+  "totalMemories": 2,
+  "entities": [
+    {
+      "entityName": "Jeff",
+      "entityType": "person",
+      "memories": [
+        {"content": "prefers dark mode", "source": "conversation", "score": 0.92}
+      ]
+    }
+  ]
+}
+```
 
 ## Tool Selection Guide
 

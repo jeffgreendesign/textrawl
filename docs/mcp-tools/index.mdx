@@ -163,14 +163,47 @@ Get statistics about stored memories.
 
 ## Response Format
 
-All tools return JSON-formatted responses:
+All tools return JSON-formatted responses. Memory tools support two response modes controlled by `COMPACT_RESPONSES` environment variable.
+
+### Compact Mode (Default)
+
+`COMPACT_RESPONSES=true` - Reduces token usage by 40-60% using short keys and no whitespace.
+
+**Key mappings:**
+
+| Compact | Verbose | Description |
+|---------|---------|-------------|
+| `n` | `name` / `count` | Entity name or result count |
+| `t` | `type` | Entity type |
+| `o` | `observations` | List of observations |
+| `m` | `memories` | List of memories |
+| `c` | `content` | Memory content |
+| `s` | `score` | Relevance score |
+| `r` | `relations` | Entity relations |
+| `ok` | `success` | Operation status |
+| `dup` | `duplicate` | Dedupe detection |
+
+**Example (`recall_memories`):**
+
+```json
+{"n":2,"e":[{"n":"Jeff","t":"person","m":[{"c":"prefers dark mode","s":0.92}]}]}
+```
+
+### Verbose Mode
+
+`COMPACT_RESPONSES=false` - Human-readable responses with full key names and formatting.
 
 ```json
 {
-  "content": [
+  "query": "preferences",
+  "totalMemories": 2,
+  "entities": [
     {
-      "type": "text",
-      "text": "{ ... JSON result ... }"
+      "entityName": "Jeff",
+      "entityType": "person",
+      "memories": [
+        {"content": "prefers dark mode", "source": "conversation", "score": 0.92}
+      ]
     }
   ]
 }
