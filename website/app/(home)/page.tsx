@@ -1,6 +1,5 @@
 import type { ReactNode } from 'react';
 import Link from 'next/link';
-import { OSSBadge } from '@/components/oss-badge';
 import { MakerNote } from '@/components/maker-note';
 import { Hero } from '@/components/landing/hero';
 import { Features } from '@/components/landing/features';
