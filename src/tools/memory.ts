@@ -38,6 +38,22 @@ const EntityTypeSchema = z.enum([
 ]);
 
 /**
+ * Compact JSON serialization - no pretty-printing to save tokens
+ * Research shows pretty-printing adds ~30% token overhead
+ */
+function toJSON(obj: unknown): string {
+  return JSON.stringify(obj);
+}
+
+/**
+ * Truncate UUID to first 8 chars for display (still unique enough)
+ * Full UUIDs waste 28 chars per ID
+ */
+function shortId(uuid: string): string {
+  return uuid.slice(0, 8);
+}
+
+/**
  * Register all memory-related MCP tools
  */
 export function registerMemoryTools(server: McpServer): void {
@@ -88,15 +104,10 @@ export function registerMemoryTools(server: McpServer): void {
           content: [
             {
               type: 'text' as const,
-              text: JSON.stringify(
-                {
-                  error: 'Database not configured',
-                  message:
-                    'Set SUPABASE_URL and SUPABASE_SERVICE_KEY to enable memory storage.',
-                },
-                null,
-                2
-              ),
+              text: toJSON({
+                error: 'Database not configured',
+                message: 'Set SUPABASE_URL and SUPABASE_SERVICE_KEY',
+              }),
             },
           ],
         };
@@ -107,15 +118,10 @@ export function registerMemoryTools(server: McpServer): void {
           content: [
             {
               type: 'text' as const,
-              text: JSON.stringify(
-                {
-                  error: 'Embedding service not configured',
-                  message:
-                    'Set OPENAI_API_KEY or configure Ollama for semantic memory search.',
-                },
-                null,
-                2
-              ),
+              text: toJSON({
+                error: 'Embedding not configured',
+                message: 'Set OPENAI_API_KEY or configure Ollama',
+              }),
             },
           ],
         };
@@ -139,18 +145,11 @@ export function registerMemoryTools(server: McpServer): void {
             content: [
               {
                 type: 'text' as const,
-                text: JSON.stringify(
-                  {
-                    success: true,
-                    duplicate: true,
-                    message: 'This fact was already remembered.',
-                    entityId: entity.id,
-                    entityName: entity.name,
-                    observationId: existing.id,
-                  },
-                  null,
-                  2
-                ),
+                text: toJSON({
+                  ok: true,
+                  dup: true,
+                  id: shortId(existing.id),
+                }),
               },
             ],
           };
@@ -179,22 +178,16 @@ export function registerMemoryTools(server: McpServer): void {
           observationId: obs.id,
         });
 
+        // Compact response - don't echo back the observation (caller already has it)
         return {
           content: [
             {
               type: 'text' as const,
-              text: JSON.stringify(
-                {
-                  success: true,
-                  message: `Remembered: "${observation}" about ${entityName}`,
-                  entityId: entity.id,
-                  entityName: entity.name,
-                  entityType: entity.entity_type,
-                  observationId: obs.id,
-                },
-                null,
-                2
-              ),
+              text: toJSON({
+                ok: true,
+                entity: shortId(entity.id),
+                obs: shortId(obs.id),
+              }),
             },
           ],
         };
@@ -207,16 +200,10 @@ export function registerMemoryTools(server: McpServer): void {
           content: [
             {
               type: 'text' as const,
-              text: JSON.stringify(
-                {
-                  success: false,
-                  error: 'Failed to remember fact',
-                  message:
-                    error instanceof Error ? error.message : 'Unknown error',
-                },
-                null,
-                2
-              ),
+              text: toJSON({
+                ok: false,
+                error: error instanceof Error ? error.message : 'Unknown error',
+              }),
             },
           ],
         };
@@ -268,14 +255,7 @@ export function registerMemoryTools(server: McpServer): void {
           content: [
             {
               type: 'text' as const,
-              text: JSON.stringify(
-                {
-                  error: 'Database not configured',
-                  message: 'Memory storage is not available.',
-                },
-                null,
-                2
-              ),
+              text: toJSON({ error: 'Database not configured' }),
             },
           ],
         };
@@ -286,14 +266,7 @@ export function registerMemoryTools(server: McpServer): void {
           content: [
             {
               type: 'text' as const,
-              text: JSON.stringify(
-                {
-                  error: 'Embedding service not configured',
-                  message: 'Semantic search requires embedding configuration.',
-                },
-                null,
-                2
-              ),
+              text: toJSON({ error: 'Embedding not configured' }),
             },
           ],
         };
@@ -323,17 +296,15 @@ export function registerMemoryTools(server: McpServer): void {
               });
         const searchLatencyMs = Date.now() - searchStart;
 
-        // Group results by entity for better readability
+        // Group results by entity - compact format
         const groupedByEntity = new Map<
           string,
           {
-            entityName: string;
-            entityType: string;
-            memories: Array<{
-              content: string;
-              source: string;
-              confidence: number;
-              score: number;
+            n: string; // name (short key)
+            t: string; // type (short key)
+            m: Array<{
+              c: string; // content
+              s: number; // score (rounded)
             }>;
           }
         >();
@@ -342,16 +313,15 @@ export function registerMemoryTools(server: McpServer): void {
           const key = result.entity_id;
           if (!groupedByEntity.has(key)) {
             groupedByEntity.set(key, {
-              entityName: result.entity_name,
-              entityType: result.entity_type,
-              memories: [],
+              n: result.entity_name,
+              t: result.entity_type,
+              m: [],
             });
           }
-          groupedByEntity.get(key)!.memories.push({
-            content: result.observation_content,
-            source: result.source,
-            confidence: result.confidence,
-            score: result.score,
+          // Only include content and score (source/confidence rarely used)
+          groupedByEntity.get(key)!.m.push({
+            c: result.observation_content,
+            s: Math.round(result.score * 100) / 100, // 2 decimal places
           });
         }
 
@@ -363,19 +333,15 @@ export function registerMemoryTools(server: McpServer): void {
           searchLatencyMs,
         });
 
+        // Compact response - don't echo query back (caller has it)
         return {
           content: [
             {
               type: 'text' as const,
-              text: JSON.stringify(
-                {
-                  query,
-                  totalMemories: results.length,
-                  entities: groupedResults,
-                },
-                null,
-                2
-              ),
+              text: toJSON({
+                n: results.length, // count
+                e: groupedResults, // entities
+              }),
             },
           ],
         };
@@ -388,16 +354,10 @@ export function registerMemoryTools(server: McpServer): void {
           content: [
             {
               type: 'text' as const,
-              text: JSON.stringify(
-                {
-                  success: false,
-                  error: 'Failed to recall memories',
-                  message:
-                    error instanceof Error ? error.message : 'Unknown error',
-                },
-                null,
-                2
-              ),
+              text: toJSON({
+                ok: false,
+                error: error instanceof Error ? error.message : 'Unknown error',
+              }),
             },
           ],
         };
@@ -455,14 +415,7 @@ export function registerMemoryTools(server: McpServer): void {
           content: [
             {
               type: 'text' as const,
-              text: JSON.stringify(
-                {
-                  error: 'Database not configured',
-                  message: 'Memory storage is not available.',
-                },
-                null,
-                2
-              ),
+              text: toJSON({ error: 'Database not configured' }),
             },
           ],
         };
@@ -500,29 +453,15 @@ export function registerMemoryTools(server: McpServer): void {
           type: relation,
         });
 
+        // Compact response - caller knows the entity names
         return {
           content: [
             {
               type: 'text' as const,
-              text: JSON.stringify(
-                {
-                  success: true,
-                  message: `Created relation: ${fromEntity} ${relation} ${toEntity}`,
-                  relationId: rel.id,
-                  fromEntity: {
-                    id: fromEntityObj.id,
-                    name: fromEntityObj.name,
-                    type: fromEntityObj.entity_type,
-                  },
-                  toEntity: {
-                    id: toEntityObj.id,
-                    name: toEntityObj.name,
-                    type: toEntityObj.entity_type,
-                  },
-                },
-                null,
-                2
-              ),
+              text: toJSON({
+                ok: true,
+                id: shortId(rel.id),
+              }),
             },
           ],
         };
@@ -535,16 +474,10 @@ export function registerMemoryTools(server: McpServer): void {
           content: [
             {
               type: 'text' as const,
-              text: JSON.stringify(
-                {
-                  success: false,
-                  error: 'Failed to create relation',
-                  message:
-                    error instanceof Error ? error.message : 'Unknown error',
-                },
-                null,
-                2
-              ),
+              text: toJSON({
+                ok: false,
+                error: error instanceof Error ? error.message : 'Unknown error',
+              }),
             },
           ],
         };
@@ -569,8 +502,15 @@ export function registerMemoryTools(server: McpServer): void {
         .boolean()
         .default(true)
         .describe('Include related entities and their relations'),
+      maxObs: z
+        .number()
+        .int()
+        .min(1)
+        .max(100)
+        .default(20)
+        .describe('Max observations to return (default 20, for token efficiency)'),
     },
-    async ({ entityName, includeRelated }) => {
+    async ({ entityName, includeRelated, maxObs }) => {
       logger.info('get_entity_context called', { entityName, includeRelated });
 
       if (!isSupabaseConfigured()) {
@@ -578,14 +518,7 @@ export function registerMemoryTools(server: McpServer): void {
           content: [
             {
               type: 'text' as const,
-              text: JSON.stringify(
-                {
-                  error: 'Database not configured',
-                  message: 'Memory storage is not available.',
-                },
-                null,
-                2
-              ),
+              text: toJSON({ error: 'Database not configured' }),
             },
           ],
         };
@@ -599,14 +532,7 @@ export function registerMemoryTools(server: McpServer): void {
             content: [
               {
                 type: 'text' as const,
-                text: JSON.stringify(
-                  {
-                    found: false,
-                    message: `No entity found with name: ${entityName}`,
-                  },
-                  null,
-                  2
-                ),
+                text: toJSON({ found: false }),
               },
             ],
           };
@@ -617,28 +543,23 @@ export function registerMemoryTools(server: McpServer): void {
           observationCount: context.observations.length,
         });
 
+        // Compact observations - only content, limit count
+        const compactObs = context.observations.slice(0, maxObs).map((o) => o.content);
+
+        // Compact relations - just type and target name
+        const outRels = context.outgoing_relations.map((r) => `${r.relation_type}→${r.to_entity}`);
+        const inRels = context.incoming_relations.map((r) => `${r.from_entity}→${r.relation_type}`);
+
         return {
           content: [
             {
               type: 'text' as const,
-              text: JSON.stringify(
-                {
-                  found: true,
-                  entity: {
-                    id: context.entity_id,
-                    name: context.entity_name,
-                    type: context.entity_type,
-                    description: context.entity_description,
-                  },
-                  observations: context.observations,
-                  relations: {
-                    outgoing: context.outgoing_relations,
-                    incoming: context.incoming_relations,
-                  },
-                },
-                null,
-                2
-              ),
+              text: toJSON({
+                t: context.entity_type, // type
+                o: compactObs, // observations (array of strings)
+                r: outRels.length > 0 || inRels.length > 0 ? { out: outRels, in: inRels } : undefined,
+                more: context.observations.length > maxObs ? context.observations.length - maxObs : undefined,
+              }),
             },
           ],
         };
@@ -651,16 +572,10 @@ export function registerMemoryTools(server: McpServer): void {
           content: [
             {
               type: 'text' as const,
-              text: JSON.stringify(
-                {
-                  success: false,
-                  error: 'Failed to get entity context',
-                  message:
-                    error instanceof Error ? error.message : 'Unknown error',
-                },
-                null,
-                2
-              ),
+              text: toJSON({
+                ok: false,
+                error: error instanceof Error ? error.message : 'Unknown error',
+              }),
             },
           ],
         };
@@ -702,14 +617,7 @@ export function registerMemoryTools(server: McpServer): void {
           content: [
             {
               type: 'text' as const,
-              text: JSON.stringify(
-                {
-                  error: 'Database not configured',
-                  message: 'Memory storage is not available.',
-                },
-                null,
-                2
-              ),
+              text: toJSON({ error: 'Database not configured' }),
             },
           ],
         };
@@ -722,26 +630,15 @@ export function registerMemoryTools(server: McpServer): void {
           offset,
         });
 
+        // Compact format - just name:type pairs
         return {
           content: [
             {
               type: 'text' as const,
-              text: JSON.stringify(
-                {
-                  total,
-                  returned: entities.length,
-                  offset,
-                  entities: entities.map((e) => ({
-                    id: e.id,
-                    name: e.name,
-                    type: e.entity_type,
-                    description: e.description,
-                    updatedAt: e.updated_at,
-                  })),
-                },
-                null,
-                2
-              ),
+              text: toJSON({
+                n: total, // total count
+                e: entities.map((e) => ({ n: e.name, t: e.entity_type })),
+              }),
             },
           ],
         };
@@ -754,16 +651,10 @@ export function registerMemoryTools(server: McpServer): void {
           content: [
             {
               type: 'text' as const,
-              text: JSON.stringify(
-                {
-                  success: false,
-                  error: 'Failed to list entities',
-                  message:
-                    error instanceof Error ? error.message : 'Unknown error',
-                },
-                null,
-                2
-              ),
+              text: toJSON({
+                ok: false,
+                error: error instanceof Error ? error.message : 'Unknown error',
+              }),
             },
           ],
         };
@@ -786,9 +677,7 @@ export function registerMemoryTools(server: McpServer): void {
         .describe('Name of the entity to forget'),
       confirm: z
         .boolean()
-        .describe(
-          'Must be true to confirm deletion. This will delete all observations and relations.'
-        ),
+        .describe('Must be true to confirm deletion'),
     },
     async ({ entityName, confirm }) => {
       logger.info('forget_entity called', { entityName, confirm });
@@ -798,16 +687,7 @@ export function registerMemoryTools(server: McpServer): void {
           content: [
             {
               type: 'text' as const,
-              text: JSON.stringify(
-                {
-                  success: false,
-                  error: 'Confirmation required',
-                  message:
-                    'Set confirm=true to delete this entity and all its memories.',
-                },
-                null,
-                2
-              ),
+              text: toJSON({ error: 'Set confirm=true to delete' }),
             },
           ],
         };
@@ -818,14 +698,7 @@ export function registerMemoryTools(server: McpServer): void {
           content: [
             {
               type: 'text' as const,
-              text: JSON.stringify(
-                {
-                  error: 'Database not configured',
-                  message: 'Memory storage is not available.',
-                },
-                null,
-                2
-              ),
+              text: toJSON({ error: 'Database not configured' }),
             },
           ],
         };
@@ -839,15 +712,7 @@ export function registerMemoryTools(server: McpServer): void {
             content: [
               {
                 type: 'text' as const,
-                text: JSON.stringify(
-                  {
-                    success: false,
-                    error: 'Entity not found',
-                    message: `No entity found with name: ${entityName}`,
-                  },
-                  null,
-                  2
-                ),
+                text: toJSON({ ok: false, error: 'Entity not found' }),
               },
             ],
           };
@@ -861,15 +726,7 @@ export function registerMemoryTools(server: McpServer): void {
           content: [
             {
               type: 'text' as const,
-              text: JSON.stringify(
-                {
-                  success: true,
-                  message: `Forgotten: ${entityName} and all associated memories`,
-                  deletedEntityId: entity.id,
-                },
-                null,
-                2
-              ),
+              text: toJSON({ ok: true }),
             },
           ],
         };
@@ -882,16 +739,10 @@ export function registerMemoryTools(server: McpServer): void {
           content: [
             {
               type: 'text' as const,
-              text: JSON.stringify(
-                {
-                  success: false,
-                  error: 'Failed to forget entity',
-                  message:
-                    error instanceof Error ? error.message : 'Unknown error',
-                },
-                null,
-                2
-              ),
+              text: toJSON({
+                ok: false,
+                error: error instanceof Error ? error.message : 'Unknown error',
+              }),
             },
           ],
         };
@@ -912,14 +763,7 @@ export function registerMemoryTools(server: McpServer): void {
         content: [
           {
             type: 'text' as const,
-            text: JSON.stringify(
-              {
-                error: 'Database not configured',
-                message: 'Memory storage is not available.',
-              },
-              null,
-              2
-            ),
+            text: toJSON({ error: 'Database not configured' }),
           },
         ],
       };
@@ -928,20 +772,17 @@ export function registerMemoryTools(server: McpServer): void {
     try {
       const stats = await getMemoryStats();
 
+      // Compact keys
       return {
         content: [
           {
             type: 'text' as const,
-            text: JSON.stringify(
-              {
-                totalEntities: stats.totalEntities,
-                totalObservations: stats.totalObservations,
-                totalRelations: stats.totalRelations,
-                entitiesByType: stats.entityTypeCounts,
-              },
-              null,
-              2
-            ),
+            text: toJSON({
+              ent: stats.totalEntities,
+              obs: stats.totalObservations,
+              rel: stats.totalRelations,
+              byType: stats.entityTypeCounts,
+            }),
           },
         ],
       };
@@ -954,16 +795,10 @@ export function registerMemoryTools(server: McpServer): void {
         content: [
           {
             type: 'text' as const,
-            text: JSON.stringify(
-              {
-                success: false,
-                error: 'Failed to get memory stats',
-                message:
-                  error instanceof Error ? error.message : 'Unknown error',
-              },
-              null,
-              2
-            ),
+            text: toJSON({
+              ok: false,
+              error: error instanceof Error ? error.message : 'Unknown error',
+            }),
           },
         ],
       };
