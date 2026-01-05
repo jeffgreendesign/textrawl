@@ -39,7 +39,7 @@ Copy `.env.example` to `.env` and configure:
 - `API_BEARER_TOKEN` - Optional auth token (min 32 chars)
 - `UI_PORT` - Web UI port (default: 3001)
 
-Database schema must be initialized via `scripts/setup-db.sql` (OpenAI) or `scripts/setup-db-ollama.sql` (Ollama) in Supabase SQL Editor.
+Database schema must be initialized via `scripts/setup-db.sql` (OpenAI) or `scripts/setup-db-ollama.sql` (Ollama) in Supabase SQL Editor. For persistent memory features, also run `scripts/setup-db-memory.sql`.
 
 **Important:** OpenAI and Ollama use different embedding dimensions. You cannot mix providers without re-embedding all documents.
 
@@ -59,10 +59,21 @@ Express Server
 **MCP Transport:** Uses stateless `StreamableHTTPServerTransport` (no session persistence) for Cloud Run/serverless compatibility. Each request creates a fresh server instance.
 
 ### MCP Tools
+
+**Document Tools:**
 - `search_knowledge` - Hybrid search with configurable FTS/semantic weights (RRF fusion)
 - `get_document` / `list_documents` - Document retrieval
 - `update_document` - Update document title and/or tags
 - `add_note` - Create markdown notes with automatic chunking and embedding
+
+**Memory Tools (Persistent Memory):**
+- `remember_fact` - Store facts about entities (people, concepts, projects, etc.)
+- `recall_memories` - Semantic search across stored memories
+- `relate_entities` - Create relationships between entities
+- `get_entity_context` - Get all memories and relations for an entity
+- `list_entities` - List all known entities
+- `forget_entity` - Delete an entity and all its memories
+- `memory_stats` - Get memory statistics
 
 ### Key Directories
 - `src/tools/` - MCP tool definitions with Zod schemas
@@ -81,6 +92,12 @@ PostgreSQL (Supabase) with:
 - `documents` table with full-text search (`tsvector`)
 - `chunks` table with vector embeddings (`vector[1536]`, HNSW index)
 - `hybrid_search()` RPC for Reciprocal Rank Fusion
+
+**Persistent Memory Tables (run `scripts/setup-db-memory.sql`):**
+- `memory_entities` - Named entities (people, concepts, projects, etc.)
+- `memory_observations` - Atomic facts about entities with embeddings
+- `memory_relations` - Directed relationships between entities
+- `memory_hybrid_search()` / `memory_semantic_search()` RPCs
 
 ### Database Security
 Row Level Security (RLS) is enabled with defense-in-depth policies:
