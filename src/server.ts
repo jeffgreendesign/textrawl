@@ -3,6 +3,7 @@ import { registerSearchTool } from './tools/search.js';
 import { registerDocumentTools } from './tools/document.js';
 import { registerNoteTool } from './tools/note.js';
 import { registerMemoryTools } from './tools/memory.js';
+import { config } from './utils/config.js';
 import { logger } from './utils/logger.js';
 
 /**
@@ -16,13 +17,24 @@ export function createMcpServer(): McpServer {
 
   logger.debug('Registering MCP tools');
 
-  // Register all tools
+  // Register core tools (always available)
   registerSearchTool(server);
   registerDocumentTools(server);
   registerNoteTool(server);
-  registerMemoryTools(server);
 
-  logger.info('MCP server created', { name: 'textrawl', version: '0.2.0' });
+  // Register memory tools (feature flagged)
+  if (config.ENABLE_MEMORY) {
+    registerMemoryTools(server);
+    logger.info('Memory tools enabled');
+  } else {
+    logger.info('Memory tools disabled (ENABLE_MEMORY=false)');
+  }
+
+  logger.info('MCP server created', {
+    name: 'textrawl',
+    version: '0.2.0',
+    memoryEnabled: config.ENABLE_MEMORY,
+  });
 
   return server;
 }

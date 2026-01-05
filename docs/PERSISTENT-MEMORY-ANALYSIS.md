@@ -503,12 +503,144 @@ npm run inspector
 
 ---
 
+## Feature Toggle (ENABLE_MEMORY)
+
+Memory can be completely disabled per developer/deployment:
+
+```bash
+# .env
+ENABLE_MEMORY=false   # Disables all memory tools
+ENABLE_MEMORY=true    # Default - enables memory tools
+```
+
+When disabled:
+- Memory tools (`remember_fact`, `recall_memories`, etc.) are not registered
+- No embedding calls for memory operations
+- No queries to memory tables
+- Zero additional cost
+
+When re-enabled:
+- ⚠️ **NO automatic catch-up** - Memory only stores what's explicitly passed through `remember_fact`
+- Existing memories remain intact in the database
+- New facts can be added immediately
+
+### Catch-Up Limitation
+
+The current implementation does NOT automatically extract memories from:
+- Existing documents in the knowledge base
+- Past conversations
+- Notes added while memory was disabled
+
+**Why?** Automatic extraction requires LLM calls to analyze content, which would be:
+- Expensive at scale
+- Potentially inaccurate without human review
+- A separate feature (Phase 2)
+
+---
+
+## Cost Analysis (2026 Pricing)
+
+### Cloud: OpenAI Embeddings
+
+| Component | Cost | Notes |
+|-----------|------|-------|
+| Embeddings | ~$0.02 / 1M tokens | text-embedding-3-small |
+| Per `remember_fact` | ~$0.00001 | ~50 tokens avg |
+| Per `recall_memories` | ~$0.00001 | Query embedding |
+| 1,000 memories/month | ~$0.02 | Negligible |
+| 100,000 memories/month | ~$2.00 | Still cheap |
+
+### Cloud: Supabase
+
+| Tier | Cost | Limits |
+|------|------|--------|
+| Free | $0 | 500MB DB, 50K rows |
+| Pro | $25/month | 8GB DB, unlimited rows |
+| Team | $599/month | 128GB DB, priority support |
+
+**Recommendation:** Free tier sufficient for personal use (thousands of memories).
+
+### Local: Ollama Embeddings
+
+| Component | Cost | Notes |
+|-----------|------|-------|
+| Embeddings | **$0** | Runs locally |
+| Hardware | Existing | CPU works, GPU faster |
+| Electricity | ~$0.10/day | If running 24/7 |
+
+### Total Monthly Cost Examples
+
+| Scenario | OpenAI + Supabase Free | Ollama + Supabase Free |
+|----------|------------------------|------------------------|
+| Light (100 memories) | ~$0.01 | $0 |
+| Moderate (10K memories) | ~$0.25 | $0 |
+| Heavy (100K memories) | ~$2.50 | $0 |
+| Production (1M memories) | ~$25 + $25 Supabase | $0 + $25 Supabase |
+
+---
+
+## Local Running Requirements
+
+### Minimum Hardware (Ollama)
+
+| Component | Minimum | Recommended |
+|-----------|---------|-------------|
+| CPU | 4 cores | 8+ cores |
+| RAM | 8GB | 16GB+ |
+| Storage | 10GB | 50GB+ |
+| GPU | Not required | NVIDIA 8GB+ VRAM |
+
+**Note:** `nomic-embed-text` is a small model (~270MB). Runs fine on CPU.
+
+### Ollama Performance (Embeddings)
+
+| Hardware | Embeddings/sec | Latency |
+|----------|----------------|---------|
+| M1 MacBook Air | ~50/sec | 20ms |
+| Intel i7 (CPU) | ~30/sec | 35ms |
+| NVIDIA RTX 3060 | ~200/sec | 5ms |
+| NVIDIA RTX 4090 | ~500/sec | 2ms |
+
+### Self-Hosted Supabase Alternative
+
+For fully local operation, you can run PostgreSQL + pgvector:
+
+```bash
+# Docker (simplest)
+docker run -d --name pgvector \
+  -e POSTGRES_PASSWORD=postgres \
+  -p 5432:5432 \
+  pgvector/pgvector:pg16
+
+# Then update .env
+SUPABASE_URL=http://localhost:5432
+# Use direct Postgres connection instead of Supabase client
+```
+
+**Note:** This requires modifying the database client code to use `pg` instead of `@supabase/supabase-js`. Not currently supported out of the box.
+
+---
+
+## DX Decision Matrix
+
+| Situation | Recommended Setup |
+|-----------|-------------------|
+| Quick prototype | OpenAI + Supabase Free |
+| Privacy-focused | Ollama + Supabase Free |
+| Offline development | Ollama + local Postgres |
+| Production (low volume) | OpenAI + Supabase Free |
+| Production (high volume) | Ollama on GPU + Supabase Pro |
+| Enterprise | Ollama on-prem + self-hosted Postgres |
+
+---
+
 ## Future Enhancements
 
 1. **Conversation Memory**: Persist conversation context across sessions
 2. **Automatic Extraction**: LLM-based entity/fact extraction from notes
 3. **Memory-Aware Search**: Fuse document and memory results
 4. **Memory Decay**: Confidence degradation over time
+5. **Memory Backfill**: Extract entities from existing documents when enabled
 
 ---
 
