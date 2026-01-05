@@ -52,7 +52,9 @@ npm run inspector
 
 ## MCP Tools
 
-textrawl exposes 5 tools via MCP:
+textrawl exposes 12 tools via MCP:
+
+### Document Tools
 
 | Tool | Purpose |
 |------|---------|
@@ -61,6 +63,18 @@ textrawl exposes 5 tools via MCP:
 | `list_documents` | Browse documents with pagination |
 | `update_document` | Update document title and tags |
 | `add_note` | Create notes with automatic embedding |
+
+### Memory Tools (Persistent Memory)
+
+| Tool | Purpose |
+|------|---------|
+| `remember_fact` | Store facts about entities with semantic embeddings |
+| `recall_memories` | Search stored memories with hybrid search |
+| `relate_entities` | Create relationships between entities |
+| `get_entity_context` | Get all info about an entity |
+| `list_entities` | List known entities with pagination |
+| `forget_entity` | Delete entity and associated memories |
+| `memory_stats` | Get memory statistics |
 
 [View all tools →](/docs/mcp-tools)
 
@@ -76,17 +90,17 @@ textrawl exposes 5 tools via MCP:
 ┌─────────────────────────────────────────────────────────┐
 │                    textrawl Server                       │
 │  ┌─────────────┐  ┌─────────────┐  ┌─────────────────┐  │
-│  │   Search    │  │  Documents  │  │     Notes       │  │
-│  │  (Hybrid)   │  │  (CRUD)     │  │  (Add + Embed)  │  │
+│  │   Search    │  │  Documents  │  │     Memory      │  │
+│  │  (Hybrid)   │  │  (CRUD)     │  │  (Entities)     │  │
 │  └──────┬──────┘  └──────┬──────┘  └────────┬────────┘  │
 │         │                │                   │           │
 │         └────────────────┼───────────────────┘           │
 │                          ▼                               │
 │  ┌─────────────────────────────────────────────────────┐│
 │  │           Supabase PostgreSQL + pgvector            ││
-│  │  • documents (full-text search)                     ││
-│  │  • chunks (vector embeddings)                       ││
-│  │  • hybrid_search() RPC                              ││
+│  │  • documents + chunks (document search)             ││
+│  │  • memory_entities + observations (memory)          ││
+│  │  • hybrid_search() / memory_search() RPCs           ││
 │  └─────────────────────────────────────────────────────┘│
 └─────────────────────────────────────────────────────────┘
 ```

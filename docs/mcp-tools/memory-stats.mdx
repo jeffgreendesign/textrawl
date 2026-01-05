@@ -1,0 +1,91 @@
+---
+title: memory_stats
+description: Get statistics about stored memories
+---
+
+Get an overview of memory storage including entity counts, observations, and relations.
+
+## Parameters
+
+This tool takes no parameters.
+
+## Example Request
+
+```json
+{}
+```
+
+## Response
+
+```json
+{
+  "totalEntities": 25,
+  "totalObservations": 150,
+  "totalRelations": 30,
+  "entitiesByType": {
+    "person": 10,
+    "project": 8,
+    "concept": 5,
+    "organization": 2
+  }
+}
+```
+
+## Response Fields
+
+| Field | Description |
+|-------|-------------|
+| `totalEntities` | Total number of entities in memory |
+| `totalObservations` | Total number of facts stored |
+| `totalRelations` | Total number of entity relations |
+| `entitiesByType` | Breakdown of entities by type |
+
+## Use Cases
+
+### Health Check
+
+Verify memory system is working:
+
+```json
+{}
+```
+
+If all counts are 0, memory may not be initialized or `ENABLE_MEMORY=false`.
+
+### Capacity Planning
+
+Monitor growth over time to plan for scaling.
+
+### Debugging
+
+Check if entities are being created as expected.
+
+## Empty Memory
+
+When no memories exist:
+
+```json
+{
+  "totalEntities": 0,
+  "totalObservations": 0,
+  "totalRelations": 0,
+  "entitiesByType": {}
+}
+```
+
+## Error Response
+
+### Database not configured
+
+```json
+{
+  "error": "Database not configured",
+  "message": "Memory storage is not available."
+}
+```
+
+## Related Tools
+
+- `list_entities` - View actual entities
+- `remember_fact` - Start adding memories
+- `recall_memories` - Search existing memories

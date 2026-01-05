@@ -3,9 +3,9 @@ title: MCP Tools Overview
 description: Complete reference for textrawl's MCP tools
 ---
 
-textrawl exposes 5 tools via the Model Context Protocol (MCP). These tools allow Claude and other MCP clients to search, retrieve, create, and manage documents in your knowledge base.
+textrawl exposes 12 tools via the Model Context Protocol (MCP). These tools allow Claude and other MCP clients to search, retrieve, create, and manage documents and memories in your knowledge base.
 
-## Available Tools
+## Document Tools
 
 ### search_knowledge
 
@@ -37,7 +37,55 @@ Create markdown notes with automatic chunking and embedding.
 
 [View documentation →](/docs/mcp-tools/add-note)
 
+## Memory Tools (Persistent Memory)
+
+Enable with `ENABLE_MEMORY=true` (default). Requires `setup-db-memory.sql` schema.
+
+### remember_fact
+
+Store facts about entities (people, projects, concepts) with automatic semantic embedding.
+
+[View documentation →](/docs/mcp-tools/remember-fact)
+
+### recall_memories
+
+Semantic search across stored memories using hybrid or semantic-only mode.
+
+[View documentation →](/docs/mcp-tools/recall-memories)
+
+### relate_entities
+
+Create directed relationships between entities.
+
+[View documentation →](/docs/mcp-tools/relate-entities)
+
+### get_entity_context
+
+Retrieve all information about an entity including observations and relations.
+
+[View documentation →](/docs/mcp-tools/get-entity-context)
+
+### list_entities
+
+List all known entities with pagination.
+
+[View documentation →](/docs/mcp-tools/list-entities)
+
+### forget_entity
+
+Delete an entity and all its associated memories and relations.
+
+[View documentation →](/docs/mcp-tools/forget-entity)
+
+### memory_stats
+
+Get statistics about stored memories.
+
+[View documentation →](/docs/mcp-tools/memory-stats)
+
 ## Tool Selection Guide
+
+### Document Tools
 
 | User Intent | Recommended Tool | Key Parameters |
 |-------------|------------------|----------------|
@@ -49,6 +97,18 @@ Create markdown notes with automatic chunking and embedding.
 | Filter by source type | `list_documents` | `sourceType` |
 | Create new knowledge | `add_note` | `title`, `content` |
 | Organize existing docs | `update_document` | `tags` |
+
+### Memory Tools
+
+| User Intent | Recommended Tool | Key Parameters |
+|-------------|------------------|----------------|
+| Remember facts about people/projects | `remember_fact` | `entityName`, `entityType`, `observation` |
+| Search past memories | `recall_memories` | `query`, `searchMode` |
+| Connect entities together | `relate_entities` | `fromEntity`, `relation`, `toEntity` |
+| Get all info about an entity | `get_entity_context` | `entityName` |
+| List all known entities | `list_entities` | `entityTypes`, `limit` |
+| Delete an entity completely | `forget_entity` | `entityName`, `confirm: true` |
+| View memory statistics | `memory_stats` | (no parameters) |
 
 ## Common Patterns
 
@@ -79,6 +139,26 @@ Create markdown notes with automatic chunking and embedding.
 2. If insufficient, adjust weights or add filters
 3. search_knowledge(query: "refined", tags: ["specific"])
    → Get more targeted results
+```
+
+### Memory Capture
+
+```text
+1. User mentions facts about themselves or preferences
+2. remember_fact(entityName: "User", entityType: "person", observation: "prefers TypeScript")
+   → Store as atomic fact with embedding
+3. For relationships: relate_entities(fromEntity: "User", relation: "works_at", toEntity: "Acme")
+```
+
+### Context Retrieval
+
+```text
+1. Before responding, check for relevant memories
+2. recall_memories(query: "user preferences", entityTypes: ["person", "preference"])
+   → Get matching memories
+3. get_entity_context(entityName: "User")
+   → Get full entity context
+4. Incorporate memories into response
 ```
 
 ## Response Format
@@ -115,6 +195,9 @@ Common errors:
 | `OpenAI not configured` | Missing embedding API | Set `OPENAI_API_KEY` or configure Ollama |
 | `Document not found` | Invalid documentId | Verify UUID from search results |
 | `No updates provided` | Empty update request | Provide `title` or `tags` |
+| `Embedding service not configured` | Memory tools need embeddings | Set `OPENAI_API_KEY` or configure Ollama |
+| `Entity not found` | forget_entity with unknown name | Check entity name with `list_entities` |
+| `Confirmation required` | forget_entity without confirm | Set `confirm: true` to delete |
 
 ## Testing Tools
 

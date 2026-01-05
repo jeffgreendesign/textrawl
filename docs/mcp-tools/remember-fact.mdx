@@ -1,0 +1,119 @@
+---
+title: remember_fact
+description: Store facts about entities with automatic semantic embedding
+---
+
+Store atomic facts about entities (people, projects, concepts) with automatic semantic embedding for later retrieval.
+
+## Parameters
+
+| Parameter | Type | Required | Default | Description |
+|-----------|------|----------|---------|-------------|
+| `entityName` | string | Yes | - | Name of entity (1-200 chars) |
+| `entityType` | enum | Yes | - | Type: person, concept, project, preference, fact, location, organization |
+| `observation` | string | Yes | - | Single atomic fact to remember (1-2000 chars) |
+| `source` | enum | No | `conversation` | Source: conversation, note, document, manual |
+| `validUntil` | string | No | - | ISO date for expiring facts (e.g., "2026-12-31") |
+
+## Entity Types
+
+| Type | Use For |
+|------|---------|
+| `person` | People, users, contacts |
+| `concept` | Ideas, topics, technologies |
+| `project` | Projects, initiatives, products |
+| `preference` | User preferences, settings |
+| `fact` | General facts, data points |
+| `location` | Places, addresses, regions |
+| `organization` | Companies, teams, groups |
+
+## Example Request
+
+```json
+{
+  "entityName": "Jeff",
+  "entityType": "person",
+  "observation": "prefers dark mode in all IDEs",
+  "source": "conversation"
+}
+```
+
+## Response
+
+```json
+{
+  "success": true,
+  "message": "Remembered: \"prefers dark mode in all IDEs\" about Jeff",
+  "entityId": "550e8400-e29b-41d4-a716-446655440000",
+  "entityName": "Jeff",
+  "entityType": "person",
+  "observationId": "550e8400-e29b-41d4-a716-446655440001"
+}
+```
+
+## Duplicate Detection
+
+If you try to remember a fact that's already stored, the tool returns:
+
+```json
+{
+  "success": true,
+  "duplicate": true,
+  "message": "This fact was already remembered.",
+  "entityId": "...",
+  "observationId": "..."
+}
+```
+
+## Use Cases
+
+### User Preferences
+
+```json
+{
+  "entityName": "User",
+  "entityType": "person",
+  "observation": "prefers TypeScript over JavaScript"
+}
+```
+
+### Project Context
+
+```json
+{
+  "entityName": "Project Alpha",
+  "entityType": "project",
+  "observation": "uses PostgreSQL for the database layer"
+}
+```
+
+### Temporary Facts
+
+```json
+{
+  "entityName": "Sprint 45",
+  "entityType": "project",
+  "observation": "focus is on search performance improvements",
+  "validUntil": "2026-02-01"
+}
+```
+
+## Error Responses
+
+### Missing embedding configuration
+
+```json
+{
+  "error": "Embedding service not configured",
+  "message": "Set OPENAI_API_KEY or configure Ollama for semantic memory search."
+}
+```
+
+### Database not configured
+
+```json
+{
+  "error": "Database not configured",
+  "message": "Set SUPABASE_URL and SUPABASE_SERVICE_KEY to enable memory storage."
+}
+```

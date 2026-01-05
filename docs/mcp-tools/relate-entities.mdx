@@ -1,0 +1,124 @@
+---
+title: relate_entities
+description: Create directed relationships between entities
+---
+
+Create directed relationships between entities to build a knowledge graph.
+
+## Parameters
+
+| Parameter | Type | Required | Default | Description |
+|-----------|------|----------|---------|-------------|
+| `fromEntity` | string | Yes | - | Source entity name (1-200 chars) |
+| `relation` | string | Yes | - | Relation type (1-100 chars) |
+| `toEntity` | string | Yes | - | Target entity name (1-200 chars) |
+| `fromEntityType` | enum | No | inferred | Type of source entity |
+| `toEntityType` | enum | No | inferred | Type of target entity |
+
+## Common Relation Types
+
+| Relation | Example |
+|----------|---------|
+| `works_at` | Jeff works_at Acme Corp |
+| `knows` | Alice knows Bob |
+| `prefers` | User prefers TypeScript |
+| `created` | Team created Project Alpha |
+| `part_of` | Module part_of System |
+| `related_to` | Concept A related_to Concept B |
+| `uses` | Project uses PostgreSQL |
+| `manages` | Manager manages Team |
+
+## Example Request
+
+```json
+{
+  "fromEntity": "Jeff",
+  "relation": "works_at",
+  "toEntity": "Acme Corp"
+}
+```
+
+## Response
+
+```json
+{
+  "success": true,
+  "message": "Created relation: Jeff works_at Acme Corp",
+  "relationId": "550e8400-e29b-41d4-a716-446655440000",
+  "fromEntity": {
+    "id": "550e8400-e29b-41d4-a716-446655440001",
+    "name": "Jeff",
+    "type": "person"
+  },
+  "toEntity": {
+    "id": "550e8400-e29b-41d4-a716-446655440002",
+    "name": "Acme Corp",
+    "type": "organization"
+  }
+}
+```
+
+## Auto-Creation
+
+If entities don't exist, they are automatically created:
+
+- Entity types are inferred from context if not provided
+- Default type is `concept` if type cannot be inferred
+- Existing entities keep their original type
+
+## Use Cases
+
+### Organization Structure
+
+```json
+{
+  "fromEntity": "Jeff",
+  "relation": "works_at",
+  "toEntity": "Engineering Team",
+  "fromEntityType": "person",
+  "toEntityType": "organization"
+}
+```
+
+### Project Dependencies
+
+```json
+{
+  "fromEntity": "Project Alpha",
+  "relation": "uses",
+  "toEntity": "PostgreSQL",
+  "fromEntityType": "project",
+  "toEntityType": "concept"
+}
+```
+
+### Knowledge Connections
+
+```json
+{
+  "fromEntity": "React",
+  "relation": "related_to",
+  "toEntity": "JavaScript"
+}
+```
+
+## Relation Directionality
+
+Relations are directed (from → to):
+
+- `Jeff works_at Acme` means Jeff is the employee
+- `Acme employs Jeff` would be the inverse
+
+Use `get_entity_context` to see both outgoing and incoming relations.
+
+## Duplicate Relations
+
+If the same relation already exists, the existing relation is returned:
+
+```json
+{
+  "success": true,
+  "message": "Created relation: Jeff works_at Acme Corp",
+  "relationId": "existing-relation-id"
+}
+```

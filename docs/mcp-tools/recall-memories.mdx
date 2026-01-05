@@ -1,0 +1,125 @@
+---
+title: recall_memories
+description: Semantic search across stored memories
+---
+
+Search stored memories using hybrid (keyword + semantic) or semantic-only search modes.
+
+## Parameters
+
+| Parameter | Type | Required | Default | Description |
+|-----------|------|----------|---------|-------------|
+| `query` | string | Yes | - | Search query (1-1000 chars) |
+| `entityTypes` | enum[] | No | all | Filter by entity types |
+| `limit` | number | No | `10` | Max results (1-50) |
+| `searchMode` | enum | No | `hybrid` | Search mode: hybrid, semantic |
+
+## Search Modes
+
+| Mode | Description |
+|------|-------------|
+| `hybrid` | Combines keyword matching with semantic similarity (recommended) |
+| `semantic` | Pure semantic similarity search |
+
+## Example Request
+
+```json
+{
+  "query": "user preferences for development tools",
+  "entityTypes": ["person", "preference"],
+  "limit": 10,
+  "searchMode": "hybrid"
+}
+```
+
+## Response
+
+```json
+{
+  "query": "user preferences for development tools",
+  "totalMemories": 3,
+  "entities": [
+    {
+      "entityName": "Jeff",
+      "entityType": "person",
+      "memories": [
+        {
+          "content": "prefers TypeScript over JavaScript",
+          "source": "conversation",
+          "confidence": 1.0,
+          "score": 0.92
+        },
+        {
+          "content": "uses VS Code as primary editor",
+          "source": "conversation",
+          "confidence": 1.0,
+          "score": 0.85
+        }
+      ]
+    },
+    {
+      "entityName": "Development Setup",
+      "entityType": "preference",
+      "memories": [
+        {
+          "content": "dark mode enabled by default",
+          "source": "manual",
+          "confidence": 1.0,
+          "score": 0.78
+        }
+      ]
+    }
+  ]
+}
+```
+
+## Use Cases
+
+### Find User Context
+
+```json
+{
+  "query": "what does the user prefer",
+  "entityTypes": ["person", "preference"],
+  "limit": 20
+}
+```
+
+### Project Information
+
+```json
+{
+  "query": "database technology stack",
+  "entityTypes": ["project", "concept"],
+  "searchMode": "semantic"
+}
+```
+
+### Recent Decisions
+
+```json
+{
+  "query": "decisions made about architecture",
+  "limit": 10
+}
+```
+
+## Score Interpretation
+
+| Score Range | Meaning |
+|-------------|---------|
+| 0.9 - 1.0 | Highly relevant match |
+| 0.7 - 0.9 | Good match |
+| 0.5 - 0.7 | Moderate relevance |
+| < 0.5 | Weak match |
+
+## Error Responses
+
+### Embedding service not configured
+
+```json
+{
+  "error": "Embedding service not configured",
+  "message": "Semantic search requires embedding configuration."
+}
+```
