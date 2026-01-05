@@ -39,7 +39,9 @@ Copy `.env.example` to `.env` and configure:
 - `API_BEARER_TOKEN` - Optional auth token (min 32 chars)
 - `UI_PORT` - Web UI port (default: 3001)
 
-Database schema must be initialized via `scripts/setup-db.sql` (OpenAI) or `scripts/setup-db-ollama.sql` (Ollama) in Supabase SQL Editor. For persistent memory features, also run `scripts/setup-db-memory.sql`.
+Database schema must be initialized via `scripts/setup-db.sql` (OpenAI) or `scripts/setup-db-ollama.sql` (Ollama) in Supabase SQL Editor. For persistent memory features, also run the matching memory schema:
+- OpenAI: `scripts/setup-db-memory.sql` (1536 dimensions)
+- Ollama: `scripts/setup-db-memory-ollama.sql` (1024 dimensions)
 
 **Important:** OpenAI and Ollama use different embedding dimensions. You cannot mix providers without re-embedding all documents.
 

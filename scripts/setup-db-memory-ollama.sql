@@ -1,7 +1,6 @@
--- Textrawl Persistent Memory Schema (OpenAI Version)
--- Use this when using OpenAI embeddings (text-embedding-3-small, 1536 dimensions)
--- For Ollama users: use setup-db-memory-ollama.sql instead
--- Run this in Supabase SQL Editor after setting up the base schema with setup-db.sql
+-- Textrawl Persistent Memory Schema (Ollama Version)
+-- Use this instead of setup-db-memory.sql when using Ollama embeddings (1024 dimensions)
+-- Run this in Supabase SQL Editor after setting up the base schema with setup-db-ollama.sql
 
 -- ============================================
 -- Memory Entities (people, concepts, preferences)
@@ -11,7 +10,7 @@ CREATE TABLE IF NOT EXISTS memory_entities (
   name TEXT NOT NULL,
   entity_type TEXT NOT NULL CHECK (entity_type IN ('person', 'concept', 'project', 'preference', 'fact', 'location', 'organization')),
   description TEXT,
-  embedding VECTOR(1536), -- For semantic entity search
+  embedding VECTOR(1024), -- nomic-embed-text / mxbai-embed-large dimension
   metadata JSONB DEFAULT '{}',
   created_at TIMESTAMPTZ DEFAULT NOW(),
   updated_at TIMESTAMPTZ DEFAULT NOW(),
@@ -29,7 +28,7 @@ CREATE TABLE IF NOT EXISTS memory_observations (
   confidence FLOAT DEFAULT 1.0 CHECK (confidence >= 0 AND confidence <= 1),
   valid_from TIMESTAMPTZ DEFAULT NOW(),
   valid_until TIMESTAMPTZ, -- NULL means indefinitely valid
-  embedding VECTOR(1536),
+  embedding VECTOR(1024), -- nomic-embed-text / mxbai-embed-large dimension
   metadata JSONB DEFAULT '{}',
   created_at TIMESTAMPTZ DEFAULT NOW()
 );
@@ -92,7 +91,7 @@ CREATE TRIGGER memory_entities_updated_at
 
 -- Semantic search across memories (entities + observations)
 CREATE OR REPLACE FUNCTION memory_semantic_search(
-  query_embedding VECTOR(1536),
+  query_embedding VECTOR(1024),
   match_count INT DEFAULT 10,
   entity_types TEXT[] DEFAULT NULL,
   include_expired BOOLEAN DEFAULT FALSE
@@ -131,7 +130,7 @@ $$;
 -- Hybrid memory search (FTS + semantic)
 CREATE OR REPLACE FUNCTION memory_hybrid_search(
   query_text TEXT,
-  query_embedding VECTOR(1536),
+  query_embedding VECTOR(1024),
   match_count INT DEFAULT 10,
   full_text_weight FLOAT DEFAULT 1.0,
   semantic_weight FLOAT DEFAULT 1.0,

@@ -415,34 +415,100 @@ server.tool('recall', {
 
 ---
 
-## File Structure for Implementation
+## Implementation Status: ✅ COMPLETE
+
+Phase 1 (Entity-Based Memory Layer) has been fully implemented.
+
+### File Structure
 
 ```
 src/
 ├── db/
-│   ├── memory-entities.ts    # Entity CRUD
-│   ├── memory-observations.ts # Observation CRUD
-│   ├── memory-relations.ts    # Relation CRUD
-│   └── memory-search.ts       # Memory retrieval
-├── services/
-│   ├── memory-extraction.ts   # LLM-based extraction
-│   └── memory-fusion.ts       # Search result fusion
+│   ├── memory-entities.ts    # Entity CRUD ✅
+│   ├── memory-observations.ts # Observation CRUD ✅
+│   ├── memory-relations.ts    # Relation CRUD ✅
+│   └── memory-search.ts       # Memory retrieval ✅
 ├── tools/
-│   ├── memory.ts              # Memory MCP tools
-│   └── search.ts              # Enhanced search
+│   └── memory.ts              # Memory MCP tools ✅
 scripts/
-└── setup-db-memory.sql        # Memory schema
+├── setup-db-memory.sql        # Memory schema (OpenAI, 1536 dim) ✅
+└── setup-db-memory-ollama.sql # Memory schema (Ollama, 1024 dim) ✅
 ```
 
 ---
 
-## Next Steps
+## Developer Experience (DX) Workflows
 
-1. **Approve approach**: Decide between custom implementation vs Mem0 integration
-2. **Create schema**: Run `setup-db-memory.sql` in Supabase
-3. **Implement Phase 1**: Entity memory tools
-4. **Test with Claude**: Validate memory persistence across sessions
-5. **Iterate**: Add conversation memory and automatic extraction
+### Workflow A: OpenAI Embeddings (Cloud)
+
+Best for: Production deployments, developers without GPU, teams wanting managed infrastructure.
+
+```bash
+# 1. Environment setup
+cp .env.example .env
+# Edit .env:
+#   EMBEDDING_PROVIDER=openai
+#   OPENAI_API_KEY=sk-...
+#   SUPABASE_URL=https://xxx.supabase.co
+#   SUPABASE_SERVICE_KEY=eyJ...
+
+# 2. Database setup (run in Supabase SQL Editor)
+# First: scripts/setup-db.sql
+# Then:  scripts/setup-db-memory.sql
+
+# 3. Start server
+npm install
+npm run dev
+```
+
+### Workflow B: Ollama Embeddings (Local)
+
+Best for: Privacy-focused users, offline development, cost optimization, GPU-equipped machines.
+
+```bash
+# 1. Start Ollama with embedding model
+ollama pull nomic-embed-text  # or mxbai-embed-large
+ollama serve
+
+# 2. Environment setup
+cp .env.example .env
+# Edit .env:
+#   EMBEDDING_PROVIDER=ollama
+#   OLLAMA_BASE_URL=http://localhost:11434
+#   OLLAMA_MODEL=nomic-embed-text
+#   SUPABASE_URL=https://xxx.supabase.co
+#   SUPABASE_SERVICE_KEY=eyJ...
+
+# 3. Database setup (run in Supabase SQL Editor)
+# First: scripts/setup-db-ollama.sql
+# Then:  scripts/setup-db-memory-ollama.sql
+
+# 4. Start server
+npm install
+npm run dev
+```
+
+### Testing Memory Tools
+
+```bash
+# Start MCP Inspector to test tools interactively
+npm run inspector
+# Open http://localhost:5173
+
+# Test remember_fact
+# Test recall_memories
+# Test relate_entities
+# Test get_entity_context
+```
+
+---
+
+## Future Enhancements
+
+1. **Conversation Memory**: Persist conversation context across sessions
+2. **Automatic Extraction**: LLM-based entity/fact extraction from notes
+3. **Memory-Aware Search**: Fuse document and memory results
+4. **Memory Decay**: Confidence degradation over time
 
 ---
 
