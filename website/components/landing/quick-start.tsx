@@ -12,12 +12,12 @@ export function QuickStart(): ReactNode {
 				</div>
 				<div className="quickstart-step">
 					<span className="step-number">2</span>
-					<code className="step-code">npm run setup</code>
+					<code className="step-code">pnpm run setup</code>
 					<p className="step-description">Configure credentials</p>
 				</div>
 				<div className="quickstart-step">
 					<span className="step-number">3</span>
-					<code className="step-code">npm run dev</code>
+					<code className="step-code">pnpm run dev</code>
 					<p className="step-description">Start the MCP server</p>
 				</div>
 			</div>

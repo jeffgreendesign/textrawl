@@ -5,48 +5,18 @@
    ============================================ */
 @import url('https://fonts.googleapis.com/css2?family=JetBrains+Mono:wght@400;500;600;700&display=swap');
 
-/* Switzer via Fontshare */
-@font-face {
-	font-family: 'Switzer';
-	src: url('/fonts/Switzer-Regular.woff2') format('woff2');
-	font-weight: 400;
-	font-style: normal;
-	font-display: swap;
-}
-
-@font-face {
-	font-family: 'Switzer';
-	src: url('/fonts/Switzer-Medium.woff2') format('woff2');
-	font-weight: 500;
-	font-style: normal;
-	font-display: swap;
-}
-
-@font-face {
-	font-family: 'Switzer';
-	src: url('/fonts/Switzer-Semibold.woff2') format('woff2');
-	font-weight: 600;
-	font-style: normal;
-	font-display: swap;
-}
-
-/* Nyght Serif for display */
-@font-face {
-	font-family: 'Nyght Serif';
-	src: url('/fonts/NyghtSerif-Light.woff2') format('woff2');
-	font-weight: 300;
-	font-style: normal;
-	font-display: swap;
-}
+/* System font stacks (custom fonts can be added later via /public/fonts/) */
+/* Switzer fallback: Inter or system sans-serif */
+/* Nyght Serif fallback: Georgia or system serif */
 
 /* ============================================
    CSS CUSTOM PROPERTIES - DESIGN TOKENS
    ============================================ */
 :root {
-	/* Typography */
-	--font-display: 'Nyght Serif', Georgia, serif;
-	--font-sans: 'Switzer', system-ui, -apple-system, sans-serif;
-	--font-mono: 'JetBrains Mono', ui-monospace, monospace;
+	/* Typography - using system fonts with optional custom font loading */
+	--font-display: Georgia, 'Times New Roman', serif;
+	--font-sans: system-ui, -apple-system, 'Segoe UI', Roboto, sans-serif;
+	--font-mono: 'JetBrains Mono', ui-monospace, 'SF Mono', Menlo, monospace;
 
 	/* Font sizes */
 	--text-xs: 0.75rem;
@@ -115,8 +85,10 @@
 
 /* ============================================
    THEME: MIDNIGHT (Dark - Default)
+   Activated by: .dark class (next-themes) or data-theme="midnight"
    ============================================ */
 [data-theme='midnight'],
+.dark,
 :root {
 	--bg-primary: #0a0a0a;
 	--bg-secondary: #111111;
@@ -142,8 +114,10 @@
 
 /* ============================================
    THEME: CLOUD DANCER (Light)
+   Activated by: .light class (next-themes) or data-theme="cloud-dancer"
    ============================================ */
-[data-theme='cloud-dancer'] {
+[data-theme='cloud-dancer'],
+.light {
 	--bg-primary: #fafafa;
 	--bg-secondary: #f4f4f5;
 	--bg-tertiary: #e4e4e7;

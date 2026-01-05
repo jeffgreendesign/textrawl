@@ -34,13 +34,14 @@ jobs:
       - name: Install dependencies
         run: pnpm install --frozen-lockfile
 
+      - name: Copy agent discovery files to public
+        run: |
+          mkdir -p website/public/.well-known
+          cp llms.txt website/public/
+          cp .well-known/mcp.json website/public/.well-known/
+
       - name: Build site
         run: pnpm docs:build
-
-      - name: Copy agent discovery files
-        run: |
-          cp llms.txt website/.next/static/
-          cp -r .well-known website/.next/static/
 
       - name: Deploy to Vercel
         uses: amondnet/vercel-action@v25

@@ -2,16 +2,6 @@
 	"framework": "nextjs",
 	"buildCommand": "pnpm build",
 	"outputDirectory": ".next",
-	"rewrites": [
-		{
-			"source": "/llms.txt",
-			"destination": "/api/llms"
-		},
-		{
-			"source": "/.well-known/:path*",
-			"destination": "/api/well-known/:path*"
-		}
-	],
 	"headers": [
 		{
 			"source": "/llms.txt",

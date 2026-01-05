@@ -58,18 +58,22 @@ Control the balance:
 
 ```json
 {
-  "fullTextWeight": 1.5,   // Favor keywords
-  "semanticWeight": 0.5    // Less semantic
+  "fullTextWeight": 1.5,
+  "semanticWeight": 0.5
 }
 ```
+
+Higher `fullTextWeight` favors keyword matches.
 
 Or:
 
 ```json
 {
-  "fullTextWeight": 0.5,   // Less keywords
-  "semanticWeight": 1.5    // Favor semantic
+  "fullTextWeight": 0.5,
+  "semanticWeight": 1.5
 }
 ```
+
+Higher `semanticWeight` favors semantic understanding.
 
 Default is 1.0 for both (balanced).

@@ -8,13 +8,13 @@ description: Detailed installation guide for textrawl
 | Requirement | Minimum | Recommended |
 |-------------|---------|-------------|
 | Node.js | 22.0.0 | 22.x LTS |
-| npm | 10.0.0 | Latest |
+| pnpm | 9.0.0 | 9.x |
 | RAM | 512 MB | 1 GB+ |
 | Disk | 100 MB | 1 GB+ |
 
 ## Installation Methods
 
-### npm (Recommended)
+### pnpm (Recommended)
 
 ```bash
 # Clone the repository
@@ -22,13 +22,13 @@ git clone https://github.com/jeffgreendesign/textrawl.git
 cd textrawl
 
 # Install dependencies
-npm install
+pnpm install
 
 # Run interactive setup
-npm run setup
+pnpm run setup
 
 # Start development server
-npm run dev
+pnpm run dev
 ```
 
 ### Docker
@@ -153,7 +153,7 @@ curl http://localhost:3000/health
 curl http://localhost:3000/health/ready
 
 # Test MCP Inspector
-npm run inspector
+pnpm run inspector
 ```
 
 ## Next Steps

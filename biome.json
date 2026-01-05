@@ -27,6 +27,7 @@
 		"ignore": [
 			"node_modules",
 			".next",
+			".source",
 			"dist",
 			"*.min.js",
 			"*.d.ts"

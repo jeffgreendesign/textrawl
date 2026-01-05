@@ -24,6 +24,8 @@ textrawl supports multiple embedding providers:
 | OpenAI | text-embedding-3-small | 1536 | Cloud, fast |
 | Ollama | nomic-embed-text | 1024 | Local, private |
 
+> **Important**: Embedding providers cannot be mixed. OpenAI and Ollama use different embedding dimensions (1536 vs 1024), making them incompatible. Switching providers requires re-embedding all documents in your knowledge base.
+
 ## How It Works
 
 1. **Chunk**: Document split into ~512 token pieces
