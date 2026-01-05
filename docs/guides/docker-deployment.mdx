@@ -1,0 +1,86 @@
+---
+title: Docker Deployment
+description: Deploy textrawl with Docker and Docker Compose
+---
+
+Deploy textrawl to production using Docker.
+
+## Quick Start
+
+```bash
+# Clone repository
+git clone https://github.com/jeffgreendesign/textrawl.git
+cd textrawl
+
+# Configure environment
+cp .env.example .env
+# Edit .env with your credentials
+
+# Build and run
+docker compose up -d
+```
+
+## Docker Compose
+
+```yaml
+version: '3.8'
+
+services:
+  textrawl:
+    build: .
+    ports:
+      - "3000:3000"
+    environment:
+      - SUPABASE_URL=${SUPABASE_URL}
+      - SUPABASE_SERVICE_KEY=${SUPABASE_SERVICE_KEY}
+      - OPENAI_API_KEY=${OPENAI_API_KEY}
+      - API_BEARER_TOKEN=${API_BEARER_TOKEN}
+    restart: unless-stopped
+    healthcheck:
+      test: ["CMD", "curl", "-f", "http://localhost:3000/health"]
+      interval: 30s
+      timeout: 10s
+      retries: 3
+```
+
+## Environment Variables
+
+Required for production:
+
+```bash
+SUPABASE_URL=https://your-project.supabase.co
+SUPABASE_SERVICE_KEY=your-service-key
+OPENAI_API_KEY=sk-your-key
+API_BEARER_TOKEN=your-secure-32-char-token
+PORT=3000
+```
+
+## Health Checks
+
+- `/health` - Basic health
+- `/health/ready` - Database connectivity
+- `/health/live` - Liveness probe
+
+## Reverse Proxy
+
+Behind nginx:
+
+```nginx
+location /mcp {
+    proxy_pass http://localhost:3000;
+    proxy_http_version 1.1;
+    proxy_set_header Upgrade $http_upgrade;
+    proxy_set_header Connection 'upgrade';
+    proxy_set_header Host $host;
+}
+```
+
+## Logs
+
+```bash
+# View logs
+docker compose logs -f textrawl
+
+# Follow specific service
+docker compose logs -f textrawl
+```

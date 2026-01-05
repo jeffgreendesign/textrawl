@@ -1,0 +1,81 @@
+---
+title: update_document
+description: Update document title and tags
+---
+
+Update the metadata of an existing document. Currently supports updating title and tags.
+
+## Parameters
+
+| Parameter | Type | Required | Description |
+|-----------|------|----------|-------------|
+| `documentId` | string | Yes | UUID of the document |
+| `title` | string | No | New document title |
+| `tags` | string[] | No | New tags (replaces existing) |
+
+At least one of `title` or `tags` must be provided.
+
+## Example Request
+
+```json
+{
+  "documentId": "550e8400-e29b-41d4-a716-446655440000",
+  "title": "Q4 2024 Planning Notes",
+  "tags": ["work", "planning", "q4", "archived"]
+}
+```
+
+## Response
+
+```json
+{
+  "id": "550e8400-e29b-41d4-a716-446655440000",
+  "title": "Q4 2024 Planning Notes",
+  "tags": ["work", "planning", "q4", "archived"],
+  "updatedAt": "2024-11-01T09:00:00Z"
+}
+```
+
+## Use Cases
+
+### Organize with Tags
+
+Add tags for better filtering:
+
+```json
+{
+  "documentId": "...",
+  "tags": ["project-x", "important", "2024"]
+}
+```
+
+### Fix Title
+
+Update a document's title:
+
+```json
+{
+  "documentId": "...",
+  "title": "Meeting Notes - October 2024"
+}
+```
+
+## Error Responses
+
+### No updates provided
+
+```json
+{
+  "error": "No updates provided",
+  "message": "Provide at least one of: title, tags"
+}
+```
+
+### Document not found
+
+```json
+{
+  "error": "Document not found",
+  "message": "No document with ID '...'"
+}
+```

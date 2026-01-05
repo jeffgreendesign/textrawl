@@ -1,0 +1,75 @@
+---
+title: Cloud Run Deployment
+description: Deploy textrawl to Google Cloud Run
+---
+
+Deploy textrawl as a serverless container on Google Cloud Run.
+
+## Prerequisites
+
+- Google Cloud account
+- `gcloud` CLI installed
+- Docker installed
+
+## Build and Push
+
+```bash
+# Authenticate
+gcloud auth configure-docker
+
+# Build image
+docker build -t gcr.io/YOUR_PROJECT/textrawl .
+
+# Push to Container Registry
+docker push gcr.io/YOUR_PROJECT/textrawl
+```
+
+## Deploy
+
+```bash
+gcloud run deploy textrawl \
+  --image gcr.io/YOUR_PROJECT/textrawl \
+  --platform managed \
+  --region us-central1 \
+  --allow-unauthenticated \
+  --set-secrets=SUPABASE_URL=supabase-url:latest,SUPABASE_SERVICE_KEY=supabase-key:latest,OPENAI_API_KEY=openai-key:latest,API_BEARER_TOKEN=api-token:latest
+```
+
+## Secret Manager
+
+Store secrets in Google Secret Manager:
+
+```bash
+# Create secrets
+echo -n "your-value" | gcloud secrets create supabase-url --data-file=-
+echo -n "your-value" | gcloud secrets create supabase-key --data-file=-
+echo -n "your-value" | gcloud secrets create openai-key --data-file=-
+echo -n "your-value" | gcloud secrets create api-token --data-file=-
+```
+
+## Configuration
+
+Cloud Run settings:
+
+- **Memory**: 512MB minimum
+- **CPU**: 1 vCPU
+- **Max instances**: 10 (adjust for traffic)
+- **Min instances**: 0 (scale to zero)
+- **Timeout**: 60s
+
+## Custom Domain
+
+```bash
+gcloud run domain-mappings create \
+  --service textrawl \
+  --domain api.yourdomain.com \
+  --region us-central1
+```
+
+## Monitoring
+
+View metrics in Cloud Console:
+- Request count
+- Latency
+- Error rate
+- Instance count

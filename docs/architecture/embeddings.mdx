@@ -1,0 +1,95 @@
+---
+title: Embedding Providers
+description: OpenAI vs Ollama for vector embeddings
+---
+
+textrawl supports two embedding providers: OpenAI (cloud) and Ollama (local).
+
+## Provider Comparison
+
+| Feature | OpenAI | Ollama |
+|---------|--------|--------|
+| Location | Cloud | Local |
+| Privacy | Data sent to API | Data stays local |
+| Dimensions | 1536 | 1024 |
+| Model | text-embedding-3-small | nomic-embed-text |
+| Cost | Pay per token | Free |
+| Speed | ~100ms/request | ~50ms/request |
+| Setup | API key | Docker container |
+
+## OpenAI Setup
+
+```bash
+# .env
+EMBEDDING_PROVIDER=openai
+OPENAI_API_KEY=sk-proj-...
+```
+
+Use the database schema for 1536 dimensions:
+
+```bash
+# Run in Supabase SQL Editor
+scripts/setup-db.sql
+```
+
+## Ollama Setup
+
+```bash
+# Start Ollama
+docker run -d --name ollama -v ollama:/root/.ollama -p 11434:11434 ollama/ollama
+
+# Pull the model
+docker exec -it ollama ollama pull nomic-embed-text
+```
+
+Configure environment:
+
+```bash
+# .env
+EMBEDDING_PROVIDER=ollama
+OLLAMA_BASE_URL=http://localhost:11434
+OLLAMA_MODEL=nomic-embed-text
+```
+
+Use the database schema for 1024 dimensions:
+
+```bash
+# Run in Supabase SQL Editor
+scripts/setup-db-ollama.sql
+```
+
+## Switching Providers
+
+> **Warning**: You cannot mix providers. Switching requires re-embedding all documents.
+
+To switch:
+
+1. Export your documents (or keep source files)
+2. Drop existing tables
+3. Run new schema (different dimensions)
+4. Re-upload all documents
+
+## Quality Comparison
+
+Both providers offer high-quality embeddings suitable for semantic search:
+
+| Benchmark | OpenAI | nomic-embed-text |
+|-----------|--------|------------------|
+| MTEB Average | 62.3 | 59.4 |
+| Retrieval | 54.9 | 52.8 |
+| Clustering | 45.0 | 44.2 |
+
+OpenAI has a slight edge, but Ollama offers privacy and no API costs.
+
+## Recommendations
+
+**Choose OpenAI if:**
+- You need maximum quality
+- Data privacy isn't critical
+- You prefer managed infrastructure
+
+**Choose Ollama if:**
+- Data must stay local
+- You want to avoid API costs
+- You have GPU resources
+- You're running fully self-hosted

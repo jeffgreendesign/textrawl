@@ -11,6 +11,9 @@
     "build": "tsc && node esbuild.config.mjs",
     "start": "node dist/index.js",
     "typecheck": "tsc --noEmit",
+    "lint": "biome check .",
+    "lint:fix": "biome check --write .",
+    "quality": "pnpm lint && pnpm typecheck",
     "inspector": "npx @modelcontextprotocol/inspector http://localhost:3000/mcp",
     "setup": "bash scripts/setup.sh",
     "convert": "tsx scripts/cli/convert.ts",
@@ -19,8 +22,11 @@
     "convert:takeout": "tsx scripts/cli/converters/takeout.ts",
     "convert:html": "tsx scripts/cli/converters/html.ts",
     "upload": "tsx scripts/cli/upload.ts",
-    "ui": "tsx scripts/ui/server.ts"
+    "ui": "tsx scripts/ui/server.ts",
+    "docs:dev": "pnpm --filter textrawl-website dev",
+    "docs:build": "pnpm --filter textrawl-website build"
   },
+  "packageManager": "pnpm@9.15.0",
   "dependencies": {
     "@modelcontextprotocol/sdk": "^1.24.0",
     "@supabase/supabase-js": "^2.45.0",
@@ -37,6 +43,7 @@
     "zod": "^3.23.0"
   },
   "devDependencies": {
+    "@biomejs/biome": "1.9.4",
     "@types/cli-progress": "^3.11.0",
     "@types/cors": "^2.8.19",
     "@types/express": "^5.0.0",

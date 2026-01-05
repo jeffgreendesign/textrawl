@@ -1,0 +1,169 @@
+---
+title: Configuration
+description: Environment variables and configuration options
+---
+
+textrawl is configured via environment variables in a `.env` file.
+
+## Environment Variables
+
+### Database Connection
+
+| Variable | Required | Description |
+|----------|----------|-------------|
+| `SUPABASE_URL` | Yes | Your Supabase project URL |
+| `SUPABASE_SERVICE_KEY` | Yes | Service role key (bypasses RLS) |
+
+```bash
+SUPABASE_URL=https://abcdefghijklmnop.supabase.co
+SUPABASE_SERVICE_KEY=eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9...
+```
+
+> **Warning**: Never commit your service key to version control. Use `.env` files or secret managers.
+
+### Embedding Provider
+
+Choose between OpenAI (cloud) or Ollama (local):
+
+| Variable | Required | Description |
+|----------|----------|-------------|
+| `EMBEDDING_PROVIDER` | No | `openai` (default) or `ollama` |
+| `OPENAI_API_KEY` | If OpenAI | Your OpenAI API key |
+| `OLLAMA_BASE_URL` | If Ollama | Ollama server URL |
+| `OLLAMA_MODEL` | If Ollama | Model name (default: `nomic-embed-text`) |
+
+**OpenAI Configuration:**
+
+```bash
+EMBEDDING_PROVIDER=openai
+OPENAI_API_KEY=sk-proj-...
+```
+
+- Model: `text-embedding-3-small`
+- Dimensions: 1536
+
+**Ollama Configuration:**
+
+```bash
+EMBEDDING_PROVIDER=ollama
+OLLAMA_BASE_URL=http://localhost:11434
+OLLAMA_MODEL=nomic-embed-text
+```
+
+- Dimensions: 1024
+
+> **Important**: OpenAI and Ollama use different embedding dimensions. You **cannot** mix providers without re-embedding all documents.
+
+### Server Configuration
+
+| Variable | Required | Default | Description |
+|----------|----------|---------|-------------|
+| `PORT` | No | `3000` | Server port |
+| `LOG_LEVEL` | No | `info` | `debug`, `info`, `warn`, `error` |
+| `ALLOWED_ORIGINS` | No | `*` | CORS allowed origins (comma-separated) |
+
+```bash
+PORT=3000
+LOG_LEVEL=info
+ALLOWED_ORIGINS=http://localhost:3000,https://myapp.com
+```
+
+### Authentication
+
+| Variable | Required | Description |
+|----------|----------|-------------|
+| `API_BEARER_TOKEN` | Production | Auth token (min 32 characters) |
+
+```bash
+API_BEARER_TOKEN=your-very-secure-token-with-at-least-32-characters
+```
+
+When set, all API endpoints require the `Authorization: Bearer <token>` header.
+
+**Unprotected endpoints** (for health checks):
+- `/health`
+- `/health/live`
+- `/health/ready`
+
+### Web UI
+
+| Variable | Required | Default | Description |
+|----------|----------|---------|-------------|
+| `UI_PORT` | No | `3001` | Web UI port for file conversion |
+
+```bash
+UI_PORT=3001
+```
+
+## Rate Limits
+
+Built-in rate limiting (not configurable):
+
+| Endpoint | Limit |
+|----------|-------|
+| API (`/mcp`, `/api/*`) | 100 requests/minute |
+| Upload (`/api/upload`) | 10 requests/minute |
+| Health (`/health/*`) | 300 requests/minute |
+
+## Example Configurations
+
+### Development (Local)
+
+```bash
+# .env
+SUPABASE_URL=https://your-project.supabase.co
+SUPABASE_SERVICE_KEY=your-service-key
+OPENAI_API_KEY=sk-your-key
+PORT=3000
+LOG_LEVEL=debug
+```
+
+### Production (Cloud Run)
+
+```bash
+# Set via Secret Manager
+SUPABASE_URL=https://your-project.supabase.co
+SUPABASE_SERVICE_KEY=your-service-key
+OPENAI_API_KEY=sk-your-key
+API_BEARER_TOKEN=your-secure-production-token
+PORT=8080
+LOG_LEVEL=info
+ALLOWED_ORIGINS=https://your-frontend.com
+```
+
+### Self-Hosted (Ollama)
+
+```bash
+# .env
+SUPABASE_URL=postgresql://textrawl:textrawl@localhost:5432/textrawl
+SUPABASE_SERVICE_KEY=not-used-for-local
+EMBEDDING_PROVIDER=ollama
+OLLAMA_BASE_URL=http://localhost:11434
+OLLAMA_MODEL=nomic-embed-text
+PORT=3000
+LOG_LEVEL=info
+```
+
+## Generating Secure Tokens
+
+The setup script generates a secure token automatically:
+
+```bash
+npm run setup
+```
+
+Or generate manually:
+
+```bash
+# macOS/Linux
+openssl rand -base64 32
+
+# Node.js
+node -e "console.log(require('crypto').randomBytes(32).toString('base64'))"
+```
+
+## Next Steps
+
+- [Quick Start](/docs/getting-started/quick-start) - Connect Claude Desktop
+- [Security Hardening](/docs/guides/security-hardening) - Production security
+- [Cloud Run Deployment](/docs/guides/cloud-run-deployment) - Deploy to GCP

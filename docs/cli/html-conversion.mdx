@@ -1,0 +1,83 @@
+---
+title: HTML Conversion
+description: Convert HTML files to searchable Markdown
+---
+
+Convert HTML files and saved web pages to clean, searchable Markdown.
+
+## Usage
+
+```bash
+npm run convert -- html <path> [options]
+```
+
+## Options
+
+| Option | Default | Description |
+|--------|---------|-------------|
+| `-o, --output <dir>` | `./converted/web` | Output directory |
+| `-r, --recursive` | `false` | Process subdirectories |
+| `-v, --verbose` | `false` | Enable verbose logging |
+| `--dry-run` | `false` | Preview without writing |
+| `-t, --tags <tags...>` | `["web"]` | Additional tags |
+
+## Example
+
+```bash
+# Single file
+npm run convert -- html saved-page.html
+
+# Directory
+npm run convert -- html ./saved-pages/ -r
+
+# With custom output
+npm run convert -- html ./articles/ -o ./knowledge/articles -r
+```
+
+## Output Format
+
+```markdown
+---
+title: "Understanding Hybrid Search"
+source_type: web
+source_hash: "def456..."
+tags:
+  - web
+  - imported
+created_at: "2024-03-20T14:22:00Z"
+converted_at: "2024-03-20T14:22:00Z"
+metadata:
+  url: "https://example.com/article"
+  author: "Jane Smith"
+---
+
+# Understanding Hybrid Search
+
+Article content in clean Markdown...
+```
+
+## What Gets Extracted
+
+- Main content (article body)
+- Title and metadata
+- Images (referenced, not embedded)
+- Links (preserved as Markdown)
+
+## What Gets Removed
+
+- Navigation menus
+- Advertisements
+- Scripts and styles
+- Cookie banners
+- Footer boilerplate
+
+## Supported Formats
+
+- `.html` / `.htm` files
+- Saved web pages
+- Browser "Save As" exports
+- Google Takeout saved pages
+
+## Next Steps
+
+- [Batch Upload](/docs/cli/batch-upload) - Upload converted files

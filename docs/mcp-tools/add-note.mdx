@@ -1,0 +1,103 @@
+---
+title: add_note
+description: Create markdown notes with automatic embedding
+---
+
+Create new notes in your knowledge base with automatic chunking and embedding generation.
+
+## Parameters
+
+| Parameter | Type | Required | Default | Description |
+|-----------|------|----------|---------|-------------|
+| `title` | string | Yes | - | Note title (1-500 chars) |
+| `content` | string | Yes | - | Markdown content (1-100000 chars) |
+| `tags` | string[] | No | `[]` | Tags for organization |
+
+## Example Request
+
+```json
+{
+  "title": "Project Alpha Requirements",
+  "content": "# Project Alpha\n\n## Goals\n\n- Improve search accuracy by 20%\n- Reduce latency to under 100ms\n\n## Technical Requirements\n\n- Use hybrid search with RRF\n- Implement caching layer\n- Add monitoring dashboards",
+  "tags": ["project-alpha", "requirements", "technical"]
+}
+```
+
+## Response
+
+```json
+{
+  "documentId": "550e8400-e29b-41d4-a716-446655440000",
+  "title": "Project Alpha Requirements",
+  "chunkCount": 1,
+  "tags": ["project-alpha", "requirements", "technical"],
+  "createdAt": "2024-11-01T10:00:00Z"
+}
+```
+
+## Processing Pipeline
+
+When you add a note:
+
+1. **Document Created**: Stored in `documents` table
+2. **Content Chunked**: Split into ~512 token chunks with overlap
+3. **Embeddings Generated**: Each chunk embedded via OpenAI/Ollama
+4. **Search Index Updated**: Full-text search vector created
+
+## Use Cases
+
+### Knowledge Capture
+
+Save insights from conversations:
+
+```json
+{
+  "title": "Customer Feedback - October 2024",
+  "content": "Key themes from customer calls:\n\n1. Users want faster search\n2. Mobile app requested\n3. Integration with Slack needed",
+  "tags": ["customer-feedback", "product"]
+}
+```
+
+### Meeting Notes
+
+Capture meeting outcomes:
+
+```json
+{
+  "title": "Sprint Planning - Week 45",
+  "content": "## Attendees\n- Team leads\n\n## Decisions\n- Prioritize search improvements\n- Delay mobile app to Q1",
+  "tags": ["meetings", "sprint-planning"]
+}
+```
+
+### Research Notes
+
+Store research findings:
+
+```json
+{
+  "title": "Hybrid Search Research",
+  "content": "## Papers Reviewed\n\n1. RRF paper - key insights...\n2. pgvector benchmarks...",
+  "tags": ["research", "search", "technical"]
+}
+```
+
+## Error Responses
+
+### Content too long
+
+```json
+{
+  "error": "Validation error",
+  "message": "Content exceeds maximum length of 100000 characters"
+}
+```
+
+### Embedding failed
+
+```json
+{
+  "error": "Embedding failed",
+  "message": "OpenAI API rate limit exceeded"
+}
+```

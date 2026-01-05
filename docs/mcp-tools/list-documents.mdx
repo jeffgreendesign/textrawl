@@ -1,0 +1,90 @@
+---
+title: list_documents
+description: Browse documents with pagination and filtering
+---
+
+Browse all documents in your knowledge base with pagination and filtering options.
+
+## Parameters
+
+| Parameter | Type | Required | Default | Description |
+|-----------|------|----------|---------|-------------|
+| `limit` | number | No | 20 | Results per page (1-100) |
+| `offset` | number | No | 0 | Skip this many results |
+| `sourceType` | enum | No | - | Filter by: `note`, `file`, `url` |
+| `tags` | string[] | No | - | Filter by tags (AND logic) |
+| `orderBy` | enum | No | `updatedAt` | Sort by: `createdAt`, `updatedAt`, `title` |
+| `order` | enum | No | `desc` | Sort order: `asc`, `desc` |
+
+## Example Request
+
+```json
+{
+  "limit": 10,
+  "offset": 0,
+  "sourceType": "note",
+  "tags": ["work"],
+  "orderBy": "updatedAt",
+  "order": "desc"
+}
+```
+
+## Response
+
+```json
+{
+  "documents": [
+    {
+      "id": "550e8400-e29b-41d4-a716-446655440000",
+      "title": "Q4 Planning Notes",
+      "sourceType": "note",
+      "tags": ["work", "planning"],
+      "createdAt": "2024-10-15T14:30:00Z",
+      "updatedAt": "2024-10-15T14:30:00Z"
+    }
+  ],
+  "total": 42,
+  "limit": 10,
+  "offset": 0,
+  "hasMore": true
+}
+```
+
+## Pagination
+
+Use `limit` and `offset` for pagination:
+
+```text
+Page 1: limit=10, offset=0
+Page 2: limit=10, offset=10
+Page 3: limit=10, offset=20
+```
+
+## Filtering Examples
+
+### By Source Type
+
+```json
+{ "sourceType": "file" }
+```
+
+Returns only uploaded files.
+
+### By Multiple Tags
+
+```json
+{ "tags": ["work", "q4"] }
+```
+
+Returns documents with BOTH tags.
+
+### Combined Filters
+
+```json
+{
+  "sourceType": "note",
+  "tags": ["important"],
+  "orderBy": "createdAt",
+  "order": "asc"
+}
+```
