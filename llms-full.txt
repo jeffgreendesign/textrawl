@@ -98,6 +98,103 @@ Parameters:
 - content (string, REQUIRED): Markdown content (max 1MB)
 - tags (string[]): Tags for organization
 
+## Memory Tools (Persistent Memory)
+
+Enable with ENABLE_MEMORY=true (default). Requires setup-db-memory.sql (OpenAI) or setup-db-memory-ollama.sql (Ollama).
+
+### remember_fact
+
+Store facts about entities (people, projects, concepts) with automatic semantic embedding.
+
+Parameters:
+- entityName (string, REQUIRED): Name of entity (e.g., "Jeff", "Project Alpha")
+- entityType (enum, REQUIRED): person | concept | project | preference | fact | location | organization
+- observation (string, REQUIRED): Single atomic fact to remember (max 2000 chars)
+- source (enum): conversation | note | document | manual, default 'conversation'
+- validUntil (string): ISO date for expiring facts (e.g., "2026-12-31")
+
+Example:
+```json
+{
+  "entityName": "Jeff",
+  "entityType": "person",
+  "observation": "prefers dark mode in IDEs",
+  "source": "conversation"
+}
+```
+
+### recall_memories
+
+Semantic search across stored memories using hybrid (keyword + semantic) or semantic-only mode.
+
+Parameters:
+- query (string, REQUIRED): What to search for (1-1000 chars)
+- entityTypes (enum[]): Filter by entity types
+- limit (number): Max results 1-50, default 10
+- searchMode (enum): hybrid | semantic, default 'hybrid'
+
+Example:
+```json
+{
+  "query": "user preferences for development",
+  "entityTypes": ["person", "preference"],
+  "limit": 10
+}
+```
+
+### relate_entities
+
+Create directed relationships between entities.
+
+Parameters:
+- fromEntity (string, REQUIRED): Source entity name
+- relation (string, REQUIRED): Relation type (works_at, knows, prefers, created, part_of, related_to)
+- toEntity (string, REQUIRED): Target entity name
+- fromEntityType (enum): Type of source entity (auto-inferred if exists)
+- toEntityType (enum): Type of target entity (auto-inferred if exists)
+
+Example:
+```json
+{
+  "fromEntity": "Jeff",
+  "relation": "works_at",
+  "toEntity": "Acme Corp"
+}
+```
+
+### get_entity_context
+
+Retrieve all information about an entity including observations and relations.
+
+Parameters:
+- entityName (string, REQUIRED): Name of entity to look up
+- includeRelated (boolean): Include relations, default true
+
+### list_entities
+
+List all known entities with pagination.
+
+Parameters:
+- entityTypes (enum[]): Filter by entity types
+- limit (number): 1-100, default 50
+- offset (number): Pagination offset, default 0
+
+### forget_entity
+
+Delete an entity and all its associated memories and relations.
+
+Parameters:
+- entityName (string, REQUIRED): Name of entity to delete
+- confirm (boolean, REQUIRED): Must be true to confirm deletion
+
+### memory_stats
+
+Get statistics about stored memories.
+
+Parameters: None
+
+Returns total entities, observations, relations, and counts by entity type.
+
 ## Environment Variables
 
 Required:
@@ -113,6 +210,7 @@ Optional:
 - PORT: Server port (default 3000)
 - LOG_LEVEL: debug/info/warn/error
 - ALLOWED_ORIGINS: CORS whitelist
+- ENABLE_MEMORY: Enable memory tools (default true)
 
 ## CLI Tools
 
@@ -149,9 +247,16 @@ Results merged using Reciprocal Rank Fusion (RRF).
 
 ### Database Schema
 
+Document tables (setup-db.sql):
 - documents: Full documents with tsvector
 - chunks: Document chunks with vector embeddings
 - hybrid_search(): RPC for RRF fusion
+
+Memory tables (setup-db-memory.sql):
+- memory_entities: Named entities (people, concepts, projects)
+- memory_observations: Atomic facts about entities with embeddings
+- memory_relations: Directed relationships between entities
+- memory_hybrid_search() / memory_semantic_search(): Memory search RPCs
 
 ## Deployment
 
