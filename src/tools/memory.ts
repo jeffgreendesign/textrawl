@@ -157,7 +157,13 @@ export function registerMemoryTools(server: McpServer): void {
         }
 
         // Generate embedding for the observation
+        const embedStart = Date.now();
         const embedding = await generateEmbedding(observation);
+        logger.debug('embedding generated', {
+          operation: 'remember_fact',
+          entityName,
+          latencyMs: Date.now() - embedStart,
+        });
 
         // Create the observation
         const obs = await createObservation({
@@ -295,9 +301,16 @@ export function registerMemoryTools(server: McpServer): void {
 
       try {
         // Generate embedding for the query
+        const embedStart = Date.now();
         const queryEmbedding = await generateEmbedding(query);
+        logger.debug('embedding generated', {
+          operation: 'recall_memories',
+          queryLength: query.length,
+          latencyMs: Date.now() - embedStart,
+        });
 
         // Search memories
+        const searchStart = Date.now();
         const results =
           searchMode === 'semantic'
             ? await semanticMemorySearch(queryEmbedding, {
@@ -308,6 +321,7 @@ export function registerMemoryTools(server: McpServer): void {
                 limit,
                 entityTypes: entityTypes as EntityType[] | undefined,
               });
+        const searchLatencyMs = Date.now() - searchStart;
 
         // Group results by entity for better readability
         const groupedByEntity = new Map<
@@ -346,6 +360,7 @@ export function registerMemoryTools(server: McpServer): void {
         logger.info('recall_memories completed', {
           resultCount: results.length,
           entityCount: groupedResults.length,
+          searchLatencyMs,
         });
 
         return {
