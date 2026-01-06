@@ -47,6 +47,11 @@ export interface CreateObservationBatchInput {
 }
 
 /**
+ * Default threshold for semantic similarity checks
+ */
+export const SEMANTIC_SIMILARITY_THRESHOLD = 0.95;
+
+/**
  * Create a new observation for an entity
  */
 export async function createObservation(
@@ -287,7 +292,7 @@ export async function deleteObservationByContent(
 export async function findSimilarObservation(
   entityId: string,
   content: string,
-  similarityThreshold: number = 0.95,
+  similarityThreshold: number = SEMANTIC_SIMILARITY_THRESHOLD,
   embedding?: number[]
 ): Promise<MemoryObservation | null> {
   if (!isSupabaseConfigured()) {
@@ -318,15 +323,15 @@ export async function findSimilarObservation(
 
   // Use vector similarity if embedding is provided
   if (embedding) {
-    // We search for top 10 matches to ensure we find a match for THIS entity
-    // even if other entities have more similar memories
+    // Filter by entity_id directly in the DB search
     const { data: similarMatches, error: similarError } = await client.rpc(
       'memory_semantic_search',
       {
         query_embedding: embedding,
-        match_count: 10,
+        match_count: 5,
         entity_types: null,
         include_expired: false,
+        filter_entity_id: entityId,
       }
     );
 
@@ -339,17 +344,10 @@ export async function findSimilarObservation(
     }
 
     if (similarMatches && similarMatches.length > 0) {
-      // Find the first match that belongs to our entity and meets threshold
-      const bestMatch = similarMatches.find(
-        (m: {
-          entity_id: string;
-          similarity: number;
-          observation_content: string;
-          observation_id: string;
-        }) => m.entity_id === entityId && m.similarity >= similarityThreshold
-      );
+      // Since we filtered by entity_id, we just check the first result for similarity
+      const bestMatch = similarMatches[0];
 
-      if (bestMatch) {
+      if (bestMatch.similarity >= similarityThreshold) {
         logger.debug('Found semantically similar observation', {
           original: content,
           match: bestMatch.observation_content,

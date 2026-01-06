@@ -14,6 +14,7 @@ import {
   createObservation,
   findSimilarObservation,
   deleteObservation,
+  SEMANTIC_SIMILARITY_THRESHOLD,
 } from '../db/memory-observations.js';
 import { getOrCreateRelation, RELATION_TYPES } from '../db/memory-relations.js';
 import {
@@ -153,7 +154,7 @@ export function registerMemoryTools(server: McpServer): void {
         const existing = await findSimilarObservation(
           entity.id,
           observation,
-          0.95,
+          SEMANTIC_SIMILARITY_THRESHOLD,
           embedding
         );
 

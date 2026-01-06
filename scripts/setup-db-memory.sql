@@ -95,7 +95,8 @@ CREATE OR REPLACE FUNCTION memory_semantic_search(
   query_embedding VECTOR(1536),
   match_count INT DEFAULT 10,
   entity_types TEXT[] DEFAULT NULL,
-  include_expired BOOLEAN DEFAULT FALSE
+  include_expired BOOLEAN DEFAULT FALSE,
+  filter_entity_id UUID DEFAULT NULL
 )
 RETURNS TABLE (
   entity_id UUID,
@@ -123,6 +124,7 @@ JOIN memory_entities e ON o.entity_id = e.id
 WHERE
   o.embedding IS NOT NULL
   AND (entity_types IS NULL OR e.entity_type = ANY(entity_types))
+  AND (filter_entity_id IS NULL OR o.entity_id = filter_entity_id)
   AND (include_expired OR o.valid_until IS NULL OR o.valid_until > NOW())
 ORDER BY o.embedding <=> query_embedding
 LIMIT match_count;
