@@ -1,3 +1,8 @@
+---
+title: Data Import Checklist
+description: Guide to common personal data exports you can import into Textrawl
+---
+
 # Data Import Checklist
 
 This guide helps you identify personal data exports you can import into Textrawl. Start with the high-value, easy sources and work your way through.
