@@ -296,6 +296,9 @@ export async function updateRelationStrength(
     .single();
 
   if (error) {
+    if (error.code === 'PGRST116') {
+      throw new NotFoundError('Relation not found');
+    }
     logger.error('Failed to update relation strength', {
       error: error.message,
     });

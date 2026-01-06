@@ -9,9 +9,9 @@ List all entities stored in memory with optional filtering and pagination.
 
 | Parameter | Type | Required | Default | Description |
 |-----------|------|----------|---------|-------------|
-| `entityTypes` | enum[] | No | all | Filter by entity types |
-| `limit` | number | No | `50` | Max results (1-100) |
-| `offset` | number | No | `0` | Pagination offset |
+| `entityTypes` | enum[] | OPTIONAL | all | Filter by entity types |
+| `limit` | number | OPTIONAL | `50` | Max results (1-100) |
+| `offset` | number | OPTIONAL | `0` | Pagination offset |
 
 ## Example Request
 
@@ -119,3 +119,13 @@ Use `offset` and `limit` to paginate through large result sets:
 ## Sorting
 
 Entities are returned sorted by `updated_at` in descending order (most recently updated first).
+
+## Errors
+
+| Error | Cause | Fix |
+|-------|-------|-----|
+| Invalid limit | Limit outside 1-100 range | Set limit between 1 and 100 |
+| Invalid offset | Negative offset value | Use offset >= 0 |
+| Invalid entity type | Unknown entity type in filter | Use valid types: person, concept, project, preference, fact, location, organization |
+| Memory not enabled | `ENABLE_MEMORY` feature flag is false | Set `ENABLE_MEMORY=true` |
+| Database error | Connection or query failure | Check DB connectivity and logs |

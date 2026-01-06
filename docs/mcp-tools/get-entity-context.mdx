@@ -9,8 +9,8 @@ Get comprehensive context about an entity including all observations and relatio
 
 | Parameter | Type | Required | Default | Description |
 |-----------|------|----------|---------|-------------|
-| `entityName` | string | Yes | - | Name of entity to look up (1-200 chars) |
-| `includeRelated` | boolean | No | `true` | Include relations in response |
+| `entityName` | string | REQUIRED | - | Name of entity to look up (1-200 chars) |
+| `includeRelated` | boolean | OPTIONAL | `true` | Include relations in response |
 
 ## Example Request
 
@@ -147,3 +147,12 @@ Get just the facts about an entity without relation queries.
 | `observations` | All stored facts about the entity |
 | `relations.outgoing` | Relations where this entity is the source |
 | `relations.incoming` | Relations where this entity is the target |
+
+## Errors
+
+| Error | Cause | Fix |
+|-------|-------|-----|
+| Entity not found | No entity exists with the provided name | Verify entity name or create entity first |
+| Invalid entity name | Name exceeds 200 chars or is empty | Provide a valid name (1-200 chars) |
+| Memory not enabled | `ENABLE_MEMORY` feature flag is false | Set `ENABLE_MEMORY=true` |
+| Database error | Connection or query failure | Check DB connectivity and logs |

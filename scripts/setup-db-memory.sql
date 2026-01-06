@@ -200,8 +200,7 @@ $$;
 -- Get entity with all observations and relations
 CREATE OR REPLACE FUNCTION get_entity_context(
   target_entity_name TEXT,
-  include_related BOOLEAN DEFAULT TRUE,
-  relation_depth INT DEFAULT 1
+  include_related BOOLEAN DEFAULT TRUE
 )
 RETURNS TABLE (
   entity_id UUID,

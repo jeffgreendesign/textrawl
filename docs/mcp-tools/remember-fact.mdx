@@ -9,11 +9,11 @@ Store atomic facts about entities (people, projects, concepts) with automatic se
 
 | Parameter | Type | Required | Default | Description |
 |-----------|------|----------|---------|-------------|
-| `entityName` | string | Yes | - | Name of entity (1-200 chars) |
-| `entityType` | enum | Yes | - | Type: person, concept, project, preference, fact, location, organization |
-| `observation` | string | Yes | - | Single atomic fact to remember (1-2000 chars) |
-| `source` | enum | No | `conversation` | Source: conversation, note, document, manual |
-| `validUntil` | string | No | - | ISO date for expiring facts (e.g., "2026-12-31") |
+| `entityName` | string | REQUIRED | - | Name of entity (1-200 chars) |
+| `entityType` | enum | REQUIRED | - | Type: person, concept, project, preference, fact, location, organization |
+| `observation` | string | REQUIRED | - | Single atomic fact to remember (1-2000 chars) |
+| `source` | enum | OPTIONAL | `conversation` | Source: conversation, note, document, manual |
+| `validUntil` | string | OPTIONAL | - | ISO date for expiring facts (e.g., "2026-12-31") |
 
 ## Entity Types
 
@@ -118,22 +118,13 @@ If you try to remember a fact that's already stored:
 }
 ```
 
-## Error Responses
+## Errors
 
-### Missing embedding configuration
-
-```json
-{
-  "error": "Embedding service not configured",
-  "message": "Set OPENAI_API_KEY or configure Ollama for semantic memory search."
-}
-```
-
-### Database not configured
-
-```json
-{
-  "error": "Database not configured",
-  "message": "Set SUPABASE_URL and SUPABASE_SERVICE_KEY to enable memory storage."
-}
-```
+| Error | Cause | Fix |
+|-------|-------|-----|
+| Embedding service not configured | Missing `OPENAI_API_KEY` or Ollama config | Set `OPENAI_API_KEY` or configure `OLLAMA_BASE_URL` |
+| Database not configured | Missing Supabase credentials | Set `SUPABASE_URL` and `SUPABASE_SERVICE_KEY` |
+| Invalid entity name | Name empty or exceeds 200 chars | Provide name between 1-200 chars |
+| Invalid observation | Observation empty or exceeds 2000 chars | Provide observation between 1-2000 chars |
+| Invalid entity type | Unknown entity type | Use valid types: person, concept, project, preference, fact, location, organization |
+| Memory not enabled | `ENABLE_MEMORY` feature flag is false | Set `ENABLE_MEMORY=true` |

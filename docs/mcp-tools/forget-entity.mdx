@@ -9,8 +9,8 @@ Permanently delete an entity and all its associated observations and relations.
 
 | Parameter | Type | Required | Default | Description |
 |-----------|------|----------|---------|-------------|
-| `entityName` | string | Yes | - | Name of entity to delete (1-200 chars) |
-| `confirm` | boolean | Yes | - | Must be `true` to confirm deletion |
+| `entityName` | string | REQUIRED | - | Name of entity to delete (1-200 chars) |
+| `confirm` | boolean | REQUIRED | - | MUST be `true` to confirm deletion |
 
 ## Example Request
 
@@ -130,6 +130,16 @@ Before deleting, consider:
 1. Use `get_entity_context` to review what will be deleted
 2. Export important information if needed
 3. Check for important relations that will be affected
+
+## Errors
+
+| Error | Cause | Fix |
+|-------|-------|-----|
+| Confirmation required | `confirm` parameter is not `true` | Set `confirm=true` to proceed with deletion |
+| Entity not found | No entity exists with the provided name | Verify entity name using `list_entities` |
+| Invalid entity name | Name exceeds 200 chars or is empty | Provide a valid name (1-200 chars) |
+| Memory not enabled | `ENABLE_MEMORY` feature flag is false | Set `ENABLE_MEMORY=true` |
+| Database error | Connection or query failure | Check DB connectivity and logs |
 
 ## Related Tools
 

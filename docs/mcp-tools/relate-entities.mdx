@@ -9,11 +9,11 @@ Create directed relationships between entities to build a knowledge graph.
 
 | Parameter | Type | Required | Default | Description |
 |-----------|------|----------|---------|-------------|
-| `fromEntity` | string | Yes | - | Source entity name (1-200 chars) |
-| `relation` | string | Yes | - | Relation type (1-100 chars) |
-| `toEntity` | string | Yes | - | Target entity name (1-200 chars) |
-| `fromEntityType` | enum | No | inferred | Type of source entity |
-| `toEntityType` | enum | No | inferred | Type of target entity |
+| `fromEntity` | string | REQUIRED | - | Source entity name (1-200 chars) |
+| `relation` | string | REQUIRED | - | Relation type (1-100 chars) |
+| `toEntity` | string | REQUIRED | - | Target entity name (1-200 chars) |
+| `fromEntityType` | enum | OPTIONAL | inferred | Type of source entity |
+| `toEntityType` | enum | OPTIONAL | inferred | Type of target entity |
 
 ## Common Relation Types
 
@@ -136,3 +136,13 @@ If the same relation already exists, the existing relation is returned:
   "relationId": "existing-relation-id"
 }
 ```
+
+## Errors
+
+| Error | Cause | Fix |
+|-------|-------|-----|
+| Self-referential relation | `fromEntity` and `toEntity` are the same | Use different entity names |
+| Invalid entity name | Name exceeds 200 chars or is empty | Provide names between 1-200 chars |
+| Invalid relation type | Relation exceeds 100 chars or is empty | Provide relation between 1-100 chars |
+| Memory not enabled | `ENABLE_MEMORY` feature flag is false | Set `ENABLE_MEMORY=true` |
+| Database error | Connection or query failure | Check DB connectivity and logs |

@@ -9,10 +9,10 @@ Search stored memories using hybrid (keyword + semantic) or semantic-only search
 
 | Parameter | Type | Required | Default | Description |
 |-----------|------|----------|---------|-------------|
-| `query` | string | Yes | - | Search query (1-1000 chars) |
-| `entityTypes` | enum[] | No | all | Filter by entity types |
-| `limit` | number | No | `10` | Max results (1-50) |
-| `searchMode` | enum | No | `hybrid` | Search mode: hybrid, semantic |
+| `query` | string | REQUIRED | - | Search query (1-1000 chars) |
+| `entityTypes` | enum[] | OPTIONAL | all | Filter by entity types |
+| `limit` | number | OPTIONAL | `10` | Max results (1-50) |
+| `searchMode` | enum | OPTIONAL | `hybrid` | Search mode: hybrid, semantic |
 
 ## Search Modes
 
@@ -127,13 +127,12 @@ When `COMPACT_RESPONSES=false`:
 | 0.5 - 0.7 | Moderate relevance |
 | < 0.5 | Weak match |
 
-## Error Responses
+## Errors
 
-### Embedding service not configured
-
-```json
-{
-  "error": "Embedding service not configured",
-  "message": "Semantic search requires embedding configuration."
-}
-```
+| Error | Cause | Fix |
+|-------|-------|-----|
+| Embedding service not configured | Missing `OPENAI_API_KEY` or Ollama config | Set `OPENAI_API_KEY` or configure `OLLAMA_BASE_URL` |
+| Invalid query length | Query empty or exceeds 1000 chars | Provide query between 1-1000 chars |
+| Invalid limit | Limit outside 1-50 range | Set limit between 1 and 50 |
+| Invalid entity type | Unknown entity type in filter | Use valid types: person, concept, project, preference, fact, location, organization |
+| Memory not enabled | `ENABLE_MEMORY` feature flag is false | Set `ENABLE_MEMORY=true` |
