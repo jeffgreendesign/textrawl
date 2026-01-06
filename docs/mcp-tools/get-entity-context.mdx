@@ -141,12 +141,12 @@ Get just the facts about an entity without relation queries.
 
 ## Response Structure
 
-| Field | Description |
-|-------|-------------|
-| `entity` | Basic entity info (id, name, type, description) |
-| `observations` | All stored facts about the entity |
-| `relations.outgoing` | Relations where this entity is the source |
-| `relations.incoming` | Relations where this entity is the target |
+| Field | Compact Key | Description |
+|-------|-------------|-------------|
+| `entity` | `n`, `t` | Basic entity info (name, type) |
+| `observations` | `o` | All stored facts about the entity |
+| `relations.outgoing` | `r.out` | Relations where this entity is the source |
+| `relations.incoming` | `r.in` | Relations where this entity is the target |
 
 ## Errors
 

@@ -1,3 +1,8 @@
+---
+title: Persistent Memory Analysis
+description: Research and implementation analysis for persistent memory in Textrawl
+---
+
 # Persistent Memory Implementation Analysis for Textrawl
 
 **Analysis Date:** January 5, 2026

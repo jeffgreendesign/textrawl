@@ -135,7 +135,8 @@ CREATE OR REPLACE FUNCTION memory_hybrid_search(
   full_text_weight FLOAT DEFAULT 1.0,
   semantic_weight FLOAT DEFAULT 1.0,
   rrf_k INT DEFAULT 60,
-  entity_types TEXT[] DEFAULT NULL
+  entity_types TEXT[] DEFAULT NULL,
+  include_expired BOOLEAN DEFAULT FALSE
 )
 RETURNS TABLE (
   entity_id UUID,
@@ -159,7 +160,7 @@ WITH full_text AS (
   WHERE
     o.fts @@ websearch_to_tsquery(query_text)
     AND (entity_types IS NULL OR e.entity_type = ANY(entity_types))
-    AND (o.valid_until IS NULL OR o.valid_until > NOW())
+    AND (include_expired OR o.valid_until IS NULL OR o.valid_until > NOW())
   LIMIT match_count * 2
 ),
 semantic AS (
@@ -172,7 +173,7 @@ semantic AS (
   WHERE
     o.embedding IS NOT NULL
     AND (entity_types IS NULL OR e.entity_type = ANY(entity_types))
-    AND (o.valid_until IS NULL OR o.valid_until > NOW())
+    AND (include_expired OR o.valid_until IS NULL OR o.valid_until > NOW())
   ORDER BY o.embedding <=> query_embedding
   LIMIT match_count * 2
 )

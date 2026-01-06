@@ -1,6 +1,9 @@
 import { getSupabaseClient, isSupabaseConfigured } from './client.js';
 import { logger } from '../utils/logger.js';
-import { DatabaseError, NotFoundError } from '../utils/errors.js';
+import { DatabaseError, NotFoundError, ValidationError } from '../utils/errors.js';
+
+// UUID format validation regex
+const UUID_REGEX = /^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i;
 
 /**
  * Memory Relation type definition
@@ -337,6 +340,11 @@ export async function deleteRelationsBetween(
 ): Promise<number> {
   if (!isSupabaseConfigured()) {
     throw new DatabaseError('Supabase not configured');
+  }
+
+  // Validate UUID format before querying to prevent SQL injection
+  if (!UUID_REGEX.test(entityId1) || !UUID_REGEX.test(entityId2)) {
+    throw new ValidationError('Invalid entity ID format');
   }
 
   const client = getSupabaseClient();
