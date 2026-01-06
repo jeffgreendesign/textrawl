@@ -11,8 +11,49 @@ Agent conventions for Textrawl - Personal Knowledge MCP Server.
 | Auth | Bearer token (`Authorization: Bearer <API_BEARER_TOKEN>`) |
 | Rate Limits | API: 100/min, Upload: 10/min |
 | Node.js | >= 22.0.0 |
+| Response Format | Compact by default (`COMPACT_RESPONSES=true`) |
+
+## Compact Response Format
+
+Memory tools return token-efficient responses by default (40-60% smaller). Set `COMPACT_RESPONSES=false` for verbose mode.
+
+**Key mappings (compact → verbose):**
+- `n` → `name` or `count` (context-dependent)
+- `t` → `type`
+- `o` → `observations`
+- `m` → `memories`
+- `c` → `content`
+- `s` → `score`
+- `r` → `relations`
+- `ok` → `success`
+- `dup` → `duplicate`
+- `ent`/`obs`/`rel` → `totalEntities`/`totalObservations`/`totalRelations`
+
+**Example (`recall_memories` compact response):**
+```json
+{"n":2,"e":[{"n":"Jeff","t":"person","m":[{"c":"prefers dark mode","s":0.92}]}]}
+```
+
+**Same response in verbose mode:**
+```json
+{
+  "query": "preferences",
+  "totalMemories": 2,
+  "entities": [
+    {
+      "entityName": "Jeff",
+      "entityType": "person",
+      "memories": [
+        {"content": "prefers dark mode", "source": "conversation", "score": 0.92}
+      ]
+    }
+  ]
+}
+```
 
 ## Tool Selection Guide
+
+### Document Tools
 
 | User Intent | Tool | Key Parameters |
 |-------------|------|----------------|
@@ -24,6 +65,20 @@ Agent conventions for Textrawl - Personal Knowledge MCP Server.
 | Filter by type | `list_documents` | `sourceType: 'note' \| 'file' \| 'url'` |
 | Create new knowledge | `add_note` | `title`, `content`, `tags` |
 | Update metadata | `update_document` | `documentId`, `title`, `tags` |
+
+### Memory Tools (Persistent Memory)
+
+Enable with `ENABLE_MEMORY=true` (default). Requires `setup-db-memory.sql` (OpenAI) or `setup-db-memory-ollama.sql` (Ollama).
+
+| User Intent | Tool | Key Parameters |
+|-------------|------|----------------|
+| Remember facts about people/projects | `remember_fact` | `entityName`, `entityType`, `observation` |
+| Search past memories | `recall_memories` | `query`, `searchMode: 'hybrid'` |
+| Connect entities together | `relate_entities` | `fromEntity`, `relation`, `toEntity` |
+| Get all info about an entity | `get_entity_context` | `entityName` |
+| List all known entities | `list_entities` | `entityTypes`, `limit` |
+| Delete an entity completely | `forget_entity` | `entityName`, `confirm: true` |
+| View memory statistics | `memory_stats` | (no parameters) |
 
 ## Tool Schemas (RFC 2119)
 
@@ -167,6 +222,168 @@ Create markdown notes with automatic chunking and embedding.
 }
 ```
 
+### remember_fact
+
+Store facts about entities (people, projects, concepts) with automatic semantic embedding.
+
+**Parameters:**
+
+- `entityName` (string, REQUIRED): Name of entity (e.g., "Jeff", "Project Alpha")
+- `entityType` (enum, REQUIRED): `'person' | 'concept' | 'project' | 'preference' | 'fact' | 'location' | 'organization'`
+- `observation` (string, REQUIRED): Single atomic fact to remember (max 2000 chars)
+- `source` (enum, OPTIONAL): `'conversation' | 'note' | 'document' | 'manual'`, default 'conversation'
+- `validUntil` (string, OPTIONAL): ISO date for expiring facts (e.g., "2026-12-31")
+
+**Response:**
+
+```json
+{
+  "success": true,
+  "message": "Remembered: \"prefers dark mode\" about Jeff",
+  "entityId": "uuid",
+  "entityName": "Jeff",
+  "entityType": "person",
+  "observationId": "uuid"
+}
+```
+
+### recall_memories
+
+Semantic search across stored memories using hybrid (keyword + semantic) or semantic-only mode.
+
+**Parameters:**
+
+- `query` (string, REQUIRED): What to search for (1-1000 chars)
+- `entityTypes` (enum[], OPTIONAL): Filter by entity types
+- `limit` (number, OPTIONAL): Max results 1-50, default 10
+- `searchMode` (enum, OPTIONAL): `'hybrid' | 'semantic'`, default 'hybrid'
+
+**Response:**
+
+```json
+{
+  "query": "...",
+  "totalMemories": 5,
+  "entities": [
+    {
+      "entityName": "Jeff",
+      "entityType": "person",
+      "memories": [
+        { "content": "prefers dark mode", "source": "conversation", "confidence": 1.0, "score": 0.85 }
+      ]
+    }
+  ]
+}
+```
+
+### relate_entities
+
+Create directed relationships between entities.
+
+**Parameters:**
+
+- `fromEntity` (string, REQUIRED): Source entity name
+- `relation` (string, REQUIRED): Relation type (e.g., "works_at", "prefers", "knows", "created", "part_of")
+- `toEntity` (string, REQUIRED): Target entity name
+- `fromEntityType` (enum, OPTIONAL): Type of source entity
+- `toEntityType` (enum, OPTIONAL): Type of target entity
+
+**Response:**
+
+```json
+{
+  "success": true,
+  "message": "Created relation: Jeff works_at Acme Corp",
+  "relationId": "uuid",
+  "fromEntity": { "id": "uuid", "name": "Jeff", "type": "person" },
+  "toEntity": { "id": "uuid", "name": "Acme Corp", "type": "organization" }
+}
+```
+
+### get_entity_context
+
+Retrieve all information about an entity including observations and relations.
+
+**Parameters:**
+
+- `entityName` (string, REQUIRED): Name of entity to look up
+- `includeRelated` (boolean, OPTIONAL): Include relations, default true
+
+**Response:**
+
+```json
+{
+  "found": true,
+  "entity": { "id": "uuid", "name": "Jeff", "type": "person", "description": null },
+  "observations": [
+    { "id": "uuid", "content": "prefers dark mode", "source": "conversation", "confidence": 1.0, "created_at": "..." }
+  ],
+  "relations": {
+    "outgoing": [{ "relation_type": "works_at", "to_entity": "Acme Corp", "to_entity_type": "organization", "strength": 1.0 }],
+    "incoming": []
+  }
+}
+```
+
+### list_entities
+
+List all known entities with pagination.
+
+**Parameters:**
+
+- `entityTypes` (enum[], OPTIONAL): Filter by entity types
+- `limit` (number, OPTIONAL): 1-100, default 50
+- `offset` (number, OPTIONAL): Pagination offset, default 0
+
+**Response:**
+
+```json
+{
+  "total": 25,
+  "returned": 25,
+  "offset": 0,
+  "entities": [
+    { "id": "uuid", "name": "Jeff", "type": "person", "description": null, "updatedAt": "..." }
+  ]
+}
+```
+
+### forget_entity
+
+Delete an entity and all its associated memories and relations.
+
+**Parameters:**
+
+- `entityName` (string, REQUIRED): Name of entity to delete
+- `confirm` (boolean, REQUIRED): Must be true to confirm deletion
+
+**Response:**
+
+```json
+{
+  "success": true,
+  "message": "Forgotten: Jeff and all associated memories",
+  "deletedEntityId": "uuid"
+}
+```
+
+### memory_stats
+
+Get statistics about stored memories.
+
+**Parameters:** None
+
+**Response:**
+
+```json
+{
+  "totalEntities": 25,
+  "totalObservations": 150,
+  "totalRelations": 30,
+  "entitiesByType": { "person": 10, "project": 8, "concept": 7 }
+}
+```
+
 ## Common Agent Patterns
 
 ### Pattern 1: Search and Retrieve
@@ -201,6 +418,31 @@ Create markdown notes with automatic chunking and embedding.
 3. update_document(documentId: "...", tags: ["category"])
 ```
 
+### Pattern 5: Memory Capture (Persistent Memory)
+
+```text
+1. User mentions facts about themselves, preferences, or context
+2. remember_fact(entityName: "User", entityType: "person", observation: "prefers TypeScript")
+3. For relationships: relate_entities(fromEntity: "User", relation: "works_at", toEntity: "Acme")
+```
+
+### Pattern 6: Context Retrieval (Persistent Memory)
+
+```text
+1. Before responding, check for relevant memories
+2. recall_memories(query: "user preferences", entityTypes: ["person", "preference"])
+3. get_entity_context(entityName: "User") for full context
+4. Incorporate memories into response
+```
+
+### Pattern 7: Memory-Enhanced Search
+
+```text
+1. recall_memories(query: "...", limit: 5) for entity context
+2. search_knowledge(query: "...", tags: relevant_tags) for documents
+3. Combine entity knowledge with document content
+```
+
 ## Error Handling
 
 Errors are returned in the result object (NOT as protocol-level errors):
@@ -220,6 +462,9 @@ Errors are returned in the result object (NOT as protocol-level errors):
 | `OpenAI not configured` | Missing embedding API key | Set `OPENAI_API_KEY` or configure Ollama |
 | `No updates provided` | update_document called without changes | Provide `title` or `tags` |
 | `Document not found` | Invalid documentId | Verify UUID from search or list results |
+| `Embedding service not configured` | Memory tools need embeddings | Set `OPENAI_API_KEY` or configure Ollama |
+| `Entity not found` | forget_entity with unknown name | Check entity name with `list_entities` |
+| `Confirmation required` | forget_entity without confirm | Set `confirm: true` to delete |
 
 ## Testing Tools
 
@@ -227,13 +472,23 @@ Errors are returned in the result object (NOT as protocol-level errors):
 npm run inspector    # MCP Inspector at http://localhost:5173
 ```
 
-Test sequence:
+**Document tools test sequence:**
 
 1. `add_note` - Create test document
 2. `search_knowledge` - Find it
 3. `get_document` - Retrieve full content
 4. `update_document` - Modify tags
 5. `list_documents` - Verify in list
+
+**Memory tools test sequence:**
+
+1. `remember_fact` - Store a fact about "TestUser"
+2. `recall_memories` - Search for the fact
+3. `relate_entities` - Create a relation
+4. `get_entity_context` - Get full entity info
+5. `list_entities` - Verify entity exists
+6. `memory_stats` - Check counts
+7. `forget_entity` - Clean up test data
 
 ## When Modifying This Codebase
 

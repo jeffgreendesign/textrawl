@@ -1,0 +1,130 @@
+---
+title: remember_fact
+description: Store facts about entities with automatic semantic embedding
+---
+
+Store atomic facts about entities (people, projects, concepts) with automatic semantic embedding for later retrieval.
+
+## Parameters
+
+| Parameter | Type | Required | Default | Description |
+|-----------|------|----------|---------|-------------|
+| `entityName` | string | REQUIRED | - | Name of entity (1-200 chars) |
+| `entityType` | enum | REQUIRED | - | Type: person, concept, project, preference, fact, location, organization |
+| `observation` | string | REQUIRED | - | Single atomic fact to remember (1-2000 chars) |
+| `source` | enum | OPTIONAL | `conversation` | Source: conversation, note, document, manual |
+| `validUntil` | string | OPTIONAL | - | ISO date for expiring facts (e.g., "2026-12-31") |
+
+## Entity Types
+
+| Type | Use For |
+|------|---------|
+| `person` | People, users, contacts |
+| `concept` | Ideas, topics, technologies |
+| `project` | Projects, initiatives, products |
+| `preference` | User preferences, settings |
+| `fact` | General facts, data points |
+| `location` | Places, addresses, regions |
+| `organization` | Companies, teams, groups |
+
+## Example Request
+
+```json
+{
+  "entityName": "Jeff",
+  "entityType": "person",
+  "observation": "prefers dark mode in all IDEs",
+  "source": "conversation"
+}
+```
+
+## Response
+
+### Compact Mode (Default)
+
+When `COMPACT_RESPONSES=true` (default), responses use short keys to reduce token usage by 40-60%:
+
+```json
+{"ok":true,"entity":"550e8400","obs":"550e8401"}
+```
+
+### Verbose Mode
+
+When `COMPACT_RESPONSES=false`:
+
+```json
+{
+  "success": true,
+  "message": "Remembered: \"prefers dark mode in all IDEs\" about Jeff",
+  "entityId": "550e8400-e29b-41d4-a716-446655440000",
+  "entityName": "Jeff",
+  "entityType": "person",
+  "observationId": "550e8400-e29b-41d4-a716-446655440001"
+}
+```
+
+## Duplicate Detection
+
+If you try to remember a fact that's already stored:
+
+### Compact Mode
+
+```json
+{"ok":true,"dup":true,"entity":"550e8400","obs":"550e8401"}
+```
+
+### Verbose Mode
+
+```json
+{
+  "success": true,
+  "duplicate": true,
+  "message": "This fact was already remembered.",
+  "entityId": "550e8400-e29b-41d4-a716-446655440000",
+  "observationId": "550e8400-e29b-41d4-a716-446655440001"
+}
+```
+
+## Use Cases
+
+### User Preferences
+
+```json
+{
+  "entityName": "User",
+  "entityType": "person",
+  "observation": "prefers TypeScript over JavaScript"
+}
+```
+
+### Project Context
+
+```json
+{
+  "entityName": "Project Alpha",
+  "entityType": "project",
+  "observation": "uses PostgreSQL for the database layer"
+}
+```
+
+### Temporary Facts
+
+```json
+{
+  "entityName": "Sprint 45",
+  "entityType": "project",
+  "observation": "focus is on search performance improvements",
+  "validUntil": "2026-02-01"
+}
+```
+
+## Errors
+
+| Error | Cause | Fix |
+|-------|-------|-----|
+| Embedding service not configured | Missing `OPENAI_API_KEY` or Ollama config | Set `OPENAI_API_KEY` or configure `OLLAMA_BASE_URL` |
+| Database not configured | Missing Supabase credentials | Set `SUPABASE_URL` and `SUPABASE_SERVICE_KEY` |
+| Invalid entity name | Name empty or exceeds 200 chars | Provide name between 1-200 chars |
+| Invalid observation | Observation empty or exceeds 2000 chars | Provide observation between 1-2000 chars |
+| Invalid entity type | Unknown entity type | Use valid types: person, concept, project, preference, fact, location, organization |
+| Memory not enabled | `ENABLE_MEMORY` feature flag is false | Set `ENABLE_MEMORY=true` |

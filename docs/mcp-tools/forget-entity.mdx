@@ -1,0 +1,148 @@
+---
+title: forget_entity
+description: Delete an entity and all its associated memories
+---
+
+Permanently delete an entity and all its associated observations and relations.
+
+## Parameters
+
+| Parameter | Type | Required | Default | Description |
+|-----------|------|----------|---------|-------------|
+| `entityName` | string | REQUIRED | - | Name of entity to delete (1-200 chars) |
+| `confirm` | boolean | REQUIRED | - | MUST be `true` to confirm deletion |
+
+## Example Request
+
+```json
+{
+  "entityName": "TestUser",
+  "confirm": true
+}
+```
+
+## Response
+
+### Compact Mode (Default)
+
+When `COMPACT_RESPONSES=true` (default), responses use short keys to reduce token usage by 40-60%:
+
+```json
+{"ok":true,"id":"550e8400"}
+```
+
+**Key mapping:** `ok`=success, `id`=deletedEntityId
+
+### Verbose Mode
+
+When `COMPACT_RESPONSES=false`:
+
+```json
+{
+  "success": true,
+  "message": "Forgotten: TestUser and all associated memories",
+  "deletedEntityId": "550e8400-e29b-41d4-a716-446655440000"
+}
+```
+
+## Confirmation Required
+
+If `confirm` is not `true`:
+
+### Compact Mode
+
+```json
+{"ok":false,"err":"confirm"}
+```
+
+### Verbose Mode
+
+```json
+{
+  "success": false,
+  "error": "Confirmation required",
+  "message": "Set confirm=true to delete this entity and all its memories."
+}
+```
+
+## Entity Not Found
+
+### Compact Mode
+
+```json
+{"ok":false,"err":"not_found"}
+```
+
+### Verbose Mode
+
+```json
+{
+  "success": false,
+  "error": "Entity not found",
+  "message": "No entity found with name: Unknown Entity"
+}
+```
+
+## What Gets Deleted
+
+When you forget an entity:
+
+1. **The entity itself** - Removed from `memory_entities`
+2. **All observations** - All facts stored about the entity
+3. **Outgoing relations** - Relations where this entity is the source
+4. **Incoming relations** - Relations where this entity is the target
+
+## Use Cases
+
+### Clean Up Test Data
+
+```json
+{
+  "entityName": "TestUser",
+  "confirm": true
+}
+```
+
+### Remove Outdated Entity
+
+```json
+{
+  "entityName": "Old Project",
+  "confirm": true
+}
+```
+
+### Privacy Request
+
+```json
+{
+  "entityName": "Former Employee",
+  "confirm": true
+}
+```
+
+## Caution
+
+This operation is **irreversible**. All data associated with the entity is permanently deleted.
+
+Before deleting, consider:
+
+1. Use `get_entity_context` to review what will be deleted
+2. Export important information if needed
+3. Check for important relations that will be affected
+
+## Errors
+
+| Error | Cause | Fix |
+|-------|-------|-----|
+| Confirmation required | `confirm` parameter is not `true` | Set `confirm=true` to proceed with deletion |
+| Entity not found | No entity exists with the provided name | Verify entity name using `list_entities` |
+| Invalid entity name | Name exceeds 200 chars or is empty | Provide a valid name (1-200 chars) |
+| Memory not enabled | `ENABLE_MEMORY` feature flag is false | Set `ENABLE_MEMORY=true` |
+| Database error | Connection or query failure | Check DB connectivity and logs |
+
+## Related Tools
+
+- `list_entities` - Find entity names to delete
+- `get_entity_context` - Review entity before deletion
+- `memory_stats` - Check entity counts

@@ -1,0 +1,131 @@
+---
+title: list_entities
+description: List all known entities with pagination
+---
+
+List all entities stored in memory with optional filtering and pagination.
+
+## Parameters
+
+| Parameter | Type | Required | Default | Description |
+|-----------|------|----------|---------|-------------|
+| `entityTypes` | enum[] | OPTIONAL | all | Filter by entity types |
+| `limit` | number | OPTIONAL | `50` | Max results (1-100) |
+| `offset` | number | OPTIONAL | `0` | Pagination offset |
+
+## Example Request
+
+```json
+{
+  "entityTypes": ["person", "organization"],
+  "limit": 20,
+  "offset": 0
+}
+```
+
+## Response
+
+### Compact Mode (Default)
+
+When `COMPACT_RESPONSES=true` (default), responses use short keys to reduce token usage by 40-60%:
+
+```json
+{"n":45,"e":[{"id":"550e8400","n":"Jeff","t":"person"},{"id":"550e8401","n":"Acme Corp","t":"organization"}]}
+```
+
+**Key mapping:** `n`=total count, `e`=entities, `t`=type
+
+### Verbose Mode
+
+When `COMPACT_RESPONSES=false`:
+
+```json
+{
+  "total": 45,
+  "returned": 20,
+  "offset": 0,
+  "entities": [
+    {
+      "id": "550e8400-e29b-41d4-a716-446655440000",
+      "name": "Jeff",
+      "type": "person",
+      "description": null,
+      "updatedAt": "2026-01-05T10:00:00Z"
+    },
+    {
+      "id": "550e8400-e29b-41d4-a716-446655440001",
+      "name": "Acme Corp",
+      "type": "organization",
+      "description": null,
+      "updatedAt": "2026-01-04T15:30:00Z"
+    }
+  ]
+}
+```
+
+## Use Cases
+
+### List All People
+
+```json
+{
+  "entityTypes": ["person"],
+  "limit": 100
+}
+```
+
+### List Projects
+
+```json
+{
+  "entityTypes": ["project"]
+}
+```
+
+### Paginated Browse
+
+First page:
+```json
+{
+  "limit": 20,
+  "offset": 0
+}
+```
+
+Next page:
+```json
+{
+  "limit": 20,
+  "offset": 20
+}
+```
+
+### Overview of All Entities
+
+```json
+{
+  "limit": 100
+}
+```
+
+## Pagination
+
+Use `offset` and `limit` to paginate through large result sets:
+
+- `total`: Total count of matching entities
+- `returned`: Count of entities in this response
+- `hasMore`: Check if `offset + returned < total`
+
+## Sorting
+
+Entities are returned sorted by `updated_at` in descending order (most recently updated first).
+
+## Errors
+
+| Error | Cause | Fix |
+|-------|-------|-----|
+| Invalid limit | Limit outside 1-100 range | Set limit between 1 and 100 |
+| Invalid offset | Negative offset value | Use offset >= 0 |
+| Invalid entity type | Unknown entity type in filter | Use valid types: person, concept, project, preference, fact, location, organization |
+| Memory not enabled | `ENABLE_MEMORY` feature flag is false | Set `ENABLE_MEMORY=true` |
+| Database error | Connection or query failure | Check DB connectivity and logs |

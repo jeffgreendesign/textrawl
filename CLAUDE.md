@@ -38,8 +38,12 @@ Copy `.env.example` to `.env` and configure:
 - `OLLAMA_BASE_URL` / `OLLAMA_MODEL` - Required if using Ollama (nomic-embed-text, 1024 dimensions)
 - `API_BEARER_TOKEN` - Optional auth token (min 32 chars)
 - `UI_PORT` - Web UI port (default: 3001)
+- `ENABLE_MEMORY` - Enable/disable memory tools (default: true)
+- `COMPACT_RESPONSES` - Token-efficient response format (default: true)
 
-Database schema must be initialized via `scripts/setup-db.sql` (OpenAI) or `scripts/setup-db-ollama.sql` (Ollama) in Supabase SQL Editor.
+Database schema must be initialized via `scripts/setup-db.sql` (OpenAI) or `scripts/setup-db-ollama.sql` (Ollama) in Supabase SQL Editor. For persistent memory features, also run the matching memory schema:
+- OpenAI: `scripts/setup-db-memory.sql` (1536 dimensions)
+- Ollama: `scripts/setup-db-memory-ollama.sql` (1024 dimensions)
 
 **Important:** OpenAI and Ollama use different embedding dimensions. You cannot mix providers without re-embedding all documents.
 
@@ -59,10 +63,21 @@ Express Server
 **MCP Transport:** Uses stateless `StreamableHTTPServerTransport` (no session persistence) for Cloud Run/serverless compatibility. Each request creates a fresh server instance.
 
 ### MCP Tools
+
+**Document Tools:**
 - `search_knowledge` - Hybrid search with configurable FTS/semantic weights (RRF fusion)
 - `get_document` / `list_documents` - Document retrieval
 - `update_document` - Update document title and/or tags
 - `add_note` - Create markdown notes with automatic chunking and embedding
+
+**Memory Tools (Persistent Memory):**
+- `remember_fact` - Store facts about entities (people, concepts, projects, etc.)
+- `recall_memories` - Semantic search across stored memories
+- `relate_entities` - Create relationships between entities
+- `get_entity_context` - Get all memories and relations for an entity
+- `list_entities` - List all known entities
+- `forget_entity` - Delete an entity and all its memories
+- `memory_stats` - Get memory statistics
 
 ### Key Directories
 - `src/tools/` - MCP tool definitions with Zod schemas
@@ -82,6 +97,12 @@ PostgreSQL (Supabase) with:
 - `chunks` table with vector embeddings (`vector[1536]`, HNSW index)
 - `hybrid_search()` RPC for Reciprocal Rank Fusion
 
+**Persistent Memory Tables (run `scripts/setup-db-memory.sql`):**
+- `memory_entities` - Named entities (people, concepts, projects, etc.)
+- `memory_observations` - Atomic facts about entities with embeddings
+- `memory_relations` - Directed relationships between entities
+- `memory_hybrid_search()` / `memory_semantic_search()` RPCs
+
 ### Database Security
 Row Level Security (RLS) is enabled with defense-in-depth policies:
 - RLS enabled with restrictive policies denying `anon`/`authenticated` roles
@@ -89,6 +110,29 @@ Row Level Security (RLS) is enabled with defense-in-depth policies:
 - App uses service role key which bypasses RLS (intentional for single-tenant design)
 
 Run `scripts/security-rls.sql` after schema setup. See `docs/SECURITY.md` for details.
+
+### Compact Response Format
+
+Memory tools use a token-efficient response format by default (`COMPACT_RESPONSES=true`). This reduces LLM context usage by 40-60% through:
+
+- **No pretty-printing** - JSON without whitespace (~30% savings)
+- **Short keys** - `n`, `t`, `o`, `m` instead of `name`, `type`, `observations`, `memories`
+- **Truncated UUIDs** - First 8 chars only (still unique enough for display)
+- **Minimal data** - Only essential fields returned
+
+**Compact vs Verbose Examples:**
+
+| Tool | Compact | Verbose |
+|------|---------|---------|
+| `remember_fact` | `{"ok":true,"entity":"a1b2c3d4","obs":"e5f6g7h8"}` | `{"success":true,"message":"Remembered...","entityId":"a1b2c3d4-..."}` |
+| `recall_memories` | `{"n":3,"e":[{"n":"Jeff","t":"person","m":[{"c":"prefers dark mode","s":0.92}]}]}` | `{"query":"...","totalMemories":3,"entities":[...]}` |
+
+**Key mappings:**
+- `n` = name/count, `t` = type, `o` = observations, `m` = memories
+- `c` = content, `s` = score, `r` = relations
+- `ok` = success, `dup` = duplicate, `ent`/`obs`/`rel` = entity/observation/relation counts
+
+Set `COMPACT_RESPONSES=false` for human-readable debugging or when readability is preferred over token efficiency.
 
 ## Critical Conventions
 

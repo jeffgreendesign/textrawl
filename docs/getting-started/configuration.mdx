@@ -95,6 +95,26 @@ When set, all API endpoints require the `Authorization: Bearer <token>` header.
 UI_PORT=3001
 ```
 
+### Feature Flags
+
+| Variable | Required | Default | Description |
+|----------|----------|---------|-------------|
+| `ENABLE_MEMORY` | No | `true` | Enable/disable memory tools |
+| `COMPACT_RESPONSES` | No | `true` | Token-efficient response format |
+
+```bash
+ENABLE_MEMORY=true
+COMPACT_RESPONSES=true
+```
+
+#### Compact Responses
+
+When `COMPACT_RESPONSES=true` (default), memory tools return token-efficient responses that reduce LLM context usage by 40-60%. This uses short keys like `n`, `t`, `c` instead of `name`, `type`, `content`.
+
+Set `COMPACT_RESPONSES=false` for human-readable verbose responses during development or debugging.
+
+See [Response Format](/docs/mcp-tools#response-format) for the complete key mapping.
+
 ## Rate Limits
 
 Built-in rate limiting (not configurable):

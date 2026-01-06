@@ -21,6 +21,7 @@ export default function RootLayout({ children }: RootLayoutProps): ReactNode {
 	return (
 		<html
 			lang="en"
+			className="dark"
 			data-theme="midnight"
 			data-mode="technical"
 			suppressHydrationWarning
@@ -30,7 +31,7 @@ export default function RootLayout({ children }: RootLayoutProps): ReactNode {
 					theme={{
 						enabled: true,
 						defaultTheme: 'dark',
-						attribute: 'data-theme',
+						attribute: 'class',
 					}}
 				>
 					{children}

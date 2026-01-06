@@ -35,6 +35,18 @@ const envSchema = z.object({
   // Ollama
   OLLAMA_BASE_URL: z.string().url().default('http://localhost:11434'),
   OLLAMA_MODEL: z.string().default('nomic-embed-text'),
+
+  // Feature flags
+  ENABLE_MEMORY: z
+    .string()
+    .default('true')
+    .transform((val) => val.toLowerCase() === 'true'),
+
+  // Response format - compact saves 40-60% tokens but uses short keys
+  COMPACT_RESPONSES: z
+    .string()
+    .default('true')
+    .transform((val) => val.toLowerCase() === 'true'),
 });
 
 export type Config = z.infer<typeof envSchema>;
