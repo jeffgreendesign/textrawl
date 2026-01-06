@@ -287,7 +287,8 @@ export async function deleteObservationByContent(
 export async function findSimilarObservation(
   entityId: string,
   content: string,
-  similarityThreshold: number = 0.95
+  similarityThreshold: number = 0.95,
+  embedding?: number[]
 ): Promise<MemoryObservation | null> {
   if (!isSupabaseConfigured()) {
     throw new DatabaseError('Supabase not configured');
@@ -315,8 +316,51 @@ export async function findSimilarObservation(
     return exactMatch as MemoryObservation;
   }
 
-  // TODO: If needed, implement vector similarity check using embedding
-  // This would require the observation to already have an embedding
+  // Use vector similarity if embedding is provided
+  if (embedding) {
+    // We search for top 10 matches to ensure we find a match for THIS entity
+    // even if other entities have more similar memories
+    const { data: similarMatches, error: similarError } = await client.rpc(
+      'memory_semantic_search',
+      {
+        query_embedding: embedding,
+        match_count: 10,
+        entity_types: null,
+        include_expired: false,
+      }
+    );
+
+    if (similarError) {
+      logger.error('Failed to find similar observation by vector', {
+        error: similarError.message,
+      });
+      // Fallback to null (don't fail the whole operation)
+      return null;
+    }
+
+    if (similarMatches && similarMatches.length > 0) {
+      // Find the first match that belongs to our entity and meets threshold
+      const bestMatch = similarMatches.find(
+        (m: {
+          entity_id: string;
+          similarity: number;
+          observation_content: string;
+          observation_id: string;
+        }) => m.entity_id === entityId && m.similarity >= similarityThreshold
+      );
+
+      if (bestMatch) {
+        logger.debug('Found semantically similar observation', {
+          original: content,
+          match: bestMatch.observation_content,
+          similarity: bestMatch.similarity,
+        });
+
+        // We need to fetch the full observation object to return it
+        return getObservation(bestMatch.observation_id);
+      }
+    }
+  }
 
   return null;
 }

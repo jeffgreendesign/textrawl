@@ -140,8 +140,23 @@ export function registerMemoryTools(server: McpServer): void {
           entityType: entityType as EntityType,
         });
 
-        // Check for duplicate observation
-        const existing = await findSimilarObservation(entity.id, observation);
+        // Generate embedding for the observation first
+        const embedStart = Date.now();
+        const embedding = await generateEmbedding(observation);
+        logger.debug('embedding generated', {
+          operation: 'remember_fact',
+          entityName,
+          latencyMs: Date.now() - embedStart,
+        });
+
+        // Check for duplicate observation using embedding
+        const existing = await findSimilarObservation(
+          entity.id,
+          observation,
+          0.95,
+          embedding
+        );
+
         if (existing) {
           logger.debug('Duplicate observation skipped', {
             entityId: entity.id,
@@ -166,15 +181,6 @@ export function registerMemoryTools(server: McpServer): void {
             ],
           };
         }
-
-        // Generate embedding for the observation
-        const embedStart = Date.now();
-        const embedding = await generateEmbedding(observation);
-        logger.debug('embedding generated', {
-          operation: 'remember_fact',
-          entityName,
-          latencyMs: Date.now() - embedStart,
-        });
 
         // Create the observation
         const obs = await createObservation({
