@@ -32,7 +32,7 @@ Your email is often your most valuable data source - receipts, confirmations, co
 - **Size:** 1-50 GB typical
 
 **How to export:**
-1. Go to [Google Takeout](https://takeout.google.com)
+1. Go to [Google Takeout][google-takeout]
 2. Deselect all, then select only "Mail"
 3. Choose MBOX format
 4. Click "Create export" and wait for email notification
@@ -96,7 +96,7 @@ Use ProtonMail Bridge (paid) or official Export Tool to get EML files.
 - **Time:** 1-48 hours
 
 **How to export:**
-1. Go to [Google Takeout](https://takeout.google.com)
+1. Go to [Google Takeout][google-takeout]
 2. Select "Drive"
 3. Choose DOCX format for Google Docs
 4. Create export
@@ -190,7 +190,7 @@ Use [DiscordChatExporter](https://github.com/Tyrrrz/DiscordChatExporter) for com
 **How to export:**
 1. Go to [read.amazon.com/notebook](https://read.amazon.com/notebook)
 2. View highlights by book
-3. Use Bookcision browser extension for bulk export
+3. Use [Bookcision](https://www.bookcision.com/) browser extension for bulk export
 4. Or copy My Clippings.txt from your Kindle device
 
 ### Readwise
@@ -289,3 +289,5 @@ If you're not sure where to start:
 ## Data Portability Rights
 
 Under GDPR, DMA, and CCPA, you have the legal right to export your data from most services. If a service doesn't offer export, you can submit a formal data access request.
+
+[google-takeout]: https://takeout.google.com
