@@ -531,6 +531,6 @@ See [CLAUDE.md](CLAUDE.md) for development conventions:
 ## Related Documentation
 
 - [CLAUDE.md](CLAUDE.md) - Development conventions
-- [docs/CLI.md](docs/CLI.md) - CLI tools for file conversion
-- [docs/SECURITY.md](docs/SECURITY.md) - Row Level Security setup
+- [docs/cli/](docs/cli/) - CLI tools for file conversion
+- [docs/guides/security-hardening.mdx](docs/guides/security-hardening.mdx) - Row Level Security setup
 - [.well-known/mcp.json](.well-known/mcp.json) - MCP capability advertisement

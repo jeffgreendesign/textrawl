@@ -42,7 +42,7 @@ npm run build       # Production build
 npm run typecheck   # Type-check without emitting
 npm run inspector   # Test with MCP Inspector
 
-# File conversion (see docs/CLI.md)
+# File conversion (see docs/cli/)
 npm run convert     # Convert files (mbox, eml, html, takeout)
 npm run upload      # Upload converted markdown to Supabase
 npm run ui          # Web UI for conversion
