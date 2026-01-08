@@ -114,9 +114,8 @@ npm run upload -- ./converted/
 
 | Guide | Description |
 |-------|-------------|
-| [CLI Tools](docs/CLI.md) | Batch conversion and upload from command line |
-| [Desktop App](docs/DESKTOP.md) | Electron app for drag-and-drop imports |
-| [Security](docs/SECURITY.md) | Row Level Security and access controls |
+| [CLI Tools](docs/cli/) | Batch conversion and upload from command line |
+| [Security](docs/guides/security-hardening.mdx) | Row Level Security and access controls |
 
 ---
 

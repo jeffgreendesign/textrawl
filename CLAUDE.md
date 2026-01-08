@@ -16,7 +16,7 @@ npm run start       # Run production build
 npm run typecheck   # Type-check without emitting
 npm run inspector   # MCP Inspector at http://localhost:5173
 
-# CLI conversion tools (see docs/CLI.md for full documentation)
+# CLI conversion tools (see docs/cli/ for full documentation)
 npm run convert -- mbox ~/Mail/archive.mbox    # Convert MBOX to markdown
 npm run convert -- html ./saved-pages/ -r      # Convert HTML recursively
 npm run upload -- ./converted/                 # Upload to Supabase
@@ -109,7 +109,7 @@ Row Level Security (RLS) is enabled with defense-in-depth policies:
 - All permissions revoked from `anon`/`authenticated`
 - App uses service role key which bypasses RLS (intentional for single-tenant design)
 
-Run `scripts/security-rls.sql` after schema setup. See `docs/SECURITY.md` for details.
+Run `scripts/security-rls.sql` after schema setup. See `docs/guides/security-hardening.mdx` for details.
 
 ### Compact Response Format
 
