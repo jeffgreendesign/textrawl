@@ -1,7 +1,7 @@
 import { DocsLayout } from 'fumadocs-ui/layouts/docs';
 import type { ReactNode } from 'react';
 import { source } from '@/lib/source';
-import { AuthorBadge } from '@/components/author-badge';
+import { baseOptions } from '../layout.config.js';
 
 type DocsLayoutProps = {
 	children: ReactNode;
@@ -11,10 +11,7 @@ export default function Layout({ children }: DocsLayoutProps): ReactNode {
 	return (
 		<DocsLayout
 			tree={source.pageTree}
-			nav={{
-				title: <span className="font-mono font-semibold">textrawl</span>,
-				children: <AuthorBadge />,
-			}}
+			{...baseOptions}
 			sidebar={{
 				banner: (
 					<div className="flex items-center gap-2 px-2 py-1.5 text-xs font-mono text-ds-muted">
