@@ -11,6 +11,7 @@ Textrawl provides hybrid semantic + full-text search over documents via the Mode
 - Endpoint: POST /mcp
 - Authentication: Bearer token (API_BEARER_TOKEN)
 - Rate Limits: API 100/min, Upload 10/min
+- Response Format: Compact by default (COMPACT_RESPONSES=true, 40-60% fewer tokens)
 
 ## Tools
 
@@ -60,6 +61,63 @@ Create markdown notes with automatic embedding.
 - content (string, REQUIRED): Markdown content (max 1MB)
 - tags (string[]): Tags for organization
 
+## Memory Tools (Persistent Memory)
+
+Enable with ENABLE_MEMORY=true (default). Requires setup-db-memory.sql schema.
+
+### remember_fact
+
+Store facts about entities with semantic embeddings.
+
+- entityName (string, REQUIRED): Entity name (e.g., "Jeff", "Project Alpha")
+- entityType (enum, REQUIRED): person | concept | project | preference | fact | location | organization
+- observation (string, REQUIRED): Single fact to remember (max 2000 chars)
+- source (enum): conversation | note | document | manual
+- validUntil (string): ISO date for expiring facts
+
+### recall_memories
+
+Search stored memories with hybrid or semantic search.
+
+- query (string, REQUIRED): Search query (max 1000 chars)
+- entityTypes (enum[]): Filter by entity types
+- limit (number): Max results 1-50, default 10
+- searchMode (enum): hybrid | semantic, default hybrid
+
+### relate_entities
+
+Create relationships between entities.
+
+- fromEntity (string, REQUIRED): Source entity name
+- relation (string, REQUIRED): Relation type (works_at, knows, prefers, etc.)
+- toEntity (string, REQUIRED): Target entity name
+
+### get_entity_context
+
+Get all information about an entity.
+
+- entityName (string, REQUIRED): Entity to look up
+- includeRelated (boolean): Include relations, default true
+
+### list_entities
+
+List known entities with pagination.
+
+- entityTypes (enum[]): Filter by types
+- limit (number): 1-100, default 50
+- offset (number): Pagination offset
+
+### forget_entity
+
+Delete entity and all associated memories.
+
+- entityName (string, REQUIRED): Entity to delete
+- confirm (boolean, REQUIRED): Must be true
+
+### memory_stats
+
+Get memory statistics. No parameters.
+
 ## Documentation
 
 - /AGENTS.md - Agent conventions and tool selection guide
@@ -70,7 +128,7 @@ Create markdown notes with automatic embedding.
 
 ## Quick Facts
 
-- 5 MCP tools available
+- 12 MCP tools available (5 document + 7 memory)
 - Embedding: OpenAI (1536 dim) or Ollama (1024 dim)
 - Database: Supabase PostgreSQL with pgvector
 - Chunking: 512 tokens, 50 token overlap, paragraph-aware

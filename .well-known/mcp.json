@@ -1,7 +1,7 @@
 {
   "$schema": "https://json-schema.org/draft/2020-12/schema",
   "name": "textrawl",
-  "version": "0.1.0",
+  "version": "0.2.0",
   "description": "Personal Knowledge MCP Server - Hybrid semantic + full-text search over documents",
   "homepage": "https://github.com/jeffgreendesign/textrawl",
   "documentation": "/AGENTS.md",
@@ -183,6 +183,205 @@
           }
         }
       }
+    },
+    {
+      "name": "remember_fact",
+      "description": "Store facts about entities (people, projects, concepts) with automatic semantic embedding",
+      "featureFlag": "ENABLE_MEMORY",
+      "inputSchema": {
+        "type": "object",
+        "required": ["entityName", "entityType", "observation"],
+        "properties": {
+          "entityName": {
+            "type": "string",
+            "minLength": 1,
+            "maxLength": 200,
+            "description": "Name of entity (e.g., 'Jeff', 'Project Alpha')"
+          },
+          "entityType": {
+            "type": "string",
+            "enum": ["person", "concept", "project", "preference", "fact", "location", "organization"],
+            "description": "Type of entity"
+          },
+          "observation": {
+            "type": "string",
+            "minLength": 1,
+            "maxLength": 2000,
+            "description": "Single atomic fact to remember"
+          },
+          "source": {
+            "type": "string",
+            "enum": ["conversation", "note", "document", "manual"],
+            "default": "conversation",
+            "description": "Source of this memory"
+          },
+          "validUntil": {
+            "type": "string",
+            "format": "date-time",
+            "description": "ISO date if fact expires"
+          }
+        }
+      }
+    },
+    {
+      "name": "recall_memories",
+      "description": "Semantic search across stored memories",
+      "featureFlag": "ENABLE_MEMORY",
+      "inputSchema": {
+        "type": "object",
+        "required": ["query"],
+        "properties": {
+          "query": {
+            "type": "string",
+            "minLength": 1,
+            "maxLength": 1000,
+            "description": "Search query"
+          },
+          "entityTypes": {
+            "type": "array",
+            "items": {
+              "type": "string",
+              "enum": ["person", "concept", "project", "preference", "fact", "location", "organization"]
+            },
+            "description": "Filter by entity types"
+          },
+          "limit": {
+            "type": "integer",
+            "minimum": 1,
+            "maximum": 50,
+            "default": 10,
+            "description": "Maximum results"
+          },
+          "searchMode": {
+            "type": "string",
+            "enum": ["hybrid", "semantic"],
+            "default": "hybrid",
+            "description": "Search mode"
+          }
+        }
+      }
+    },
+    {
+      "name": "relate_entities",
+      "description": "Create directed relationships between entities",
+      "featureFlag": "ENABLE_MEMORY",
+      "inputSchema": {
+        "type": "object",
+        "required": ["fromEntity", "relation", "toEntity"],
+        "properties": {
+          "fromEntity": {
+            "type": "string",
+            "minLength": 1,
+            "maxLength": 200,
+            "description": "Source entity name"
+          },
+          "relation": {
+            "type": "string",
+            "minLength": 1,
+            "maxLength": 100,
+            "description": "Relation type (e.g., works_at, knows, prefers)"
+          },
+          "toEntity": {
+            "type": "string",
+            "minLength": 1,
+            "maxLength": 200,
+            "description": "Target entity name"
+          },
+          "fromEntityType": {
+            "type": "string",
+            "enum": ["person", "concept", "project", "preference", "fact", "location", "organization"],
+            "description": "Type of source entity"
+          },
+          "toEntityType": {
+            "type": "string",
+            "enum": ["person", "concept", "project", "preference", "fact", "location", "organization"],
+            "description": "Type of target entity"
+          }
+        }
+      }
+    },
+    {
+      "name": "get_entity_context",
+      "description": "Retrieve all information about an entity including observations and relations",
+      "featureFlag": "ENABLE_MEMORY",
+      "inputSchema": {
+        "type": "object",
+        "required": ["entityName"],
+        "properties": {
+          "entityName": {
+            "type": "string",
+            "minLength": 1,
+            "maxLength": 200,
+            "description": "Name of entity to look up"
+          },
+          "includeRelated": {
+            "type": "boolean",
+            "default": true,
+            "description": "Include relations"
+          }
+        }
+      }
+    },
+    {
+      "name": "list_entities",
+      "description": "List all known entities with pagination",
+      "featureFlag": "ENABLE_MEMORY",
+      "inputSchema": {
+        "type": "object",
+        "properties": {
+          "entityTypes": {
+            "type": "array",
+            "items": {
+              "type": "string",
+              "enum": ["person", "concept", "project", "preference", "fact", "location", "organization"]
+            },
+            "description": "Filter by entity types"
+          },
+          "limit": {
+            "type": "integer",
+            "minimum": 1,
+            "maximum": 100,
+            "default": 50,
+            "description": "Number of entities to return"
+          },
+          "offset": {
+            "type": "integer",
+            "minimum": 0,
+            "default": 0,
+            "description": "Pagination offset"
+          }
+        }
+      }
+    },
+    {
+      "name": "forget_entity",
+      "description": "Delete an entity and all its associated memories and relations",
+      "featureFlag": "ENABLE_MEMORY",
+      "inputSchema": {
+        "type": "object",
+        "required": ["entityName", "confirm"],
+        "properties": {
+          "entityName": {
+            "type": "string",
+            "minLength": 1,
+            "maxLength": 200,
+            "description": "Name of entity to delete"
+          },
+          "confirm": {
+            "type": "boolean",
+            "description": "Must be true to confirm deletion"
+          }
+        }
+      }
+    },
+    {
+      "name": "memory_stats",
+      "description": "Get statistics about stored memories",
+      "featureFlag": "ENABLE_MEMORY",
+      "inputSchema": {
+        "type": "object",
+        "properties": {}
+      }
     }
   ],
   "capabilities": {
@@ -207,6 +406,13 @@
       "maxTokens": 512,
       "overlapTokens": 50,
       "strategy": "paragraph-aware"
+    },
+    "memory": {
+      "enabled": true,
+      "featureFlag": "ENABLE_MEMORY",
+      "entityTypes": ["person", "concept", "project", "preference", "fact", "location", "organization"],
+      "searchModes": ["hybrid", "semantic"],
+      "relations": true
     }
   },
   "healthEndpoints": {

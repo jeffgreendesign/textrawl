@@ -1,0 +1,148 @@
+---
+title: relate_entities
+description: Create directed relationships between entities
+---
+
+Create directed relationships between entities to build a knowledge graph.
+
+## Parameters
+
+| Parameter | Type | Required | Default | Description |
+|-----------|------|----------|---------|-------------|
+| `fromEntity` | string | REQUIRED | - | Source entity name (1-200 chars) |
+| `relation` | string | REQUIRED | - | Relation type (1-100 chars) |
+| `toEntity` | string | REQUIRED | - | Target entity name (1-200 chars) |
+| `fromEntityType` | enum | OPTIONAL | inferred | Type of source entity |
+| `toEntityType` | enum | OPTIONAL | inferred | Type of target entity |
+
+## Common Relation Types
+
+| Relation | Example |
+|----------|---------|
+| `works_at` | Jeff works_at Acme Corp |
+| `knows` | Alice knows Bob |
+| `prefers` | User prefers TypeScript |
+| `created` | Team created Project Alpha |
+| `part_of` | Module part_of System |
+| `related_to` | Concept A related_to Concept B |
+| `uses` | Project uses PostgreSQL |
+| `manages` | Manager manages Team |
+
+## Example Request
+
+```json
+{
+  "fromEntity": "Jeff",
+  "relation": "works_at",
+  "toEntity": "Acme Corp"
+}
+```
+
+## Response
+
+### Compact Mode (Default)
+
+When `COMPACT_RESPONSES=true` (default), responses use short keys to reduce token usage by 40-60%:
+
+```json
+{"ok":true,"rel":"550e8400","from":{"id":"550e8401","n":"Jeff","t":"person"},"to":{"id":"550e8402","n":"Acme Corp","t":"organization"}}
+```
+
+**Key mapping:** `ok`=success, `rel`=relationId, `n`=name, `t`=type
+
+### Verbose Mode
+
+When `COMPACT_RESPONSES=false`:
+
+```json
+{
+  "success": true,
+  "message": "Created relation: Jeff works_at Acme Corp",
+  "relationId": "550e8400-e29b-41d4-a716-446655440000",
+  "fromEntity": {
+    "id": "550e8400-e29b-41d4-a716-446655440001",
+    "name": "Jeff",
+    "type": "person"
+  },
+  "toEntity": {
+    "id": "550e8400-e29b-41d4-a716-446655440002",
+    "name": "Acme Corp",
+    "type": "organization"
+  }
+}
+```
+
+## Auto-Creation
+
+If entities don't exist, they are automatically created:
+
+- Entity types are inferred from context if not provided
+- Default type is `concept` if type cannot be inferred
+- Existing entities keep their original type
+
+## Use Cases
+
+### Organization Structure
+
+```json
+{
+  "fromEntity": "Jeff",
+  "relation": "works_at",
+  "toEntity": "Engineering Team",
+  "fromEntityType": "person",
+  "toEntityType": "organization"
+}
+```
+
+### Project Dependencies
+
+```json
+{
+  "fromEntity": "Project Alpha",
+  "relation": "uses",
+  "toEntity": "PostgreSQL",
+  "fromEntityType": "project",
+  "toEntityType": "concept"
+}
+```
+
+### Knowledge Connections
+
+```json
+{
+  "fromEntity": "React",
+  "relation": "related_to",
+  "toEntity": "JavaScript"
+}
+```
+
+## Relation Directionality
+
+Relations are directed (from → to):
+
+- `Jeff works_at Acme` means Jeff is the employee
+- `Acme employs Jeff` would be the inverse
+
+Use `get_entity_context` to see both outgoing and incoming relations.
+
+## Duplicate Relations
+
+If the same relation already exists, the existing relation is returned:
+
+```json
+{
+  "success": true,
+  "message": "Created relation: Jeff works_at Acme Corp",
+  "relationId": "existing-relation-id"
+}
+```
+
+## Errors
+
+| Error | Cause | Fix |
+|-------|-------|-----|
+| Self-referential relation | `fromEntity` and `toEntity` are the same | Use different entity names |
+| Invalid entity name | Name exceeds 200 chars or is empty | Provide names between 1-200 chars |
+| Invalid relation type | Relation exceeds 100 chars or is empty | Provide relation between 1-100 chars |
+| Memory not enabled | `ENABLE_MEMORY` feature flag is false | Set `ENABLE_MEMORY=true` |
+| Database error | Connection or query failure | Check DB connectivity and logs |

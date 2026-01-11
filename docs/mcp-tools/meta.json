@@ -2,10 +2,19 @@
 	"title": "MCP Tools",
 	"pages": [
 		"index",
+		"---Document Tools---",
 		"search-knowledge",
 		"get-document",
 		"list-documents",
 		"update-document",
-		"add-note"
+		"add-note",
+		"---Memory Tools---",
+		"remember-fact",
+		"recall-memories",
+		"relate-entities",
+		"get-entity-context",
+		"list-entities",
+		"forget-entity",
+		"memory-stats"
 	]
 }
