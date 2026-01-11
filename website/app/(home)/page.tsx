@@ -1,11 +1,11 @@
 import type { ReactNode } from 'react';
 import Link from 'next/link';
-import { OSSBadge } from '@/components/oss-badge';
-import { MakerNote } from '@/components/maker-note';
-import { Hero } from '@/components/landing/hero';
-import { Features } from '@/components/landing/features';
-import { MCPShowcase } from '@/components/landing/mcp-showcase';
-import { QuickStart } from '@/components/landing/quick-start';
+import { OSSBadge } from '@/components/oss-badge.js';
+import { MakerNote } from '@/components/maker-note.js';
+import { Hero } from '@/components/landing/hero.js';
+import { Features } from '@/components/landing/features.js';
+import { MCPShowcase } from '@/components/landing/mcp-showcase.js';
+import { QuickStart } from '@/components/landing/quick-start.js';
 
 export default function LandingPage(): ReactNode {
 	return (
