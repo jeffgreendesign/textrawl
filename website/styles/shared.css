@@ -3,7 +3,7 @@
 /* ============================================
    FONT IMPORTS
    ============================================ */
-@import url('https://fonts.googleapis.com/css2?family=JetBrains+Mono:wght@400;500;600;700&display=swap');
+/* Note: Google Fonts import moved to globals.css (must be first) */
 
 /* System font stacks (custom fonts can be added later via /public/fonts/) */
 /* Switzer fallback: Inter or system sans-serif */
