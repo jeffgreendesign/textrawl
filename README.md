@@ -66,7 +66,7 @@ Textrawl is a personal knowledge base that lets Claude search through your email
 ### 1. Set Up the Server
 
 ```bash
-git clone https://github.com/your-username/textrawl.git
+git clone https://github.com/jeffgreendesign/textrawl.git
 cd textrawl
 npm install
 npm run setup    # Interactive setup for credentials
@@ -133,8 +133,12 @@ npm run upload -- ./converted/
 | `PORT` | No | Default: 3000 |
 | `LOG_LEVEL` | No | debug, info, warn, error |
 | `ALLOWED_ORIGINS` | No | Comma-separated CORS origins |
+| `ENABLE_MEMORY` | No | Enable memory tools (default: true) |
+| `COMPACT_RESPONSES` | No | Token-efficient responses (default: true) |
 
 ## MCP Tools
+
+### Document Tools
 
 | Tool | Description |
 |------|-------------|
@@ -143,6 +147,20 @@ npm run upload -- ./converted/
 | `list_documents` | List with pagination and filtering |
 | `update_document` | Update title and/or tags |
 | `add_note` | Add markdown note to knowledge base |
+
+### Memory Tools (Persistent Memory)
+
+Enable with `ENABLE_MEMORY=true` (default). Requires `scripts/setup-db-memory.sql`.
+
+| Tool | Description |
+|------|-------------|
+| `remember_fact` | Store facts about entities (people, projects, concepts) |
+| `recall_memories` | Semantic search across stored memories |
+| `relate_entities` | Create relationships between entities |
+| `get_entity_context` | Get all memories and relations for an entity |
+| `list_entities` | List all known entities |
+| `forget_entity` | Delete an entity and all its memories |
+| `memory_stats` | Get memory statistics |
 
 ### Search Parameters
 

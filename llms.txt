@@ -122,8 +122,8 @@ Get memory statistics. No parameters.
 
 - /AGENTS.md - Agent conventions and tool selection guide
 - /CLAUDE.md - Development conventions for Claude Code
-- /docs/CLI.md - CLI conversion tools (MBOX, HTML, PDF)
-- /docs/SECURITY.md - Row Level Security setup
+- /docs/cli/ - CLI conversion tools (MBOX, HTML, PDF)
+- /docs/guides/security-hardening.mdx - Row Level Security setup
 - /.well-known/mcp.json - MCP capability advertisement
 
 ## Quick Facts

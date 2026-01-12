@@ -15,7 +15,7 @@ Thanks for your interest in contributing! This guide will help you get started.
 
 ```bash
 # Clone the repo
-git clone https://github.com/your-username/textrawl.git
+git clone https://github.com/jeffgreendesign/textrawl.git
 cd textrawl
 
 # Install dependencies
