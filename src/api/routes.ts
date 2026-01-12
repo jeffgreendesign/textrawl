@@ -1,6 +1,6 @@
-import { Router } from 'express';
+import { Router, type Router as RouterType } from 'express';
 import { uploadRouter } from './upload.js';
 
-export const apiRoutes = Router();
+export const apiRoutes: RouterType = Router();
 
 apiRoutes.use(uploadRouter);

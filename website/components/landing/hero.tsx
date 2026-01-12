@@ -1,7 +1,7 @@
+import { AuthorBadge } from '@/components/author-badge';
+import { OSSBadge } from '@/components/oss-badge';
 import Link from 'next/link';
 import type { ReactNode } from 'react';
-import { OSSBadge } from '@/components/oss-badge';
-import { AuthorBadge } from '@/components/author-badge';
 
 export function Hero(): ReactNode {
 	return (

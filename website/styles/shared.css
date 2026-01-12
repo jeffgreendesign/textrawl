@@ -3,18 +3,18 @@
 /* ============================================
    FONT IMPORTS
    ============================================ */
-@import url('https://fonts.googleapis.com/css2?family=JetBrains+Mono:wght@400;500;600;700&display=swap');
-@import url('https://db.onlinewebfonts.com/c/e7849c6fffc1365b81185399c6ae9804?family=Nyght+Serif+Light&display=swap');
-@import url('https://api.fontshare.com/v2/css?f[]=switzer@300,400,500,600&display=swap');
+@import url("https://fonts.googleapis.com/css2?family=JetBrains+Mono:wght@400;500;600;700&display=swap");
+@import url("https://db.onlinewebfonts.com/c/e7849c6fffc1365b81185399c6ae9804?family=Nyght+Serif+Light&display=swap");
+@import url("https://api.fontshare.com/v2/css?f[]=switzer@300,400,500,600&display=swap");
 
 /* ============================================
    CSS CUSTOM PROPERTIES - DESIGN TOKENS
    ============================================ */
 :root {
 	/* Typography */
-	--font-display: 'Nyght Serif Light', Georgia, 'Times New Roman', serif;
-	--font-sans: 'Switzer', system-ui, -apple-system, 'Segoe UI', Roboto, sans-serif;
-	--font-mono: 'JetBrains Mono', ui-monospace, 'SF Mono', Menlo, monospace;
+	--font-display: "Nyght Serif Light", Georgia, "Times New Roman", serif;
+	--font-sans: "Switzer", system-ui, -apple-system, "Segoe UI", Roboto, sans-serif;
+	--font-mono: "JetBrains Mono", ui-monospace, "SF Mono", Menlo, monospace;
 
 	/* Font sizes */
 	--text-xs: 0.75rem;
@@ -85,7 +85,7 @@
    THEME: MIDNIGHT (Dark - Default)
    Activated by: .dark class (next-themes) or data-theme="midnight"
    ============================================ */
-[data-theme='midnight'],
+[data-theme="midnight"],
 .dark,
 :root {
 	--bg-primary: #0a0a0a;
@@ -114,7 +114,7 @@
    THEME: CLOUD DANCER (Light)
    Activated by: .light class (next-themes) or data-theme="cloud-dancer"
    ============================================ */
-[data-theme='cloud-dancer'],
+[data-theme="cloud-dancer"],
 .light {
 	--bg-primary: #fafafa;
 	--bg-secondary: #f4f4f5;
@@ -390,7 +390,7 @@ body {
 }
 
 /* TOC */
-.fd-toc-item[data-active='true'] {
+.fd-toc-item[data-active="true"] {
 	color: var(--text-accent) !important;
 	border-left-color: var(--text-accent) !important;
 }

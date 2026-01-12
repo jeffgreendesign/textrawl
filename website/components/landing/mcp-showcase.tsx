@@ -10,9 +10,7 @@ export function MCPShowcase(): ReactNode {
 			<div className="mcp-tools-grid">
 				<div className="mcp-tool">
 					<code className="mcp-tool-name">search_knowledge</code>
-					<p className="mcp-tool-description">
-						Hybrid semantic + full-text search
-					</p>
+					<p className="mcp-tool-description">Hybrid semantic + full-text search</p>
 				</div>
 				<div className="mcp-tool">
 					<code className="mcp-tool-name">get_document</code>

@@ -7,7 +7,9 @@ export function QuickStart(): ReactNode {
 			<div className="quickstart-steps">
 				<div className="quickstart-step">
 					<span className="step-number">1</span>
-					<code className="step-code">git clone https://github.com/jeffgreendesign/textrawl.git</code>
+					<code className="step-code">
+						git clone https://github.com/jeffgreendesign/textrawl.git
+					</code>
 					<p className="step-description">Clone the repo</p>
 				</div>
 				<div className="quickstart-step">

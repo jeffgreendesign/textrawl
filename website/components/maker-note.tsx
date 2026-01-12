@@ -6,10 +6,7 @@ type MakerNoteProps = {
 	children: ReactNode;
 };
 
-export function MakerNote({
-	title = 'Why I built this',
-	children,
-}: MakerNoteProps): ReactNode {
+export function MakerNote({ title = 'Why I built this', children }: MakerNoteProps): ReactNode {
 	return (
 		<section className="maker-section">
 			<div className="maker-note">
