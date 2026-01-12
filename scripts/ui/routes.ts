@@ -7,7 +7,17 @@
 import { type ChildProcess, spawn } from 'node:child_process';
 import { existsSync, mkdirSync, rmSync, writeFileSync } from 'node:fs';
 import { homedir, tmpdir } from 'node:os';
-import { basename, dirname, extname, isAbsolute, join, normalize, resolve } from 'node:path';
+import {
+	basename,
+	dirname,
+	extname,
+	isAbsolute,
+	join,
+	normalize,
+	relative,
+	resolve,
+	sep,
+} from 'node:path';
 import { fileURLToPath } from 'node:url';
 import type { Express, Request, Response } from 'express';
 import type { Multer } from 'multer';
@@ -39,24 +49,25 @@ function sanitizeFilename(filename: string): string {
 /**
  * Security: Validate and resolve output directory
  * Ensures the path is within an allowed base directory (home or tmp)
+ * Uses cross-platform path checking (works on both Windows and POSIX)
  */
 function validateOutputDir(outputDir: string): string {
-	// Resolve to absolute path
-	const resolved = isAbsolute(outputDir) ? normalize(outputDir) : resolve(process.cwd(), outputDir);
+	// Resolve to absolute path and normalize
+	const resolved = normalize(resolve(process.cwd(), outputDir));
 
-	// Get allowed base directories
-	const home = homedir();
-	const tmp = tmpdir();
-	const cwd = process.cwd();
+	// Get allowed base directories (normalized)
+	const allowedBases = [homedir(), tmpdir(), process.cwd()].map((p) => normalize(resolve(p)));
 
-	// Check if resolved path is within allowed directories
-	const isAllowed =
-		resolved.startsWith(`${home}/`) ||
-		resolved.startsWith(`${tmp}/`) ||
-		resolved.startsWith(`${cwd}/`) ||
-		resolved === home ||
-		resolved === tmp ||
-		resolved === cwd;
+	// Check if resolved path is within any allowed directory
+	// Uses relative path check - if relative path starts with "..", it's outside
+	const isAllowed = allowedBases.some((base) => {
+		// Exact match
+		if (resolved === base) return true;
+		// Check if resolved is a subdirectory of base
+		const rel = relative(base, resolved);
+		// Path is within base if relative path doesn't start with ".." and isn't absolute
+		return rel !== '' && !rel.startsWith('..') && !isAbsolute(rel);
+	});
 
 	if (!isAllowed) {
 		throw new Error(
@@ -260,7 +271,7 @@ export function setupRoutes(app: Express, upload: Multer): void {
 
 					// Auto-upload if requested
 					if (autoUpload) {
-						await runUpload(jobId, outputDir, tags);
+						await runUpload(jobId, validatedOutputDir, tags);
 					}
 				} else {
 					conversion.status = 'error';
@@ -281,8 +292,8 @@ export function setupRoutes(app: Express, upload: Multer): void {
 			res.json({
 				jobId,
 				format: converter,
-				filename: originalname,
-				outputDir,
+				filename: safeFilename,
+				outputDir: validatedOutputDir,
 			});
 		} catch (error) {
 			console.error('Conversion error:', error);
@@ -299,9 +310,22 @@ export function setupRoutes(app: Express, upload: Multer): void {
 				return res.status(400).json({ error: 'No directory specified' });
 			}
 
+			// Security: Validate directory path to prevent path traversal
+			let validatedDirectory: string;
+			try {
+				validatedDirectory = validateOutputDir(directory);
+			} catch {
+				return res.status(400).json({ error: 'Invalid directory path' });
+			}
+
+			// Verify directory exists
+			if (!existsSync(validatedDirectory)) {
+				return res.status(400).json({ error: 'Directory does not exist' });
+			}
+
 			const jobId = `upload-${Date.now()}-${Math.random().toString(36).slice(2, 8)}`;
 
-			await runUpload(jobId, directory, tags || []);
+			await runUpload(jobId, validatedDirectory, tags || []);
 
 			res.json({ jobId });
 		} catch (error) {
