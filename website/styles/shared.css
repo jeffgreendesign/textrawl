@@ -210,14 +210,12 @@ body {
 	font-size: var(--text-xs);
 	color: var(--text-muted);
 	text-decoration: none;
-	border: 1px solid var(--border-default);
 	border-radius: var(--radius-full);
 	transition: all var(--transition-fast);
 }
 
 .author-badge:hover {
 	color: var(--text-secondary);
-	border-color: var(--border-strong);
 	background: var(--bg-hover);
 }
 
