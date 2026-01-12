@@ -316,8 +316,8 @@ See /AGENTS.md for:
 
 - /AGENTS.md: Agent conventions
 - /CLAUDE.md: Development instructions
-- /docs/CLI.md: CLI tool documentation
-- /docs/SECURITY.md: Row Level Security
+- /docs/cli/: CLI tool documentation
+- /docs/guides/security-hardening.mdx: Row Level Security
 - /.well-known/mcp.json: MCP capability advertisement
 
 ## Support
