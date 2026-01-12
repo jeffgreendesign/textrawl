@@ -200,11 +200,19 @@ export function normalizeWhitespace(text: string, maxNewlines = 2): string {
  * Strip HTML and convert to plain text
  */
 export function stripHtml(html: string): string {
-	// Remove script and style elements entirely
-	let result = html.replace(/<script[^>]*>[\s\S]*?<\/script>/gi, '');
-	result = result.replace(/<style[^>]*>[\s\S]*?<\/style>/gi, '');
+	// Remove script and style elements entirely using loop to handle nested attacks
+	// e.g., <scr<script>ipt> becomes <script> after first pass
+	let result = html;
+	let previousLength: number;
 
-	// Use sanitize-html to strip all tags
+	// Loop until no more script/style tags are removed (handles nested injection)
+	do {
+		previousLength = result.length;
+		result = result.replace(/<script\b[^<]*(?:(?!<\/script>)<[^<]*)*<\/script\s*>/gi, '');
+		result = result.replace(/<style\b[^<]*(?:(?!<\/style>)<[^<]*)*<\/style\s*>/gi, '');
+	} while (result.length !== previousLength);
+
+	// Use sanitize-html as the primary defense to strip all remaining tags
 	result = sanitizeHtml(result, {
 		allowedTags: [],
 		allowedAttributes: {},

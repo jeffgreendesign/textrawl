@@ -6,8 +6,8 @@
 
 import { type ChildProcess, spawn } from 'node:child_process';
 import { existsSync, mkdirSync, rmSync, writeFileSync } from 'node:fs';
-import { tmpdir } from 'node:os';
-import { dirname, extname, join, resolve } from 'node:path';
+import { homedir, tmpdir } from 'node:os';
+import { basename, dirname, extname, isAbsolute, join, normalize, resolve } from 'node:path';
 import { fileURLToPath } from 'node:url';
 import type { Express, Request, Response } from 'express';
 import type { Multer } from 'multer';
@@ -17,6 +17,55 @@ import { extractText, validateFileType } from '../../src/services/processor.js';
 
 const __filename = fileURLToPath(import.meta.url);
 const __dirname = dirname(__filename);
+
+/**
+ * Security: Sanitize filename to prevent path traversal attacks
+ * Removes path components and dangerous characters, keeping only the base filename
+ */
+function sanitizeFilename(filename: string): string {
+	// Get only the base filename (removes any path components like ../ or /)
+	let safe = basename(filename);
+	// Remove any remaining path traversal attempts and null bytes
+	safe = safe.replace(/\.\./g, '').replace(/\0/g, '');
+	// Replace any remaining problematic characters
+	safe = safe.replace(/[<>:"|?*]/g, '_');
+	// Ensure we have a valid filename
+	if (!safe || safe === '.' || safe === '..') {
+		safe = `file-${Date.now()}`;
+	}
+	return safe;
+}
+
+/**
+ * Security: Validate and resolve output directory
+ * Ensures the path is within an allowed base directory (home or tmp)
+ */
+function validateOutputDir(outputDir: string): string {
+	// Resolve to absolute path
+	const resolved = isAbsolute(outputDir) ? normalize(outputDir) : resolve(process.cwd(), outputDir);
+
+	// Get allowed base directories
+	const home = homedir();
+	const tmp = tmpdir();
+	const cwd = process.cwd();
+
+	// Check if resolved path is within allowed directories
+	const isAllowed =
+		resolved.startsWith(`${home}/`) ||
+		resolved.startsWith(`${tmp}/`) ||
+		resolved.startsWith(`${cwd}/`) ||
+		resolved === home ||
+		resolved === tmp ||
+		resolved === cwd;
+
+	if (!isAllowed) {
+		throw new Error(
+			`Output directory must be within home, temp, or current working directory: ${outputDir}`,
+		);
+	}
+
+	return resolved;
+}
 
 // Store active SSE connections
 const sseConnections = new Map<string, Response>();
@@ -98,8 +147,12 @@ export function setupRoutes(app: Express, upload: Multer): void {
 			const autoUpload = req.body.autoUpload === 'true';
 			const tags = req.body.tags ? req.body.tags.split(',').map((t: string) => t.trim()) : [];
 
+			// Security: Sanitize filename and validate output directory
+			const safeFilename = sanitizeFilename(originalname);
+			const validatedOutputDir = validateOutputDir(outputDir);
+
 			// Detect format from extension
-			const ext = extname(originalname).toLowerCase();
+			const ext = extname(safeFilename).toLowerCase();
 
 			// Converter types (spawn CLI subprocess)
 			let converter: string | null = null;
@@ -124,11 +177,11 @@ export function setupRoutes(app: Express, upload: Multer): void {
 			// Handle document types (convert to markdown, like other converters)
 			if (isDocument) {
 				return handleDocumentUpload(req, res, {
-					originalname,
+					originalname: safeFilename,
 					buffer,
 					mimetype,
 					tags,
-					outputDir,
+					outputDir: validatedOutputDir,
 					autoUpload,
 				});
 			}
@@ -139,7 +192,7 @@ export function setupRoutes(app: Express, upload: Multer): void {
 			// Save file to temp location
 			const tempDir = join(tmpdir(), `textrawl-${jobId}`);
 			mkdirSync(tempDir, { recursive: true });
-			const tempFile = join(tempDir, originalname);
+			const tempFile = join(tempDir, safeFilename);
 			writeFileSync(tempFile, buffer);
 
 			// Initialize conversion tracking
@@ -152,7 +205,7 @@ export function setupRoutes(app: Express, upload: Multer): void {
 
 			// Start conversion in background
 			const converterPath = resolve(__dirname, '..', 'cli', 'converters', `${converter}.ts`);
-			const args = ['tsx', converterPath, tempFile, '-o', outputDir, '-v'];
+			const args = ['tsx', converterPath, tempFile, '-o', validatedOutputDir, '-v'];
 
 			if (tags.length > 0) {
 				args.push('-t', ...tags);
@@ -384,12 +437,18 @@ const EXT_TO_MIME: Record<string, string> = {
 
 /**
  * Generate a content hash for deduplication
+ * Security: Limits iteration to prevent DoS from extremely large content
  */
 function generateHash(content: string): string {
+	// Limit hash computation to first 1MB to prevent DoS
+	const MAX_HASH_LENGTH = 1024 * 1024;
+	const hashContent =
+		content.length > MAX_HASH_LENGTH ? content.slice(0, MAX_HASH_LENGTH) : content;
+
 	// Simple hash using string reduction (matches CLI behavior)
 	let hash = 0;
-	for (let i = 0; i < content.length; i++) {
-		const char = content.charCodeAt(i);
+	for (let i = 0; i < hashContent.length; i++) {
+		const char = hashContent.charCodeAt(i);
 		hash = (hash << 5) - hash + char;
 		hash = hash & hash; // Convert to 32bit integer
 	}
@@ -488,14 +547,17 @@ async function handleDocumentUpload(
 		const tagsYaml =
 			tags.length > 0 ? `tags:\n${tags.map((t) => `  - ${t}`).join('\n')}` : 'tags:\n  - imported';
 
+		// Security: Escape backslashes then quotes for YAML strings
+		const escapeYaml = (s: string) => s.replace(/\\/g, '\\\\').replace(/"/g, '\\"');
+
 		const markdown = `---
-title: "${baseName.replace(/"/g, '\\"')}"
+title: "${escapeYaml(baseName)}"
 source_type: file
 source_hash: "${sourceHash}"
 ${tagsYaml}
 converted_at: "${now}"
 metadata:
-  original_file: "${originalname}"
+  original_file: "${escapeYaml(originalname)}"
   mime_type: "${effectiveMime}"
   size: ${buffer.length}
 ---

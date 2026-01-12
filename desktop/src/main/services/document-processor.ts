@@ -52,16 +52,19 @@ function createFrontmatter(options: {
  * Serialize front matter and content to markdown
  */
 function serializeFrontmatter(frontmatter: DocumentFrontMatter, content: string): string {
+	// Escape backslashes first, then quotes (order matters for proper escaping)
+	const escapeYamlString = (str: string) => str.replace(/\\/g, '\\\\').replace(/"/g, '\\"');
+
 	const yaml = [
 		'---',
-		`title: "${frontmatter.title.replace(/"/g, '\\"')}"`,
+		`title: "${escapeYamlString(frontmatter.title)}"`,
 		`source_type: ${frontmatter.source_type}`,
 		`content_type: ${frontmatter.content_type}`,
 		`created_at: ${frontmatter.created_at}`,
 		`converted_at: ${frontmatter.converted_at}`,
-		`source_file: "${frontmatter.source_file.replace(/"/g, '\\"')}"`,
+		`source_file: "${escapeYamlString(frontmatter.source_file)}"`,
 		`source_hash: ${frontmatter.source_hash}`,
-		`tags: [${frontmatter.tags.map((t) => `"${t}"`).join(', ')}]`,
+		`tags: [${frontmatter.tags.map((t) => `"${escapeYamlString(t)}"`).join(', ')}]`,
 		`metadata: ${JSON.stringify(frontmatter.metadata)}`,
 		'---',
 		'',
