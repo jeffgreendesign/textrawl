@@ -56,7 +56,7 @@
     "@types/turndown": "^5.0.0",
     "cli-progress": "^3.12.0",
     "commander": "^12.0.0",
-    "esbuild": "^0.24.0",
+    "esbuild": "^0.27.2",
     "glob": "^10.3.0",
     "gray-matter": "^4.0.3",
     "ical.js": "^2.0.0",
