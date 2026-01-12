@@ -1,6 +1,6 @@
+import { baseOptions } from '@/app/layout.config';
 import { HomeLayout } from 'fumadocs-ui/layouts/home';
 import type { ReactNode } from 'react';
-import { baseOptions } from '@/app/layout.config';
 
 type HomeLayoutProps = {
 	children: ReactNode;

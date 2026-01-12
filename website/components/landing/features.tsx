@@ -1,5 +1,5 @@
+import { Cpu, FileText, Lock, Search } from 'lucide-react';
 import type { ReactNode } from 'react';
-import { FileText, Search, Cpu, Lock } from 'lucide-react';
 
 const features = [
 	{
@@ -15,7 +15,7 @@ const features = [
 	{
 		icon: Cpu,
 		title: 'MCP Native',
-		description: "Built for Claude and other MCP clients. Your knowledge in every chat.",
+		description: 'Built for Claude and other MCP clients. Your knowledge in every chat.',
 	},
 	{
 		icon: Lock,

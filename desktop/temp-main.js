@@ -6,12 +6,12 @@ const e = require('electron');
 console.error('typeof require("electron"):', typeof e);
 
 if (typeof e === 'object' && e.app) {
-  console.error('SUCCESS: Got Electron API!');
-  e.app.whenReady().then(() => {
-    console.error('App ready!');
-    e.app.quit();
-  });
+	console.error('SUCCESS: Got Electron API!');
+	e.app.whenReady().then(() => {
+		console.error('App ready!');
+		e.app.quit();
+	});
 } else {
-  console.error('FAIL: No Electron API');
-  process.exit(1);
+	console.error('FAIL: No Electron API');
+	process.exit(1);
 }

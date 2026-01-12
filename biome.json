@@ -8,7 +8,14 @@
 		"rules": {
 			"recommended": true,
 			"style": {
-				"useNumberNamespace": "off"
+				"useNumberNamespace": "off",
+				"noNonNullAssertion": "warn"
+			},
+			"complexity": {
+				"noForEach": "warn"
+			},
+			"suspicious": {
+				"noExplicitAny": "warn"
 			}
 		}
 	},
@@ -24,13 +31,31 @@
 		}
 	},
 	"files": {
-		"ignore": [
-			"node_modules",
-			".next",
-			".source",
-			"dist",
-			"*.min.js",
-			"*.d.ts"
-		]
-	}
+		"ignore": ["node_modules", ".next", ".source", "dist", "*.min.js", "*.d.ts"]
+	},
+	"overrides": [
+		{
+			"include": ["desktop/**", "scripts/**"],
+			"linter": {
+				"rules": {
+					"suspicious": {
+						"noExplicitAny": "off",
+						"noMisleadingCharacterClass": "off"
+					},
+					"style": {
+						"noNonNullAssertion": "off"
+					},
+					"complexity": {
+						"noForEach": "off"
+					},
+					"a11y": {
+						"useSemanticElements": "off"
+					},
+					"correctness": {
+						"useExhaustiveDependencies": "warn"
+					}
+				}
+			}
+		}
+	]
 }

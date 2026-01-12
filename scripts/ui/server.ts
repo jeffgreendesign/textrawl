@@ -10,11 +10,11 @@
  */
 
 import 'dotenv/config';
+import { existsSync, mkdirSync } from 'node:fs';
+import { dirname, join, resolve } from 'node:path';
+import { fileURLToPath } from 'node:url';
 import express from 'express';
-import { resolve, join, dirname } from 'path';
-import { fileURLToPath } from 'url';
 import multer from 'multer';
-import { existsSync, mkdirSync } from 'fs';
 
 import { setupRoutes } from './routes.js';
 
@@ -33,10 +33,10 @@ app.use(express.static(publicDir));
 
 // File upload config
 const upload = multer({
-  storage: multer.memoryStorage(),
-  limits: {
-    fileSize: 500 * 1024 * 1024, // 500MB limit for large archives
-  },
+	storage: multer.memoryStorage(),
+	limits: {
+		fileSize: 500 * 1024 * 1024, // 500MB limit for large archives
+	},
 });
 
 // Set up routes
@@ -44,14 +44,14 @@ setupRoutes(app, upload);
 
 // Start server
 app.listen(PORT, () => {
-  console.error(`\n🚀 Textrawl Converter UI running at http://localhost:${PORT}\n`);
-  console.error('Supported formats:');
-  console.error('  • MBOX - Email archives');
-  console.error('  • EML - Individual emails');
-  console.error('  • ZIP - Google Takeout archives');
-  console.error('  • HTML - Web pages');
-  console.error('  • PDF - PDF documents');
-  console.error('  • DOCX - Word documents');
-  console.error('  • TXT - Plain text');
-  console.error('  • MD - Markdown\n');
+	console.error(`\n🚀 Textrawl Converter UI running at http://localhost:${PORT}\n`);
+	console.error('Supported formats:');
+	console.error('  • MBOX - Email archives');
+	console.error('  • EML - Individual emails');
+	console.error('  • ZIP - Google Takeout archives');
+	console.error('  • HTML - Web pages');
+	console.error('  • PDF - PDF documents');
+	console.error('  • DOCX - Word documents');
+	console.error('  • TXT - Plain text');
+	console.error('  • MD - Markdown\n');
 });

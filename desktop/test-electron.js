@@ -8,10 +8,10 @@ const e = require('electron');
 console.error('typeof require("electron"):', typeof e);
 
 if (typeof e === 'string') {
-  console.error('ERROR: electron is a string (path), not the API');
-  console.error('path:', e);
+	console.error('ERROR: electron is a string (path), not the API');
+	console.error('path:', e);
 } else if (typeof e === 'object') {
-  console.error('SUCCESS: electron is an object');
-  console.error('has app:', !!e.app);
-  console.error('has BrowserWindow:', !!e.BrowserWindow);
+	console.error('SUCCESS: electron is an object');
+	console.error('has app:', !!e.app);
+	console.error('has BrowserWindow:', !!e.BrowserWindow);
 }

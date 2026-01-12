@@ -1,915 +1,892 @@
 {
-  "$schema": "./onboarding-checklist.schema.json",
-  "version": "1.0.0",
-  "lastUpdated": "2025-01-06",
-  "categories": [
-    {
-      "id": "email",
-      "name": "Email Archives",
-      "icon": "mail",
-      "description": "Your email history contains receipts, conversations, confirmations, and personal correspondence.",
-      "priority": 1,
-      "sources": [
-        {
-          "id": "gmail",
-          "name": "Gmail / Google Workspace",
-          "exportFormat": "MBOX",
-          "supported": true,
-          "difficulty": "easy",
-          "timeEstimate": "1-48 hours (Google processes request)",
-          "dataValue": "high",
-          "exportUrl": "https://takeout.google.com",
-          "instructions": [
-            "Go to Google Takeout",
-            "Deselect all, then select only 'Mail'",
-            "Choose MBOX format",
-            "Create export and wait for email notification",
-            "Download the ZIP file"
-          ],
-          "tips": [
-            "You can filter by label to export specific folders",
-            "Large mailboxes may be split into multiple files",
-            "Export can take 1-2 days for large accounts"
-          ],
-          "typicalSize": "1-50 GB"
-        },
-        {
-          "id": "outlook",
-          "name": "Outlook / Microsoft 365",
-          "exportFormat": "PST",
-          "supported": false,
-          "supportedWorkaround": "Convert PST to MBOX using third-party tools",
-          "difficulty": "medium",
-          "timeEstimate": "1-24 hours",
-          "dataValue": "high",
-          "exportUrl": "https://account.microsoft.com/privacy/download-data",
-          "instructions": [
-            "Use Outlook desktop: File > Open & Export > Import/Export",
-            "Select 'Export to a file' > Outlook Data File (.pst)",
-            "Or use Microsoft Privacy Dashboard for cloud export"
-          ],
-          "tips": [
-            "PST files need conversion to MBOX for Textrawl",
-            "Consider using readpst (Linux) or third-party converters"
-          ],
-          "typicalSize": "1-20 GB"
-        },
-        {
-          "id": "apple-mail",
-          "name": "Apple Mail / iCloud",
-          "exportFormat": "MBOX",
-          "supported": true,
-          "difficulty": "easy",
-          "timeEstimate": "5-30 minutes",
-          "dataValue": "high",
-          "exportUrl": null,
-          "instructions": [
-            "Open Mail app on Mac",
-            "Select a mailbox in the sidebar",
-            "Go to Mailbox > Export Mailbox",
-            "Choose destination folder",
-            "Repeat for each mailbox you want"
-          ],
-          "tips": [
-            "Each mailbox exports separately",
-            "Large mailboxes (>2GB) may need to be split",
-            "iCloud mail must be synced locally first"
-          ],
-          "typicalSize": "500 MB - 10 GB"
-        },
-        {
-          "id": "thunderbird",
-          "name": "Thunderbird",
-          "exportFormat": "MBOX",
-          "supported": true,
-          "difficulty": "easy",
-          "timeEstimate": "5 minutes",
-          "dataValue": "high",
-          "exportUrl": null,
-          "instructions": [
-            "Thunderbird stores mail as MBOX files by default",
-            "Find your profile folder (Help > Troubleshooting Information)",
-            "Copy .mbox files from ImapMail or Mail folders"
-          ],
-          "tips": [
-            "Files are already in MBOX format - just copy them",
-            "Profile location varies by OS"
-          ],
-          "typicalSize": "500 MB - 20 GB"
-        },
-        {
-          "id": "protonmail",
-          "name": "ProtonMail",
-          "exportFormat": "EML",
-          "supported": true,
-          "difficulty": "medium",
-          "timeEstimate": "30 minutes - 2 hours",
-          "dataValue": "high",
-          "exportUrl": null,
-          "instructions": [
-            "Use ProtonMail Bridge + email client to export",
-            "Or use ProtonMail Export Tool (official)",
-            "Exports as EML files"
-          ],
-          "tips": [
-            "Bridge requires paid plan",
-            "EML files are fully supported by Textrawl"
-          ],
-          "typicalSize": "100 MB - 5 GB"
-        }
-      ]
-    },
-    {
-      "id": "documents",
-      "name": "Documents & Files",
-      "icon": "file-text",
-      "description": "Documents from cloud storage, including notes, PDFs, and office files.",
-      "priority": 2,
-      "sources": [
-        {
-          "id": "google-drive",
-          "name": "Google Drive",
-          "exportFormat": "DOCX, PDF, TXT",
-          "supported": true,
-          "difficulty": "easy",
-          "timeEstimate": "1-48 hours",
-          "dataValue": "high",
-          "exportUrl": "https://takeout.google.com",
-          "instructions": [
-            "Go to Google Takeout",
-            "Select 'Drive'",
-            "Choose format for Google Docs (DOCX recommended)",
-            "Create export"
-          ],
-          "tips": [
-            "Google Docs convert to DOCX/PDF",
-            "Original uploaded files keep their format",
-            "Shared files may not be included"
-          ],
-          "typicalSize": "1-100 GB"
-        },
-        {
-          "id": "dropbox",
-          "name": "Dropbox",
-          "exportFormat": "Original formats",
-          "supported": true,
-          "difficulty": "easy",
-          "timeEstimate": "10 minutes - 2 hours",
-          "dataValue": "medium",
-          "exportUrl": "https://www.dropbox.com/account/data_and_privacy",
-          "instructions": [
-            "Files are already in original format",
-            "Use Dropbox desktop app to sync locally",
-            "Or download folders from web interface"
-          ],
-          "tips": [
-            "Paper docs export as Markdown or DOCX",
-            "Large accounts: use desktop sync instead of web download"
-          ],
-          "typicalSize": "1-500 GB"
-        },
-        {
-          "id": "notion",
-          "name": "Notion",
-          "exportFormat": "Markdown, HTML, PDF",
-          "supported": true,
-          "difficulty": "easy",
-          "timeEstimate": "5-30 minutes",
-          "dataValue": "high",
-          "exportUrl": null,
-          "instructions": [
-            "Settings & Members > Settings",
-            "Scroll to 'Export all workspace content'",
-            "Choose Markdown & CSV format",
-            "Download ZIP file"
-          ],
-          "tips": [
-            "Markdown format works best with Textrawl",
-            "Database views export as CSV",
-            "Images are included in export"
-          ],
-          "typicalSize": "10 MB - 2 GB"
-        },
-        {
-          "id": "obsidian",
-          "name": "Obsidian",
-          "exportFormat": "Markdown",
-          "supported": true,
-          "difficulty": "trivial",
-          "timeEstimate": "1 minute",
-          "dataValue": "high",
-          "exportUrl": null,
-          "instructions": [
-            "Your vault is already a folder of Markdown files",
-            "Simply copy or point to your vault folder"
-          ],
-          "tips": [
-            "No export needed - files are local Markdown",
-            "Attachments folder contains images/PDFs"
-          ],
-          "typicalSize": "10 MB - 1 GB"
-        },
-        {
-          "id": "apple-notes",
-          "name": "Apple Notes",
-          "exportFormat": "PDF (individual), HTML (via tools)",
-          "supported": "partial",
-          "difficulty": "medium",
-          "timeEstimate": "30 minutes - 2 hours",
-          "dataValue": "medium",
-          "exportUrl": "https://privacy.apple.com",
-          "instructions": [
-            "Option 1: Export individual notes as PDF from Notes app",
-            "Option 2: Use Apple Privacy Portal for bulk export",
-            "Option 3: Use third-party tools like 'Exporter' for Markdown"
-          ],
-          "tips": [
-            "Native export is PDF only (one at a time)",
-            "Exporter app ($5) converts to Markdown",
-            "Privacy portal export takes several days"
-          ],
-          "typicalSize": "50 MB - 500 MB"
-        },
-        {
-          "id": "evernote",
-          "name": "Evernote",
-          "exportFormat": "ENEX (XML), HTML",
-          "supported": "partial",
-          "difficulty": "medium",
-          "timeEstimate": "10-60 minutes",
-          "dataValue": "medium",
-          "exportUrl": null,
-          "instructions": [
-            "Select notebooks to export",
-            "File > Export Notes",
-            "Choose ENEX format",
-            "Convert ENEX to HTML/Markdown with tools"
-          ],
-          "tips": [
-            "ENEX is Evernote's XML format",
-            "Many converters available (yarle, evernote2md)",
-            "Attachments included in export"
-          ],
-          "typicalSize": "100 MB - 5 GB"
-        },
-        {
-          "id": "roam",
-          "name": "Roam Research",
-          "exportFormat": "Markdown, JSON",
-          "supported": true,
-          "difficulty": "easy",
-          "timeEstimate": "5 minutes",
-          "dataValue": "high",
-          "exportUrl": null,
-          "instructions": [
-            "Click three-dot menu in top right",
-            "Select 'Export All'",
-            "Choose Markdown format",
-            "Download ZIP"
-          ],
-          "tips": [
-            "Markdown export works well with Textrawl",
-            "JSON preserves block references (not needed for search)",
-            "Daily notes included"
-          ],
-          "typicalSize": "5 MB - 200 MB"
-        }
-      ]
-    },
-    {
-      "id": "chat",
-      "name": "Chat & Messaging",
-      "icon": "message-circle",
-      "description": "Conversations from messaging platforms and chat applications.",
-      "priority": 3,
-      "sources": [
-        {
-          "id": "slack",
-          "name": "Slack",
-          "exportFormat": "JSON",
-          "supported": false,
-          "supportedWorkaround": "Convert JSON to readable format with tools",
-          "difficulty": "hard",
-          "timeEstimate": "1-24 hours",
-          "dataValue": "medium",
-          "exportUrl": null,
-          "instructions": [
-            "Workspace Settings > Import/Export Data",
-            "Select Export tab",
-            "Free plan: public channels only, 90 days",
-            "Paid plans: all channels and DMs"
-          ],
-          "tips": [
-            "Requires workspace admin access",
-            "Free plan severely limited (90 days, public only)",
-            "Use slackdump for personal backup without admin",
-            "JSON needs conversion for readability"
-          ],
-          "typicalSize": "100 MB - 10 GB",
-          "limitations": [
-            "Free plan: 90 days only",
-            "Admin approval may be required",
-            "Files are links, not included"
-          ]
-        },
-        {
-          "id": "discord",
-          "name": "Discord",
-          "exportFormat": "JSON, HTML",
-          "supported": "partial",
-          "difficulty": "medium",
-          "timeEstimate": "30 minutes - 4 hours",
-          "dataValue": "medium",
-          "exportUrl": "https://discord.com/privacy",
-          "instructions": [
-            "Official: Settings > Privacy & Safety > Request Data",
-            "Or use DiscordChatExporter (third-party)",
-            "Official export is JSON, third-party can do HTML"
-          ],
-          "tips": [
-            "Official export limited in scope",
-            "DiscordChatExporter more comprehensive",
-            "HTML export more readable"
-          ],
-          "typicalSize": "50 MB - 2 GB"
-        },
-        {
-          "id": "whatsapp",
-          "name": "WhatsApp",
-          "exportFormat": "TXT",
-          "supported": true,
-          "difficulty": "easy",
-          "timeEstimate": "5-15 minutes per chat",
-          "dataValue": "medium",
-          "exportUrl": null,
-          "instructions": [
-            "Open chat > Menu > More > Export chat",
-            "Choose with or without media",
-            "Save/share the resulting file"
-          ],
-          "tips": [
-            "Must export each chat individually",
-            "TXT format is plain text, fully supported",
-            "Media exports as separate files"
-          ],
-          "typicalSize": "1 MB - 100 MB per chat"
-        },
-        {
-          "id": "telegram",
-          "name": "Telegram",
-          "exportFormat": "HTML, JSON",
-          "supported": "partial",
-          "difficulty": "easy",
-          "timeEstimate": "10-60 minutes",
-          "dataValue": "medium",
-          "exportUrl": null,
-          "instructions": [
-            "Telegram Desktop > Settings > Advanced",
-            "Select 'Export Telegram Data'",
-            "Choose chats and format (HTML recommended)",
-            "Download export"
-          ],
-          "tips": [
-            "Desktop app required for full export",
-            "HTML format more readable",
-            "Can select specific chats or date ranges"
-          ],
-          "typicalSize": "100 MB - 5 GB"
-        },
-        {
-          "id": "imessage",
-          "name": "iMessage / Messages",
-          "exportFormat": "Various (via tools)",
-          "supported": "partial",
-          "difficulty": "hard",
-          "timeEstimate": "1-4 hours",
-          "dataValue": "high",
-          "exportUrl": null,
-          "instructions": [
-            "No native export feature",
-            "Option 1: Use iMazing or similar tool",
-            "Option 2: Access chat.db directly (advanced)",
-            "Option 3: Use iExplorer or PhoneView"
-          ],
-          "tips": [
-            "Apple provides no official export",
-            "Third-party tools required",
-            "chat.db is SQLite (advanced users)"
-          ],
-          "typicalSize": "100 MB - 10 GB"
-        }
-      ]
-    },
-    {
-      "id": "social",
-      "name": "Social Media",
-      "icon": "share-2",
-      "description": "Posts, comments, and content from social platforms.",
-      "priority": 4,
-      "sources": [
-        {
-          "id": "twitter",
-          "name": "Twitter / X",
-          "exportFormat": "JSON, HTML",
-          "supported": "partial",
-          "difficulty": "easy",
-          "timeEstimate": "1-24 hours",
-          "dataValue": "medium",
-          "exportUrl": "https://twitter.com/settings/download_your_data",
-          "instructions": [
-            "Settings > Your Account > Download an archive",
-            "Confirm identity",
-            "Wait for email with download link",
-            "Download ZIP file"
-          ],
-          "tips": [
-            "Includes tweets, DMs, likes, etc.",
-            "HTML viewer included in archive",
-            "JSON files contain raw data"
-          ],
-          "typicalSize": "50 MB - 2 GB"
-        },
-        {
-          "id": "facebook",
-          "name": "Facebook",
-          "exportFormat": "JSON, HTML",
-          "supported": "partial",
-          "difficulty": "easy",
-          "timeEstimate": "1-48 hours",
-          "dataValue": "medium",
-          "exportUrl": "https://www.facebook.com/dyi",
-          "instructions": [
-            "Settings > Your Facebook Information",
-            "Download Your Information",
-            "Select data types and format (JSON or HTML)",
-            "Create file and wait for notification"
-          ],
-          "tips": [
-            "HTML format more readable",
-            "Can select specific date ranges",
-            "Very large archives possible"
-          ],
-          "typicalSize": "500 MB - 20 GB"
-        },
-        {
-          "id": "instagram",
-          "name": "Instagram",
-          "exportFormat": "JSON, HTML",
-          "supported": "partial",
-          "difficulty": "easy",
-          "timeEstimate": "1-48 hours",
-          "dataValue": "low",
-          "exportUrl": "https://www.instagram.com/download/request",
-          "instructions": [
-            "Settings > Privacy and Security",
-            "Download Data > Request Download",
-            "Wait for email with link"
-          ],
-          "tips": [
-            "Mostly media-focused (images, videos)",
-            "Captions and comments in JSON",
-            "Limited text value for knowledge base"
-          ],
-          "typicalSize": "1-50 GB"
-        },
-        {
-          "id": "linkedin",
-          "name": "LinkedIn",
-          "exportFormat": "CSV",
-          "supported": "partial",
-          "difficulty": "easy",
-          "timeEstimate": "10 minutes - 24 hours",
-          "dataValue": "medium",
-          "exportUrl": "https://www.linkedin.com/mypreferences/d/download-my-data",
-          "instructions": [
-            "Settings > Data Privacy > Get a copy of your data",
-            "Select data types",
-            "Request archive",
-            "Download when ready"
-          ],
-          "tips": [
-            "Connections, messages, profile data",
-            "CSV format for most data",
-            "Good for professional network context"
-          ],
-          "typicalSize": "10 MB - 500 MB"
-        },
-        {
-          "id": "reddit",
-          "name": "Reddit",
-          "exportFormat": "CSV",
-          "supported": "partial",
-          "difficulty": "easy",
-          "timeEstimate": "10 minutes - 24 hours",
-          "dataValue": "medium",
-          "exportUrl": "https://www.reddit.com/settings/data-request",
-          "instructions": [
-            "Settings > Request your data",
-            "Submit GDPR/CCPA request",
-            "Wait for email with download"
-          ],
-          "tips": [
-            "Includes posts, comments, saved items",
-            "CSV format",
-            "Good for personal writing/opinions"
-          ],
-          "typicalSize": "10 MB - 200 MB"
-        }
-      ]
-    },
-    {
-      "id": "productivity",
-      "name": "Productivity & Tasks",
-      "icon": "check-square",
-      "description": "Task lists, project notes, and productivity tool exports.",
-      "priority": 5,
-      "sources": [
-        {
-          "id": "todoist",
-          "name": "Todoist",
-          "exportFormat": "CSV",
-          "supported": "partial",
-          "difficulty": "easy",
-          "timeEstimate": "5 minutes",
-          "dataValue": "low",
-          "exportUrl": "https://todoist.com/app/settings/backups",
-          "instructions": [
-            "Settings > Backups",
-            "Download backup",
-            "CSV file with all tasks"
-          ],
-          "tips": [
-            "Includes completed and active tasks",
-            "Project structure preserved",
-            "Limited narrative value"
-          ],
-          "typicalSize": "1-10 MB"
-        },
-        {
-          "id": "trello",
-          "name": "Trello",
-          "exportFormat": "JSON",
-          "supported": false,
-          "difficulty": "easy",
-          "timeEstimate": "5 minutes",
-          "dataValue": "medium",
-          "exportUrl": null,
-          "instructions": [
-            "Board Menu > More > Print and Export",
-            "Export as JSON",
-            "Repeat for each board"
-          ],
-          "tips": [
-            "JSON format needs conversion",
-            "Card descriptions can be valuable",
-            "Comments and checklists included"
-          ],
-          "typicalSize": "1-50 MB per board"
-        },
-        {
-          "id": "asana",
-          "name": "Asana",
-          "exportFormat": "CSV, JSON",
-          "supported": "partial",
-          "difficulty": "easy",
-          "timeEstimate": "5-15 minutes",
-          "dataValue": "medium",
-          "exportUrl": null,
-          "instructions": [
-            "Project dropdown > Export > CSV or JSON",
-            "Org admins can do full workspace export"
-          ],
-          "tips": [
-            "Per-project export for free users",
-            "Task descriptions valuable for context",
-            "Full export requires admin"
-          ],
-          "typicalSize": "1-20 MB"
-        }
-      ]
-    },
-    {
-      "id": "reading",
-      "name": "Reading & Bookmarks",
-      "icon": "bookmark",
-      "description": "Saved articles, highlights, and reading lists.",
-      "priority": 6,
-      "sources": [
-        {
-          "id": "kindle",
-          "name": "Kindle Highlights",
-          "exportFormat": "HTML, TXT",
-          "supported": true,
-          "difficulty": "easy",
-          "timeEstimate": "5-10 minutes",
-          "dataValue": "high",
-          "exportUrl": "https://read.amazon.com/notebook",
-          "instructions": [
-            "Go to read.amazon.com/notebook",
-            "View highlights by book",
-            "Copy/export as needed",
-            "Or use Bookcision browser extension"
-          ],
-          "tips": [
-            "High-value personal annotations",
-            "Bookcision makes bulk export easier",
-            "My Clippings.txt on device has all highlights"
-          ],
-          "typicalSize": "1-50 MB"
-        },
-        {
-          "id": "pocket",
-          "name": "Pocket",
-          "exportFormat": "HTML",
-          "supported": true,
-          "difficulty": "easy",
-          "timeEstimate": "5 minutes",
-          "dataValue": "medium",
-          "exportUrl": "https://getpocket.com/export",
-          "instructions": [
-            "Go to getpocket.com/export",
-            "Download HTML file",
-            "Contains all saved article links"
-          ],
-          "tips": [
-            "Export is bookmarks/links, not full articles",
-            "Would need to fetch actual content separately",
-            "Good for URL reference"
-          ],
-          "typicalSize": "1-5 MB"
-        },
-        {
-          "id": "instapaper",
-          "name": "Instapaper",
-          "exportFormat": "CSV, HTML",
-          "supported": true,
-          "difficulty": "easy",
-          "timeEstimate": "5 minutes",
-          "dataValue": "medium",
-          "exportUrl": "https://www.instapaper.com/user",
-          "instructions": [
-            "Settings > Export",
-            "Download CSV or HTML",
-            "Includes highlights and notes"
-          ],
-          "tips": [
-            "Highlights are particularly valuable",
-            "CSV includes article metadata",
-            "Full text not always included"
-          ],
-          "typicalSize": "1-10 MB"
-        },
-        {
-          "id": "readwise",
-          "name": "Readwise",
-          "exportFormat": "Markdown, CSV",
-          "supported": true,
-          "difficulty": "easy",
-          "timeEstimate": "5 minutes",
-          "dataValue": "high",
-          "exportUrl": null,
-          "instructions": [
-            "Dashboard > Export",
-            "Choose Markdown format",
-            "Download all highlights"
-          ],
-          "tips": [
-            "Aggregates highlights from many sources",
-            "Markdown export ideal for Textrawl",
-            "Very high value if you use Readwise"
-          ],
-          "typicalSize": "5-50 MB"
-        },
-        {
-          "id": "browser-bookmarks",
-          "name": "Browser Bookmarks",
-          "exportFormat": "HTML",
-          "supported": true,
-          "difficulty": "trivial",
-          "timeEstimate": "2 minutes",
-          "dataValue": "low",
-          "exportUrl": null,
-          "instructions": [
-            "Chrome: Bookmarks > Bookmark Manager > Export",
-            "Firefox: Bookmarks > Show All > Import/Export",
-            "Safari: File > Export Bookmarks"
-          ],
-          "tips": [
-            "Standard HTML format across browsers",
-            "Links only, no content",
-            "Could be used to batch-fetch content"
-          ],
-          "typicalSize": "100 KB - 5 MB"
-        }
-      ]
-    },
-    {
-      "id": "finance",
-      "name": "Financial Records",
-      "icon": "credit-card",
-      "description": "Transaction history, statements, and financial records.",
-      "priority": 7,
-      "sources": [
-        {
-          "id": "bank-statements",
-          "name": "Bank Statements",
-          "exportFormat": "PDF, CSV",
-          "supported": true,
-          "difficulty": "easy",
-          "timeEstimate": "10-30 minutes",
-          "dataValue": "medium",
-          "exportUrl": null,
-          "instructions": [
-            "Log into your bank's website",
-            "Navigate to Statements or Transaction History",
-            "Download PDF statements or CSV exports"
-          ],
-          "tips": [
-            "PDF statements fully supported",
-            "CSV gives structured transaction data",
-            "Good for finding specific purchases"
-          ],
-          "typicalSize": "10-500 MB"
-        },
-        {
-          "id": "mint",
-          "name": "Mint (Legacy)",
-          "exportFormat": "CSV",
-          "supported": "partial",
-          "difficulty": "easy",
-          "timeEstimate": "5 minutes",
-          "dataValue": "medium",
-          "exportUrl": null,
-          "instructions": [
-            "Note: Mint shut down in early 2024",
-            "If you exported before shutdown, CSV files work",
-            "Data migrated to Credit Karma"
-          ],
-          "tips": [
-            "Historical data only if exported before closure",
-            "Transaction categorization valuable"
-          ],
-          "typicalSize": "5-50 MB"
-        }
-      ]
-    },
-    {
-      "id": "health",
-      "name": "Health & Fitness",
-      "icon": "heart",
-      "description": "Health records, fitness data, and wellness tracking.",
-      "priority": 8,
-      "sources": [
-        {
-          "id": "apple-health",
-          "name": "Apple Health",
-          "exportFormat": "XML",
-          "supported": false,
-          "difficulty": "easy",
-          "timeEstimate": "5-15 minutes",
-          "dataValue": "low",
-          "exportUrl": null,
-          "instructions": [
-            "Health app > Profile picture > Export All Health Data",
-            "Creates ZIP with XML file"
-          ],
-          "tips": [
-            "Very large XML files",
-            "Mostly numeric data (steps, heart rate)",
-            "Limited text/narrative value"
-          ],
-          "typicalSize": "100 MB - 2 GB"
-        },
-        {
-          "id": "google-fit",
-          "name": "Google Fit",
-          "exportFormat": "JSON, CSV",
-          "supported": "partial",
-          "difficulty": "easy",
-          "timeEstimate": "1-24 hours",
-          "dataValue": "low",
-          "exportUrl": "https://takeout.google.com",
-          "instructions": [
-            "Google Takeout > Select Fit",
-            "Download export"
-          ],
-          "tips": [
-            "Mostly activity/workout data",
-            "Limited text value",
-            "TCX files for workouts"
-          ],
-          "typicalSize": "10-500 MB"
-        }
-      ]
-    },
-    {
-      "id": "code",
-      "name": "Code & Development",
-      "icon": "code",
-      "description": "Code repositories, gists, and development notes.",
-      "priority": 9,
-      "sources": [
-        {
-          "id": "github",
-          "name": "GitHub",
-          "exportFormat": "Git repos, JSON",
-          "supported": "partial",
-          "difficulty": "medium",
-          "timeEstimate": "10-60 minutes",
-          "dataValue": "high",
-          "exportUrl": "https://github.com/settings/admin",
-          "instructions": [
-            "Settings > Account > Export account data",
-            "Or clone repos individually",
-            "Gists can be cloned as git repos"
-          ],
-          "tips": [
-            "README files, issues, wikis valuable",
-            "Code itself less useful for semantic search",
-            "Consider exporting just documentation"
-          ],
-          "typicalSize": "10 MB - 10 GB"
-        },
-        {
-          "id": "stackoverflow",
-          "name": "Stack Overflow",
-          "exportFormat": "N/A",
-          "supported": false,
-          "difficulty": "hard",
-          "timeEstimate": "varies",
-          "dataValue": "low",
-          "exportUrl": null,
-          "instructions": [
-            "No official personal export",
-            "Can scrape own profile with tools",
-            "GDPR request possible"
-          ],
-          "tips": [
-            "Public data anyway",
-            "Limited personal value vs searching SO directly"
-          ],
-          "typicalSize": "varies"
-        }
-      ]
-    },
-    {
-      "id": "journals",
-      "name": "Journals & Diaries",
-      "icon": "book-open",
-      "description": "Personal journals, diaries, and reflection apps.",
-      "priority": 10,
-      "sources": [
-        {
-          "id": "day-one",
-          "name": "Day One",
-          "exportFormat": "JSON, PDF, TXT",
-          "supported": true,
-          "difficulty": "easy",
-          "timeEstimate": "5-15 minutes",
-          "dataValue": "high",
-          "exportUrl": null,
-          "instructions": [
-            "File > Export",
-            "Choose JSON or Plain Text",
-            "Select journals to export"
-          ],
-          "tips": [
-            "JSON preserves metadata (location, weather)",
-            "Plain text simpler for search",
-            "High personal value content"
-          ],
-          "typicalSize": "10 MB - 1 GB"
-        },
-        {
-          "id": "journey",
-          "name": "Journey",
-          "exportFormat": "JSON, PDF",
-          "supported": "partial",
-          "difficulty": "easy",
-          "timeEstimate": "5 minutes",
-          "dataValue": "high",
-          "exportUrl": null,
-          "instructions": [
-            "Settings > Export",
-            "Choose format and date range"
-          ],
-          "tips": [
-            "Similar to Day One",
-            "JSON or PDF options"
-          ],
-          "typicalSize": "10 MB - 500 MB"
-        }
-      ]
-    }
-  ],
-  "quickStart": {
-    "recommended": ["gmail", "google-drive", "notion", "obsidian", "kindle"],
-    "highValue": ["gmail", "apple-mail", "notion", "obsidian", "kindle", "readwise", "day-one"],
-    "easyWins": ["obsidian", "thunderbird", "whatsapp", "browser-bookmarks", "kindle"]
-  },
-  "supportedFormats": {
-    "native": ["MBOX", "EML", "HTML", "PDF", "DOCX", "TXT", "MD", "ZIP"],
-    "withConversion": ["PST", "ENEX", "JSON", "CSV"],
-    "planned": ["JSON (Slack)", "XML (health data)"]
-  }
+	"$schema": "./onboarding-checklist.schema.json",
+	"version": "1.0.0",
+	"lastUpdated": "2025-01-06",
+	"categories": [
+		{
+			"id": "email",
+			"name": "Email Archives",
+			"icon": "mail",
+			"description": "Your email history contains receipts, conversations, confirmations, and personal correspondence.",
+			"priority": 1,
+			"sources": [
+				{
+					"id": "gmail",
+					"name": "Gmail / Google Workspace",
+					"exportFormat": "MBOX",
+					"supported": true,
+					"difficulty": "easy",
+					"timeEstimate": "1-48 hours (Google processes request)",
+					"dataValue": "high",
+					"exportUrl": "https://takeout.google.com",
+					"instructions": [
+						"Go to Google Takeout",
+						"Deselect all, then select only 'Mail'",
+						"Choose MBOX format",
+						"Create export and wait for email notification",
+						"Download the ZIP file"
+					],
+					"tips": [
+						"You can filter by label to export specific folders",
+						"Large mailboxes may be split into multiple files",
+						"Export can take 1-2 days for large accounts"
+					],
+					"typicalSize": "1-50 GB"
+				},
+				{
+					"id": "outlook",
+					"name": "Outlook / Microsoft 365",
+					"exportFormat": "PST",
+					"supported": false,
+					"supportedWorkaround": "Convert PST to MBOX using third-party tools",
+					"difficulty": "medium",
+					"timeEstimate": "1-24 hours",
+					"dataValue": "high",
+					"exportUrl": "https://account.microsoft.com/privacy/download-data",
+					"instructions": [
+						"Use Outlook desktop: File > Open & Export > Import/Export",
+						"Select 'Export to a file' > Outlook Data File (.pst)",
+						"Or use Microsoft Privacy Dashboard for cloud export"
+					],
+					"tips": [
+						"PST files need conversion to MBOX for Textrawl",
+						"Consider using readpst (Linux) or third-party converters"
+					],
+					"typicalSize": "1-20 GB"
+				},
+				{
+					"id": "apple-mail",
+					"name": "Apple Mail / iCloud",
+					"exportFormat": "MBOX",
+					"supported": true,
+					"difficulty": "easy",
+					"timeEstimate": "5-30 minutes",
+					"dataValue": "high",
+					"exportUrl": null,
+					"instructions": [
+						"Open Mail app on Mac",
+						"Select a mailbox in the sidebar",
+						"Go to Mailbox > Export Mailbox",
+						"Choose destination folder",
+						"Repeat for each mailbox you want"
+					],
+					"tips": [
+						"Each mailbox exports separately",
+						"Large mailboxes (>2GB) may need to be split",
+						"iCloud mail must be synced locally first"
+					],
+					"typicalSize": "500 MB - 10 GB"
+				},
+				{
+					"id": "thunderbird",
+					"name": "Thunderbird",
+					"exportFormat": "MBOX",
+					"supported": true,
+					"difficulty": "easy",
+					"timeEstimate": "5 minutes",
+					"dataValue": "high",
+					"exportUrl": null,
+					"instructions": [
+						"Thunderbird stores mail as MBOX files by default",
+						"Find your profile folder (Help > Troubleshooting Information)",
+						"Copy .mbox files from ImapMail or Mail folders"
+					],
+					"tips": [
+						"Files are already in MBOX format - just copy them",
+						"Profile location varies by OS"
+					],
+					"typicalSize": "500 MB - 20 GB"
+				},
+				{
+					"id": "protonmail",
+					"name": "ProtonMail",
+					"exportFormat": "EML",
+					"supported": true,
+					"difficulty": "medium",
+					"timeEstimate": "30 minutes - 2 hours",
+					"dataValue": "high",
+					"exportUrl": null,
+					"instructions": [
+						"Use ProtonMail Bridge + email client to export",
+						"Or use ProtonMail Export Tool (official)",
+						"Exports as EML files"
+					],
+					"tips": ["Bridge requires paid plan", "EML files are fully supported by Textrawl"],
+					"typicalSize": "100 MB - 5 GB"
+				}
+			]
+		},
+		{
+			"id": "documents",
+			"name": "Documents & Files",
+			"icon": "file-text",
+			"description": "Documents from cloud storage, including notes, PDFs, and office files.",
+			"priority": 2,
+			"sources": [
+				{
+					"id": "google-drive",
+					"name": "Google Drive",
+					"exportFormat": "DOCX, PDF, TXT",
+					"supported": true,
+					"difficulty": "easy",
+					"timeEstimate": "1-48 hours",
+					"dataValue": "high",
+					"exportUrl": "https://takeout.google.com",
+					"instructions": [
+						"Go to Google Takeout",
+						"Select 'Drive'",
+						"Choose format for Google Docs (DOCX recommended)",
+						"Create export"
+					],
+					"tips": [
+						"Google Docs convert to DOCX/PDF",
+						"Original uploaded files keep their format",
+						"Shared files may not be included"
+					],
+					"typicalSize": "1-100 GB"
+				},
+				{
+					"id": "dropbox",
+					"name": "Dropbox",
+					"exportFormat": "Original formats",
+					"supported": true,
+					"difficulty": "easy",
+					"timeEstimate": "10 minutes - 2 hours",
+					"dataValue": "medium",
+					"exportUrl": "https://www.dropbox.com/account/data_and_privacy",
+					"instructions": [
+						"Files are already in original format",
+						"Use Dropbox desktop app to sync locally",
+						"Or download folders from web interface"
+					],
+					"tips": [
+						"Paper docs export as Markdown or DOCX",
+						"Large accounts: use desktop sync instead of web download"
+					],
+					"typicalSize": "1-500 GB"
+				},
+				{
+					"id": "notion",
+					"name": "Notion",
+					"exportFormat": "Markdown, HTML, PDF",
+					"supported": true,
+					"difficulty": "easy",
+					"timeEstimate": "5-30 minutes",
+					"dataValue": "high",
+					"exportUrl": null,
+					"instructions": [
+						"Settings & Members > Settings",
+						"Scroll to 'Export all workspace content'",
+						"Choose Markdown & CSV format",
+						"Download ZIP file"
+					],
+					"tips": [
+						"Markdown format works best with Textrawl",
+						"Database views export as CSV",
+						"Images are included in export"
+					],
+					"typicalSize": "10 MB - 2 GB"
+				},
+				{
+					"id": "obsidian",
+					"name": "Obsidian",
+					"exportFormat": "Markdown",
+					"supported": true,
+					"difficulty": "trivial",
+					"timeEstimate": "1 minute",
+					"dataValue": "high",
+					"exportUrl": null,
+					"instructions": [
+						"Your vault is already a folder of Markdown files",
+						"Simply copy or point to your vault folder"
+					],
+					"tips": [
+						"No export needed - files are local Markdown",
+						"Attachments folder contains images/PDFs"
+					],
+					"typicalSize": "10 MB - 1 GB"
+				},
+				{
+					"id": "apple-notes",
+					"name": "Apple Notes",
+					"exportFormat": "PDF (individual), HTML (via tools)",
+					"supported": "partial",
+					"difficulty": "medium",
+					"timeEstimate": "30 minutes - 2 hours",
+					"dataValue": "medium",
+					"exportUrl": "https://privacy.apple.com",
+					"instructions": [
+						"Option 1: Export individual notes as PDF from Notes app",
+						"Option 2: Use Apple Privacy Portal for bulk export",
+						"Option 3: Use third-party tools like 'Exporter' for Markdown"
+					],
+					"tips": [
+						"Native export is PDF only (one at a time)",
+						"Exporter app ($5) converts to Markdown",
+						"Privacy portal export takes several days"
+					],
+					"typicalSize": "50 MB - 500 MB"
+				},
+				{
+					"id": "evernote",
+					"name": "Evernote",
+					"exportFormat": "ENEX (XML), HTML",
+					"supported": "partial",
+					"difficulty": "medium",
+					"timeEstimate": "10-60 minutes",
+					"dataValue": "medium",
+					"exportUrl": null,
+					"instructions": [
+						"Select notebooks to export",
+						"File > Export Notes",
+						"Choose ENEX format",
+						"Convert ENEX to HTML/Markdown with tools"
+					],
+					"tips": [
+						"ENEX is Evernote's XML format",
+						"Many converters available (yarle, evernote2md)",
+						"Attachments included in export"
+					],
+					"typicalSize": "100 MB - 5 GB"
+				},
+				{
+					"id": "roam",
+					"name": "Roam Research",
+					"exportFormat": "Markdown, JSON",
+					"supported": true,
+					"difficulty": "easy",
+					"timeEstimate": "5 minutes",
+					"dataValue": "high",
+					"exportUrl": null,
+					"instructions": [
+						"Click three-dot menu in top right",
+						"Select 'Export All'",
+						"Choose Markdown format",
+						"Download ZIP"
+					],
+					"tips": [
+						"Markdown export works well with Textrawl",
+						"JSON preserves block references (not needed for search)",
+						"Daily notes included"
+					],
+					"typicalSize": "5 MB - 200 MB"
+				}
+			]
+		},
+		{
+			"id": "chat",
+			"name": "Chat & Messaging",
+			"icon": "message-circle",
+			"description": "Conversations from messaging platforms and chat applications.",
+			"priority": 3,
+			"sources": [
+				{
+					"id": "slack",
+					"name": "Slack",
+					"exportFormat": "JSON",
+					"supported": false,
+					"supportedWorkaround": "Convert JSON to readable format with tools",
+					"difficulty": "hard",
+					"timeEstimate": "1-24 hours",
+					"dataValue": "medium",
+					"exportUrl": null,
+					"instructions": [
+						"Workspace Settings > Import/Export Data",
+						"Select Export tab",
+						"Free plan: public channels only, 90 days",
+						"Paid plans: all channels and DMs"
+					],
+					"tips": [
+						"Requires workspace admin access",
+						"Free plan severely limited (90 days, public only)",
+						"Use slackdump for personal backup without admin",
+						"JSON needs conversion for readability"
+					],
+					"typicalSize": "100 MB - 10 GB",
+					"limitations": [
+						"Free plan: 90 days only",
+						"Admin approval may be required",
+						"Files are links, not included"
+					]
+				},
+				{
+					"id": "discord",
+					"name": "Discord",
+					"exportFormat": "JSON, HTML",
+					"supported": "partial",
+					"difficulty": "medium",
+					"timeEstimate": "30 minutes - 4 hours",
+					"dataValue": "medium",
+					"exportUrl": "https://discord.com/privacy",
+					"instructions": [
+						"Official: Settings > Privacy & Safety > Request Data",
+						"Or use DiscordChatExporter (third-party)",
+						"Official export is JSON, third-party can do HTML"
+					],
+					"tips": [
+						"Official export limited in scope",
+						"DiscordChatExporter more comprehensive",
+						"HTML export more readable"
+					],
+					"typicalSize": "50 MB - 2 GB"
+				},
+				{
+					"id": "whatsapp",
+					"name": "WhatsApp",
+					"exportFormat": "TXT",
+					"supported": true,
+					"difficulty": "easy",
+					"timeEstimate": "5-15 minutes per chat",
+					"dataValue": "medium",
+					"exportUrl": null,
+					"instructions": [
+						"Open chat > Menu > More > Export chat",
+						"Choose with or without media",
+						"Save/share the resulting file"
+					],
+					"tips": [
+						"Must export each chat individually",
+						"TXT format is plain text, fully supported",
+						"Media exports as separate files"
+					],
+					"typicalSize": "1 MB - 100 MB per chat"
+				},
+				{
+					"id": "telegram",
+					"name": "Telegram",
+					"exportFormat": "HTML, JSON",
+					"supported": "partial",
+					"difficulty": "easy",
+					"timeEstimate": "10-60 minutes",
+					"dataValue": "medium",
+					"exportUrl": null,
+					"instructions": [
+						"Telegram Desktop > Settings > Advanced",
+						"Select 'Export Telegram Data'",
+						"Choose chats and format (HTML recommended)",
+						"Download export"
+					],
+					"tips": [
+						"Desktop app required for full export",
+						"HTML format more readable",
+						"Can select specific chats or date ranges"
+					],
+					"typicalSize": "100 MB - 5 GB"
+				},
+				{
+					"id": "imessage",
+					"name": "iMessage / Messages",
+					"exportFormat": "Various (via tools)",
+					"supported": "partial",
+					"difficulty": "hard",
+					"timeEstimate": "1-4 hours",
+					"dataValue": "high",
+					"exportUrl": null,
+					"instructions": [
+						"No native export feature",
+						"Option 1: Use iMazing or similar tool",
+						"Option 2: Access chat.db directly (advanced)",
+						"Option 3: Use iExplorer or PhoneView"
+					],
+					"tips": [
+						"Apple provides no official export",
+						"Third-party tools required",
+						"chat.db is SQLite (advanced users)"
+					],
+					"typicalSize": "100 MB - 10 GB"
+				}
+			]
+		},
+		{
+			"id": "social",
+			"name": "Social Media",
+			"icon": "share-2",
+			"description": "Posts, comments, and content from social platforms.",
+			"priority": 4,
+			"sources": [
+				{
+					"id": "twitter",
+					"name": "Twitter / X",
+					"exportFormat": "JSON, HTML",
+					"supported": "partial",
+					"difficulty": "easy",
+					"timeEstimate": "1-24 hours",
+					"dataValue": "medium",
+					"exportUrl": "https://twitter.com/settings/download_your_data",
+					"instructions": [
+						"Settings > Your Account > Download an archive",
+						"Confirm identity",
+						"Wait for email with download link",
+						"Download ZIP file"
+					],
+					"tips": [
+						"Includes tweets, DMs, likes, etc.",
+						"HTML viewer included in archive",
+						"JSON files contain raw data"
+					],
+					"typicalSize": "50 MB - 2 GB"
+				},
+				{
+					"id": "facebook",
+					"name": "Facebook",
+					"exportFormat": "JSON, HTML",
+					"supported": "partial",
+					"difficulty": "easy",
+					"timeEstimate": "1-48 hours",
+					"dataValue": "medium",
+					"exportUrl": "https://www.facebook.com/dyi",
+					"instructions": [
+						"Settings > Your Facebook Information",
+						"Download Your Information",
+						"Select data types and format (JSON or HTML)",
+						"Create file and wait for notification"
+					],
+					"tips": [
+						"HTML format more readable",
+						"Can select specific date ranges",
+						"Very large archives possible"
+					],
+					"typicalSize": "500 MB - 20 GB"
+				},
+				{
+					"id": "instagram",
+					"name": "Instagram",
+					"exportFormat": "JSON, HTML",
+					"supported": "partial",
+					"difficulty": "easy",
+					"timeEstimate": "1-48 hours",
+					"dataValue": "low",
+					"exportUrl": "https://www.instagram.com/download/request",
+					"instructions": [
+						"Settings > Privacy and Security",
+						"Download Data > Request Download",
+						"Wait for email with link"
+					],
+					"tips": [
+						"Mostly media-focused (images, videos)",
+						"Captions and comments in JSON",
+						"Limited text value for knowledge base"
+					],
+					"typicalSize": "1-50 GB"
+				},
+				{
+					"id": "linkedin",
+					"name": "LinkedIn",
+					"exportFormat": "CSV",
+					"supported": "partial",
+					"difficulty": "easy",
+					"timeEstimate": "10 minutes - 24 hours",
+					"dataValue": "medium",
+					"exportUrl": "https://www.linkedin.com/mypreferences/d/download-my-data",
+					"instructions": [
+						"Settings > Data Privacy > Get a copy of your data",
+						"Select data types",
+						"Request archive",
+						"Download when ready"
+					],
+					"tips": [
+						"Connections, messages, profile data",
+						"CSV format for most data",
+						"Good for professional network context"
+					],
+					"typicalSize": "10 MB - 500 MB"
+				},
+				{
+					"id": "reddit",
+					"name": "Reddit",
+					"exportFormat": "CSV",
+					"supported": "partial",
+					"difficulty": "easy",
+					"timeEstimate": "10 minutes - 24 hours",
+					"dataValue": "medium",
+					"exportUrl": "https://www.reddit.com/settings/data-request",
+					"instructions": [
+						"Settings > Request your data",
+						"Submit GDPR/CCPA request",
+						"Wait for email with download"
+					],
+					"tips": [
+						"Includes posts, comments, saved items",
+						"CSV format",
+						"Good for personal writing/opinions"
+					],
+					"typicalSize": "10 MB - 200 MB"
+				}
+			]
+		},
+		{
+			"id": "productivity",
+			"name": "Productivity & Tasks",
+			"icon": "check-square",
+			"description": "Task lists, project notes, and productivity tool exports.",
+			"priority": 5,
+			"sources": [
+				{
+					"id": "todoist",
+					"name": "Todoist",
+					"exportFormat": "CSV",
+					"supported": "partial",
+					"difficulty": "easy",
+					"timeEstimate": "5 minutes",
+					"dataValue": "low",
+					"exportUrl": "https://todoist.com/app/settings/backups",
+					"instructions": ["Settings > Backups", "Download backup", "CSV file with all tasks"],
+					"tips": [
+						"Includes completed and active tasks",
+						"Project structure preserved",
+						"Limited narrative value"
+					],
+					"typicalSize": "1-10 MB"
+				},
+				{
+					"id": "trello",
+					"name": "Trello",
+					"exportFormat": "JSON",
+					"supported": false,
+					"difficulty": "easy",
+					"timeEstimate": "5 minutes",
+					"dataValue": "medium",
+					"exportUrl": null,
+					"instructions": [
+						"Board Menu > More > Print and Export",
+						"Export as JSON",
+						"Repeat for each board"
+					],
+					"tips": [
+						"JSON format needs conversion",
+						"Card descriptions can be valuable",
+						"Comments and checklists included"
+					],
+					"typicalSize": "1-50 MB per board"
+				},
+				{
+					"id": "asana",
+					"name": "Asana",
+					"exportFormat": "CSV, JSON",
+					"supported": "partial",
+					"difficulty": "easy",
+					"timeEstimate": "5-15 minutes",
+					"dataValue": "medium",
+					"exportUrl": null,
+					"instructions": [
+						"Project dropdown > Export > CSV or JSON",
+						"Org admins can do full workspace export"
+					],
+					"tips": [
+						"Per-project export for free users",
+						"Task descriptions valuable for context",
+						"Full export requires admin"
+					],
+					"typicalSize": "1-20 MB"
+				}
+			]
+		},
+		{
+			"id": "reading",
+			"name": "Reading & Bookmarks",
+			"icon": "bookmark",
+			"description": "Saved articles, highlights, and reading lists.",
+			"priority": 6,
+			"sources": [
+				{
+					"id": "kindle",
+					"name": "Kindle Highlights",
+					"exportFormat": "HTML, TXT",
+					"supported": true,
+					"difficulty": "easy",
+					"timeEstimate": "5-10 minutes",
+					"dataValue": "high",
+					"exportUrl": "https://read.amazon.com/notebook",
+					"instructions": [
+						"Go to read.amazon.com/notebook",
+						"View highlights by book",
+						"Copy/export as needed",
+						"Or use Bookcision browser extension"
+					],
+					"tips": [
+						"High-value personal annotations",
+						"Bookcision makes bulk export easier",
+						"My Clippings.txt on device has all highlights"
+					],
+					"typicalSize": "1-50 MB"
+				},
+				{
+					"id": "pocket",
+					"name": "Pocket",
+					"exportFormat": "HTML",
+					"supported": true,
+					"difficulty": "easy",
+					"timeEstimate": "5 minutes",
+					"dataValue": "medium",
+					"exportUrl": "https://getpocket.com/export",
+					"instructions": [
+						"Go to getpocket.com/export",
+						"Download HTML file",
+						"Contains all saved article links"
+					],
+					"tips": [
+						"Export is bookmarks/links, not full articles",
+						"Would need to fetch actual content separately",
+						"Good for URL reference"
+					],
+					"typicalSize": "1-5 MB"
+				},
+				{
+					"id": "instapaper",
+					"name": "Instapaper",
+					"exportFormat": "CSV, HTML",
+					"supported": true,
+					"difficulty": "easy",
+					"timeEstimate": "5 minutes",
+					"dataValue": "medium",
+					"exportUrl": "https://www.instapaper.com/user",
+					"instructions": [
+						"Settings > Export",
+						"Download CSV or HTML",
+						"Includes highlights and notes"
+					],
+					"tips": [
+						"Highlights are particularly valuable",
+						"CSV includes article metadata",
+						"Full text not always included"
+					],
+					"typicalSize": "1-10 MB"
+				},
+				{
+					"id": "readwise",
+					"name": "Readwise",
+					"exportFormat": "Markdown, CSV",
+					"supported": true,
+					"difficulty": "easy",
+					"timeEstimate": "5 minutes",
+					"dataValue": "high",
+					"exportUrl": null,
+					"instructions": [
+						"Dashboard > Export",
+						"Choose Markdown format",
+						"Download all highlights"
+					],
+					"tips": [
+						"Aggregates highlights from many sources",
+						"Markdown export ideal for Textrawl",
+						"Very high value if you use Readwise"
+					],
+					"typicalSize": "5-50 MB"
+				},
+				{
+					"id": "browser-bookmarks",
+					"name": "Browser Bookmarks",
+					"exportFormat": "HTML",
+					"supported": true,
+					"difficulty": "trivial",
+					"timeEstimate": "2 minutes",
+					"dataValue": "low",
+					"exportUrl": null,
+					"instructions": [
+						"Chrome: Bookmarks > Bookmark Manager > Export",
+						"Firefox: Bookmarks > Show All > Import/Export",
+						"Safari: File > Export Bookmarks"
+					],
+					"tips": [
+						"Standard HTML format across browsers",
+						"Links only, no content",
+						"Could be used to batch-fetch content"
+					],
+					"typicalSize": "100 KB - 5 MB"
+				}
+			]
+		},
+		{
+			"id": "finance",
+			"name": "Financial Records",
+			"icon": "credit-card",
+			"description": "Transaction history, statements, and financial records.",
+			"priority": 7,
+			"sources": [
+				{
+					"id": "bank-statements",
+					"name": "Bank Statements",
+					"exportFormat": "PDF, CSV",
+					"supported": true,
+					"difficulty": "easy",
+					"timeEstimate": "10-30 minutes",
+					"dataValue": "medium",
+					"exportUrl": null,
+					"instructions": [
+						"Log into your bank's website",
+						"Navigate to Statements or Transaction History",
+						"Download PDF statements or CSV exports"
+					],
+					"tips": [
+						"PDF statements fully supported",
+						"CSV gives structured transaction data",
+						"Good for finding specific purchases"
+					],
+					"typicalSize": "10-500 MB"
+				},
+				{
+					"id": "mint",
+					"name": "Mint (Legacy)",
+					"exportFormat": "CSV",
+					"supported": "partial",
+					"difficulty": "easy",
+					"timeEstimate": "5 minutes",
+					"dataValue": "medium",
+					"exportUrl": null,
+					"instructions": [
+						"Note: Mint shut down in early 2024",
+						"If you exported before shutdown, CSV files work",
+						"Data migrated to Credit Karma"
+					],
+					"tips": [
+						"Historical data only if exported before closure",
+						"Transaction categorization valuable"
+					],
+					"typicalSize": "5-50 MB"
+				}
+			]
+		},
+		{
+			"id": "health",
+			"name": "Health & Fitness",
+			"icon": "heart",
+			"description": "Health records, fitness data, and wellness tracking.",
+			"priority": 8,
+			"sources": [
+				{
+					"id": "apple-health",
+					"name": "Apple Health",
+					"exportFormat": "XML",
+					"supported": false,
+					"difficulty": "easy",
+					"timeEstimate": "5-15 minutes",
+					"dataValue": "low",
+					"exportUrl": null,
+					"instructions": [
+						"Health app > Profile picture > Export All Health Data",
+						"Creates ZIP with XML file"
+					],
+					"tips": [
+						"Very large XML files",
+						"Mostly numeric data (steps, heart rate)",
+						"Limited text/narrative value"
+					],
+					"typicalSize": "100 MB - 2 GB"
+				},
+				{
+					"id": "google-fit",
+					"name": "Google Fit",
+					"exportFormat": "JSON, CSV",
+					"supported": "partial",
+					"difficulty": "easy",
+					"timeEstimate": "1-24 hours",
+					"dataValue": "low",
+					"exportUrl": "https://takeout.google.com",
+					"instructions": ["Google Takeout > Select Fit", "Download export"],
+					"tips": ["Mostly activity/workout data", "Limited text value", "TCX files for workouts"],
+					"typicalSize": "10-500 MB"
+				}
+			]
+		},
+		{
+			"id": "code",
+			"name": "Code & Development",
+			"icon": "code",
+			"description": "Code repositories, gists, and development notes.",
+			"priority": 9,
+			"sources": [
+				{
+					"id": "github",
+					"name": "GitHub",
+					"exportFormat": "Git repos, JSON",
+					"supported": "partial",
+					"difficulty": "medium",
+					"timeEstimate": "10-60 minutes",
+					"dataValue": "high",
+					"exportUrl": "https://github.com/settings/admin",
+					"instructions": [
+						"Settings > Account > Export account data",
+						"Or clone repos individually",
+						"Gists can be cloned as git repos"
+					],
+					"tips": [
+						"README files, issues, wikis valuable",
+						"Code itself less useful for semantic search",
+						"Consider exporting just documentation"
+					],
+					"typicalSize": "10 MB - 10 GB"
+				},
+				{
+					"id": "stackoverflow",
+					"name": "Stack Overflow",
+					"exportFormat": "N/A",
+					"supported": false,
+					"difficulty": "hard",
+					"timeEstimate": "varies",
+					"dataValue": "low",
+					"exportUrl": null,
+					"instructions": [
+						"No official personal export",
+						"Can scrape own profile with tools",
+						"GDPR request possible"
+					],
+					"tips": ["Public data anyway", "Limited personal value vs searching SO directly"],
+					"typicalSize": "varies"
+				}
+			]
+		},
+		{
+			"id": "journals",
+			"name": "Journals & Diaries",
+			"icon": "book-open",
+			"description": "Personal journals, diaries, and reflection apps.",
+			"priority": 10,
+			"sources": [
+				{
+					"id": "day-one",
+					"name": "Day One",
+					"exportFormat": "JSON, PDF, TXT",
+					"supported": true,
+					"difficulty": "easy",
+					"timeEstimate": "5-15 minutes",
+					"dataValue": "high",
+					"exportUrl": null,
+					"instructions": [
+						"File > Export",
+						"Choose JSON or Plain Text",
+						"Select journals to export"
+					],
+					"tips": [
+						"JSON preserves metadata (location, weather)",
+						"Plain text simpler for search",
+						"High personal value content"
+					],
+					"typicalSize": "10 MB - 1 GB"
+				},
+				{
+					"id": "journey",
+					"name": "Journey",
+					"exportFormat": "JSON, PDF",
+					"supported": "partial",
+					"difficulty": "easy",
+					"timeEstimate": "5 minutes",
+					"dataValue": "high",
+					"exportUrl": null,
+					"instructions": ["Settings > Export", "Choose format and date range"],
+					"tips": ["Similar to Day One", "JSON or PDF options"],
+					"typicalSize": "10 MB - 500 MB"
+				}
+			]
+		}
+	],
+	"quickStart": {
+		"recommended": ["gmail", "google-drive", "notion", "obsidian", "kindle"],
+		"highValue": ["gmail", "apple-mail", "notion", "obsidian", "kindle", "readwise", "day-one"],
+		"easyWins": ["obsidian", "thunderbird", "whatsapp", "browser-bookmarks", "kindle"]
+	},
+	"supportedFormats": {
+		"native": ["MBOX", "EML", "HTML", "PDF", "DOCX", "TXT", "MD", "ZIP"],
+		"withConversion": ["PST", "ENEX", "JSON", "CSV"],
+		"planned": ["JSON (Slack)", "XML (health data)"]
+	}
 }
