@@ -189,6 +189,40 @@ npm run build    # Build to website/dist/
 
 Deploy to Vercel with custom domain. See `.github/workflows/deploy-website.yml`.
 
+## Pull Request Workflow
+
+When completing work that's ready for a PR:
+
+1. **Always create the PR directly** using `gh pr create --title "..." --body "..."` - never just provide a link to `/pull/new/branch-name`
+2. **Use conventional commit format for PR titles:**
+   - `feat:` - New features
+   - `fix:` - Bug fixes
+   - `docs:` - Documentation changes
+   - `refactor:` - Code refactoring
+   - `chore:` - Maintenance tasks
+3. **Include in the PR body:**
+   - Summary of changes (2-4 bullet points)
+   - Link to related issue if applicable (e.g., `Closes #123`)
+   - Test plan or verification steps
+4. **After creating the PR**, report the actual PR URL returned by `gh`
+
+**Example:**
+```bash
+gh pr create --title "feat: add user authentication" --body "$(cat <<'EOF'
+## Summary
+- Add JWT-based authentication middleware
+- Create login/logout API endpoints
+- Add password hashing with bcrypt
+
+Closes #42
+
+## Test Plan
+- Run `npm run inspector` and test protected endpoints
+- Verify tokens expire after configured TTL
+EOF
+)"
+```
+
 ## Cursor IDE Integration
 
 Cursor rules in `.cursor/rules/`:
