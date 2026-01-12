@@ -310,27 +310,39 @@ export function setupRoutes(app: Express, upload: Multer): void {
 				return res.status(400).json({ error: 'No directory specified' });
 			}
 
-			// Security: Validate directory path to prevent path traversal
-			let validatedDirectory: string;
-			try {
-				validatedDirectory = validateOutputDir(directory);
-			} catch {
+			// Security: Inline path validation for CodeQL compliance
+			// Resolve to absolute path and normalize
+			const resolvedDir = normalize(resolve(process.cwd(), directory));
+
+			// Check for path traversal in the input (before any transformation)
+			if (String(directory).includes('..') || String(directory).includes('\0')) {
 				return res.status(400).json({ error: 'Invalid directory path' });
 			}
 
-			// Inline path traversal check for CodeQL compliance
-			if (validatedDirectory.includes('..') || validatedDirectory.includes('\0')) {
-				return res.status(400).json({ error: 'Invalid directory path' });
+			// Verify the resolved path is within allowed base directories
+			const homeDir = normalize(resolve(homedir()));
+			const tempDir = normalize(resolve(tmpdir()));
+			const cwdDir = normalize(resolve(process.cwd()));
+
+			// Path must start with one of the allowed directories (CodeQL-recognized pattern)
+			const isWithinHome = resolvedDir.startsWith(homeDir + sep) || resolvedDir === homeDir;
+			const isWithinTemp = resolvedDir.startsWith(tempDir + sep) || resolvedDir === tempDir;
+			const isWithinCwd = resolvedDir.startsWith(cwdDir + sep) || resolvedDir === cwdDir;
+
+			if (!isWithinHome && !isWithinTemp && !isWithinCwd) {
+				return res
+					.status(400)
+					.json({ error: 'Directory must be within home, temp, or working directory' });
 			}
 
-			// Verify directory exists (path already validated above)
-			if (!existsSync(validatedDirectory)) {
+			// Verify directory exists
+			if (!existsSync(resolvedDir)) {
 				return res.status(400).json({ error: 'Directory does not exist' });
 			}
 
 			const jobId = `upload-${Date.now()}-${Math.random().toString(36).slice(2, 8)}`;
 
-			await runUpload(jobId, validatedDirectory, tags || []);
+			await runUpload(jobId, resolvedDir, tags || []);
 
 			res.json({ jobId });
 		} catch (error) {
@@ -516,9 +528,31 @@ async function handleDocumentUpload(
 	// Get proper MIME type from extension (browser MIME can be unreliable)
 	const effectiveMime = EXT_TO_MIME[ext] || mimetype;
 
-	// Defense-in-depth: Re-validate and resolve output directory
-	const validatedDir = validateOutputDir(outputDir);
-	const resolvedOutputDir = resolve(validatedDir, 'documents');
+	// Security: Inline path validation for CodeQL compliance
+	// Resolve to absolute path and normalize
+	const baseOutputDir = normalize(resolve(process.cwd(), outputDir));
+
+	// Check for path traversal in the input
+	if (outputDir.includes('..') || outputDir.includes('\0')) {
+		throw new Error('Path traversal detected in output directory');
+	}
+
+	// Verify the resolved path is within allowed base directories
+	const homeDir = normalize(resolve(homedir()));
+	const tempDir = normalize(resolve(tmpdir()));
+	const cwdDir = normalize(resolve(process.cwd()));
+
+	// Path must start with one of the allowed directories (CodeQL-recognized pattern)
+	const isWithinHome = baseOutputDir.startsWith(homeDir + sep) || baseOutputDir === homeDir;
+	const isWithinTemp = baseOutputDir.startsWith(tempDir + sep) || baseOutputDir === tempDir;
+	const isWithinCwd = baseOutputDir.startsWith(cwdDir + sep) || baseOutputDir === cwdDir;
+
+	if (!isWithinHome && !isWithinTemp && !isWithinCwd) {
+		throw new Error('Output directory must be within home, temp, or working directory');
+	}
+
+	// Construct final output path using path.join (safe against traversal when base is validated)
+	const resolvedOutputDir = join(baseOutputDir, 'documents');
 
 	// Initialize job tracking
 	activeConversions.set(jobId, {
@@ -570,11 +604,15 @@ async function handleDocumentUpload(
 		conversion.progress = 60;
 		conversion.logs.push(`Extracted ${content.length} characters`);
 
-		// Inline path traversal check for CodeQL compliance - must be directly before file operation
-		if (resolvedOutputDir.includes('..') || resolvedOutputDir.includes('\0')) {
+		// Security: Validate path is within allowed base before file operation
+		// Use relative() to ensure path stays within bounds (CodeQL-recognized pattern)
+		const relToBase = relative(baseOutputDir, resolvedOutputDir);
+		if (relToBase.startsWith('..') || isAbsolute(relToBase)) {
 			throw new Error('Path traversal detected in output directory');
 		}
-		mkdirSync(resolvedOutputDir, { recursive: true });
+		// Construct safe path from validated base + validated relative path
+		const safeOutputDir = join(baseOutputDir, relToBase);
+		mkdirSync(safeOutputDir, { recursive: true });
 
 		// Generate markdown with frontmatter (matching CLI converter format)
 		const now = new Date().toISOString();
@@ -602,12 +640,13 @@ metadata:
 ${content}
 `;
 
-		// Write markdown file
-		const outputFile = join(resolvedOutputDir, `${baseName}.md`);
-		// Inline path traversal check for CodeQL compliance - must be directly before file operation
-		if (outputFile.includes('..') || outputFile.includes('\0')) {
-			throw new Error('Path traversal detected in output file');
+		// Write markdown file - use validated safeOutputDir from above
+		// Construct file path from validated components only
+		const safeFilename = `${baseName}.md`;
+		if (safeFilename.includes('..') || safeFilename.includes(sep) || safeFilename.includes('\0')) {
+			throw new Error('Invalid filename');
 		}
+		const outputFile = join(safeOutputDir, safeFilename);
 		writeFileSync(outputFile, markdown, 'utf-8');
 
 		sendSSE(jobId, { type: 'log', message: `Saved to ${outputFile}` });
@@ -616,9 +655,9 @@ ${content}
 		conversion.status = 'complete';
 		sendSSE(jobId, { type: 'complete', message: `Converted ${safeName} to markdown` });
 
-		// Auto-upload if requested
+		// Auto-upload if requested - use validated safeOutputDir
 		if (autoUpload) {
-			await runUpload(jobId, resolvedOutputDir, tags);
+			await runUpload(jobId, safeOutputDir, tags);
 		}
 	} catch (error) {
 		conversion.status = 'error';
