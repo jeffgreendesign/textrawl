@@ -134,7 +134,7 @@ npm run upload -- ./converted/
 | `PORT` | No | Default: 3000 |
 | `LOG_LEVEL` | No | debug, info, warn, error |
 | `ALLOWED_ORIGINS` | No | Comma-separated CORS origins |
-| `ENABLE_MEMORY` | No | Enable memory tools (default: true); requires `scripts/setup-db-memory.sql` |
+| `ENABLE_MEMORY` | No | Enable memory tools (default: true); requires `setup-db-memory.sql` or `setup-db-memory-ollama.sql` |
 | `COMPACT_RESPONSES` | No | Token-efficient responses (default: true) |
 
 ## MCP Tools
@@ -151,7 +151,7 @@ npm run upload -- ./converted/
 
 ### Memory Tools (Persistent Memory)
 
-Enable with `ENABLE_MEMORY=true` (default). Requires `scripts/setup-db-memory.sql`.
+Enable with `ENABLE_MEMORY=true` (default). Requires `scripts/setup-db-memory.sql` or `setup-db-memory-ollama.sql`.
 
 | Tool | Description |
 |------|-------------|
