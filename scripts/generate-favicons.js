@@ -5,7 +5,7 @@
  */
 
 import sharp from 'sharp';
-import { readFileSync, writeFileSync } from 'fs';
+import { readFileSync, existsSync } from 'fs';
 import { join, dirname } from 'path';
 import { fileURLToPath } from 'url';
 
@@ -23,6 +23,13 @@ const sizes = [
 
 async function generateFavicons() {
   console.error('Reading SVG from:', svgPath);
+
+  if (!existsSync(svgPath)) {
+    throw new Error(
+      `SVG source not found: ${svgPath}\nPlease create website/public/icon.svg first.`
+    );
+  }
+
   const svgBuffer = readFileSync(svgPath);
 
   for (const { name, size } of sizes) {
@@ -33,18 +40,6 @@ async function generateFavicons() {
       .toFile(outputPath);
     console.error(`Generated: ${name} (${size}x${size})`);
   }
-
-  // Generate favicon.ico (contains 16x16 and 32x32)
-  // ICO format requires special handling - we'll use the 32x32 as main favicon
-  const favicon32 = await sharp(svgBuffer)
-    .resize(32, 32)
-    .png()
-    .toBuffer();
-
-  // For simplicity, we'll copy the 32x32 PNG and rename it
-  // Most browsers prefer PNG favicons anyway
-  writeFileSync(join(publicDir, 'favicon.ico'), favicon32);
-  console.error('Generated: favicon.ico (32x32)');
 
   console.error('\nAll favicons generated successfully!');
 }
