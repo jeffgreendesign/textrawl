@@ -4,18 +4,16 @@
    FONT IMPORTS
    ============================================ */
 @import url('https://fonts.googleapis.com/css2?family=JetBrains+Mono:wght@400;500;600;700&display=swap');
-
-/* System font stacks (custom fonts can be added later via /public/fonts/) */
-/* Switzer fallback: Inter or system sans-serif */
-/* Nyght Serif fallback: Georgia or system serif */
+@import url('https://db.onlinewebfonts.com/c/e7849c6fffc1365b81185399c6ae9804?family=Nyght+Serif+Light');
+@import url('https://api.fontshare.com/v2/css?f[]=switzer@300,400,500,600&display=swap');
 
 /* ============================================
    CSS CUSTOM PROPERTIES - DESIGN TOKENS
    ============================================ */
 :root {
-	/* Typography - using system fonts with optional custom font loading */
-	--font-display: Georgia, 'Times New Roman', serif;
-	--font-sans: system-ui, -apple-system, 'Segoe UI', Roboto, sans-serif;
+	/* Typography */
+	--font-display: 'Nyght Serif Light', Georgia, 'Times New Roman', serif;
+	--font-sans: 'Switzer', system-ui, -apple-system, 'Segoe UI', Roboto, sans-serif;
 	--font-mono: 'JetBrains Mono', ui-monospace, 'SF Mono', Menlo, monospace;
 
 	/* Font sizes */
