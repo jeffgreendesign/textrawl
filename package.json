@@ -24,7 +24,8 @@
     "upload": "tsx scripts/cli/upload.ts",
     "ui": "tsx scripts/ui/server.ts",
     "docs:dev": "pnpm --filter textrawl-website dev",
-    "docs:build": "pnpm --filter textrawl-website build"
+    "docs:build": "pnpm --filter textrawl-website build",
+    "generate:favicons": "node scripts/generate-favicons.js"
   },
   "packageManager": "pnpm@9.15.0",
   "dependencies": {
@@ -64,6 +65,7 @@
     "node-mbox": "^2.0.0",
     "p-limit": "^5.0.0",
     "sanitize-html": "^2.12.0",
+    "sharp": "^0.34.5",
     "tsx": "^4.19.0",
     "turndown": "^7.1.0",
     "turndown-plugin-gfm": "^1.0.2",
