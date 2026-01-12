@@ -77,8 +77,9 @@ npm run dev      # Start the server
 
 1. Create a free project at [supabase.com](https://supabase.com)
 2. Run `scripts/setup-db.sql` in the SQL Editor (or `setup-db-ollama.sql` for Ollama)
-3. Run `scripts/security-rls.sql` for security hardening
-4. Copy your project URL and service role key to `.env`
+3. (Optional) For memory tools, also run `scripts/setup-db-memory.sql` (or `setup-db-memory-ollama.sql`)
+4. Run `scripts/security-rls.sql` for security hardening
+5. Copy your project URL and service role key to `.env`
 
 ### 3. Connect Claude Desktop
 
@@ -133,7 +134,7 @@ npm run upload -- ./converted/
 | `PORT` | No | Default: 3000 |
 | `LOG_LEVEL` | No | debug, info, warn, error |
 | `ALLOWED_ORIGINS` | No | Comma-separated CORS origins |
-| `ENABLE_MEMORY` | No | Enable memory tools (default: true) |
+| `ENABLE_MEMORY` | No | Enable memory tools (default: true); requires `scripts/setup-db-memory.sql` |
 | `COMPACT_RESPONSES` | No | Token-efficient responses (default: true) |
 
 ## MCP Tools
