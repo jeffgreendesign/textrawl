@@ -461,18 +461,17 @@ const EXT_TO_MIME: Record<string, string> = {
 
 /**
  * Generate a content hash for deduplication
- * Security: Limits iteration to prevent DoS from extremely large content
+ * Security: Uses constant-bounded iteration to prevent DoS
  */
 function generateHash(content: string): string {
-	// Limit hash computation to first 1MB to prevent DoS
-	const MAX_HASH_LENGTH = 1024 * 1024;
-	const hashContent =
-		content.length > MAX_HASH_LENGTH ? content.slice(0, MAX_HASH_LENGTH) : content;
+	// Use constant upper bound that CodeQL recognizes as safe
+	const MAX_ITERATIONS = 1024 * 1024; // 1MB max
+	const iterations = Math.min(content.length, MAX_ITERATIONS);
 
 	// Simple hash using string reduction (matches CLI behavior)
 	let hash = 0;
-	for (let i = 0; i < hashContent.length; i++) {
-		const char = hashContent.charCodeAt(i);
+	for (let i = 0; i < iterations; i++) {
+		const char = content.charCodeAt(i);
 		hash = (hash << 5) - hash + char;
 		hash = hash & hash; // Convert to 32bit integer
 	}
@@ -503,14 +502,18 @@ async function handleDocumentUpload(
 	},
 ): Promise<void> {
 	const jobId = `doc-${Date.now()}-${Math.random().toString(36).slice(2, 8)}`;
-	const ext = extname(originalname).toLowerCase();
-	const baseName = originalname.replace(/\.[^.]+$/, ''); // Remove extension
+
+	// Defense-in-depth: Re-sanitize inputs even if caller validated them
+	const safeName = sanitizeFilename(originalname);
+	const ext = extname(safeName).toLowerCase();
+	const baseName = safeName.replace(/\.[^.]+$/, ''); // Remove extension
 
 	// Get proper MIME type from extension (browser MIME can be unreliable)
 	const effectiveMime = EXT_TO_MIME[ext] || mimetype;
 
-	// Resolve output directory
-	const resolvedOutputDir = resolve(outputDir, 'documents');
+	// Defense-in-depth: Re-validate and resolve output directory
+	const validatedDir = validateOutputDir(outputDir);
+	const resolvedOutputDir = resolve(validatedDir, 'documents');
 
 	// Initialize job tracking
 	activeConversions.set(jobId, {
@@ -524,21 +527,21 @@ async function handleDocumentUpload(
 	res.json({
 		jobId,
 		format: ext.slice(1), // Remove leading dot
-		filename: originalname,
+		filename: safeName,
 		outputDir: resolvedOutputDir,
 	});
 
 	const conversion = activeConversions.get(jobId)!;
 
 	try {
-		console.error(`[DOC] Starting conversion: ${originalname} (${effectiveMime})`);
+		console.error(`[DOC] Starting conversion: ${safeName} (${effectiveMime})`);
 		console.error(`[DOC] Output dir: ${resolvedOutputDir}`);
 		console.error(`[DOC] Buffer size: ${buffer.length} bytes`);
 
-		sendSSE(jobId, { type: 'log', message: `Processing ${originalname}...` });
+		sendSSE(jobId, { type: 'log', message: `Processing ${safeName}...` });
 		sendSSE(jobId, { type: 'progress', value: 10 });
 		conversion.progress = 10;
-		conversion.logs.push(`Processing ${originalname}...`);
+		conversion.logs.push(`Processing ${safeName}...`);
 
 		// Validate file content matches MIME type
 		console.error('[DOC] Validating file type...');
@@ -581,7 +584,7 @@ source_hash: "${sourceHash}"
 ${tagsYaml}
 converted_at: "${now}"
 metadata:
-  original_file: "${escapeYaml(originalname)}"
+  original_file: "${escapeYaml(safeName)}"
   mime_type: "${effectiveMime}"
   size: ${buffer.length}
 ---
@@ -599,7 +602,7 @@ ${content}
 		sendSSE(jobId, { type: 'progress', value: 100 });
 		conversion.progress = 100;
 		conversion.status = 'complete';
-		sendSSE(jobId, { type: 'complete', message: `Converted ${originalname} to markdown` });
+		sendSSE(jobId, { type: 'complete', message: `Converted ${safeName} to markdown` });
 
 		// Auto-upload if requested
 		if (autoUpload) {
