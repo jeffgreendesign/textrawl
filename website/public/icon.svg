@@ -1,0 +1,25 @@
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 512 512">
+  <!-- Lime background with rounded corners -->
+  <rect width="512" height="512" fill="#c8ff00" rx="64"/>
+
+  <!-- Anchor - bold filled design optimized for small sizes -->
+  <g fill="#000000">
+    <!-- Ring at top (thick circle) -->
+    <circle cx="256" cy="96" r="56" fill="none" stroke="#000000" stroke-width="40"/>
+
+    <!-- Main vertical shaft -->
+    <rect x="228" y="132" width="56" height="280" rx="8"/>
+
+    <!-- Horizontal crossbar -->
+    <rect x="136" y="200" width="240" height="48" rx="8"/>
+
+    <!-- Left hook (simplified L-shape) -->
+    <path d="M104 280 L104 380 C104 420 144 420 184 420 L184 372 C160 372 152 372 152 340 L152 280 Z"/>
+
+    <!-- Right hook (simplified L-shape) -->
+    <path d="M408 280 L408 380 C408 420 368 420 328 420 L328 372 C352 372 360 372 360 340 L360 280 Z"/>
+
+    <!-- Bottom arrow point -->
+    <polygon points="256,460 200,396 312,396"/>
+  </g>
+</svg>
