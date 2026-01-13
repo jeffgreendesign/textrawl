@@ -16,7 +16,7 @@ export function Hero(): ReactNode {
 				<AuthorBadge />
 			</div>
 			<div className="hero-actions">
-				<Link href="/docs/getting-started" className="btn-primary">
+				<Link href="/docs/getting-started/quick-start" className="btn-primary">
 					Get Started
 				</Link>
 				<Link href="/docs/mcp-tools" className="btn-secondary">
