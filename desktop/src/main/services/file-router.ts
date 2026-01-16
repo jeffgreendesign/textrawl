@@ -54,6 +54,10 @@ const CONVERTER_MAP: Record<FileType, ConverterType | null> = {
 	eml: 'eml',
 	html: 'html',
 	takeout: 'takeout',
+	facebook: 'facebook',
+	instagram: 'instagram',
+	spotify: 'spotify',
+	reddit: 'reddit',
 	zip: null, // Needs classification first
 
 	// Documents -> processor
@@ -309,7 +313,7 @@ export function scanDirectory(dirPath: string): ScannedFile[] {
 /**
  * Scan multiple paths (files and/or directories)
  */
-export function scanPaths(paths: string[]): ScannedFile[] {
+export async function scanPaths(paths: string[]): Promise<ScannedFile[]> {
 	console.error(`[file-router] scanPaths called with ${paths.length} path(s):`);
 	paths.forEach((p, i) => console.error(`[file-router]   [${i}] ${p}`));
 
@@ -355,8 +359,17 @@ export function scanPaths(paths: string[]): ScannedFile[] {
 				}
 			} else {
 				// Single file
-				const { type, converterType } = routeFile(path);
-				if (type !== 'unknown') {
+				let { type, converterType } = routeFile(path);
+
+				// For ZIP files, classify to determine actual type
+				if (type === 'zip') {
+					console.error(`[file-router] classifying ZIP file: "${path}"`);
+					type = await classifyZip(path);
+					converterType = CONVERTER_MAP[type];
+					console.error(`[file-router] ZIP classified as: type="${type}" converterType="${converterType}"`);
+				}
+
+				if (type !== 'unknown' && converterType !== null) {
 					console.error(`[file-router] adding file: "${path}" type="${type}"`);
 					results.push({
 						id: generateFileId(),
@@ -368,7 +381,7 @@ export function scanPaths(paths: string[]): ScannedFile[] {
 						isDirectory: false,
 					});
 				} else {
-					console.error(`[file-router] SKIPPING file (unknown type): "${path}"`);
+					console.error(`[file-router] SKIPPING file (unknown type or no converter): "${path}"`);
 				}
 			}
 		} catch (error) {
@@ -383,16 +396,56 @@ export function scanPaths(paths: string[]): ScannedFile[] {
 /**
  * Classify a ZIP file to determine its type
  */
-export async function classifyZip(zipPath: string): Promise<'takeout' | 'archive' | 'unknown'> {
+export async function classifyZip(zipPath: string): Promise<FileType> {
 	try {
 		const unzipper = await import('unzipper');
-		const { createReadStream } = await import('node:fs');
 
 		const directory = await unzipper.Open.file(zipPath);
 		const entries = directory.files.map((f) => f.path);
 
+		// Facebook: has messages/ folder and index.htm at root level or nested
+		const hasFacebookSignature = entries.some(
+			(e) =>
+				(e.includes('/messages/') || e.startsWith('messages/')) &&
+				(entries.some((f) => f.endsWith('index.htm') || f.endsWith('index.html'))),
+		);
+		if (hasFacebookSignature) {
+			console.error('[file-router] classifyZip: detected Facebook export');
+			return 'facebook';
+		}
+
+		// Instagram: has messages/ and account_information/ or your_instagram_activity/
+		const hasInstagramSignature =
+			entries.some((e) => e.includes('/messages/') || e.startsWith('messages/')) &&
+			(entries.some((e) => e.includes('account_information/')) ||
+				entries.some((e) => e.includes('your_instagram_activity/')) ||
+				entries.some((e) => e.includes('/likes/') || e.startsWith('likes/')));
+		if (hasInstagramSignature) {
+			console.error('[file-router] classifyZip: detected Instagram export');
+			return 'instagram';
+		}
+
+		// Spotify: has StreamingHistory*.json files
+		const hasSpotifySignature = entries.some(
+			(e) => e.includes('StreamingHistory') && e.endsWith('.json'),
+		);
+		if (hasSpotifySignature) {
+			console.error('[file-router] classifyZip: detected Spotify export');
+			return 'spotify';
+		}
+
+		// Reddit: has comments.csv or posts.csv
+		const hasRedditSignature =
+			entries.some((e) => e.endsWith('comments.csv')) ||
+			entries.some((e) => e.endsWith('posts.csv'));
+		if (hasRedditSignature) {
+			console.error('[file-router] classifyZip: detected Reddit export');
+			return 'reddit';
+		}
+
 		// Google Takeout signature
 		if (entries.some((e) => e.includes('Takeout/'))) {
+			console.error('[file-router] classifyZip: detected Google Takeout');
 			return 'takeout';
 		}
 
@@ -403,11 +456,14 @@ export async function classifyZip(zipPath: string): Promise<'takeout' | 'archive
 		);
 
 		if (hasSupported) {
-			return 'archive';
+			console.error('[file-router] classifyZip: detected generic archive');
+			return 'zip';
 		}
 
+		console.error('[file-router] classifyZip: unknown ZIP format');
 		return 'unknown';
-	} catch {
+	} catch (err) {
+		console.error('[file-router] classifyZip error:', err);
 		return 'unknown';
 	}
 }

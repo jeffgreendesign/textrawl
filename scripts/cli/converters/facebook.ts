@@ -27,8 +27,6 @@ import type { ContentType, ConversionResult } from '../lib/types.js';
 export interface FacebookOptions extends CommonOptions {
 	/** Include messages */
 	messages: boolean;
-	/** Include timeline posts */
-	posts: boolean;
 	/** Analyze and show stats without converting */
 	preview: boolean;
 }
@@ -66,9 +64,13 @@ function findFacebookDir(inputPath: string): string {
 	for (const item of files) {
 		if (item.startsWith('facebook-') && !item.endsWith('.zip')) {
 			const itemPath = join(inputPath, item);
-			const stats = statSync(itemPath);
-			if (stats.isDirectory()) {
-				return itemPath;
+			try {
+				const stats = statSync(itemPath);
+				if (stats.isDirectory()) {
+					return itemPath;
+				}
+			} catch {
+				// Skip if can't read (permission error, deleted, etc.)
 			}
 		}
 	}
@@ -231,14 +233,18 @@ function findMessageFiles(dir: string, format: 'html' | 'json'): string[] {
 			const conversations = readdirSync(inboxDir);
 			for (const conv of conversations) {
 				const convDir = join(inboxDir, conv);
-				const stats = statSync(convDir);
-				if (stats.isDirectory()) {
-					const convFiles = readdirSync(convDir);
-					for (const file of convFiles) {
-						if (file.startsWith('message') && file.endsWith('.json')) {
-							files.push(join(convDir, file));
+				try {
+					const stats = statSync(convDir);
+					if (stats.isDirectory()) {
+						const convFiles = readdirSync(convDir);
+						for (const file of convFiles) {
+							if (file.startsWith('message') && file.endsWith('.json')) {
+								files.push(join(convDir, file));
+							}
 						}
 					}
+				} catch {
+					// Skip if can't read (permission error, deleted, etc.)
 				}
 			}
 		}
@@ -300,10 +306,12 @@ async function convertMessages(
 		try {
 			// Sort messages by timestamp
 			conversation.messages.sort((a, b) => {
-				if (!a.timestamp && !b.timestamp) return 0;
-				if (!a.timestamp) return 1;
-				if (!b.timestamp) return -1;
-				return new Date(a.timestamp).getTime() - new Date(b.timestamp).getTime();
+				const timeA = a.timestamp ? new Date(a.timestamp).getTime() : Number.POSITIVE_INFINITY;
+				const timeB = b.timestamp ? new Date(b.timestamp).getTime() : Number.POSITIVE_INFINITY;
+				// Handle NaN from malformed timestamps
+				const safeA = isNaN(timeA) ? Number.POSITIVE_INFINITY : timeA;
+				const safeB = isNaN(timeB) ? Number.POSITIVE_INFINITY : timeB;
+				return safeA - safeB;
 			});
 
 			// Generate content
@@ -497,8 +505,6 @@ const program = createBaseCommand(
 program
 	.option('--messages', 'Include messages', true)
 	.option('--no-messages', 'Exclude messages')
-	.option('--posts', 'Include timeline posts', true)
-	.option('--no-posts', 'Exclude timeline posts')
 	.option('--preview', 'Analyze and show stats without converting', false)
 	.argument('<path>', 'Facebook data export directory')
 	.action(async (path: string, opts: FacebookOptions) => {
@@ -507,4 +513,4 @@ program
 
 program.parse();
 
-export { convertFacebook, type FacebookOptions };
+export { convertFacebook };

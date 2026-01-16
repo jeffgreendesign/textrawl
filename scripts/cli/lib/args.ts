@@ -55,6 +55,8 @@ export interface MboxOptions extends CommonOptions {
 	dateAfter?: string;
 	/** Only emails before this date */
 	dateBefore?: string;
+	/** Analyze file and show stats without converting */
+	preview?: boolean;
 }
 
 /**
@@ -67,7 +69,8 @@ export function addMboxOptions(command: Command): Command {
 		.option('--max-emails <n>', 'Maximum emails to process', parseInt)
 		.option('--from-filter <regex>', 'Filter by sender (regex)')
 		.option('--date-after <date>', 'Only emails after this date (ISO 8601)')
-		.option('--date-before <date>', 'Only emails before this date (ISO 8601)');
+		.option('--date-before <date>', 'Only emails before this date (ISO 8601)')
+		.option('--preview', 'Analyze file and show stats without converting', false);
 }
 
 /**
@@ -111,6 +114,8 @@ export interface TakeoutOptions extends CommonOptions {
 	calendarName?: string;
 	/** Only contacts with email addresses */
 	contactsOnlyEmail: boolean;
+	/** Analyze and show stats without converting */
+	preview: boolean;
 }
 
 /**
@@ -127,7 +132,8 @@ export function addTakeoutOptions(command: Command): Command {
 		.option('--youtube-likes', 'Include YouTube liked videos', true)
 		.option('--youtube-playlists', 'Include YouTube playlists', false)
 		.option('--calendar-name <name>', 'Filter by calendar name')
-		.option('--contacts-only-email', 'Only contacts with email addresses', false);
+		.option('--contacts-only-email', 'Only contacts with email addresses', false)
+		.option('--preview', 'Analyze and show stats without converting', false);
 }
 
 /**

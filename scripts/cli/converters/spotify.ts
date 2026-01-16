@@ -161,6 +161,8 @@ function parseStreamingHistory(
 ): Map<string, { entries: StreamingEntry[]; totalMs: number }> {
 	const minMs = options.minPlayTime * 1000;
 	const trackMap = new Map<string, { entries: StreamingEntry[]; totalMs: number }>();
+	// For dedupe: track which date+track combos we've seen
+	const seenDayPlays = new Set<string>();
 
 	for (const file of files) {
 		const content = readFileSync(file, 'utf-8');
@@ -172,14 +174,30 @@ function parseStreamingHistory(
 				continue;
 			}
 
-			const key = `${entry.artistName}|||${entry.trackName}`;
-			const existing = trackMap.get(key);
+			const trackKey = `${entry.artistName}|||${entry.trackName}`;
+
+			// Dedupe: skip if we've already seen this track on this day
+			if (options.dedupe) {
+				const dateKey = entry.endTime.split(' ')[0]; // "YYYY-MM-DD"
+				const dayPlayKey = `${trackKey}|||${dateKey}`;
+				if (seenDayPlays.has(dayPlayKey)) {
+					// Still add to totalMs but don't add another entry
+					const existing = trackMap.get(trackKey);
+					if (existing) {
+						existing.totalMs += entry.msPlayed;
+					}
+					continue;
+				}
+				seenDayPlays.add(dayPlayKey);
+			}
+
+			const existing = trackMap.get(trackKey);
 
 			if (existing) {
 				existing.entries.push(entry);
 				existing.totalMs += entry.msPlayed;
 			} else {
-				trackMap.set(key, {
+				trackMap.set(trackKey, {
 					entries: [entry],
 					totalMs: entry.msPlayed,
 				});
@@ -386,7 +404,7 @@ async function convertPlaylists(
 				const outputPath = join(playlistDir, filename);
 
 				if (!options.dryRun) {
-					const output = serializeFrontmatter(frontmatter, content);
+					const output = serializeFrontmatter(frontmatter, markdownContent);
 					writeFileSync(outputPath, output);
 				}
 
@@ -678,4 +696,4 @@ program
 
 program.parse();
 
-export { convertSpotify, type SpotifyOptions };
+export { convertSpotify };

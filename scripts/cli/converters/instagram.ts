@@ -244,17 +244,14 @@ function parseCommentsHtml(filePath: string): Array<{ content: string; timestamp
 	const html = readFileSync(filePath, 'utf-8');
 	const comments: Array<{ content: string; timestamp?: string }> = [];
 
-	// Pattern for comment blocks
-	const commentPattern = /<div class="[^"]*_2let[^"]*">([\s\S]*?)<\/div>/g;
-	const timestampPattern = /<div class="[^"]*_2lem[^"]*">([^<]+)<\/div>/g;
+	// Pattern for comment blocks - match content and timestamp together
+	const commentBlockPattern = /<div class="[^"]*_2let[^"]*">([\s\S]*?)<\/div>[\s\S]*?<div class="[^"]*_2lem[^"]*">([^<]+)<\/div>/g;
 
 	let match;
-	while ((match = commentPattern.exec(html)) !== null) {
+	while ((match = commentBlockPattern.exec(html)) !== null) {
 		const content = extractTextFromHtml(match[1]);
 		if (content && !content.includes('Your Posts')) {
-			// Find the next timestamp
-			const timestampMatch = timestampPattern.exec(html);
-			const timestamp = timestampMatch ? timestampMatch[1].trim() : undefined;
+			const timestamp = match[2]?.trim();
 			comments.push({ content, timestamp });
 		}
 	}
@@ -269,17 +266,14 @@ function parseLikesHtml(filePath: string): Array<{ content: string; timestamp?: 
 	const html = readFileSync(filePath, 'utf-8');
 	const likes: Array<{ content: string; timestamp?: string }> = [];
 
-	// Pattern for like entries
-	const likePattern = /<div class="[^"]*_2let[^"]*">([\s\S]*?)<\/div>/g;
-	const timestampPattern = /<div class="[^"]*_2lem[^"]*">([^<]+)<\/div>/g;
+	// Pattern for like entries - match content and timestamp together
+	const likeBlockPattern = /<div class="[^"]*_2let[^"]*">([\s\S]*?)<\/div>[\s\S]*?<div class="[^"]*_2lem[^"]*">([^<]+)<\/div>/g;
 
 	let match;
-	while ((match = likePattern.exec(html)) !== null) {
+	while ((match = likeBlockPattern.exec(html)) !== null) {
 		const content = extractTextFromHtml(match[1]);
 		if (content && content.length > 0) {
-			// Find the next timestamp
-			const timestampMatch = timestampPattern.exec(html);
-			const timestamp = timestampMatch ? timestampMatch[1].trim() : undefined;
+			const timestamp = match[2]?.trim();
 			likes.push({ content, timestamp });
 		}
 	}
@@ -344,10 +338,12 @@ async function convertMessages(
 		try {
 			// Sort messages by timestamp
 			conversation.messages.sort((a, b) => {
-				if (!a.timestamp && !b.timestamp) return 0;
-				if (!a.timestamp) return 1;
-				if (!b.timestamp) return -1;
-				return new Date(a.timestamp).getTime() - new Date(b.timestamp).getTime();
+				const timeA = a.timestamp ? new Date(a.timestamp).getTime() : Number.POSITIVE_INFINITY;
+				const timeB = b.timestamp ? new Date(b.timestamp).getTime() : Number.POSITIVE_INFINITY;
+				// Handle NaN from malformed timestamps
+				const safeA = isNaN(timeA) ? Number.POSITIVE_INFINITY : timeA;
+				const safeB = isNaN(timeB) ? Number.POSITIVE_INFINITY : timeB;
+				return safeA - safeB;
 			});
 
 			// Generate content

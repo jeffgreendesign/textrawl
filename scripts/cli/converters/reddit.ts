@@ -168,12 +168,16 @@ function findRedditDir(inputPath: string): string {
 	// Look for a subdirectory that looks like a Reddit export
 	for (const item of files) {
 		const itemPath = join(inputPath, item);
-		const stats = statSync(itemPath);
-		if (stats.isDirectory()) {
-			const subFiles = readdirSync(itemPath);
-			if (subFiles.includes('comments.csv') || subFiles.includes('posts.csv')) {
-				return itemPath;
+		try {
+			const stats = statSync(itemPath);
+			if (stats.isDirectory()) {
+				const subFiles = readdirSync(itemPath);
+				if (subFiles.includes('comments.csv') || subFiles.includes('posts.csv')) {
+					return itemPath;
+				}
 			}
+		} catch {
+			// Skip if can't read (permission error, deleted, etc.)
 		}
 	}
 
@@ -451,8 +455,14 @@ async function convertMessages(
 		progress.update(processed, firstMessage.subject || 'Message');
 
 		try {
-			// Sort by date
-			threadMessages.sort((a, b) => new Date(a.date).getTime() - new Date(b.date).getTime());
+			// Sort by date with NaN handling
+			threadMessages.sort((a, b) => {
+				const timeA = new Date(a.date).getTime();
+				const timeB = new Date(b.date).getTime();
+				const safeA = isNaN(timeA) ? Number.POSITIVE_INFINITY : timeA;
+				const safeB = isNaN(timeB) ? Number.POSITIVE_INFINITY : timeB;
+				return safeA - safeB;
+			});
 
 			// Parse date of first message
 			const date = new Date(firstMessage.date);

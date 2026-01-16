@@ -13,6 +13,10 @@
  *   eml <path>       Convert EML file(s)
  *   takeout <path>   Convert Google Takeout archive
  *   html <path>      Convert HTML file(s)
+ *   spotify <path>   Convert Spotify data export
+ *   reddit <path>    Convert Reddit data export
+ *   facebook <path>  Convert Facebook data export
+ *   instagram <path> Convert Instagram data export
  *   auto <path>      Auto-detect format and convert
  */
 
@@ -121,6 +125,7 @@ program
 	.option('--youtube-likes', 'Include YouTube liked videos', true)
 	.option('--calendar-name <name>', 'Filter by calendar name')
 	.option('--contacts-only-email', 'Only contacts with email', false)
+	.option('--preview', 'Analyze and show stats without converting', false)
 	.action((path, opts) => {
 		const args = [path];
 		if (opts.output) args.push('-o', opts.output);
@@ -132,6 +137,7 @@ program
 		if (!opts.youtubeLikes) args.push('--no-youtube-likes');
 		if (opts.calendarName) args.push('--calendar-name', opts.calendarName);
 		if (opts.contactsOnlyEmail) args.push('--contacts-only-email');
+		if (opts.preview) args.push('--preview');
 
 		runConverter('takeout', args);
 	});
@@ -162,6 +168,126 @@ program
 		if (opts.urlBase) args.push('--url-base', opts.urlBase);
 
 		runConverter('html', args);
+	});
+
+// Spotify command
+program
+	.command('spotify <path>')
+	.description('Convert Spotify data export to Markdown')
+	.option('-o, --output <dir>', 'Output directory', './converted/spotify')
+	.option('-v, --verbose', 'Enable verbose logging', false)
+	.option('--dry-run', 'Preview without writing files', false)
+	.option('-t, --tags <tags...>', 'Additional tags', [])
+	.option('--history', 'Include streaming history', true)
+	.option('--no-history', 'Exclude streaming history')
+	.option('--playlists', 'Include playlists', true)
+	.option('--no-playlists', 'Exclude playlists')
+	.option('--library', 'Include library', true)
+	.option('--no-library', 'Exclude library')
+	.option('--min-play-time <seconds>', 'Minimum play time in seconds', '30')
+	.option('--preview', 'Analyze and show stats without converting', false)
+	.action((path, opts) => {
+		const args = [path];
+		if (opts.output) args.push('-o', opts.output);
+		if (opts.verbose) args.push('-v');
+		if (opts.dryRun) args.push('--dry-run');
+		if (opts.tags.length) args.push('-t', ...opts.tags);
+		if (!opts.history) args.push('--no-history');
+		if (!opts.playlists) args.push('--no-playlists');
+		if (!opts.library) args.push('--no-library');
+		if (opts.minPlayTime) args.push('--min-play-time', opts.minPlayTime);
+		if (opts.preview) args.push('--preview');
+
+		runConverter('spotify', args);
+	});
+
+// Reddit command
+program
+	.command('reddit <path>')
+	.description('Convert Reddit data export to Markdown')
+	.option('-o, --output <dir>', 'Output directory', './converted/reddit')
+	.option('-v, --verbose', 'Enable verbose logging', false)
+	.option('--dry-run', 'Preview without writing files', false)
+	.option('-t, --tags <tags...>', 'Additional tags', [])
+	.option('--comments', 'Include comments', true)
+	.option('--no-comments', 'Exclude comments')
+	.option('--posts', 'Include posts', true)
+	.option('--no-posts', 'Exclude posts')
+	.option('--messages', 'Include messages', true)
+	.option('--no-messages', 'Exclude messages')
+	.option('--saved', 'Include saved items', true)
+	.option('--no-saved', 'Exclude saved items')
+	.option('--subreddit <name>', 'Filter by subreddit')
+	.option('--preview', 'Analyze and show stats without converting', false)
+	.action((path, opts) => {
+		const args = [path];
+		if (opts.output) args.push('-o', opts.output);
+		if (opts.verbose) args.push('-v');
+		if (opts.dryRun) args.push('--dry-run');
+		if (opts.tags.length) args.push('-t', ...opts.tags);
+		if (!opts.comments) args.push('--no-comments');
+		if (!opts.posts) args.push('--no-posts');
+		if (!opts.messages) args.push('--no-messages');
+		if (!opts.saved) args.push('--no-saved');
+		if (opts.subreddit) args.push('--subreddit', opts.subreddit);
+		if (opts.preview) args.push('--preview');
+
+		runConverter('reddit', args);
+	});
+
+// Facebook command
+program
+	.command('facebook <path>')
+	.description('Convert Facebook data export to Markdown')
+	.option('-o, --output <dir>', 'Output directory', './converted/facebook')
+	.option('-v, --verbose', 'Enable verbose logging', false)
+	.option('--dry-run', 'Preview without writing files', false)
+	.option('-t, --tags <tags...>', 'Additional tags', [])
+	.option('--messages', 'Include messages', true)
+	.option('--no-messages', 'Exclude messages')
+	.option('--posts', 'Include timeline posts', true)
+	.option('--no-posts', 'Exclude timeline posts')
+	.option('--preview', 'Analyze and show stats without converting', false)
+	.action((path, opts) => {
+		const args = [path];
+		if (opts.output) args.push('-o', opts.output);
+		if (opts.verbose) args.push('-v');
+		if (opts.dryRun) args.push('--dry-run');
+		if (opts.tags.length) args.push('-t', ...opts.tags);
+		if (!opts.messages) args.push('--no-messages');
+		if (!opts.posts) args.push('--no-posts');
+		if (opts.preview) args.push('--preview');
+
+		runConverter('facebook', args);
+	});
+
+// Instagram command
+program
+	.command('instagram <path>')
+	.description('Convert Instagram data export to Markdown')
+	.option('-o, --output <dir>', 'Output directory', './converted/instagram')
+	.option('-v, --verbose', 'Enable verbose logging', false)
+	.option('--dry-run', 'Preview without writing files', false)
+	.option('-t, --tags <tags...>', 'Additional tags', [])
+	.option('--messages', 'Include messages', true)
+	.option('--no-messages', 'Exclude messages')
+	.option('--comments', 'Include comments', true)
+	.option('--no-comments', 'Exclude comments')
+	.option('--likes', 'Include likes', true)
+	.option('--no-likes', 'Exclude likes')
+	.option('--preview', 'Analyze and show stats without converting', false)
+	.action((path, opts) => {
+		const args = [path];
+		if (opts.output) args.push('-o', opts.output);
+		if (opts.verbose) args.push('-v');
+		if (opts.dryRun) args.push('--dry-run');
+		if (opts.tags.length) args.push('-t', ...opts.tags);
+		if (!opts.messages) args.push('--no-messages');
+		if (!opts.comments) args.push('--no-comments');
+		if (!opts.likes) args.push('--no-likes');
+		if (opts.preview) args.push('--preview');
+
+		runConverter('instagram', args);
 	});
 
 // Auto-detect command
@@ -202,12 +328,37 @@ program
 			// Look at contents to determine type
 			const files = readdirSync(resolved);
 
-			if (files.some((f) => f.endsWith('.eml'))) {
+			// Check for Spotify export
+			if (files.some((f) => f.startsWith('StreamingHistory') && f.endsWith('.json'))) {
+				format = 'spotify';
+			}
+			// Check for Reddit export
+			else if (files.includes('comments.csv') || files.includes('posts.csv')) {
+				format = 'reddit';
+			}
+			// Check for nested Reddit export
+			else if (files.some((f) => f.includes('export_') && !f.endsWith('.zip'))) {
+				format = 'reddit';
+			}
+			// Check for Facebook export
+			else if (files.includes('messages') && (files.includes('index.htm') || files.includes('html'))) {
+				format = 'facebook';
+			}
+			// Check for Instagram export
+			else if (files.includes('messages') && files.includes('likes') && files.includes('comments')) {
+				format = 'instagram';
+			}
+			// Check for EML files
+			else if (files.some((f) => f.endsWith('.eml'))) {
 				format = 'eml';
-			} else if (files.some((f) => f.endsWith('.html') || f.endsWith('.htm'))) {
-				format = 'html';
-			} else if (files.some((f) => f.includes('Takeout') || f.includes('YouTube'))) {
+			}
+			// Check for Takeout archive
+			else if (files.some((f) => f.includes('Takeout') || f.includes('YouTube'))) {
 				format = 'takeout';
+			}
+			// Default to HTML for web pages
+			else if (files.some((f) => f.endsWith('.html') || f.endsWith('.htm'))) {
+				format = 'html';
 			}
 		}
 
