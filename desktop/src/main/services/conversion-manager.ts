@@ -62,10 +62,13 @@ export class ConversionManager {
 
 			await Promise.all(promises);
 
-			// Send completion
+			// Send completion - success if at least one file converted
+			const successCount = this.completedFiles - this.errorCount;
 			this.window.webContents.send(IPC.COMPLETE, {
 				type: 'conversion',
-				success: this.errorCount === 0,
+				success: successCount > 0,
+				successCount,
+				errorCount: this.errorCount,
 			});
 
 			return { success: true };

@@ -59,7 +59,15 @@ export function App() {
 
 		const unsubComplete = window.electronAPI.onComplete((data) => {
 			if (data.type === 'conversion') {
-				setState(data.success ? 'complete' : 'ready');
+				if (data.success) {
+					setState('complete');
+					if (data.errorCount && data.errorCount > 0) {
+						addLog('warn', `Conversion completed with ${data.errorCount} error(s). ${data.successCount} file(s) ready to upload.`);
+					}
+				} else {
+					setState('ready');
+					addLog('error', 'Conversion failed - no files were converted successfully');
+				}
 			} else if (data.type === 'upload') {
 				setState('complete');
 			}
