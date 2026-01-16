@@ -139,6 +139,124 @@ header h1 {
 	cursor: pointer;
 }
 
+/* Dropzone analyzing state */
+.dropzone.analyzing {
+	border-color: var(--warning);
+	opacity: 0.7;
+	pointer-events: none;
+}
+
+/* Preview Section */
+.preview-section {
+	margin-top: 1.5rem;
+	padding: 1.5rem;
+	background: var(--bg-secondary);
+	border-radius: 8px;
+	border: 1px solid var(--accent);
+}
+
+.preview-header {
+	display: flex;
+	justify-content: space-between;
+	align-items: center;
+	margin-bottom: 1rem;
+	padding-bottom: 1rem;
+	border-bottom: 1px solid var(--border);
+}
+
+.preview-filename {
+	font-weight: 500;
+	color: var(--text);
+}
+
+.preview-filesize {
+	color: var(--text-muted);
+	font-size: 0.875rem;
+}
+
+.preview-stats {
+	display: flex;
+	justify-content: space-around;
+	margin-bottom: 1rem;
+}
+
+.stat {
+	text-align: center;
+	padding: 0.5rem 1rem;
+}
+
+.stat-value {
+	display: block;
+	font-size: 1.5rem;
+	font-weight: 600;
+	color: var(--accent);
+	margin-bottom: 0.25rem;
+}
+
+.stat-label {
+	color: var(--text-muted);
+	font-size: 0.75rem;
+	text-transform: uppercase;
+	letter-spacing: 0.05em;
+}
+
+.preview-date-range {
+	text-align: center;
+	color: var(--text-muted);
+	font-size: 0.875rem;
+	margin-bottom: 1rem;
+}
+
+.preview-breakdown {
+	text-align: center;
+	color: var(--text-muted);
+	font-size: 0.75rem;
+	margin-bottom: 1.5rem;
+	padding: 0.5rem;
+	background: var(--bg);
+	border-radius: 4px;
+}
+
+.preview-actions {
+	display: flex;
+	gap: 1rem;
+	justify-content: center;
+}
+
+.btn-primary {
+	background: var(--accent);
+	border: none;
+	border-radius: 4px;
+	padding: 0.75rem 1.5rem;
+	color: #fff;
+	font-family: inherit;
+	font-size: 0.875rem;
+	font-weight: 500;
+	cursor: pointer;
+	transition: all 0.2s ease;
+}
+
+.btn-primary:hover {
+	background: var(--accent-hover);
+}
+
+.btn-secondary {
+	background: transparent;
+	border: 1px solid var(--border);
+	border-radius: 4px;
+	padding: 0.75rem 1.5rem;
+	color: var(--text-muted);
+	font-family: inherit;
+	font-size: 0.875rem;
+	cursor: pointer;
+	transition: all 0.2s ease;
+}
+
+.btn-secondary:hover {
+	border-color: var(--text-muted);
+	color: var(--text);
+}
+
 /* Progress Section */
 .progress-section {
 	margin-top: 1.5rem;

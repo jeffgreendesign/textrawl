@@ -10,7 +10,7 @@
  */
 
 import { createHash } from 'node:crypto';
-import { createReadStream, existsSync, mkdirSync, writeFileSync } from 'node:fs';
+import { createReadStream, existsSync, mkdirSync, statSync, writeFileSync } from 'node:fs';
 import { dirname, resolve } from 'node:path';
 import { createInterface } from 'node:readline';
 import { type ParsedMail, simpleParser } from 'mailparser';
@@ -85,6 +85,114 @@ async function countMboxMessages(filePath: string): Promise<number> {
 	}
 
 	return count;
+}
+
+/**
+ * Analysis result for MBOX preview
+ */
+export interface MboxAnalysis {
+	/** Number of emails detected in the file */
+	emailCount: number;
+	/** Size of the input file in bytes */
+	fileSizeBytes: number;
+	/** Estimated number of output markdown files */
+	estimatedOutputFiles: number;
+	/** Estimated total size of output files in bytes */
+	estimatedOutputSizeBytes: number;
+	/** Date range of emails (ISO strings) */
+	dateRange?: { oldest: string; newest: string };
+	/** Sample subject lines for context (first 5) */
+	sampleSubjects?: string[];
+}
+
+/**
+ * Analyze MBOX file without full conversion (lightweight preview)
+ *
+ * Single-pass stream through the file to extract:
+ * - Email count
+ * - Date range from Date: headers
+ * - Sample subjects for context
+ * - Size estimates
+ */
+export async function analyzeMbox(filePath: string): Promise<MboxAnalysis> {
+	const stream = createReadStream(filePath, { encoding: 'utf-8' });
+	const rl = createInterface({ input: stream, crlfDelay: Infinity });
+
+	let emailCount = 0;
+	const subjects: string[] = [];
+	const dates: Date[] = [];
+
+	// Track state for header extraction
+	let inHeaders = false;
+	let currentSubject: string | null = null;
+	let currentDate: string | null = null;
+
+	for await (const line of rl) {
+		// Detect message boundary
+		if (line.startsWith('From ') && line.match(/^From \S+.*\d{4}$/)) {
+			// Save previous message's data if we have it
+			if (currentSubject && subjects.length < 5) {
+				subjects.push(currentSubject);
+			}
+			if (currentDate) {
+				const parsed = new Date(currentDate);
+				if (!isNaN(parsed.getTime())) {
+					dates.push(parsed);
+				}
+			}
+
+			emailCount++;
+			inHeaders = true;
+			currentSubject = null;
+			currentDate = null;
+		} else if (inHeaders) {
+			// Empty line marks end of headers
+			if (line.trim() === '') {
+				inHeaders = false;
+			} else if (line.startsWith('Subject:') && !currentSubject) {
+				currentSubject = line.slice(8).trim();
+			} else if (line.startsWith('Date:') && !currentDate) {
+				currentDate = line.slice(5).trim();
+			}
+		}
+	}
+
+	// Don't forget the last message
+	if (currentSubject && subjects.length < 5) {
+		subjects.push(currentSubject);
+	}
+	if (currentDate) {
+		const parsed = new Date(currentDate);
+		if (!isNaN(parsed.getTime())) {
+			dates.push(parsed);
+		}
+	}
+
+	// Get file size
+	const fileSizeBytes = statSync(filePath).size;
+
+	// Estimate output: ~3KB average per markdown file
+	const avgOutputPerEmail = 3000;
+	const estimatedOutputSizeBytes = emailCount * avgOutputPerEmail;
+
+	// Calculate date range
+	let dateRange: { oldest: string; newest: string } | undefined;
+	if (dates.length > 0) {
+		dates.sort((a, b) => a.getTime() - b.getTime());
+		dateRange = {
+			oldest: dates[0].toISOString(),
+			newest: dates[dates.length - 1].toISOString(),
+		};
+	}
+
+	return {
+		emailCount,
+		fileSizeBytes,
+		estimatedOutputFiles: emailCount,
+		estimatedOutputSizeBytes,
+		dateRange,
+		sampleSubjects: subjects.length > 0 ? subjects : undefined,
+	};
 }
 
 /**
@@ -276,8 +384,25 @@ addMboxOptions(program);
 
 program
 	.argument('<mbox-file>', 'MBOX file to convert')
-	.action(async (path: string, opts: MboxOptions) => {
-		await convertMbox(path, opts);
+	.action(async (inputPath: string, opts: MboxOptions) => {
+		const resolvedInput = resolve(inputPath);
+
+		// Check if input exists
+		if (!existsSync(resolvedInput)) {
+			logger.error(`MBOX file not found: ${resolvedInput}`);
+			process.exit(1);
+		}
+
+		// Preview mode: analyze and exit
+		if (opts.preview) {
+			logger.info('Analyzing MBOX file...');
+			const analysis = await analyzeMbox(resolvedInput);
+			// Output as JSON to stderr (stdout reserved for MCP)
+			console.error(JSON.stringify(analysis, null, 2));
+			process.exit(0);
+		}
+
+		await convertMbox(inputPath, opts);
 	});
 
 program.parse();

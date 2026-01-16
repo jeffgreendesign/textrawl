@@ -42,6 +42,34 @@
         </div>
       </div>
 
+      <!-- Preview Section (shown for mbox files before conversion) -->
+      <div id="previewSection" class="preview-section hidden">
+        <div class="preview-header">
+          <span id="previewFilename" class="preview-filename">filename.mbox</span>
+          <span id="previewFileSize" class="preview-filesize">0 MB</span>
+        </div>
+        <div class="preview-stats">
+          <div class="stat">
+            <span class="stat-value" id="previewEmailCount">--</span>
+            <span class="stat-label">emails</span>
+          </div>
+          <div class="stat">
+            <span class="stat-value" id="previewEstimatedFiles">--</span>
+            <span class="stat-label">output files</span>
+          </div>
+          <div class="stat">
+            <span class="stat-value" id="previewEstimatedSize">--</span>
+            <span class="stat-label">est. output</span>
+          </div>
+        </div>
+        <div id="previewDateRange" class="preview-date-range"></div>
+        <div id="previewBreakdown" class="preview-breakdown hidden"></div>
+        <div class="preview-actions">
+          <button id="startConversion" class="btn-primary">Start Conversion</button>
+          <button id="cancelConversion" class="btn-secondary">Cancel</button>
+        </div>
+      </div>
+
       <!-- Progress Section -->
       <div id="progressSection" class="progress-section hidden">
         <div class="progress-header">

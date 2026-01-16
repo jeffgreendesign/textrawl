@@ -146,6 +146,97 @@ export function setupRoutes(app: Express, upload: Multer): void {
 		});
 	});
 
+	// Analyze endpoint for lightweight file preview (all supported formats)
+	app.post('/api/analyze', upload.single('file'), async (req: Request, res: Response) => {
+		try {
+			if (!req.file) {
+				return res.status(400).json({ error: 'No file provided' });
+			}
+
+			const { originalname, buffer } = req.file;
+			const safeFilename = sanitizeFilename(originalname);
+			const ext = extname(safeFilename).toLowerCase();
+
+			// Check if this is a previewable format
+			const previewableExtensions = ['.mbox', '.zip'];
+			if (!previewableExtensions.includes(ext)) {
+				return res.json({
+					filename: safeFilename,
+					fileSizeBytes: buffer.length,
+					format: ext.slice(1),
+					canPreview: false,
+				});
+			}
+
+			// Save to temp file for analysis
+			const tempFile = join(tmpdir(), `analyze-${Date.now()}-${safeFilename}`);
+			writeFileSync(tempFile, buffer);
+
+			try {
+				// Dynamic import of analyzeExport for unified analysis
+				const { analyzeExport } = await import('../cli/lib/analyze.js');
+				const analysis = await analyzeExport(tempFile);
+
+				res.json({
+					...analysis,
+					filename: safeFilename,
+				});
+			} finally {
+				// Clean up temp file
+				rmSync(tempFile, { force: true });
+			}
+		} catch (error) {
+			console.error('Analyze error:', error);
+			res.status(500).json({ error: String(error) });
+		}
+	});
+
+	// Analyze directory endpoint for folder-based exports (Spotify, Reddit, Facebook, Instagram)
+	app.post('/api/analyze-dir', async (req: Request, res: Response) => {
+		try {
+			const { directory } = req.body;
+
+			if (!directory) {
+				return res.status(400).json({ error: 'No directory specified' });
+			}
+
+			// Security: Validate path
+			const resolvedDir = normalize(resolve(process.cwd(), directory));
+
+			if (String(directory).includes('..') || String(directory).includes('\0')) {
+				return res.status(400).json({ error: 'Invalid directory path' });
+			}
+
+			// Verify the resolved path is within allowed base directories
+			const homeDir = normalize(resolve(homedir()));
+			const tempDir = normalize(resolve(tmpdir()));
+			const cwdDir = normalize(resolve(process.cwd()));
+
+			const isWithinHome = resolvedDir.startsWith(homeDir + sep) || resolvedDir === homeDir;
+			const isWithinTemp = resolvedDir.startsWith(tempDir + sep) || resolvedDir === tempDir;
+			const isWithinCwd = resolvedDir.startsWith(cwdDir + sep) || resolvedDir === cwdDir;
+
+			if (!isWithinHome && !isWithinTemp && !isWithinCwd) {
+				return res
+					.status(400)
+					.json({ error: 'Directory must be within home, temp, or working directory' });
+			}
+
+			if (!existsSync(resolvedDir)) {
+				return res.status(400).json({ error: 'Directory does not exist' });
+			}
+
+			// Dynamic import of analyzeExport for unified analysis
+			const { analyzeExport } = await import('../cli/lib/analyze.js');
+			const analysis = await analyzeExport(resolvedDir);
+
+			res.json(analysis);
+		} catch (error) {
+			console.error('Analyze directory error:', error);
+			res.status(500).json({ error: String(error) });
+		}
+	});
+
 	// File upload and conversion endpoint
 	app.post('/api/convert', upload.single('file'), async (req: Request, res: Response) => {
 		try {

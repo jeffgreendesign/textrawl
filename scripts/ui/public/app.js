@@ -22,11 +22,23 @@ const logSection = document.getElementById('logSection');
 const logContainer = document.getElementById('logContainer');
 const clearLogs = document.getElementById('clearLogs');
 
+// Preview section elements
+const previewSection = document.getElementById('previewSection');
+const previewFilename = document.getElementById('previewFilename');
+const previewFileSize = document.getElementById('previewFileSize');
+const previewEmailCount = document.getElementById('previewEmailCount');
+const previewEstimatedFiles = document.getElementById('previewEstimatedFiles');
+const previewEstimatedSize = document.getElementById('previewEstimatedSize');
+const previewDateRange = document.getElementById('previewDateRange');
+const startConversionBtn = document.getElementById('startConversion');
+const cancelConversionBtn = document.getElementById('cancelConversion');
+
 // State
 let currentJobId = null;
 let eventSource = null;
 let logEntries = [];
 let lastOutputDir = null;
+let pendingFile = null;
 
 // Drag and drop handlers
 dropzone.addEventListener('click', () => fileInput.click());
@@ -65,8 +77,33 @@ clearLogs.addEventListener('click', () => {
 // Upload button handler
 uploadButton.addEventListener('click', handleUpload);
 
+// Preview action handlers
+startConversionBtn.addEventListener('click', () => {
+	if (pendingFile) {
+		previewSection.classList.add('hidden');
+		startConversion(pendingFile);
+		pendingFile = null;
+	}
+});
+
+cancelConversionBtn.addEventListener('click', () => {
+	previewSection.classList.add('hidden');
+	pendingFile = null;
+});
+
 /**
- * Handle file selection
+ * Format bytes to human-readable string
+ */
+function formatBytes(bytes) {
+	if (!Number.isFinite(bytes) || bytes <= 0) return '0 B';
+	const k = 1024;
+	const sizes = ['B', 'KB', 'MB', 'GB'];
+	const i = Math.min(Math.floor(Math.log(bytes) / Math.log(k)), sizes.length - 1);
+	return parseFloat((bytes / Math.pow(k, i)).toFixed(1)) + ' ' + sizes[i];
+}
+
+/**
+ * Handle file selection - analyze first for mbox, then proceed
  */
 async function handleFile(file) {
 	console.log('[APP] handleFile called with:', file.name);
@@ -79,6 +116,123 @@ async function handleFile(file) {
 		alert(`Unsupported file type: ${ext}\n\nSupported: ${validTypes.join(', ')}`);
 		return;
 	}
+
+	// For mbox and zip files, analyze first to show preview
+	if (ext === '.mbox' || ext === '.zip') {
+		await analyzeFile(file);
+		return;
+	}
+
+	// For other files, proceed directly to conversion
+	startConversion(file);
+}
+
+/**
+ * Analyze mbox file and show preview
+ */
+async function analyzeFile(file) {
+	console.log('[APP] Analyzing file:', file.name);
+	pendingFile = file;
+
+	// Show analyzing state in dropzone
+	dropzone.classList.add('analyzing');
+	const originalText = dropzone.querySelector('.dropzone-text strong').textContent;
+	dropzone.querySelector('.dropzone-text strong').textContent = 'Analyzing...';
+
+	const formData = new FormData();
+	formData.append('file', file);
+
+	try {
+		const response = await fetch('/api/analyze', {
+			method: 'POST',
+			body: formData,
+		});
+
+		if (!response.ok) {
+			const error = await response.json();
+			throw new Error(error.error || 'Analysis failed');
+		}
+
+		const analysis = await response.json();
+		console.log('[APP] Analysis result:', analysis);
+		showPreview(analysis);
+	} catch (error) {
+		console.error('[APP] Analysis error:', error);
+		alert(`Failed to analyze file: ${error.message}`);
+		pendingFile = null;
+	} finally {
+		dropzone.classList.remove('analyzing');
+		dropzone.querySelector('.dropzone-text strong').textContent = originalText;
+	}
+}
+
+/**
+ * Get item label based on format
+ */
+function getItemLabel(format) {
+	const labels = {
+		mbox: 'emails',
+		spotify: 'tracks',
+		reddit: 'posts/comments',
+		facebook: 'messages',
+		instagram: 'messages',
+		takeout: 'items',
+	};
+	return labels[format] || 'items';
+}
+
+/**
+ * Show preview with analysis results
+ */
+function showPreview(analysis) {
+	previewFilename.textContent = analysis.filename;
+	previewFileSize.textContent = formatBytes(analysis.fileSizeBytes);
+
+	// Update labels and values based on format
+	const itemLabel = getItemLabel(analysis.format);
+	const itemLabelEl = document.querySelector('#previewEmailCount + .stat-label');
+	if (itemLabelEl) {
+		itemLabelEl.textContent = itemLabel;
+	}
+
+	// Show total items (emailCount for mbox, totalItems for others)
+	const totalItems = analysis.emailCount ?? analysis.totalItems ?? 0;
+	previewEmailCount.textContent = totalItems.toLocaleString();
+	previewEstimatedFiles.textContent = (analysis.estimatedOutputFiles ?? 0).toLocaleString();
+	previewEstimatedSize.textContent = formatBytes(analysis.estimatedOutputSizeBytes ?? 0);
+
+	// Show date range if available
+	if (analysis.dateRange) {
+		const oldest = new Date(analysis.dateRange.oldest).toLocaleDateString();
+		const newest = new Date(analysis.dateRange.newest).toLocaleDateString();
+		previewDateRange.textContent = `${oldest} — ${newest}`;
+		previewDateRange.classList.remove('hidden');
+	} else {
+		previewDateRange.classList.add('hidden');
+	}
+
+	// Show breakdown if available (for multi-type exports like Spotify, Facebook)
+	const breakdownEl = document.getElementById('previewBreakdown');
+	if (breakdownEl) {
+		if (analysis.breakdown && Object.keys(analysis.breakdown).length > 0) {
+			const items = Object.entries(analysis.breakdown)
+				.map(([key, value]) => `${key}: ${value.toLocaleString()}`)
+				.join(' | ');
+			breakdownEl.textContent = items;
+			breakdownEl.classList.remove('hidden');
+		} else {
+			breakdownEl.classList.add('hidden');
+		}
+	}
+
+	previewSection.classList.remove('hidden');
+}
+
+/**
+ * Start conversion (upload and convert)
+ */
+async function startConversion(file) {
+	console.log('[APP] Starting conversion for:', file.name);
 
 	// Show progress section
 	progressSection.classList.remove('hidden');
