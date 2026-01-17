@@ -15,7 +15,10 @@ export interface ListDocumentsOptions {
 	limit?: number;
 	offset?: number;
 	sourceType?: 'note' | 'file' | 'url';
+	contentType?: 'email' | 'youtube' | 'calendar' | 'contact' | 'webpage' | 'document';
 	tags?: string[];
+	sortBy?: 'created_at' | 'updated_at' | 'title';
+	sortOrder?: 'asc' | 'desc';
 }
 
 export interface UpdateDocumentInput {
@@ -88,17 +91,22 @@ export async function listDocuments(
 		throw new DatabaseError('Supabase not configured');
 	}
 
-	const { limit = 20, offset = 0, sourceType, tags } = options;
+	const { limit = 20, offset = 0, sourceType, contentType, tags, sortBy = 'created_at', sortOrder = 'desc' } = options;
 	const client = getSupabaseClient();
 
 	let query = client
 		.from('documents')
 		.select('*', { count: 'exact' })
-		.order('created_at', { ascending: false })
+		.order(sortBy, { ascending: sortOrder === 'asc' })
 		.range(offset, offset + limit - 1);
 
 	if (sourceType) {
 		query = query.eq('source_type', sourceType);
+	}
+
+	// Filter by content_type in metadata JSONB
+	if (contentType) {
+		query = query.filter('metadata->>content_type', 'eq', contentType);
 	}
 
 	// Filter by tags using JSONB contains operator

@@ -40,6 +40,10 @@ export function registerSearchTool(server: McpServer): void {
 				.enum(['note', 'file', 'url'])
 				.optional()
 				.describe('Filter by document source type'),
+			contentType: z
+				.enum(['email', 'youtube', 'calendar', 'contact', 'webpage', 'document'])
+				.optional()
+				.describe('Filter by content type (email, youtube watch history, calendar events, contacts, webpages)'),
 			minScore: z
 				.number()
 				.min(0)
@@ -47,7 +51,7 @@ export function registerSearchTool(server: McpServer): void {
 				.optional()
 				.describe('Minimum relevance score threshold (0-1) to filter out low-quality results'),
 		},
-		async ({ query, limit, fullTextWeight, semanticWeight, tags, sourceType, minScore }) => {
+		async ({ query, limit, fullTextWeight, semanticWeight, tags, sourceType, contentType, minScore }) => {
 			logger.info('search_knowledge called', {
 				query,
 				limit,
@@ -55,6 +59,7 @@ export function registerSearchTool(server: McpServer): void {
 				semanticWeight,
 				tags,
 				sourceType,
+				contentType,
 				minScore,
 			});
 
@@ -100,7 +105,7 @@ export function registerSearchTool(server: McpServer): void {
 				const queryEmbedding = await generateEmbedding(query);
 
 				// Request more results to allow for post-filtering
-				const fetchLimit = tags || sourceType || minScore ? limit * 3 : limit;
+				const fetchLimit = tags || sourceType || contentType || minScore ? limit * 3 : limit;
 
 				// Perform hybrid search
 				let results = await hybridSearch({
@@ -114,6 +119,10 @@ export function registerSearchTool(server: McpServer): void {
 				// Apply post-filters
 				if (sourceType) {
 					results = results.filter((r) => r.source_type === sourceType);
+				}
+
+				if (contentType) {
+					results = results.filter((r) => r.document_metadata?.content_type === contentType);
 				}
 
 				if (tags && tags.length > 0) {
@@ -154,6 +163,7 @@ export function registerSearchTool(server: McpServer): void {
 									filters: {
 										tags: tags || null,
 										sourceType: sourceType || null,
+										contentType: contentType || null,
 										minScore: minScore ?? null,
 									},
 									totalResults: formattedResults.length,

@@ -108,13 +108,27 @@ export function registerDocumentTools(server: McpServer): void {
 			limit: z.number().min(1).max(100).default(20).describe('Number of documents to return'),
 			offset: z.number().min(0).default(0).describe('Pagination offset'),
 			sourceType: z.enum(['note', 'file', 'url']).optional().describe('Filter by source type'),
+			contentType: z
+				.enum(['email', 'youtube', 'calendar', 'contact', 'webpage', 'document'])
+				.optional()
+				.describe('Filter by content type (email, youtube watch history, calendar events, contacts, webpages)'),
 			tags: z
 				.array(z.string())
 				.optional()
 				.describe('Filter by tags (returns docs containing ALL specified tags)'),
+			sortBy: z
+				.enum(['created_at', 'updated_at', 'title'])
+				.optional()
+				.default('created_at')
+				.describe('Field to sort by'),
+			sortOrder: z
+				.enum(['asc', 'desc'])
+				.optional()
+				.default('desc')
+				.describe('Sort order (asc for oldest first, desc for newest first)'),
 		},
-		async ({ limit, offset, sourceType, tags }) => {
-			logger.info('list_documents called', { limit, offset, sourceType, tags });
+		async ({ limit, offset, sourceType, contentType, tags, sortBy, sortOrder }) => {
+			logger.info('list_documents called', { limit, offset, sourceType, contentType, tags, sortBy, sortOrder });
 
 			if (!isSupabaseConfigured()) {
 				return {
@@ -139,7 +153,10 @@ export function registerDocumentTools(server: McpServer): void {
 					limit,
 					offset,
 					sourceType,
+					contentType,
 					tags,
+					sortBy,
+					sortOrder,
 				});
 
 				const formattedDocuments = documents.map((d) => {
