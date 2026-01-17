@@ -8,6 +8,7 @@
 --
 -- Run this AFTER setup-db-memory.sql (or setup-db-memory-ollama.sql).
 -- Run security-rls.sql first for base document/chunk security.
+-- Script is idempotent and safe to re-run.
 -- See docs/guides/security-hardening.mdx for full documentation.
 -- =============================================================================
 
@@ -26,6 +27,10 @@ ALTER TABLE public.memory_relations FORCE ROW LEVEL SECURITY;
 -- -----------------------------------------------------------------------------
 -- Policies for memory_entities table
 -- -----------------------------------------------------------------------------
+DROP POLICY IF EXISTS "Allow all access to memory_entities" ON public.memory_entities;
+DROP POLICY IF EXISTS "Deny anon access to memory_entities" ON public.memory_entities;
+DROP POLICY IF EXISTS "Deny authenticated access to memory_entities" ON public.memory_entities;
+
 CREATE POLICY "Allow all access to memory_entities"
   ON public.memory_entities
   FOR ALL
@@ -47,6 +52,10 @@ CREATE POLICY "Deny authenticated access to memory_entities"
 -- -----------------------------------------------------------------------------
 -- Policies for memory_observations table
 -- -----------------------------------------------------------------------------
+DROP POLICY IF EXISTS "Allow all access to memory_observations" ON public.memory_observations;
+DROP POLICY IF EXISTS "Deny anon access to memory_observations" ON public.memory_observations;
+DROP POLICY IF EXISTS "Deny authenticated access to memory_observations" ON public.memory_observations;
+
 CREATE POLICY "Allow all access to memory_observations"
   ON public.memory_observations
   FOR ALL
@@ -68,6 +77,10 @@ CREATE POLICY "Deny authenticated access to memory_observations"
 -- -----------------------------------------------------------------------------
 -- Policies for memory_relations table
 -- -----------------------------------------------------------------------------
+DROP POLICY IF EXISTS "Allow all access to memory_relations" ON public.memory_relations;
+DROP POLICY IF EXISTS "Deny anon access to memory_relations" ON public.memory_relations;
+DROP POLICY IF EXISTS "Deny authenticated access to memory_relations" ON public.memory_relations;
+
 CREATE POLICY "Allow all access to memory_relations"
   ON public.memory_relations
   FOR ALL
@@ -93,17 +106,43 @@ REVOKE ALL ON TABLE public.memory_entities FROM anon, authenticated;
 REVOKE ALL ON TABLE public.memory_observations FROM anon, authenticated;
 REVOKE ALL ON TABLE public.memory_relations FROM anon, authenticated;
 
--- Revoke memory function execution from anon/authenticated
--- Note: Using full signatures to avoid ambiguity if multiple overloads exist
--- OpenAI version (1536 dimensions):
-REVOKE EXECUTE ON FUNCTION public.memory_semantic_search(VECTOR(1536), INT, TEXT[], BOOLEAN) FROM anon, authenticated;
-REVOKE EXECUTE ON FUNCTION public.memory_hybrid_search(TEXT, VECTOR(1536), INT, FLOAT, FLOAT, INT, TEXT[], BOOLEAN) FROM anon, authenticated;
--- Ollama version (1024 dimensions):
-REVOKE EXECUTE ON FUNCTION public.memory_semantic_search(VECTOR(1024), INT, TEXT[], BOOLEAN) FROM anon, authenticated;
-REVOKE EXECUTE ON FUNCTION public.memory_hybrid_search(TEXT, VECTOR(1024), INT, FLOAT, FLOAT, INT, TEXT[], BOOLEAN) FROM anon, authenticated;
--- Shared functions (same signature for both):
-REVOKE EXECUTE ON FUNCTION public.get_entity_context(TEXT, BOOLEAN) FROM anon, authenticated;
-REVOKE EXECUTE ON FUNCTION public.cleanup_expired_observations() FROM anon, authenticated;
+-- -----------------------------------------------------------------------------
+-- Function permissions (handles both OpenAI and Ollama configurations)
+-- -----------------------------------------------------------------------------
+-- Uses DO blocks to gracefully handle missing functions since users will only
+-- have one embedding provider configured (either OpenAI 1536d or Ollama 1024d)
+DO $$
+BEGIN
+  -- Shared functions (same signature for both providers)
+  REVOKE EXECUTE ON FUNCTION public.get_entity_context(TEXT, BOOLEAN) FROM anon, authenticated;
+  REVOKE EXECUTE ON FUNCTION public.cleanup_expired_observations() FROM anon, authenticated;
+  GRANT EXECUTE ON FUNCTION public.get_entity_context(TEXT, BOOLEAN) TO service_role;
+  GRANT EXECUTE ON FUNCTION public.cleanup_expired_observations() TO service_role;
+EXCEPTION WHEN undefined_function THEN
+  RAISE NOTICE 'Some shared memory functions not found - skipping';
+END $$;
+
+-- OpenAI version (1536 dimensions)
+DO $$
+BEGIN
+  REVOKE EXECUTE ON FUNCTION public.memory_semantic_search(VECTOR(1536), INT, TEXT[], BOOLEAN) FROM anon, authenticated;
+  REVOKE EXECUTE ON FUNCTION public.memory_hybrid_search(TEXT, VECTOR(1536), INT, FLOAT, FLOAT, INT, TEXT[], BOOLEAN) FROM anon, authenticated;
+  GRANT EXECUTE ON FUNCTION public.memory_semantic_search(VECTOR(1536), INT, TEXT[], BOOLEAN) TO service_role;
+  GRANT EXECUTE ON FUNCTION public.memory_hybrid_search(TEXT, VECTOR(1536), INT, FLOAT, FLOAT, INT, TEXT[], BOOLEAN) TO service_role;
+EXCEPTION WHEN undefined_function THEN
+  RAISE NOTICE 'OpenAI memory functions (1536d) not found - skipping';
+END $$;
+
+-- Ollama version (1024 dimensions)
+DO $$
+BEGIN
+  REVOKE EXECUTE ON FUNCTION public.memory_semantic_search(VECTOR(1024), INT, TEXT[], BOOLEAN) FROM anon, authenticated;
+  REVOKE EXECUTE ON FUNCTION public.memory_hybrid_search(TEXT, VECTOR(1024), INT, FLOAT, FLOAT, INT, TEXT[], BOOLEAN) FROM anon, authenticated;
+  GRANT EXECUTE ON FUNCTION public.memory_semantic_search(VECTOR(1024), INT, TEXT[], BOOLEAN) TO service_role;
+  GRANT EXECUTE ON FUNCTION public.memory_hybrid_search(TEXT, VECTOR(1024), INT, FLOAT, FLOAT, INT, TEXT[], BOOLEAN) TO service_role;
+EXCEPTION WHEN undefined_function THEN
+  RAISE NOTICE 'Ollama memory functions (1024d) not found - skipping';
+END $$;
 
 -- -----------------------------------------------------------------------------
 -- Explicit service_role grants for memory tables
@@ -111,17 +150,6 @@ REVOKE EXECUTE ON FUNCTION public.cleanup_expired_observations() FROM anon, auth
 GRANT ALL ON TABLE public.memory_entities TO service_role;
 GRANT ALL ON TABLE public.memory_observations TO service_role;
 GRANT ALL ON TABLE public.memory_relations TO service_role;
-
--- Grant memory function execution to service_role
--- OpenAI version (1536 dimensions):
-GRANT EXECUTE ON FUNCTION public.memory_semantic_search(VECTOR(1536), INT, TEXT[], BOOLEAN) TO service_role;
-GRANT EXECUTE ON FUNCTION public.memory_hybrid_search(TEXT, VECTOR(1536), INT, FLOAT, FLOAT, INT, TEXT[], BOOLEAN) TO service_role;
--- Ollama version (1024 dimensions):
-GRANT EXECUTE ON FUNCTION public.memory_semantic_search(VECTOR(1024), INT, TEXT[], BOOLEAN) TO service_role;
-GRANT EXECUTE ON FUNCTION public.memory_hybrid_search(TEXT, VECTOR(1024), INT, FLOAT, FLOAT, INT, TEXT[], BOOLEAN) TO service_role;
--- Shared functions (same signature for both):
-GRANT EXECUTE ON FUNCTION public.get_entity_context(TEXT, BOOLEAN) TO service_role;
-GRANT EXECUTE ON FUNCTION public.cleanup_expired_observations() TO service_role;
 
 -- -----------------------------------------------------------------------------
 -- Verification queries (run these to confirm setup)
