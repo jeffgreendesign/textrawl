@@ -1,4 +1,4 @@
 {
 	"title": "Concepts",
-	"pages": ["crawling", "embeddings", "search"]
+	"pages": ["index", "crawling", "embeddings", "search"]
 }
