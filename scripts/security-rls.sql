@@ -7,7 +7,8 @@
 -- - Explicit REVOKE of permissions from anon/authenticated
 --
 -- Run this AFTER setup-db.sql (or setup-db-ollama.sql) in Supabase SQL Editor.
--- See docs/SECURITY.md for full security documentation.
+-- For memory tables, run security-rls-memory.sql after setup-db-memory.sql.
+-- See docs/guides/security-hardening.mdx for full security documentation.
 -- =============================================================================
 
 -- -----------------------------------------------------------------------------
@@ -87,119 +88,16 @@ GRANT ALL ON TABLE public.chunks TO service_role;
 GRANT EXECUTE ON FUNCTION public.hybrid_search TO service_role;
 GRANT EXECUTE ON FUNCTION public.semantic_search TO service_role;
 
--- =============================================================================
--- Memory Tables Security (run after setup-db-memory.sql)
--- =============================================================================
-
--- -----------------------------------------------------------------------------
--- Enable Row Level Security for memory tables
--- -----------------------------------------------------------------------------
-ALTER TABLE public.memory_entities ENABLE ROW LEVEL SECURITY;
-ALTER TABLE public.memory_observations ENABLE ROW LEVEL SECURITY;
-ALTER TABLE public.memory_relations ENABLE ROW LEVEL SECURITY;
-
--- Force RLS for table owners
-ALTER TABLE public.memory_entities FORCE ROW LEVEL SECURITY;
-ALTER TABLE public.memory_observations FORCE ROW LEVEL SECURITY;
-ALTER TABLE public.memory_relations FORCE ROW LEVEL SECURITY;
-
--- -----------------------------------------------------------------------------
--- Policies for memory_entities table
--- -----------------------------------------------------------------------------
-CREATE POLICY "Allow all access to memory_entities"
-  ON public.memory_entities
-  FOR ALL
-  USING (true)
-  WITH CHECK (true);
-
-CREATE POLICY "Deny anon access to memory_entities"
-  ON public.memory_entities AS RESTRICTIVE
-  FOR ALL
-  TO anon
-  USING (false);
-
-CREATE POLICY "Deny authenticated access to memory_entities"
-  ON public.memory_entities AS RESTRICTIVE
-  FOR ALL
-  TO authenticated
-  USING (false);
-
--- -----------------------------------------------------------------------------
--- Policies for memory_observations table
--- -----------------------------------------------------------------------------
-CREATE POLICY "Allow all access to memory_observations"
-  ON public.memory_observations
-  FOR ALL
-  USING (true)
-  WITH CHECK (true);
-
-CREATE POLICY "Deny anon access to memory_observations"
-  ON public.memory_observations AS RESTRICTIVE
-  FOR ALL
-  TO anon
-  USING (false);
-
-CREATE POLICY "Deny authenticated access to memory_observations"
-  ON public.memory_observations AS RESTRICTIVE
-  FOR ALL
-  TO authenticated
-  USING (false);
-
--- -----------------------------------------------------------------------------
--- Policies for memory_relations table
--- -----------------------------------------------------------------------------
-CREATE POLICY "Allow all access to memory_relations"
-  ON public.memory_relations
-  FOR ALL
-  USING (true)
-  WITH CHECK (true);
-
-CREATE POLICY "Deny anon access to memory_relations"
-  ON public.memory_relations AS RESTRICTIVE
-  FOR ALL
-  TO anon
-  USING (false);
-
-CREATE POLICY "Deny authenticated access to memory_relations"
-  ON public.memory_relations AS RESTRICTIVE
-  FOR ALL
-  TO authenticated
-  USING (false);
-
--- -----------------------------------------------------------------------------
--- Revoke permissions from anon/authenticated for memory tables
--- -----------------------------------------------------------------------------
-REVOKE ALL ON TABLE public.memory_entities FROM anon, authenticated;
-REVOKE ALL ON TABLE public.memory_observations FROM anon, authenticated;
-REVOKE ALL ON TABLE public.memory_relations FROM anon, authenticated;
-
--- Revoke memory function execution from anon/authenticated
-REVOKE EXECUTE ON FUNCTION public.memory_semantic_search FROM anon, authenticated;
-REVOKE EXECUTE ON FUNCTION public.memory_hybrid_search FROM anon, authenticated;
-REVOKE EXECUTE ON FUNCTION public.get_entity_context FROM anon, authenticated;
-REVOKE EXECUTE ON FUNCTION public.cleanup_expired_observations FROM anon, authenticated;
-
--- -----------------------------------------------------------------------------
--- Explicit service_role grants for memory tables
--- -----------------------------------------------------------------------------
-GRANT ALL ON TABLE public.memory_entities TO service_role;
-GRANT ALL ON TABLE public.memory_observations TO service_role;
-GRANT ALL ON TABLE public.memory_relations TO service_role;
-GRANT EXECUTE ON FUNCTION public.memory_semantic_search TO service_role;
-GRANT EXECUTE ON FUNCTION public.memory_hybrid_search TO service_role;
-GRANT EXECUTE ON FUNCTION public.get_entity_context TO service_role;
-GRANT EXECUTE ON FUNCTION public.cleanup_expired_observations TO service_role;
-
 -- -----------------------------------------------------------------------------
 -- Verification queries (run these to confirm setup)
 -- -----------------------------------------------------------------------------
 -- Check RLS is enabled:
 SELECT schemaname, tablename, rowsecurity
 FROM pg_tables
-WHERE schemaname = 'public' AND tablename IN ('documents', 'chunks', 'memory_entities', 'memory_observations', 'memory_relations');
+WHERE schemaname = 'public' AND tablename IN ('documents', 'chunks');
 
 -- Check policies exist:
 SELECT tablename, policyname, permissive, roles, cmd
 FROM pg_policies
-WHERE schemaname = 'public'
+WHERE schemaname = 'public' AND tablename IN ('documents', 'chunks')
 ORDER BY tablename, policyname;
