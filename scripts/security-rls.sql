@@ -7,7 +7,8 @@
 -- - Explicit REVOKE of permissions from anon/authenticated
 --
 -- Run this AFTER setup-db.sql (or setup-db-ollama.sql) in Supabase SQL Editor.
--- See docs/SECURITY.md for full security documentation.
+-- For memory tables, run security-rls-memory.sql after setup-db-memory.sql.
+-- See docs/guides/security-hardening.mdx for full security documentation.
 -- =============================================================================
 
 -- -----------------------------------------------------------------------------
@@ -98,5 +99,5 @@ WHERE schemaname = 'public' AND tablename IN ('documents', 'chunks');
 -- Check policies exist:
 SELECT tablename, policyname, permissive, roles, cmd
 FROM pg_policies
-WHERE schemaname = 'public'
+WHERE schemaname = 'public' AND tablename IN ('documents', 'chunks')
 ORDER BY tablename, policyname;

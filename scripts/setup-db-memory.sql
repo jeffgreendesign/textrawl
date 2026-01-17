@@ -90,6 +90,12 @@ CREATE TRIGGER memory_entities_updated_at
 -- Memory Search Functions
 -- ============================================
 
+-- Drop existing functions to avoid PostgREST overload errors when signatures change
+DROP FUNCTION IF EXISTS memory_semantic_search(VECTOR(1536), INT, TEXT[], BOOLEAN);
+DROP FUNCTION IF EXISTS memory_hybrid_search(TEXT, VECTOR(1536), INT, FLOAT, FLOAT, INT, TEXT[], BOOLEAN);
+DROP FUNCTION IF EXISTS get_entity_context(TEXT, BOOLEAN);
+DROP FUNCTION IF EXISTS cleanup_expired_observations();
+
 -- Semantic search across memories (entities + observations)
 CREATE OR REPLACE FUNCTION memory_semantic_search(
   query_embedding VECTOR(1536),
