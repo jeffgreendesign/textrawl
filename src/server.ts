@@ -3,6 +3,7 @@ import { registerDocumentTools } from './tools/document.js';
 import { registerMemoryTools } from './tools/memory.js';
 import { registerNoteTool } from './tools/note.js';
 import { registerSearchTool } from './tools/search.js';
+import { registerStatsTools } from './tools/stats.js';
 import { config } from './utils/config.js';
 import { logger } from './utils/logger.js';
 
@@ -21,6 +22,7 @@ export function createMcpServer(): McpServer {
 	registerSearchTool(server);
 	registerDocumentTools(server);
 	registerNoteTool(server);
+	registerStatsTools(server);
 
 	// Register memory tools (feature flagged)
 	if (config.ENABLE_MEMORY) {
