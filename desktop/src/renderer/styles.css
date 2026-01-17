@@ -159,6 +159,12 @@ main {
 	text-transform: uppercase;
 }
 
+.file-progress-detail {
+	text-transform: none;
+	color: var(--accent);
+	font-weight: 500;
+}
+
 .file-status {
 	flex-shrink: 0;
 	width: 24px;

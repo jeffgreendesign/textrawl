@@ -205,27 +205,49 @@ export class ConversionManager {
 
 			let stderr = '';
 			let lastProgress = 0;
+			let lastLoggedProgress = -10; // Log every 10%
 
 			child.stderr?.on('data', (data: Buffer) => {
 				const output = data.toString();
 				stderr += output;
 
-				// Parse progress from [PROGRESS] lines
-				const progressMatch = output.match(/\[PROGRESS\]\s*(\d+)%/);
+				// Parse progress from [PROGRESS] lines - capture percentage and count
+				// Format: [PROGRESS] 45% (690/1548) Message 691
+				const progressMatch = output.match(/\[PROGRESS\]\s*(\d+)%(?:\s*\((\d+)\/(\d+)\))?/);
 				if (progressMatch) {
 					const progress = parseInt(progressMatch[1], 10);
+					const current = progressMatch[2] ? parseInt(progressMatch[2], 10) : null;
+					const total = progressMatch[3] ? parseInt(progressMatch[3], 10) : null;
+
 					if (progress > lastProgress) {
 						lastProgress = progress;
+
+						// Build informative message
+						let message = `${progress}%`;
+						if (current !== null && total !== null) {
+							message = `${current}/${total} items (${progress}%)`;
+						}
+
 						this.sendFileProgress({
 							fileId: file.id,
 							fileName: file.name,
 							status: 'processing',
 							progress,
+							message,
 						});
+
+						// Log progress milestones (every 10%)
+						if (progress >= lastLoggedProgress + 10) {
+							lastLoggedProgress = Math.floor(progress / 10) * 10;
+							const logMsg = current !== null && total !== null
+								? `Processing ${file.name}: ${current}/${total} (${progress}%)`
+								: `Processing ${file.name}: ${progress}%`;
+							this.sendLog('info', logMsg, undefined, file.id);
+						}
 					}
 				}
 
-				// Log any non-progress output
+				// Log any non-progress output (filter out progress lines)
 				const lines = output
 					.split('\n')
 					.filter((line) => line.trim() && !line.includes('[PROGRESS]'));

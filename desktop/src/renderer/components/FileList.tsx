@@ -73,6 +73,9 @@ export function FileList({ files, fileProgress, onClear }: FileListProps) {
 								<div class="file-type">
 									{file.type}
 									{file.isDirectory && ' (folder)'}
+									{status === 'processing' && progress?.message && (
+										<span class="file-progress-detail"> — {progress.message}</span>
+									)}
 								</div>
 							</div>
 							<span class={`file-status ${status}`} title={progress?.message || status}>
