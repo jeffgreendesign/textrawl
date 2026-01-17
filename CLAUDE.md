@@ -178,14 +178,18 @@ For AI agents using Textrawl as an MCP server:
 
 ## Documentation Website
 
-The documentation site is in `website/` (Astro + Starlight):
+The documentation site is in `website/` (Next.js + Fumadocs):
 
 ```bash
 cd website
 npm install
-npm run dev      # Dev server at http://localhost:4321
-npm run build    # Build to website/dist/
+npm run dev      # Dev server at http://localhost:3000
+npm run build    # Build to website/.next/
 ```
+
+**Stack:** Next.js 15, Fumadocs (MDX documentation framework), React 19, Tailwind CSS 4.
+
+**Content:** Documentation source files are in `/docs` (referenced via `source.config.ts`).
 
 Deploy to Vercel with custom domain. See `.github/workflows/deploy-website.yml`.
 

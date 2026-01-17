@@ -1,0 +1,76 @@
+---
+title: Core Concepts
+description: Foundational concepts behind textrawl's knowledge base
+---
+
+Understanding these core concepts will help you get the most out of textrawl's knowledge base capabilities.
+
+## Concepts Overview
+
+### Search
+
+textrawl combines two search strategies for best results:
+
+- **Keyword search** finds exact matches using PostgreSQL's full-text search
+- **Semantic search** finds meaning using vector embeddings
+- **Hybrid search** combines both using Reciprocal Rank Fusion (RRF)
+
+[Learn about search →](/docs/concepts/search)
+
+### Embeddings
+
+Vector embeddings are numerical representations of text that capture semantic meaning:
+
+- OpenAI's `text-embedding-3-small` (1536 dimensions)
+- Ollama's `nomic-embed-text` (1024 dimensions)
+- Stored in PostgreSQL with pgvector
+
+[Learn about embeddings →](/docs/concepts/embeddings)
+
+### Document Processing
+
+How textrawl processes your documents:
+
+- **Crawling** discovers and extracts content from various formats
+- **Chunking** splits documents into searchable pieces
+- **Indexing** creates embeddings and full-text search vectors
+
+[Learn about crawling →](/docs/concepts/crawling)
+
+## How It All Fits Together
+
+```text
+Documents (PDF, MBOX, HTML, MD)
+         │
+         ▼
+    ┌─────────┐
+    │ Crawl & │
+    │ Extract │
+    └────┬────┘
+         │
+         ▼
+    ┌─────────┐
+    │  Chunk  │
+    │  (512t) │
+    └────┬────┘
+         │
+         ├──────────────────┐
+         ▼                  ▼
+    ┌─────────┐       ┌──────────┐
+    │ Embed   │       │ Full-Text│
+    │ (vector)│       │ (tsvector)│
+    └────┬────┘       └─────┬────┘
+         │                  │
+         └────────┬─────────┘
+                  ▼
+           ┌──────────┐
+           │ Supabase │
+           │ (pgvector)│
+           └──────────┘
+```
+
+## Next Steps
+
+- [Quick Start](/docs/getting-started/quick-start) - Get textrawl running
+- [Hybrid Search Architecture](/docs/architecture/hybrid-search) - Deep dive into search
+- [MCP Tools](/docs/mcp-tools) - Learn the API

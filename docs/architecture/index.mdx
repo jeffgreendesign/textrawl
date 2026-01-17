@@ -1,0 +1,129 @@
+---
+title: Architecture
+description: Deep dive into textrawl's technical architecture
+---
+
+This section covers the technical details of how textrawl works under the hood.
+
+## Architecture Overview
+
+textrawl is built on a modern stack optimized for semantic search:
+
+- **Runtime:** Node.js 22+ with ES modules
+- **Database:** Supabase PostgreSQL with pgvector extension
+- **Transport:** MCP over HTTP (StreamableHTTPServerTransport)
+- **Embeddings:** OpenAI or Ollama (configurable)
+
+## Request Flow
+
+```text
+Claude Desktop / MCP Client
+         │
+         ▼ POST /mcp (JSON-RPC)
+    ┌─────────────┐
+    │   Express   │
+    │   Server    │
+    └──────┬──────┘
+           │
+           ▼
+    ┌─────────────┐
+    │    MCP      │
+    │  Transport  │
+    └──────┬──────┘
+           │
+           ▼
+    ┌─────────────┐
+    │    Tool     │
+    │  Handlers   │
+    └──────┬──────┘
+           │
+     ┌─────┴─────┐
+     ▼           ▼
+┌─────────┐ ┌─────────┐
+│ Supabase│ │ OpenAI/ │
+│   DB    │ │ Ollama  │
+└─────────┘ └─────────┘
+```
+
+## Core Components
+
+### Hybrid Search
+
+The search system combines full-text keyword matching with semantic vector similarity using Reciprocal Rank Fusion (RRF).
+
+[Learn about hybrid search →](/docs/architecture/hybrid-search)
+
+### Text Chunking
+
+Documents are split into overlapping chunks to fit within embedding model context limits while preserving semantic coherence.
+
+- 512 tokens (~2048 characters) per chunk
+- 50 token overlap for context preservation
+- Paragraph-aware splitting on `\n\n`
+
+[Learn about chunking →](/docs/architecture/chunking)
+
+### Embeddings
+
+Vector representations that capture semantic meaning, enabling similarity search.
+
+| Provider | Model | Dimensions |
+|----------|-------|------------|
+| OpenAI | text-embedding-3-small | 1536 |
+| Ollama | nomic-embed-text | 1024 |
+
+[Learn about embeddings →](/docs/architecture/embeddings)
+
+## Database Schema
+
+### Core Tables
+
+| Table | Purpose |
+|-------|---------|
+| `documents` | Document metadata, content, tags |
+| `chunks` | Text chunks with embeddings and FTS vectors |
+
+### Memory Tables (Optional)
+
+| Table | Purpose |
+|-------|---------|
+| `memory_entities` | Named entities (people, projects, concepts) |
+| `memory_observations` | Facts about entities with embeddings |
+| `memory_relations` | Directed relationships between entities |
+
+### Key Indexes
+
+| Index | Type | Purpose |
+|-------|------|---------|
+| `chunks.search_vector` | GIN | Full-text search |
+| `chunks.embedding` | HNSW | Vector similarity |
+| `memory_observations.embedding` | HNSW | Memory search |
+
+## MCP Transport
+
+textrawl uses `StreamableHTTPServerTransport` for stateless HTTP operation:
+
+- **Stateless:** Each request creates a fresh MCP server instance
+- **Serverless-compatible:** Works with Cloud Run, Lambda, etc.
+- **Single endpoint:** `POST /mcp` handles all MCP operations
+
+## Rate Limiting
+
+| Endpoint | Limit |
+|----------|-------|
+| `/mcp` (API) | 100 requests/minute |
+| `/api/upload` | 10 requests/minute |
+
+## Security
+
+- Bearer token authentication (`API_BEARER_TOKEN`)
+- Row Level Security (RLS) on all tables
+- Service role key bypasses RLS (single-tenant design)
+
+See [Security Hardening](/docs/guides/security-hardening) for production setup.
+
+## Next Steps
+
+- [Hybrid Search](/docs/architecture/hybrid-search) - Deep dive into RRF
+- [Chunking Strategy](/docs/architecture/chunking) - How documents are split
+- [Embeddings](/docs/architecture/embeddings) - Vector representations
