@@ -83,19 +83,43 @@ npm run dev      # Start the server
 
 ### 3. Connect Claude Desktop
 
-Add to your Claude config (`~/Library/Application Support/Claude/claude_desktop_config.json`):
+Add to your Claude config (`~/Library/Application Support/Claude/claude_desktop_config.json`). Create this file if it doesn't exist:
 
 ```json
 {
   "mcpServers": {
     "textrawl": {
-      "url": "http://localhost:3000/mcp"
+      "command": "npx",
+      "args": [
+        "mcp-remote",
+        "http://localhost:3000/mcp",
+        "--header",
+        "Accept: application/json, text/event-stream"
+      ]
     }
   }
 }
 ```
 
+**Note:** Requires Node.js 20+. If using nvm, ensure your default is set: `nvm alias default 22`
+
+If you've set `API_BEARER_TOKEN` in `.env`, add the auth header:
+```json
+"--header",
+"Authorization: Bearer YOUR_TOKEN_HERE"
+```
+
 Restart Claude Desktop - you'll now see Textrawl's tools available.
+
+### 3b. Connect ChatGPT Desktop (Alternative)
+
+ChatGPT Desktop supports MCP servers natively (Pro/Plus required):
+
+1. Open **Settings → Connectors → Advanced → Developer mode**
+2. Add a new connector with your server URL: `http://localhost:3000/mcp`
+3. If using auth, add the `Authorization: Bearer YOUR_TOKEN` header
+
+See [OpenAI MCP documentation](https://platform.openai.com/docs/mcp) for details.
 
 ### 4. Add Your Documents
 
