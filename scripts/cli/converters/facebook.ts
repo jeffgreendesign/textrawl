@@ -11,8 +11,20 @@
  */
 
 import { createHash } from 'node:crypto';
-import { existsSync, mkdirSync, readFileSync, readdirSync, statSync, writeFileSync } from 'node:fs';
+import {
+	createReadStream,
+	existsSync,
+	mkdirSync,
+	readFileSync,
+	readdirSync,
+	rmSync,
+	statSync,
+	writeFileSync,
+} from 'node:fs';
+import { tmpdir } from 'node:os';
 import { basename, join, resolve } from 'node:path';
+// @ts-ignore - unzipper types
+import * as unzipper from 'unzipper';
 
 import { type CommonOptions, createBaseCommand } from '../lib/args.js';
 import { analyzeFacebook } from '../lib/analyze.js';
@@ -29,6 +41,8 @@ export interface FacebookOptions extends CommonOptions {
 	messages: boolean;
 	/** Analyze and show stats without converting */
 	preview: boolean;
+	/** Keep extracted files after conversion (ZIP only) */
+	keepExtracted: boolean;
 }
 
 /**
@@ -47,6 +61,25 @@ interface FacebookConversation {
 	title: string;
 	participants: string[];
 	messages: FacebookMessage[];
+}
+
+/**
+ * Extract ZIP file to temporary directory
+ */
+async function extractZip(zipPath: string): Promise<string> {
+	const tempDir = join(tmpdir(), `facebook-${Date.now()}`);
+	mkdirSync(tempDir, { recursive: true });
+
+	logger.info(`Extracting to ${tempDir}...`);
+
+	await new Promise<void>((resolve, reject) => {
+		createReadStream(zipPath)
+			.pipe(unzipper.Extract({ path: tempDir }))
+			.on('close', resolve)
+			.on('error', reject);
+	});
+
+	return tempDir;
 }
 
 /**
@@ -407,92 +440,129 @@ async function convertFacebook(inputPath: string, options: FacebookOptions): Pro
 	}
 
 	const stats = statSync(resolvedInput);
-	if (!stats.isDirectory()) {
-		logger.error('Input must be a Facebook data export directory');
+	const isZip = resolvedInput.toLowerCase().endsWith('.zip');
+
+	let workingDir: string;
+	let needsCleanup = false;
+
+	if (isZip) {
+		if (!stats.isFile()) {
+			logger.error('ZIP path exists but is not a file');
+			process.exit(1);
+		}
+		logger.info('Extracting Facebook export from ZIP...');
+		workingDir = await extractZip(resolvedInput);
+		needsCleanup = !options.keepExtracted;
+
+		// Validate it's a Facebook export
+		const format = detectFormat(findFacebookDir(workingDir));
+		if (format === 'unknown') {
+			logger.error('ZIP does not contain a valid Facebook export');
+			if (needsCleanup) {
+				rmSync(workingDir, { recursive: true, force: true });
+			}
+			process.exit(1);
+		}
+	} else if (!stats.isDirectory()) {
+		logger.error('Input must be a Facebook data export directory or ZIP file');
 		process.exit(1);
+	} else {
+		workingDir = resolvedInput;
 	}
 
 	// Find the actual Facebook export directory (may be nested)
-	const facebookDir = findFacebookDir(resolvedInput);
+	const facebookDir = findFacebookDir(workingDir);
 
-	// Handle preview mode
-	if (options.preview) {
-		const analysis = await analyzeFacebook(facebookDir);
+	try {
+		// Handle preview mode
+		if (options.preview) {
+			const analysis = await analyzeFacebook(facebookDir);
 
-		logger.info('');
-		logger.info(`  Facebook Data Export Analysis`);
-		logger.info(`  ${'─'.repeat(40)}`);
-		logger.info(`  Directory: ${analysis.filename}`);
-		logger.info(`  Size: ${(analysis.fileSizeBytes / 1024).toFixed(1)} KB`);
-		logger.info('');
-		logger.info(`  Total Items: ${analysis.totalItems.toLocaleString()}`);
-		logger.info(`  Estimated Output Files: ${analysis.estimatedOutputFiles.toLocaleString()}`);
-		logger.info(`  Estimated Output Size: ${(analysis.estimatedOutputSizeBytes / 1024).toFixed(1)} KB`);
-		logger.info('');
+			logger.info('');
+			logger.info(`  Facebook Data Export Analysis`);
+			logger.info(`  ${'─'.repeat(40)}`);
+			logger.info(`  Directory: ${analysis.filename}`);
+			logger.info(`  Size: ${(analysis.fileSizeBytes / 1024).toFixed(1)} KB`);
+			logger.info('');
+			logger.info(`  Total Items: ${analysis.totalItems.toLocaleString()}`);
+			logger.info(`  Estimated Output Files: ${analysis.estimatedOutputFiles.toLocaleString()}`);
+			logger.info(`  Estimated Output Size: ${(analysis.estimatedOutputSizeBytes / 1024).toFixed(1)} KB`);
+			logger.info('');
 
-		if (analysis.breakdown) {
-			logger.info('  Breakdown:');
-			for (const [key, value] of Object.entries(analysis.breakdown)) {
-				logger.info(`    ${key}: ${value.toLocaleString()}`);
+			if (analysis.breakdown) {
+				logger.info('  Breakdown:');
+				for (const [key, value] of Object.entries(analysis.breakdown)) {
+					logger.info(`    ${key}: ${value.toLocaleString()}`);
+				}
+			}
+
+			logger.info('');
+			return;
+		}
+
+		// Detect export format
+		const format = detectFormat(facebookDir);
+		if (format === 'unknown') {
+			logger.error('Unable to detect Facebook export format. Expected HTML or JSON format.');
+			process.exit(1);
+		}
+
+		logger.info(`Found Facebook ${format.toUpperCase()} export in: ${facebookDir}`);
+
+		const outputDir = resolve(options.output);
+
+		// Create output directory
+		if (!options.dryRun) {
+			mkdirSync(outputDir, { recursive: true });
+		}
+
+		let totalSuccess = 0;
+		let totalErrors = 0;
+
+		// Convert messages
+		if (options.messages) {
+			const messageFiles = findMessageFiles(facebookDir, format);
+
+			if (messageFiles.length > 0) {
+				logger.info(`\nProcessing messages (${messageFiles.length} file(s))...`);
+
+				const progress = new ProgressReporter(messageFiles.length, { verbose: options.verbose });
+				progress.start();
+
+				const result = await convertMessages(
+					facebookDir,
+					messageFiles,
+					format,
+					outputDir,
+					options,
+					progress,
+				);
+
+				progress.finish(`Messages: ${result.success} conversations, ${result.errors} errors`);
+				totalSuccess += result.success;
+				totalErrors += result.errors;
+			} else {
+				logger.info('No message files found');
 			}
 		}
 
+		// Summary
 		logger.info('');
-		return;
-	}
+		logger.info(`Done: ${totalSuccess} files created, ${totalErrors} errors`);
 
-	// Detect export format
-	const format = detectFormat(facebookDir);
-	if (format === 'unknown') {
-		logger.error('Unable to detect Facebook export format. Expected HTML or JSON format.');
-		process.exit(1);
-	}
-
-	logger.info(`Found Facebook ${format.toUpperCase()} export in: ${facebookDir}`);
-
-	const outputDir = resolve(options.output);
-
-	// Create output directory
-	if (!options.dryRun) {
-		mkdirSync(outputDir, { recursive: true });
-	}
-
-	let totalSuccess = 0;
-	let totalErrors = 0;
-
-	// Convert messages
-	if (options.messages) {
-		const messageFiles = findMessageFiles(facebookDir, format);
-
-		if (messageFiles.length > 0) {
-			logger.info(`\nProcessing messages (${messageFiles.length} file(s))...`);
-
-			const progress = new ProgressReporter(messageFiles.length, { verbose: options.verbose });
-			progress.start();
-
-			const result = await convertMessages(
-				facebookDir,
-				messageFiles,
-				format,
-				outputDir,
-				options,
-				progress,
-			);
-
-			progress.finish(`Messages: ${result.success} conversations, ${result.errors} errors`);
-			totalSuccess += result.success;
-			totalErrors += result.errors;
-		} else {
-			logger.info('No message files found');
+		if (totalErrors > 0) {
+			process.exit(1);
 		}
-	}
-
-	// Summary
-	logger.info('');
-	logger.info(`Done: ${totalSuccess} files created, ${totalErrors} errors`);
-
-	if (totalErrors > 0) {
-		process.exit(1);
+	} finally {
+		// Clean up extracted files if we extracted a ZIP
+		if (needsCleanup && workingDir !== resolvedInput) {
+			logger.info('Cleaning up temporary files...');
+			try {
+				rmSync(workingDir, { recursive: true, force: true });
+			} catch {
+				logger.warn(`Failed to clean up ${workingDir}`);
+			}
+		}
 	}
 }
 
@@ -506,7 +576,8 @@ program
 	.option('--messages', 'Include messages', true)
 	.option('--no-messages', 'Exclude messages')
 	.option('--preview', 'Analyze and show stats without converting', false)
-	.argument('<path>', 'Facebook data export directory')
+	.option('--keep-extracted', 'Keep extracted files after conversion (ZIP only)', false)
+	.argument('<path>', 'Facebook data export directory or ZIP file')
 	.action(async (path: string, opts: FacebookOptions) => {
 		await convertFacebook(path, opts);
 	});
