@@ -15,7 +15,8 @@ import { logger } from './utils/logger.js';
 const app = express();
 
 // Trust proxy for accurate IP detection in cloud environments (Cloud Run, K8s, etc.)
-app.set('trust proxy', true);
+// Use 1 hop in production (behind single load balancer), disable in development
+app.set('trust proxy', config.NODE_ENV === 'production' ? 1 : false);
 
 // Security middleware
 app.use(helmet());
