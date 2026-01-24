@@ -147,7 +147,7 @@ export function chunkText(text: string, options: ChunkOptions = {}): Chunk[] {
 
 /**
  * Split text into sentences with their original positions preserved
- * Uses regex to find sentence boundaries while tracking offsets
+ * Uses a linear scan algorithm to avoid regex backtracking vulnerabilities (ReDoS)
  */
 function splitIntoSentencesWithSpans(text: string): SentenceSpan[] {
 	if (text.trim().length === 0) {
@@ -155,47 +155,79 @@ function splitIntoSentencesWithSpans(text: string): SentenceSpan[] {
 	}
 
 	const spans: SentenceSpan[] = [];
+	const sentenceEnders = new Set(['.', '!', '?']);
 
-	// Match sentence-ending punctuation followed by whitespace and capital letter
-	// or paragraph breaks. Using {1,3} limits to avoid ReDoS with repeated quantifiers.
-	const sentenceEndRegex = /[.!?]{1,3}\s+(?=[A-Z])|\n{2,}/g;
+	let sentenceStart = 0;
+	// Skip leading whitespace
+	while (sentenceStart < text.length && /\s/.test(text[sentenceStart])) {
+		sentenceStart++;
+	}
 
-	let lastEnd = 0;
-	let match: RegExpExecArray | null;
+	let i = sentenceStart;
+	while (i < text.length) {
+		const char = text[i];
 
-	while ((match = sentenceEndRegex.exec(text)) !== null) {
-		const sentenceEnd = match.index + match[0].trimEnd().length;
-		const sentenceText = text.slice(lastEnd, sentenceEnd).trim();
-
-		if (sentenceText.length > 0) {
-			// Find actual start (skip leading whitespace)
-			let actualStart = lastEnd;
-			while (actualStart < text.length && /\s/.test(text[actualStart])) {
-				actualStart++;
+		// Check for paragraph break (2+ newlines)
+		if (char === '\n' && i + 1 < text.length && text[i + 1] === '\n') {
+			// End current sentence at the newline
+			if (i > sentenceStart) {
+				const sentenceText = text.slice(sentenceStart, i).trim();
+				if (sentenceText.length > 0) {
+					spans.push({
+						text: sentenceText,
+						startOffset: sentenceStart,
+						endOffset: i,
+					});
+				}
 			}
-
-			spans.push({
-				text: sentenceText,
-				startOffset: actualStart,
-				endOffset: sentenceEnd,
-			});
+			// Skip all consecutive newlines
+			while (i < text.length && text[i] === '\n') {
+				i++;
+			}
+			// Skip whitespace after newlines
+			while (i < text.length && /\s/.test(text[i]) && text[i] !== '\n') {
+				i++;
+			}
+			sentenceStart = i;
+			continue;
 		}
 
-		lastEnd = match.index + match[0].length;
+		// Check for sentence-ending punctuation followed by space and capital letter
+		if (sentenceEnders.has(char)) {
+			// Look ahead for whitespace followed by capital letter
+			let j = i + 1;
+			// Skip whitespace (but limit to avoid long scans)
+			const maxWhitespace = Math.min(i + 20, text.length);
+			while (j < maxWhitespace && /\s/.test(text[j])) {
+				j++;
+			}
+			// Check if next non-whitespace char is uppercase
+			if (j < text.length && j > i + 1 && /[A-Z]/.test(text[j])) {
+				// Found sentence boundary
+				const sentenceText = text.slice(sentenceStart, i + 1).trim();
+				if (sentenceText.length > 0) {
+					spans.push({
+						text: sentenceText,
+						startOffset: sentenceStart,
+						endOffset: i + 1,
+					});
+				}
+				sentenceStart = j;
+				i = j;
+				continue;
+			}
+		}
+
+		i++;
 	}
 
 	// Don't forget the last sentence
-	if (lastEnd < text.length) {
-		const remainingText = text.slice(lastEnd).trim();
+	if (sentenceStart < text.length) {
+		const remainingText = text.slice(sentenceStart).trim();
 		if (remainingText.length > 0) {
-			let actualStart = lastEnd;
-			while (actualStart < text.length && /\s/.test(text[actualStart])) {
-				actualStart++;
-			}
-
 			spans.push({
 				text: remainingText,
-				startOffset: actualStart,
+				startOffset: sentenceStart,
 				endOffset: text.length,
 			});
 		}
