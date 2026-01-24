@@ -150,7 +150,14 @@ export function chunkText(text: string, options: ChunkOptions = {}): Chunk[] {
  * Uses a linear scan algorithm to avoid regex backtracking vulnerabilities (ReDoS)
  */
 function splitIntoSentencesWithSpans(text: string): SentenceSpan[] {
-	if (text.trim().length === 0) {
+	// Guard against non-string input and limit length to prevent DoS
+	if (typeof text !== 'string') {
+		return [];
+	}
+	const maxLength = 10_000_000; // 10MB limit
+	const safeText = text.length > maxLength ? text.slice(0, maxLength) : text;
+
+	if (safeText.trim().length === 0) {
 		return [];
 	}
 
@@ -159,19 +166,19 @@ function splitIntoSentencesWithSpans(text: string): SentenceSpan[] {
 
 	let sentenceStart = 0;
 	// Skip leading whitespace
-	while (sentenceStart < text.length && /\s/.test(text[sentenceStart])) {
+	while (sentenceStart < safeText.length && /\s/.test(safeText[sentenceStart])) {
 		sentenceStart++;
 	}
 
 	let i = sentenceStart;
-	while (i < text.length) {
-		const char = text[i];
+	while (i < safeText.length) {
+		const char = safeText[i];
 
 		// Check for paragraph break (2+ newlines)
-		if (char === '\n' && i + 1 < text.length && text[i + 1] === '\n') {
+		if (char === '\n' && i + 1 < safeText.length && safeText[i + 1] === '\n') {
 			// End current sentence at the newline
 			if (i > sentenceStart) {
-				const sentenceText = text.slice(sentenceStart, i).trim();
+				const sentenceText = safeText.slice(sentenceStart, i).trim();
 				if (sentenceText.length > 0) {
 					spans.push({
 						text: sentenceText,
@@ -181,11 +188,11 @@ function splitIntoSentencesWithSpans(text: string): SentenceSpan[] {
 				}
 			}
 			// Skip all consecutive newlines
-			while (i < text.length && text[i] === '\n') {
+			while (i < safeText.length && safeText[i] === '\n') {
 				i++;
 			}
 			// Skip whitespace after newlines
-			while (i < text.length && /\s/.test(text[i]) && text[i] !== '\n') {
+			while (i < safeText.length && /\s/.test(safeText[i]) && safeText[i] !== '\n') {
 				i++;
 			}
 			sentenceStart = i;
@@ -197,14 +204,14 @@ function splitIntoSentencesWithSpans(text: string): SentenceSpan[] {
 			// Look ahead for whitespace followed by capital letter
 			let j = i + 1;
 			// Skip whitespace (but limit to avoid long scans)
-			const maxWhitespace = Math.min(i + 20, text.length);
-			while (j < maxWhitespace && /\s/.test(text[j])) {
+			const maxWhitespace = Math.min(i + 20, safeText.length);
+			while (j < maxWhitespace && /\s/.test(safeText[j])) {
 				j++;
 			}
 			// Check if next non-whitespace char is uppercase
-			if (j < text.length && j > i + 1 && /[A-Z]/.test(text[j])) {
+			if (j < safeText.length && j > i + 1 && /[A-Z]/.test(safeText[j])) {
 				// Found sentence boundary
-				const sentenceText = text.slice(sentenceStart, i + 1).trim();
+				const sentenceText = safeText.slice(sentenceStart, i + 1).trim();
 				if (sentenceText.length > 0) {
 					spans.push({
 						text: sentenceText,
@@ -222,13 +229,13 @@ function splitIntoSentencesWithSpans(text: string): SentenceSpan[] {
 	}
 
 	// Don't forget the last sentence
-	if (sentenceStart < text.length) {
-		const remainingText = text.slice(sentenceStart).trim();
+	if (sentenceStart < safeText.length) {
+		const remainingText = safeText.slice(sentenceStart).trim();
 		if (remainingText.length > 0) {
 			spans.push({
 				text: remainingText,
 				startOffset: sentenceStart,
-				endOffset: text.length,
+				endOffset: safeText.length,
 			});
 		}
 	}
@@ -313,7 +320,12 @@ export async function chunkTextSemantic(
 
 	// If a single sentence exceeds max size, fall back to fixed chunking
 	if (sentenceSpans.length === 1) {
-		return chunkText(text, { maxChunkSize });
+		const fixed = chunkText(text, { maxChunkSize });
+		// If still oversized (no paragraph breaks), split on spaces as last resort
+		if (fixed.length === 1 && fixed[0].content.length > maxChars) {
+			return chunkText(text, { maxChunkSize, overlap: 50, separator: ' ' });
+		}
+		return fixed;
 	}
 
 	logger.debug('Generating sentence embeddings for semantic chunking', {
