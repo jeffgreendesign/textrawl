@@ -1,4 +1,5 @@
 import { config } from '../utils/config.js';
+import { ValidationError } from '../utils/errors.js';
 import { logger } from '../utils/logger.js';
 
 /**
@@ -248,7 +249,7 @@ function splitIntoSentencesWithSpans(text: string): SentenceSpan[] {
  */
 function cosineSimilarity(a: number[], b: number[]): number {
 	if (a.length !== b.length) {
-		throw new Error('Vectors must have the same length');
+		throw new ValidationError('Vectors must have the same length');
 	}
 
 	let dotProduct = 0;
@@ -281,6 +282,10 @@ function cosineSimilarity(a: number[], b: number[]): number {
  * 4. Split at points where similarity drops below threshold
  * 5. Merge chunks that are too small, split chunks that are too large
  */
+// Maximum text length for semantic chunking (10MB)
+// Larger texts fall back to fixed chunking to prevent DoS and memory issues
+const MAX_SEMANTIC_TEXT_LENGTH = 10_000_000;
+
 export async function chunkTextSemantic(
 	text: string,
 	options: SemanticChunkOptions,
@@ -294,6 +299,15 @@ export async function chunkTextSemantic(
 
 	const maxChars = maxChunkSize * CHARS_PER_TOKEN;
 	const minChars = minChunkSize * CHARS_PER_TOKEN;
+
+	// Fall back to fixed chunking for oversized text to avoid silent truncation
+	if (text.length > MAX_SEMANTIC_TEXT_LENGTH) {
+		logger.info('Text too large for semantic chunking; falling back to fixed chunking', {
+			length: text.length,
+			maxLength: MAX_SEMANTIC_TEXT_LENGTH,
+		});
+		return chunkText(text, { maxChunkSize });
+	}
 
 	// Split into sentences with position tracking
 	const sentenceSpans = splitIntoSentencesWithSpans(text);
@@ -335,6 +349,17 @@ export async function chunkTextSemantic(
 	// Generate embeddings for all sentences
 	const sentenceTexts = sentenceSpans.map((s) => s.text);
 	const embeddings = await generateEmbeddings(sentenceTexts);
+
+	// Validate embedding count and dimension consistency
+	if (embeddings.length !== sentenceTexts.length) {
+		throw new ValidationError(
+			`Embedding count mismatch: expected ${sentenceTexts.length}, got ${embeddings.length}`,
+		);
+	}
+	const dimension = embeddings[0]?.length ?? 0;
+	if (dimension === 0 || embeddings.some((e) => e.length !== dimension)) {
+		throw new ValidationError('Embedding dimension mismatch in semantic chunking');
+	}
 
 	// Calculate similarity between consecutive sentences
 	const similarities: number[] = [];
