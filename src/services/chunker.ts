@@ -295,18 +295,25 @@ export async function chunkTextSemantic(
 		return [];
 	}
 
-	// If only one sentence or text is small, return as single chunk
-	if (sentenceSpans.length === 1 || text.length <= maxChars) {
-		const span = sentenceSpans[0];
+	// If text is small, return as a single chunk containing all sentences
+	if (text.length <= maxChars) {
+		const startOffset = sentenceSpans[0].startOffset;
+		const endOffset = sentenceSpans[sentenceSpans.length - 1].endOffset;
+		const content = sentenceSpans.map((s) => s.text).join(' ');
 		return [
 			{
-				content: span.text,
+				content,
 				index: 0,
-				startOffset: span.startOffset,
-				endOffset: span.endOffset,
-				tokenCount: Math.ceil(span.text.length / CHARS_PER_TOKEN),
+				startOffset,
+				endOffset,
+				tokenCount: Math.ceil(content.length / CHARS_PER_TOKEN),
 			},
 		];
+	}
+
+	// If a single sentence exceeds max size, fall back to fixed chunking
+	if (sentenceSpans.length === 1) {
+		return chunkText(text, { maxChunkSize });
 	}
 
 	logger.debug('Generating sentence embeddings for semantic chunking', {
@@ -408,7 +415,7 @@ export async function chunkTextSemantic(
 			const subChunks = chunkText(group.text, {
 				maxChunkSize,
 				overlap: 50,
-				separator: '. ',
+				separator: '\n\n',
 			});
 			for (const sub of subChunks) {
 				finalChunks.push({
