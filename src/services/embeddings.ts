@@ -8,8 +8,41 @@ const OPENAI_MODEL = 'text-embedding-3-small';
 const OPENAI_DIMENSIONS = 1536;
 const OPENAI_MAX_BATCH_SIZE = 2048;
 
-const OLLAMA_DIMENSIONS = 1024; // nomic-embed-text, mxbai-embed-large
 const OLLAMA_MAX_BATCH_SIZE = 100;
+
+// Ollama model dimensions mapping
+// Models with different embedding dimensions need different database schemas
+const OLLAMA_MODEL_DIMENSIONS: Record<string, number> = {
+	// V2 MoE models (768 dimensions, Matryoshka support)
+	'nomic-embed-text-v2-moe': 768,
+	// V1 models (1024 dimensions)
+	'nomic-embed-text': 1024,
+	'nomic-embed-text:latest': 1024,
+	'mxbai-embed-large': 1024,
+	'mxbai-embed-large:latest': 1024,
+	// Default for unknown models
+	default: 1024,
+};
+
+/**
+ * Get embedding dimensions for an Ollama model
+ */
+function getOllamaDimensions(model: string): number {
+	// Check for exact match first
+	if (model in OLLAMA_MODEL_DIMENSIONS) {
+		return OLLAMA_MODEL_DIMENSIONS[model];
+	}
+	// Check for partial match (handles tags like :latest, :q4_0, etc.)
+	const baseModel = model.split(':')[0];
+	if (baseModel in OLLAMA_MODEL_DIMENSIONS) {
+		return OLLAMA_MODEL_DIMENSIONS[baseModel];
+	}
+	// V2 MoE detection by pattern
+	if (model.includes('v2-moe') || model.includes('v2_moe')) {
+		return 768;
+	}
+	return OLLAMA_MODEL_DIMENSIONS.default;
+}
 
 // Ollama API response type
 interface OllamaEmbedResponse {
@@ -23,7 +56,7 @@ let openai: OpenAI | null = null;
  */
 export function getEmbeddingDimensions(): number {
 	if (config.EMBEDDING_PROVIDER === 'ollama') {
-		return OLLAMA_DIMENSIONS;
+		return getOllamaDimensions(config.OLLAMA_MODEL);
 	}
 	return OPENAI_DIMENSIONS;
 }

@@ -35,17 +35,27 @@ Copy `.env.example` to `.env` and configure:
 - `SUPABASE_URL` / `SUPABASE_SERVICE_KEY` - Database connection
 - `EMBEDDING_PROVIDER` - `openai` (default) or `ollama`
 - `OPENAI_API_KEY` - Required if using OpenAI (text-embedding-3-small, 1536 dimensions)
-- `OLLAMA_BASE_URL` / `OLLAMA_MODEL` - Required if using Ollama (nomic-embed-text, 1024 dimensions)
+- `OLLAMA_BASE_URL` / `OLLAMA_MODEL` - Required if using Ollama
 - `API_BEARER_TOKEN` - Optional auth token (min 32 chars)
 - `UI_PORT` - Web UI port (default: 3001)
 - `ENABLE_MEMORY` - Enable/disable memory tools (default: true)
 - `COMPACT_RESPONSES` - Token-efficient response format (default: true)
+- `CHUNKING_MODE` - `fixed` (default) or `semantic` for embedding-based topic splitting
+- `SEMANTIC_SIMILARITY_THRESHOLD` - Threshold for semantic chunking (default: 0.5)
 
-Database schema must be initialized via `scripts/setup-db.sql` (OpenAI) or `scripts/setup-db-ollama.sql` (Ollama) in Supabase SQL Editor. For persistent memory features, also run the matching memory schema:
+### Ollama Model Options
+
+| Model | Dimensions | Schema | Notes |
+|-------|-----------|--------|-------|
+| `nomic-embed-text` | 1024 | `setup-db-ollama.sql` | Original, good performance |
+| `nomic-embed-text-v2-moe` | 768 | `setup-db-ollama-v2.sql` | **Recommended**: MoE architecture, multilingual, better performance |
+| `mxbai-embed-large` | 1024 | `setup-db-ollama.sql` | Alternative option |
+
+Database schema must be initialized via `scripts/setup-db.sql` (OpenAI), `scripts/setup-db-ollama.sql` (Ollama v1), or `scripts/setup-db-ollama-v2.sql` (Ollama v2) in Supabase SQL Editor. For persistent memory features, also run the matching memory schema:
 - OpenAI: `scripts/setup-db-memory.sql` (1536 dimensions)
-- Ollama: `scripts/setup-db-memory-ollama.sql` (1024 dimensions)
+- Ollama v1: `scripts/setup-db-memory-ollama.sql` (1024 dimensions)
 
-**Important:** OpenAI and Ollama use different embedding dimensions. You cannot mix providers without re-embedding all documents.
+**Important:** Different embedding models use different dimensions. You cannot mix models without re-embedding all documents.
 
 ## Architecture
 
@@ -65,10 +75,17 @@ Express Server
 ### MCP Tools
 
 **Document Tools:**
-- `search_knowledge` - Hybrid search with configurable FTS/semantic weights (RRF fusion)
+- `search_knowledge` - Hybrid search with weighted RRF fusion (see below)
 - `get_document` / `list_documents` - Document retrieval
 - `update_document` - Update document title and/or tags
 - `add_note` - Create markdown notes with automatic chunking and embedding
+
+**Weighted RRF in search_knowledge:**
+The `search_knowledge` tool supports weighted Reciprocal Rank Fusion:
+- `fullTextWeight` (0-2, default: 1.0) - Weight for keyword matching
+- `semanticWeight` (0-2, default: 1.0) - Weight for semantic similarity
+- Set `semanticWeight: 1.5, fullTextWeight: 0.5` to prioritize semantic matches
+- Set `fullTextWeight: 1.5, semanticWeight: 0.5` to prioritize exact keyword matches
 
 **Memory Tools (Persistent Memory):**
 - `remember_fact` - Store facts about entities (people, concepts, projects, etc.)
@@ -157,9 +174,21 @@ server.tool('tool_name', {
 ```
 
 ### Text Chunking
+
+Two chunking modes available via `CHUNKING_MODE`:
+
+**Fixed chunking (default):**
 - 512 tokens (~2048 chars) max chunk size
 - 50 token overlap for context preservation
 - Paragraph-aware splitting on `\n\n`
+- Fast, no extra API calls
+
+**Semantic chunking (`CHUNKING_MODE=semantic`):**
+- Splits at topic boundaries using embedding similarity
+- Generates embeddings for sentences, splits where similarity drops
+- Better retrieval accuracy (research shows ~87% vs 50% baseline)
+- Slower due to extra embedding API calls during upload
+- Configure sensitivity with `SEMANTIC_SIMILARITY_THRESHOLD` (0-1, default: 0.5)
 
 ### Error Handling
 Custom error hierarchy in `src/utils/errors.ts` - use specific error types (`NotFoundError`, `ValidationError`, etc.) for proper HTTP status codes.
