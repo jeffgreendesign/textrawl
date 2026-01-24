@@ -332,14 +332,23 @@ export async function chunkTextSemantic(
 		];
 	}
 
-	// If a single sentence exceeds max size, fall back to fixed chunking
+	// If a single sentence exceeds max size, slice original text directly to preserve offsets
 	if (sentenceSpans.length === 1) {
-		const fixed = chunkText(text, { maxChunkSize });
-		// If still oversized (no paragraph breaks), split on spaces as last resort
-		if (fixed.length === 1 && fixed[0].content.length > maxChars) {
-			return chunkText(text, { maxChunkSize, overlap: 50, separator: ' ' });
+		const overlapChars = 50 * CHARS_PER_TOKEN;
+		const chunks: Chunk[] = [];
+		for (let start = 0; start < text.length; start += maxChars - overlapChars) {
+			const end = Math.min(text.length, start + maxChars);
+			const content = text.slice(start, end);
+			chunks.push({
+				content,
+				index: chunks.length,
+				startOffset: start,
+				endOffset: end,
+				tokenCount: Math.ceil(content.length / CHARS_PER_TOKEN),
+			});
+			if (end === text.length) break;
 		}
-		return fixed;
+		return chunks;
 	}
 
 	logger.debug('Generating sentence embeddings for semantic chunking', {
