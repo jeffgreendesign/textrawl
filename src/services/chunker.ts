@@ -157,8 +157,8 @@ function splitIntoSentencesWithSpans(text: string): SentenceSpan[] {
 	const spans: SentenceSpan[] = [];
 
 	// Match sentence-ending punctuation followed by whitespace and capital letter
-	// or paragraph breaks
-	const sentenceEndRegex = /[.!?]+[\s]+(?=[A-Z])|[\n]{2,}/g;
+	// or paragraph breaks. Using {1,3} limits to avoid ReDoS with repeated quantifiers.
+	const sentenceEndRegex = /[.!?]{1,3}\s+(?=[A-Z])|\n{2,}/g;
 
 	let lastEnd = 0;
 	let match: RegExpExecArray | null;
