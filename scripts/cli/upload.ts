@@ -30,7 +30,7 @@ import { type CreateChunkInput, createChunks } from '../../src/db/chunks.js';
 import { createDocument } from '../../src/db/documents.js';
 // Import existing services from the main project
 // These paths work because tsx resolves them at runtime
-import { chunkText } from '../../src/services/chunker.js';
+import { smartChunk } from '../../src/services/chunker.js';
 import { generateEmbeddings } from '../../src/services/embeddings.js';
 
 /**
@@ -75,8 +75,8 @@ async function uploadFile(
 			},
 		});
 
-		// Chunk the content
-		const chunks = chunkText(bodyContent);
+		// Chunk the content (uses semantic or fixed chunking based on CHUNKING_MODE)
+		const chunks = await smartChunk(bodyContent, generateEmbeddings);
 
 		if (chunks.length === 0) {
 			return {

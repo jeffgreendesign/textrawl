@@ -35,6 +35,10 @@ const envSchema = z.object({
 
 	// Ollama
 	OLLAMA_BASE_URL: z.string().url().default('http://localhost:11434'),
+	// Supported models and their dimensions:
+	// - nomic-embed-text (1024d) - Original, use setup-db-ollama.sql
+	// - nomic-embed-text-v2-moe (768d) - MoE, multilingual, use setup-db-ollama-v2.sql
+	// - mxbai-embed-large (1024d) - Alternative, use setup-db-ollama.sql
 	OLLAMA_MODEL: z.string().default('nomic-embed-text'),
 
 	// Feature flags
@@ -48,6 +52,21 @@ const envSchema = z.object({
 		.string()
 		.default('true')
 		.transform((val) => val.toLowerCase() === 'true'),
+
+	// Chunking strategy
+	// - fixed: Paragraph-aware splitting at ~512 tokens (fast, no extra API calls)
+	// - semantic: Embedding-based splitting at topic boundaries (better retrieval, slower)
+	CHUNKING_MODE: z.enum(['fixed', 'semantic']).default('fixed'),
+
+	// Semantic chunking similarity threshold (0-1)
+	// Lower values create more chunks (more topic sensitivity)
+	// Higher values create fewer chunks (less sensitive to topic shifts)
+	// Recommended: 0.4-0.6
+	SEMANTIC_SIMILARITY_THRESHOLD: z
+		.string()
+		.default('0.5')
+		.transform((val) => parseFloat(val))
+		.refine((val) => val >= 0 && val <= 1, 'Must be between 0 and 1'),
 });
 
 export type Config = z.infer<typeof envSchema>;

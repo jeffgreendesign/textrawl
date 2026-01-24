@@ -3,7 +3,7 @@ import { z } from 'zod';
 import { createChunks } from '../db/chunks.js';
 import { isSupabaseConfigured } from '../db/client.js';
 import { createDocument } from '../db/documents.js';
-import { chunkText } from '../services/chunker.js';
+import { smartChunk } from '../services/chunker.js';
 import { generateEmbeddings, isOpenAIConfigured } from '../services/embeddings.js';
 import { logger } from '../utils/logger.js';
 
@@ -77,8 +77,8 @@ export function registerNoteTool(server: McpServer): void {
 					metadata: { tags: tags || [] },
 				});
 
-				// Chunk the content
-				const chunks = chunkText(content);
+				// Chunk the content (uses semantic or fixed chunking based on CHUNKING_MODE)
+				const chunks = await smartChunk(content, generateEmbeddings);
 
 				// Generate embeddings for all chunks
 				const chunkContents = chunks.map((c) => c.content);

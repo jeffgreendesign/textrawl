@@ -3,7 +3,7 @@ import multer from 'multer';
 import { createChunks } from '../db/chunks.js';
 import { isSupabaseConfigured } from '../db/client.js';
 import { createDocument } from '../db/documents.js';
-import { chunkText } from '../services/chunker.js';
+import { smartChunk } from '../services/chunker.js';
 import { generateEmbeddings, isOpenAIConfigured } from '../services/embeddings.js';
 import { extractText, isSupportedType, validateFileType } from '../services/processor.js';
 import { ValidationError } from '../utils/errors.js';
@@ -102,8 +102,8 @@ uploadRouter.post(
 				metadata: { originalName: sanitizedFilename, mimetype, size: buffer.length, tags },
 			});
 
-			// Chunk and embed
-			const chunks = chunkText(content);
+			// Chunk and embed (uses semantic or fixed chunking based on CHUNKING_MODE)
+			const chunks = await smartChunk(content, generateEmbeddings);
 			const embeddings = await generateEmbeddings(chunks.map((c) => c.content));
 
 			await createChunks(
