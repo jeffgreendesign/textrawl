@@ -1,3 +1,8 @@
+---
+title: Recent Advancements (January 2026)
+description: Research on recent technology advancements relevant to Textrawl
+---
+
 # Research: Recent Advancements (January 2026)
 
 This document summarizes recent advancements and techniques relevant to Textrawl discovered during research on January 24, 2026.
