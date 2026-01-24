@@ -47,6 +47,15 @@ export interface Chunk {
 const CHARS_PER_TOKEN = 4;
 
 /**
+ * A sentence with its position in the original text
+ */
+interface SentenceSpan {
+	text: string;
+	startOffset: number;
+	endOffset: number;
+}
+
+/**
  * Split text into overlapping chunks suitable for embedding
  *
  * Uses paragraph-aware splitting with overlap to preserve context.
@@ -137,24 +146,62 @@ export function chunkText(text: string, options: ChunkOptions = {}): Chunk[] {
 }
 
 /**
- * Split text into sentences using regex
- * Handles common abbreviations and edge cases
+ * Split text into sentences with their original positions preserved
+ * Uses regex to find sentence boundaries while tracking offsets
  */
-function splitIntoSentences(text: string): string[] {
-	// Normalize whitespace first
-	const normalized = text.replace(/\r\n/g, '\n').replace(/\s+/g, ' ').trim();
-
-	if (normalized.length === 0) {
+function splitIntoSentencesWithSpans(text: string): SentenceSpan[] {
+	if (text.trim().length === 0) {
 		return [];
 	}
 
-	// Split on sentence boundaries: . ! ? followed by space and uppercase letter
-	// Also handles newlines as sentence boundaries
-	// Preserves the punctuation with the preceding sentence
-	const sentenceRegex = /(?<=[.!?])\s+(?=[A-Z])|(?<=\n)\s*/g;
-	const sentences = normalized.split(sentenceRegex).filter((s) => s.trim().length > 0);
+	const spans: SentenceSpan[] = [];
 
-	return sentences.map((s) => s.trim());
+	// Match sentence-ending punctuation followed by whitespace and capital letter
+	// or paragraph breaks
+	const sentenceEndRegex = /[.!?]+[\s]+(?=[A-Z])|[\n]{2,}/g;
+
+	let lastEnd = 0;
+	let match: RegExpExecArray | null;
+
+	while ((match = sentenceEndRegex.exec(text)) !== null) {
+		const sentenceEnd = match.index + match[0].trimEnd().length;
+		const sentenceText = text.slice(lastEnd, sentenceEnd).trim();
+
+		if (sentenceText.length > 0) {
+			// Find actual start (skip leading whitespace)
+			let actualStart = lastEnd;
+			while (actualStart < text.length && /\s/.test(text[actualStart])) {
+				actualStart++;
+			}
+
+			spans.push({
+				text: sentenceText,
+				startOffset: actualStart,
+				endOffset: sentenceEnd,
+			});
+		}
+
+		lastEnd = match.index + match[0].length;
+	}
+
+	// Don't forget the last sentence
+	if (lastEnd < text.length) {
+		const remainingText = text.slice(lastEnd).trim();
+		if (remainingText.length > 0) {
+			let actualStart = lastEnd;
+			while (actualStart < text.length && /\s/.test(text[actualStart])) {
+				actualStart++;
+			}
+
+			spans.push({
+				text: remainingText,
+				startOffset: actualStart,
+				endOffset: text.length,
+			});
+		}
+	}
+
+	return spans;
 }
 
 /**
@@ -189,7 +236,7 @@ function cosineSimilarity(a: number[], b: number[]): number {
  * compared to fixed-size chunking.
  *
  * Algorithm:
- * 1. Split text into sentences
+ * 1. Split text into sentences with position tracking
  * 2. Generate embeddings for each sentence
  * 3. Calculate cosine similarity between consecutive sentences
  * 4. Split at points where similarity drops below threshold
@@ -209,33 +256,34 @@ export async function chunkTextSemantic(
 	const maxChars = maxChunkSize * CHARS_PER_TOKEN;
 	const minChars = minChunkSize * CHARS_PER_TOKEN;
 
-	// Split into sentences
-	const sentences = splitIntoSentences(text);
+	// Split into sentences with position tracking
+	const sentenceSpans = splitIntoSentencesWithSpans(text);
 
-	if (sentences.length === 0) {
+	if (sentenceSpans.length === 0) {
 		return [];
 	}
 
 	// If only one sentence or text is small, return as single chunk
-	if (sentences.length === 1 || text.length <= maxChars) {
-		const content = sentences.join(' ').trim();
+	if (sentenceSpans.length === 1 || text.length <= maxChars) {
+		const span = sentenceSpans[0];
 		return [
 			{
-				content,
+				content: span.text,
 				index: 0,
-				startOffset: 0,
-				endOffset: content.length,
-				tokenCount: Math.ceil(content.length / CHARS_PER_TOKEN),
+				startOffset: span.startOffset,
+				endOffset: span.endOffset,
+				tokenCount: Math.ceil(span.text.length / CHARS_PER_TOKEN),
 			},
 		];
 	}
 
 	logger.debug('Generating sentence embeddings for semantic chunking', {
-		sentenceCount: sentences.length,
+		sentenceCount: sentenceSpans.length,
 	});
 
 	// Generate embeddings for all sentences
-	const embeddings = await generateEmbeddings(sentences);
+	const sentenceTexts = sentenceSpans.map((s) => s.text);
+	const embeddings = await generateEmbeddings(sentenceTexts);
 
 	// Calculate similarity between consecutive sentences
 	const similarities: number[] = [];
@@ -256,54 +304,76 @@ export async function chunkTextSemantic(
 		}
 	}
 
-	// Group sentences into initial chunks based on split points
-	const sentenceGroups: string[][] = [];
+	// Group sentence spans into initial chunks based on split points
+	const spanGroups: SentenceSpan[][] = [];
 	let lastSplit = 0;
 	for (const splitIdx of splitIndices) {
 		if (splitIdx > lastSplit) {
-			sentenceGroups.push(sentences.slice(lastSplit, splitIdx));
+			spanGroups.push(sentenceSpans.slice(lastSplit, splitIdx));
 			lastSplit = splitIdx;
 		}
 	}
 	// Don't forget the last group
-	if (lastSplit < sentences.length) {
-		sentenceGroups.push(sentences.slice(lastSplit));
+	if (lastSplit < sentenceSpans.length) {
+		spanGroups.push(sentenceSpans.slice(lastSplit));
 	}
 
-	// Convert groups to text and handle size constraints
-	const rawChunks = sentenceGroups.map((group) => group.join(' '));
+	// Merge small span groups with neighbors while tracking offsets
+	interface SpanGroup {
+		spans: SentenceSpan[];
+		text: string;
+		startOffset: number;
+		endOffset: number;
+	}
+
+	const rawGroups: SpanGroup[] = spanGroups.map((spans) => ({
+		spans,
+		text: spans.map((s) => s.text).join(' '),
+		startOffset: spans[0].startOffset,
+		endOffset: spans[spans.length - 1].endOffset,
+	}));
 
 	// Merge small chunks with neighbors
-	const mergedChunks: string[] = [];
-	let accumulator = '';
+	const mergedGroups: SpanGroup[] = [];
+	let accumulator: SpanGroup | null = null;
 
-	for (const chunk of rawChunks) {
-		if (accumulator.length === 0) {
-			accumulator = chunk;
-		} else if (accumulator.length + chunk.length + 1 <= maxChars) {
+	for (const group of rawGroups) {
+		if (accumulator === null) {
+			accumulator = group;
+		} else if (accumulator.text.length + group.text.length + 1 <= maxChars) {
 			// Can merge
-			accumulator = accumulator + ' ' + chunk;
-		} else if (accumulator.length < minChars && accumulator.length + chunk.length + 1 <= maxChars * 1.5) {
+			accumulator = {
+				spans: [...accumulator.spans, ...group.spans],
+				text: accumulator.text + ' ' + group.text,
+				startOffset: accumulator.startOffset,
+				endOffset: group.endOffset,
+			};
+		} else if (accumulator.text.length < minChars && accumulator.text.length + group.text.length + 1 <= maxChars * 1.5) {
 			// Current accumulator is too small, try to merge even if slightly over max
-			accumulator = accumulator + ' ' + chunk;
+			accumulator = {
+				spans: [...accumulator.spans, ...group.spans],
+				text: accumulator.text + ' ' + group.text,
+				startOffset: accumulator.startOffset,
+				endOffset: group.endOffset,
+			};
 		} else {
 			// Can't merge, save accumulator and start new
-			mergedChunks.push(accumulator);
-			accumulator = chunk;
+			mergedGroups.push(accumulator);
+			accumulator = group;
 		}
 	}
-	if (accumulator.length > 0) {
-		mergedChunks.push(accumulator);
+	if (accumulator !== null) {
+		mergedGroups.push(accumulator);
 	}
 
-	// Split oversized chunks using fixed chunking as fallback
+	// Build final chunks with correct offsets from original text
 	const finalChunks: Chunk[] = [];
-	let currentOffset = 0;
 
-	for (const mergedChunk of mergedChunks) {
-		if (mergedChunk.length > maxChars) {
+	for (const group of mergedGroups) {
+		if (group.text.length > maxChars) {
 			// Split oversized chunk using fixed chunking as fallback
-			const subChunks = chunkText(mergedChunk, {
+			// For oversized chunks, offsets are approximate (relative to chunk start)
+			const subChunks = chunkText(group.text, {
 				maxChunkSize,
 				overlap: 50,
 				separator: '. ',
@@ -312,26 +382,25 @@ export async function chunkTextSemantic(
 				finalChunks.push({
 					content: sub.content,
 					index: finalChunks.length,
-					startOffset: currentOffset + sub.startOffset,
-					endOffset: currentOffset + sub.endOffset,
+					startOffset: group.startOffset + sub.startOffset,
+					endOffset: group.startOffset + sub.endOffset,
 					tokenCount: sub.tokenCount,
 				});
 			}
 		} else {
 			finalChunks.push({
-				content: mergedChunk.trim(),
+				content: group.text.trim(),
 				index: finalChunks.length,
-				startOffset: currentOffset,
-				endOffset: currentOffset + mergedChunk.length,
-				tokenCount: Math.ceil(mergedChunk.length / CHARS_PER_TOKEN),
+				startOffset: group.startOffset,
+				endOffset: group.endOffset,
+				tokenCount: Math.ceil(group.text.length / CHARS_PER_TOKEN),
 			});
 		}
-		currentOffset += mergedChunk.length + 1; // +1 for space between chunks
 	}
 
 	logger.info('Semantic chunking completed', {
 		originalLength: text.length,
-		sentenceCount: sentences.length,
+		sentenceCount: sentenceSpans.length,
 		chunkCount: finalChunks.length,
 		avgChunkTokens: Math.round(
 			finalChunks.reduce((sum, c) => sum + c.tokenCount, 0) / finalChunks.length,

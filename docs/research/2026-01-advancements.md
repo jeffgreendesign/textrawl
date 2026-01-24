@@ -114,10 +114,10 @@ Semantic-first with size constraints:
 
 Current RRF implementation uses uniform weighting. Weighted RRF improvements:
 
-```
-Each retriever gets its own weight parameter:
-- semantic_weight: 1.0
-- fts_weight: 0.8
+```yaml
+# Each retriever gets its own weight parameter:
+semantic_weight: 1.0
+fts_weight: 0.8
 ```
 
 ### OpenSearch 2.19 RRF (Nov 2025)

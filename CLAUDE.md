@@ -51,7 +51,7 @@ Copy `.env.example` to `.env` and configure:
 | `nomic-embed-text-v2-moe` | 768 | `setup-db-ollama-v2.sql` | **Recommended**: MoE architecture, multilingual, better performance |
 | `mxbai-embed-large` | 1024 | `setup-db-ollama.sql` | Alternative option |
 
-Database schema must be initialized via `scripts/setup-db.sql` (OpenAI) or the appropriate Ollama schema in Supabase SQL Editor. For persistent memory features, also run the matching memory schema:
+Database schema must be initialized via `scripts/setup-db.sql` (OpenAI), `scripts/setup-db-ollama.sql` (Ollama v1), or `scripts/setup-db-ollama-v2.sql` (Ollama v2) in Supabase SQL Editor. For persistent memory features, also run the matching memory schema:
 - OpenAI: `scripts/setup-db-memory.sql` (1536 dimensions)
 - Ollama v1: `scripts/setup-db-memory-ollama.sql` (1024 dimensions)
 

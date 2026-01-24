@@ -1,6 +1,7 @@
 -- Textrawl Database Schema (Ollama V2 Version)
 -- Use this when using nomic-embed-text-v2-moe (768 dimensions)
 -- Run this in Supabase SQL Editor after creating your project
+-- IMPORTANT: After running this schema, run scripts/security-rls.sql to enable Row Level Security
 
 -- Enable required extensions
 create extension if not exists vector with schema extensions;
