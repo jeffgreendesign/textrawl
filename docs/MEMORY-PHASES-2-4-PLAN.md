@@ -129,7 +129,7 @@ Rules:
 
 ### Configuration
 
-```env
+```bash
 # Memory extraction
 ENABLE_MEMORY_EXTRACTION=true
 EXTRACTION_MODEL=claude-3-haiku-20240307  # Fast, cheap extraction
@@ -234,7 +234,7 @@ server.tool('search_with_context', {
 
 New environment variables:
 
-```env
+```bash
 # Conversation memory (Phase 2)
 ENABLE_CONVERSATIONS=true
 
