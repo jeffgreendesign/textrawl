@@ -111,8 +111,18 @@ export function registerNoteTool(server: McpServer): void {
 
 				// Memory extraction (Phase 3)
 				let memoryResult = null;
-				if (extractMemories && config.ENABLE_MEMORY_EXTRACTION) {
-					if (isExtractionConfigured()) {
+				if (extractMemories) {
+					if (!config.ENABLE_MEMORY_EXTRACTION) {
+						memoryResult = {
+							skipped: true,
+							reason: 'ENABLE_MEMORY_EXTRACTION is false',
+						};
+					} else if (!isExtractionConfigured()) {
+						memoryResult = {
+							skipped: true,
+							reason: 'ANTHROPIC_API_KEY not configured',
+						};
+					} else {
 						try {
 							logger.info('Extracting memories from note', { documentId: document.id });
 							const { extraction, storage } = await extractAndStoreMemories(content, 'note');
@@ -134,11 +144,6 @@ export function registerNoteTool(server: McpServer): void {
 								message: extractError instanceof Error ? extractError.message : 'Unknown error',
 							};
 						}
-					} else {
-						memoryResult = {
-							skipped: true,
-							reason: 'ANTHROPIC_API_KEY not configured',
-						};
 					}
 				}
 

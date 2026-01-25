@@ -275,24 +275,44 @@ export async function getConversationSearchStats(): Promise<{
 	const client = getSupabaseClient();
 
 	// Get session counts
-	const { count: totalSessions } = await client
+	const { count: totalSessions, error: totalSessionsError } = await client
 		.from('conversation_sessions')
 		.select('*', { count: 'exact', head: true });
 
-	const { count: sessionsWithSummary } = await client
+	if (totalSessionsError) {
+		logger.error('Failed to get conversation stats', { error: totalSessionsError.message });
+		throw new DatabaseError('Failed to get conversation stats');
+	}
+
+	const { count: sessionsWithSummary, error: sessionsWithSummaryError } = await client
 		.from('conversation_sessions')
 		.select('*', { count: 'exact', head: true })
 		.not('summary_embedding', 'is', null);
 
+	if (sessionsWithSummaryError) {
+		logger.error('Failed to get conversation stats', { error: sessionsWithSummaryError.message });
+		throw new DatabaseError('Failed to get conversation stats');
+	}
+
 	// Get turn counts
-	const { count: totalTurns } = await client
+	const { count: totalTurns, error: totalTurnsError } = await client
 		.from('conversation_turns')
 		.select('*', { count: 'exact', head: true });
 
-	const { count: turnsWithEmbedding } = await client
+	if (totalTurnsError) {
+		logger.error('Failed to get conversation stats', { error: totalTurnsError.message });
+		throw new DatabaseError('Failed to get conversation stats');
+	}
+
+	const { count: turnsWithEmbedding, error: turnsWithEmbeddingError } = await client
 		.from('conversation_turns')
 		.select('*', { count: 'exact', head: true })
 		.not('embedding', 'is', null);
+
+	if (turnsWithEmbeddingError) {
+		logger.error('Failed to get conversation stats', { error: turnsWithEmbeddingError.message });
+		throw new DatabaseError('Failed to get conversation stats');
+	}
 
 	return {
 		totalSessions: totalSessions || 0,

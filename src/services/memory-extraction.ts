@@ -266,9 +266,14 @@ export async function storeExtractedMemories(
 
 			entityIdMap.set(entity.name.toLowerCase(), dbEntity.id);
 
-			// Check if entity was just created (no observations yet would indicate new)
-			// This is a heuristic - we count as "created" for simplicity
-			result.entitiesExisting++;
+			// Check if entity was just created by comparing timestamps
+			// If created_at equals updated_at, the entity was just created
+			const isNewEntity = dbEntity.created_at === dbEntity.updated_at;
+			if (isNewEntity) {
+				result.entitiesCreated++;
+			} else {
+				result.entitiesExisting++;
+			}
 
 			// Process observations
 			for (const observation of entity.observations) {

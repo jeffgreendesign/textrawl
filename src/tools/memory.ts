@@ -24,6 +24,7 @@ import {
 import { generateEmbedding, isOpenAIConfigured } from '../services/embeddings.js';
 import {
 	extractAndStoreMemories,
+	extractMemoriesFromText,
 	isExtractionConfigured,
 } from '../services/memory-extraction.js';
 import { config } from '../utils/config.js';
@@ -917,7 +918,8 @@ export function registerMemoryTools(server: McpServer): void {
 				};
 			}
 
-			if (!isSupabaseConfigured()) {
+			// Only require Supabase if we're storing results
+			if (storeResults && !isSupabaseConfigured()) {
 				return {
 					content: [
 						{
@@ -929,10 +931,47 @@ export function registerMemoryTools(server: McpServer): void {
 			}
 
 			try {
+				// Preview-only mode: extract without storing
+				if (!storeResults) {
+					const extraction = await extractMemoriesFromText(text);
+					const response = isCompact()
+						? {
+								ok: true,
+								preview: true,
+								entities: extraction.entities.map((e) => ({
+									n: e.name,
+									t: e.type,
+									o: e.observations,
+								})),
+								relations: extraction.relations.map((r) => ({
+									f: r.from,
+									r: r.relation,
+									t: r.to,
+								})),
+							}
+						: {
+								success: true,
+								preview: true,
+								message: 'Preview only - no memories were stored',
+								extraction: {
+									entities: extraction.entities,
+									relations: extraction.relations,
+								},
+							};
+
+					return {
+						content: [
+							{
+								type: 'text' as const,
+								text: toJSON(response),
+							},
+						],
+					};
+				}
+
+				// Full mode: extract and store
 				const { extraction, storage } = await extractAndStoreMemories(text, source);
 
-				// If storeResults is false, we still extracted but results were stored
-				// In future, we could add a preview-only mode that skips storage
 				const response = isCompact()
 					? {
 							ok: true,

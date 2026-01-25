@@ -1,3 +1,8 @@
+---
+title: Memory Phases 2-4 Implementation Plan
+description: Implementation plan for conversation memory, automatic extraction, and memory-aware search
+---
+
 # Memory System Phases 2-4 Implementation Plan
 
 **Date:** January 25, 2026
@@ -207,7 +212,9 @@ server.tool('search_with_context', {
 
 ### Implementation Files
 
-- `src/db/unified-search.ts` - Multi-source search fusion
+- `src/db/search.ts` - Hybrid search with multi-source fusion
+- `src/db/conversation-search.ts` - Conversation-specific search
+- `src/db/memory-search.ts` - Memory-specific search
 - `src/tools/search.ts` - Enhanced with search_with_context
 
 ---

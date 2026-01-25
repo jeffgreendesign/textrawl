@@ -30,7 +30,8 @@ CREATE TABLE IF NOT EXISTS conversation_turns (
   turn_index INTEGER NOT NULL,                -- Position in conversation (0-indexed)
   token_count INTEGER,                        -- Approximate token count for this turn
   metadata JSONB DEFAULT '{}',                -- Tool calls, citations, etc.
-  created_at TIMESTAMPTZ DEFAULT NOW()
+  created_at TIMESTAMPTZ DEFAULT NOW(),
+  UNIQUE (session_id, turn_index)             -- Prevent duplicate turn indexes per session
 );
 
 -- ============================================
@@ -84,6 +85,25 @@ DROP TRIGGER IF EXISTS conversation_turns_activity ON conversation_turns;
 CREATE TRIGGER conversation_turns_activity
   AFTER INSERT ON conversation_turns
   FOR EACH ROW EXECUTE FUNCTION update_session_activity();
+
+-- Update turn_count when turns are deleted
+CREATE OR REPLACE FUNCTION update_session_activity_on_delete()
+RETURNS TRIGGER AS $$
+BEGIN
+  UPDATE conversation_sessions
+  SET
+    turn_count = (
+      SELECT COUNT(*) FROM conversation_turns WHERE session_id = OLD.session_id
+    )
+  WHERE id = OLD.session_id;
+  RETURN OLD;
+END;
+$$ LANGUAGE plpgsql;
+
+DROP TRIGGER IF EXISTS conversation_turns_delete_activity ON conversation_turns;
+CREATE TRIGGER conversation_turns_delete_activity
+  AFTER DELETE ON conversation_turns
+  FOR EACH ROW EXECUTE FUNCTION update_session_activity_on_delete();
 
 -- ============================================
 -- Search Functions
@@ -291,3 +311,54 @@ $$;
 
 -- Optional: Schedule cleanup (requires pg_cron extension)
 -- SELECT cron.schedule('cleanup-old-conversations', '0 4 * * 0', 'SELECT cleanup_old_conversations(90)');
+
+-- ============================================
+-- Row Level Security
+-- ============================================
+-- Enable RLS
+ALTER TABLE conversation_sessions ENABLE ROW LEVEL SECURITY;
+ALTER TABLE conversation_turns ENABLE ROW LEVEL SECURITY;
+
+-- Force RLS for table owners
+ALTER TABLE conversation_sessions FORCE ROW LEVEL SECURITY;
+ALTER TABLE conversation_turns FORCE ROW LEVEL SECURITY;
+
+-- Permissive policies (service_role bypasses RLS)
+CREATE POLICY "Allow all access to conversation_sessions"
+  ON conversation_sessions FOR ALL USING (true) WITH CHECK (true);
+
+CREATE POLICY "Allow all access to conversation_turns"
+  ON conversation_turns FOR ALL USING (true) WITH CHECK (true);
+
+-- Restrictive policies to block anon and authenticated roles
+CREATE POLICY "Deny anon access to conversation_sessions"
+  ON conversation_sessions AS RESTRICTIVE FOR ALL TO anon USING (false);
+
+CREATE POLICY "Deny authenticated access to conversation_sessions"
+  ON conversation_sessions AS RESTRICTIVE FOR ALL TO authenticated USING (false);
+
+CREATE POLICY "Deny anon access to conversation_turns"
+  ON conversation_turns AS RESTRICTIVE FOR ALL TO anon USING (false);
+
+CREATE POLICY "Deny authenticated access to conversation_turns"
+  ON conversation_turns AS RESTRICTIVE FOR ALL TO authenticated USING (false);
+
+-- Revoke permissions from anon/authenticated
+REVOKE ALL ON TABLE conversation_sessions FROM anon, authenticated;
+REVOKE ALL ON TABLE conversation_turns FROM anon, authenticated;
+
+-- Revoke function execution from anon/authenticated
+REVOKE EXECUTE ON FUNCTION conversation_semantic_search FROM anon, authenticated;
+REVOKE EXECUTE ON FUNCTION conversation_hybrid_search FROM anon, authenticated;
+REVOKE EXECUTE ON FUNCTION conversation_turn_search FROM anon, authenticated;
+REVOKE EXECUTE ON FUNCTION get_recent_conversations FROM anon, authenticated;
+REVOKE EXECUTE ON FUNCTION cleanup_old_conversations FROM anon, authenticated;
+
+-- Explicit service_role grants
+GRANT ALL ON TABLE conversation_sessions TO service_role;
+GRANT ALL ON TABLE conversation_turns TO service_role;
+GRANT EXECUTE ON FUNCTION conversation_semantic_search TO service_role;
+GRANT EXECUTE ON FUNCTION conversation_hybrid_search TO service_role;
+GRANT EXECUTE ON FUNCTION conversation_turn_search TO service_role;
+GRANT EXECUTE ON FUNCTION get_recent_conversations TO service_role;
+GRANT EXECUTE ON FUNCTION cleanup_old_conversations TO service_role;
