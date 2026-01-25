@@ -420,24 +420,53 @@ server.tool('recall', {
 
 ---
 
-## Implementation Status: ✅ COMPLETE
+## Implementation Status: ✅ ALL PHASES COMPLETE
 
-Phase 1 (Entity-Based Memory Layer) has been fully implemented.
+All four phases of the persistent memory system have been implemented.
+
+### Phase 1: Entity-Based Memory Layer ✅
+- Memory entities, observations, relations tables
+- MCP tools: `remember_fact`, `recall_memories`, `relate_entities`, `get_entity_context`, `list_entities`, `forget_entity`, `memory_stats`
+
+### Phase 2: Conversation Memory ✅
+- Conversation sessions and turns tables
+- MCP tools: `save_conversation_context`, `recall_conversation`, `list_conversations`, `get_conversation`, `delete_conversation`, `conversation_stats`
+
+### Phase 3: Automatic Memory Formation ✅
+- LLM-based entity/fact extraction using Claude API
+- MCP tool: `extract_memories`
+- Enhanced `add_note` with `extractMemories` parameter
+- Configuration: `ENABLE_MEMORY_EXTRACTION`, `ANTHROPIC_API_KEY`, `EXTRACTION_MODEL`
+
+### Phase 4: Memory-Aware Search ✅
+- Unified search across documents, memories, and conversations
+- MCP tool: `search_with_context`
+- Configurable weights for result fusion
 
 ### File Structure
 
 ```
 src/
 ├── db/
-│   ├── memory-entities.ts    # Entity CRUD ✅
-│   ├── memory-observations.ts # Observation CRUD ✅
-│   ├── memory-relations.ts    # Relation CRUD ✅
-│   └── memory-search.ts       # Memory retrieval ✅
+│   ├── memory-entities.ts        # Entity CRUD ✅
+│   ├── memory-observations.ts    # Observation CRUD ✅
+│   ├── memory-relations.ts       # Relation CRUD ✅
+│   ├── memory-search.ts          # Memory retrieval ✅
+│   ├── conversation-sessions.ts  # Session CRUD ✅
+│   ├── conversation-turns.ts     # Turn CRUD ✅
+│   └── conversation-search.ts    # Conversation retrieval ✅
+├── services/
+│   └── memory-extraction.ts      # LLM extraction ✅
 ├── tools/
-│   └── memory.ts              # Memory MCP tools ✅
+│   ├── memory.ts                 # Memory MCP tools ✅
+│   ├── conversation.ts           # Conversation MCP tools ✅
+│   └── search.ts                 # search_with_context ✅
 scripts/
-├── setup-db-memory.sql        # Memory schema (OpenAI, 1536 dim) ✅
-└── setup-db-memory-ollama.sql # Memory schema (Ollama, 1024 dim) ✅
+├── setup-db-memory.sql               # Memory schema (OpenAI) ✅
+├── setup-db-memory-ollama.sql        # Memory schema (Ollama v1) ✅
+├── setup-db-conversation.sql         # Conversation schema (OpenAI) ✅
+├── setup-db-conversation-ollama.sql  # Conversation schema (Ollama v1) ✅
+└── setup-db-conversation-ollama-v2.sql # Conversation schema (Ollama v2) ✅
 ```
 
 ---
@@ -641,11 +670,14 @@ SUPABASE_URL=http://localhost:5432
 
 ## Future Enhancements
 
-1. **Conversation Memory**: Persist conversation context across sessions
-2. **Automatic Extraction**: LLM-based entity/fact extraction from notes
-3. **Memory-Aware Search**: Fuse document and memory results
-4. **Memory Decay**: Confidence degradation over time
-5. **Memory Backfill**: Extract entities from existing documents when enabled
+Completed in January 2026:
+- ✅ **Conversation Memory**: Persist conversation context across sessions
+- ✅ **Automatic Extraction**: LLM-based entity/fact extraction from notes
+- ✅ **Memory-Aware Search**: Fuse document and memory results
+
+Remaining items:
+- ⏳ **Memory Decay**: Confidence degradation over time for expiring facts
+- ⏳ **Memory Backfill**: Extract entities from existing documents when memory enabled
 
 ---
 

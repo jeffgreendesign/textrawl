@@ -39,6 +39,10 @@ Copy `.env.example` to `.env` and configure:
 - `API_BEARER_TOKEN` - Optional auth token (min 32 chars)
 - `UI_PORT` - Web UI port (default: 3001)
 - `ENABLE_MEMORY` - Enable/disable memory tools (default: true)
+- `ENABLE_CONVERSATIONS` - Enable/disable conversation memory tools (default: true)
+- `ENABLE_MEMORY_EXTRACTION` - Enable LLM-based memory extraction (default: false)
+- `ANTHROPIC_API_KEY` - Required for memory extraction (Claude API)
+- `EXTRACTION_MODEL` - Model for extraction (default: claude-3-haiku-20240307)
 - `COMPACT_RESPONSES` - Token-efficient response format (default: true)
 - `CHUNKING_MODE` - `fixed` (default) or `semantic` for embedding-based topic splitting
 - `SEMANTIC_SIMILARITY_THRESHOLD` - Threshold for semantic chunking (default: 0.5)
@@ -51,9 +55,14 @@ Copy `.env.example` to `.env` and configure:
 | `nomic-embed-text-v2-moe` | 768 | `setup-db-ollama-v2.sql` | **Recommended**: MoE architecture, multilingual, better performance |
 | `mxbai-embed-large` | 1024 | `setup-db-ollama.sql` | Alternative option |
 
-Database schema must be initialized via `scripts/setup-db.sql` (OpenAI), `scripts/setup-db-ollama.sql` (Ollama v1), or `scripts/setup-db-ollama-v2.sql` (Ollama v2) in Supabase SQL Editor. For persistent memory features, also run the matching memory schema:
-- OpenAI: `scripts/setup-db-memory.sql` (1536 dimensions)
-- Ollama v1: `scripts/setup-db-memory-ollama.sql` (1024 dimensions)
+Database schema must be initialized via `scripts/setup-db.sql` (OpenAI), `scripts/setup-db-ollama.sql` (Ollama v1), or `scripts/setup-db-ollama-v2.sql` (Ollama v2) in Supabase SQL Editor.
+
+**Additional schemas by feature:**
+
+| Feature | OpenAI Schema | Ollama v1 Schema | Ollama v2 Schema |
+|---------|---------------|------------------|------------------|
+| Memory | `setup-db-memory.sql` | `setup-db-memory-ollama.sql` | - |
+| Conversations | `setup-db-conversation.sql` | `setup-db-conversation-ollama.sql` | `setup-db-conversation-ollama-v2.sql` |
 
 **Important:** Different embedding models use different dimensions. You cannot mix models without re-embedding all documents.
 
@@ -76,9 +85,10 @@ Express Server
 
 **Document Tools:**
 - `search_knowledge` - Hybrid search with weighted RRF fusion (see below)
+- `search_with_context` - Unified search across documents, memories, and conversations
 - `get_document` / `list_documents` - Document retrieval
 - `update_document` - Update document title and/or tags
-- `add_note` - Create markdown notes with automatic chunking and embedding
+- `add_note` - Create markdown notes with automatic chunking and embedding (supports `extractMemories` parameter)
 
 **Weighted RRF in search_knowledge:**
 The `search_knowledge` tool supports weighted Reciprocal Rank Fusion:
@@ -95,6 +105,15 @@ The `search_knowledge` tool supports weighted Reciprocal Rank Fusion:
 - `list_entities` - List all known entities
 - `forget_entity` - Delete an entity and all its memories
 - `memory_stats` - Get memory statistics
+- `extract_memories` - Extract entities and facts from text using LLM (requires `ENABLE_MEMORY_EXTRACTION`)
+
+**Conversation Tools (Conversation Memory):**
+- `save_conversation_context` - Save conversation summary and turns for recall
+- `recall_conversation` - Semantic search across past conversations
+- `list_conversations` - List recent conversation sessions
+- `get_conversation` - Get full conversation by session ID or key
+- `delete_conversation` - Delete a conversation session
+- `conversation_stats` - Get conversation storage statistics
 
 ### Key Directories
 - `src/tools/` - MCP tool definitions with Zod schemas
@@ -119,6 +138,11 @@ PostgreSQL (Supabase) with:
 - `memory_observations` - Atomic facts about entities with embeddings
 - `memory_relations` - Directed relationships between entities
 - `memory_hybrid_search()` / `memory_semantic_search()` RPCs
+
+**Conversation Memory Tables (run `scripts/setup-db-conversation.sql`):**
+- `conversation_sessions` - Conversation sessions with summaries
+- `conversation_turns` - Individual messages with embeddings
+- `conversation_hybrid_search()` / `conversation_semantic_search()` RPCs
 
 ### Database Security
 Row Level Security (RLS) is enabled with defense-in-depth policies:

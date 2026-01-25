@@ -29,6 +29,7 @@
 	},
 	"packageManager": "pnpm@9.15.0",
 	"dependencies": {
+		"@anthropic-ai/sdk": "^0.71.2",
 		"@modelcontextprotocol/sdk": "^1.25.2",
 		"@supabase/supabase-js": "^2.45.0",
 		"cors": "^2.8.5",
@@ -72,7 +73,13 @@
 		"typescript": "^5.7.0",
 		"unzipper": "^0.12.0"
 	},
-	"keywords": ["mcp", "rag", "knowledge-base", "semantic-search", "claude"],
+	"keywords": [
+		"mcp",
+		"rag",
+		"knowledge-base",
+		"semantic-search",
+		"claude"
+	],
 	"author": "Jeff",
 	"license": "MIT"
 }

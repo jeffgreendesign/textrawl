@@ -18,7 +18,7 @@ export interface MemoryObservation {
 	created_at: string;
 }
 
-export type ObservationSource = 'conversation' | 'note' | 'document' | 'manual';
+export type ObservationSource = 'conversation' | 'note' | 'document' | 'manual' | 'extraction';
 
 export interface CreateObservationInput {
 	entityId: string;

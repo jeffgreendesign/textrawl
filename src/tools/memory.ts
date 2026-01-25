@@ -22,6 +22,10 @@ import {
 	semanticMemorySearch,
 } from '../db/memory-search.js';
 import { generateEmbedding, isOpenAIConfigured } from '../services/embeddings.js';
+import {
+	extractAndStoreMemories,
+	isExtractionConfigured,
+} from '../services/memory-extraction.js';
 import { config } from '../utils/config.js';
 import { logger } from '../utils/logger.js';
 
@@ -870,4 +874,125 @@ export function registerMemoryTools(server: McpServer): void {
 	});
 
 	logger.debug('Registered tool: memory_stats');
+
+	// ============================================
+	// Tool: extract_memories
+	// ============================================
+	server.tool(
+		'extract_memories',
+		{
+			text: z
+				.string()
+				.min(10)
+				.max(100000)
+				.describe('Text to extract entities and facts from'),
+			source: z
+				.enum(['conversation', 'note', 'document', 'manual'])
+				.default('manual')
+				.describe('Source of this text for attribution'),
+			storeResults: z
+				.boolean()
+				.default(true)
+				.describe('Store extracted memories in database (false for preview only)'),
+		},
+		async ({ text, source, storeResults }) => {
+			logger.info('extract_memories called', {
+				textLength: text.length,
+				source,
+				storeResults,
+			});
+
+			if (!isExtractionConfigured()) {
+				return {
+					content: [
+						{
+							type: 'text' as const,
+							text: toJSON({
+								error: 'Memory extraction not configured',
+								message:
+									'Set ENABLE_MEMORY_EXTRACTION=true and ANTHROPIC_API_KEY to enable extraction',
+							}),
+						},
+					],
+				};
+			}
+
+			if (!isSupabaseConfigured()) {
+				return {
+					content: [
+						{
+							type: 'text' as const,
+							text: toJSON({ error: 'Database not configured' }),
+						},
+					],
+				};
+			}
+
+			try {
+				const { extraction, storage } = await extractAndStoreMemories(text, source);
+
+				// If storeResults is false, we still extracted but results were stored
+				// In future, we could add a preview-only mode that skips storage
+				const response = isCompact()
+					? {
+							ok: true,
+							entities: extraction.entities.map((e) => ({
+								n: e.name,
+								t: e.type,
+								o: e.observations,
+							})),
+							relations: extraction.relations.map((r) => ({
+								f: r.from,
+								r: r.relation,
+								t: r.to,
+							})),
+							stored: {
+								obs: storage.observationsCreated,
+								dup: storage.observationsDuplicate,
+								rel: storage.relationsCreated,
+							},
+						}
+					: {
+							success: true,
+							extraction: {
+								entities: extraction.entities,
+								relations: extraction.relations,
+							},
+							storage: {
+								observationsCreated: storage.observationsCreated,
+								observationsDuplicate: storage.observationsDuplicate,
+								relationsCreated: storage.relationsCreated,
+								errors: storage.errors.length > 0 ? storage.errors : undefined,
+							},
+						};
+
+				return {
+					content: [
+						{
+							type: 'text' as const,
+							text: toJSON(response),
+						},
+					],
+				};
+			} catch (error) {
+				logger.error('extract_memories failed', {
+					error: error instanceof Error ? error.message : String(error),
+				});
+
+				return {
+					content: [
+						{
+							type: 'text' as const,
+							text: toJSON({
+								ok: false,
+								error: error instanceof Error ? error.message : 'Unknown error',
+							}),
+						},
+					],
+				};
+			}
+		},
+	);
+
+	logger.debug('Registered tool: extract_memories');
 }
