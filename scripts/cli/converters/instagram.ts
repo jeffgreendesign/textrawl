@@ -146,8 +146,9 @@ function parseInstagramMessages(filePath: string): InstagramConversation | null 
 	const messageBlockPattern =
 		/<div class="pam _3-95 _2ph- _2lej uiBoxWhite noborder">([\s\S]*?)<\/div>(?=<div class="pam|<\/div><\/div><\/div>)/g;
 
-	let blockMatch;
-	while ((blockMatch = messageBlockPattern.exec(html)) !== null) {
+	while (true) {
+		const blockMatch = messageBlockPattern.exec(html);
+		if (!blockMatch) break;
 		const block = blockMatch[1];
 
 		// Skip non-message blocks
@@ -176,8 +177,9 @@ function parseInstagramMessages(filePath: string): InstagramConversation | null 
 	if (messages.length === 0) {
 		// Try to find any content between timestamps
 		const simplePattern = /<div class="[^"]*_2let[^"]*"><div><div><\/div><div>([^<]+)<\/div>/g;
-		let simpleMatch;
-		while ((simpleMatch = simplePattern.exec(html)) !== null) {
+		while (true) {
+			const simpleMatch = simplePattern.exec(html);
+			if (!simpleMatch) break;
 			const content = simpleMatch[1].trim();
 			if (content) {
 				messages.push({ sender: 'Unknown', timestamp: '', content });

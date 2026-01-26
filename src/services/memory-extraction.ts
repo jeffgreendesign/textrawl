@@ -8,7 +8,7 @@ import {
 import { getOrCreateRelation } from '../db/memory-relations.js';
 import { config } from '../utils/config.js';
 import { logger } from '../utils/logger.js';
-import { generateEmbedding } from './embeddings.js';
+import { generateEmbedding, isEmbeddingsConfigured } from './embeddings.js';
 
 /**
  * Extracted entity from text
@@ -292,8 +292,10 @@ export async function storeExtractedMemories(
 						continue;
 					}
 
-					// Generate embedding for observation
-					const embedding = await generateEmbedding(observation);
+					// Generate embedding for observation (if configured)
+					const embedding = isEmbeddingsConfigured()
+						? await generateEmbedding(observation)
+						: undefined;
 
 					// Create observation
 					await createObservation({
@@ -328,9 +330,13 @@ export async function storeExtractedMemories(
 				// Try to get or create the entity
 				const fromEntity = await getOrCreateEntity({
 					name: relation.from.trim(),
-					entityType: 'concept', // Default type
+					entityType: 'concept', // Default type for relation-only entities
 				});
 				entityIdMap.set(relation.from.toLowerCase(), fromEntity.id);
+				// Count this entity using timestamp heuristic
+				const isNewFrom = fromEntity.created_at === fromEntity.updated_at;
+				if (isNewFrom) result.entitiesCreated++;
+				else result.entitiesExisting++;
 			}
 
 			if (!toId) {
@@ -339,6 +345,10 @@ export async function storeExtractedMemories(
 					entityType: 'concept',
 				});
 				entityIdMap.set(relation.to.toLowerCase(), toEntity.id);
+				// Count this entity using timestamp heuristic
+				const isNewTo = toEntity.created_at === toEntity.updated_at;
+				if (isNewTo) result.entitiesCreated++;
+				else result.entitiesExisting++;
 			}
 
 			const finalFromId = entityIdMap.get(relation.from.toLowerCase())!;
@@ -358,6 +368,7 @@ export async function storeExtractedMemories(
 	}
 
 	logger.info('Stored extracted memories', {
+		entitiesCreated: result.entitiesCreated,
 		entitiesExisting: result.entitiesExisting,
 		observationsCreated: result.observationsCreated,
 		observationsDuplicate: result.observationsDuplicate,

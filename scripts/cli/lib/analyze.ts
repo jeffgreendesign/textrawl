@@ -15,14 +15,15 @@ import {
 	rmSync,
 	statSync,
 } from 'node:fs';
-import { tmpdir } from 'node:os';
-import { basename, extname, join, resolve } from 'node:path';
+import { homedir, tmpdir } from 'node:os';
+import { basename, extname, join, resolve, sep } from 'node:path';
 import { createInterface } from 'node:readline';
 import { Open } from 'unzipper';
 
 /**
  * Sanitize and normalize a folder path to prevent path traversal attacks.
- * Resolves to absolute path and validates it exists as a directory.
+ * Resolves to absolute path, validates it exists as a directory, and ensures
+ * it is within an allowed base directory (home, temp, or current working directory).
  */
 function sanitizeFolderPath(folderPath: string): string {
 	// Resolve to absolute path, normalizing any '..' segments
@@ -36,6 +37,21 @@ function sanitizeFolderPath(folderPath: string): string {
 	const stat = statSync(resolvedPath);
 	if (!stat.isDirectory()) {
 		throw new Error(`Path is not a directory: ${resolvedPath}`);
+	}
+
+	// Security: ensure the directory is within an allowed base directory
+	const homeDir = resolve(homedir());
+	const tempDir = resolve(tmpdir());
+	const cwdDir = resolve(process.cwd());
+
+	const isWithinHome = resolvedPath === homeDir || resolvedPath.startsWith(homeDir + sep);
+	const isWithinTemp = resolvedPath === tempDir || resolvedPath.startsWith(tempDir + sep);
+	const isWithinCwd = resolvedPath === cwdDir || resolvedPath.startsWith(cwdDir + sep);
+
+	if (!isWithinHome && !isWithinTemp && !isWithinCwd) {
+		throw new Error(
+			`Directory must be within home, temp, or working directory: ${resolvedPath}`,
+		);
 	}
 
 	return resolvedPath;
