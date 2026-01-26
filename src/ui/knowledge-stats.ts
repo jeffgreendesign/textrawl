@@ -367,6 +367,7 @@ export function getKnowledgeStatsHTML(): string {
 
     // Listen for tool result from host
     window.addEventListener('message', (event) => {
+      if (event.source !== window.parent) return;
       try {
         const msg = event.data;
         if (msg && msg.jsonrpc === '2.0') {

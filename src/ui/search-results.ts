@@ -271,8 +271,8 @@ export function getSearchResultsHTML(): string {
 
     function escapeHtml(text) {
       const div = document.createElement('div');
-      div.textContent = text;
-      return div.innerHTML;
+      div.textContent = String(text);
+      return div.innerHTML.replace(/"/g, '&quot;').replace(/'/g, '&#39;');
     }
 
     function renderResults(data) {
@@ -288,7 +288,7 @@ export function getSearchResultsHTML(): string {
       }
 
       const resultsHtml = results.map((r, i) => {
-        const scorePercent = Math.round((r.score || 0) * 100);
+        const scorePercent = Math.min(100, Math.round((r.score || 0) * 100));
         const tags = (r.tags || []).slice(0, 3);
         const tagsHtml = tags.map(t => \`<span class="tag">\${escapeHtml(t)}</span>\`).join('');
 
@@ -325,6 +325,7 @@ export function getSearchResultsHTML(): string {
 
     // Listen for tool result from host
     window.addEventListener('message', (event) => {
+      if (event.source !== window.parent) return;
       try {
         const msg = event.data;
         if (msg && msg.jsonrpc === '2.0') {
