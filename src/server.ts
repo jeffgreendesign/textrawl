@@ -5,8 +5,56 @@ import { registerMemoryTools } from './tools/memory.js';
 import { registerNoteTool } from './tools/note.js';
 import { registerSearchTool } from './tools/search.js';
 import { registerStatsTools } from './tools/stats.js';
+import { getKnowledgeStatsHTML, getSearchResultsHTML } from './ui/index.js';
 import { config } from './utils/config.js';
 import { logger } from './utils/logger.js';
+
+/**
+ * Register UI resources for MCP Apps
+ *
+ * These resources provide interactive HTML UIs for tool results.
+ */
+function registerUIResources(server: McpServer): void {
+	// Search results UI
+	server.registerResource(
+		'search-results-ui',
+		'ui://textrawl/search-results',
+		{
+			description: 'Interactive search results viewer',
+			mimeType: 'text/html;profile=mcp-app',
+		},
+		async () => ({
+			contents: [
+				{
+					uri: 'ui://textrawl/search-results',
+					mimeType: 'text/html;profile=mcp-app',
+					text: getSearchResultsHTML(),
+				},
+			],
+		}),
+	);
+
+	// Knowledge stats UI
+	server.registerResource(
+		'knowledge-stats-ui',
+		'ui://textrawl/knowledge-stats',
+		{
+			description: 'Knowledge base statistics dashboard',
+			mimeType: 'text/html;profile=mcp-app',
+		},
+		async () => ({
+			contents: [
+				{
+					uri: 'ui://textrawl/knowledge-stats',
+					mimeType: 'text/html;profile=mcp-app',
+					text: getKnowledgeStatsHTML(),
+				},
+			],
+		}),
+	);
+
+	logger.debug('Registered UI resources for MCP Apps');
+}
 
 /**
  * Create and configure the Textrawl MCP server
@@ -18,6 +66,9 @@ export function createMcpServer(): McpServer {
 	});
 
 	logger.debug('Registering MCP tools');
+
+	// Register UI resources for MCP Apps
+	registerUIResources(server);
 
 	// Register core tools (always available)
 	registerSearchTool(server);
