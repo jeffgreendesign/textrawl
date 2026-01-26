@@ -390,7 +390,7 @@ async function convertMessages(
 			if (firstMsgDate) {
 				try {
 					date = new Date(firstMsgDate);
-					if (isNaN(date.getTime())) date = new Date();
+					if (Number.isNaN(date.getTime())) date = new Date();
 				} catch {
 					date = new Date();
 				}

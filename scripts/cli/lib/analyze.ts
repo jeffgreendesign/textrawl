@@ -758,16 +758,18 @@ export async function analyzeExport(path: string): Promise<AnalysisResult> {
 
 	// Folder-based detection
 	if (stat.isDirectory()) {
-		const files = readdirSync(path);
+		// Sanitize path early for directory analysis
+		const sanitizedPath = sanitizeFolderPath(path);
+		const files = readdirSync(sanitizedPath);
 
 		// Spotify: has StreamingHistory*.json
 		if (files.some((f) => f.startsWith('StreamingHistory') && f.endsWith('.json'))) {
-			return analyzeSpotify(path);
+			return analyzeSpotify(sanitizedPath);
 		}
 
 		// Reddit: has comments.csv or posts.csv
 		if (files.includes('comments.csv') || files.includes('posts.csv')) {
-			return analyzeReddit(path);
+			return analyzeReddit(sanitizedPath);
 		}
 
 		// Facebook: has messages/ folder and index.htm
@@ -775,7 +777,7 @@ export async function analyzeExport(path: string): Promise<AnalysisResult> {
 			files.includes('messages') &&
 			(files.includes('index.htm') || files.includes('index.html'))
 		) {
-			return analyzeFacebook(path);
+			return analyzeFacebook(sanitizedPath);
 		}
 
 		// Instagram: has messages/ and account_information/ or content/
@@ -785,7 +787,7 @@ export async function analyzeExport(path: string): Promise<AnalysisResult> {
 				files.includes('content') ||
 				files.includes('likes'))
 		) {
-			return analyzeInstagram(path);
+			return analyzeInstagram(sanitizedPath);
 		}
 	}
 
