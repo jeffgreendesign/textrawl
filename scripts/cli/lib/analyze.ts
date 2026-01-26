@@ -16,9 +16,30 @@ import {
 	statSync,
 } from 'node:fs';
 import { tmpdir } from 'node:os';
-import { basename, extname, join } from 'node:path';
+import { basename, extname, join, resolve } from 'node:path';
 import { createInterface } from 'node:readline';
 import { Open } from 'unzipper';
+
+/**
+ * Sanitize and normalize a folder path to prevent path traversal attacks.
+ * Resolves to absolute path and validates it exists as a directory.
+ */
+function sanitizeFolderPath(folderPath: string): string {
+	// Resolve to absolute path, normalizing any '..' segments
+	const resolvedPath = resolve(folderPath);
+
+	// Verify the path exists and is a directory
+	if (!existsSync(resolvedPath)) {
+		throw new Error(`Path does not exist: ${resolvedPath}`);
+	}
+
+	const stat = statSync(resolvedPath);
+	if (!stat.isDirectory()) {
+		throw new Error(`Path is not a directory: ${resolvedPath}`);
+	}
+
+	return resolvedPath;
+}
 
 /**
  * Unified analysis result returned by all format analyzers
@@ -130,7 +151,8 @@ export async function analyzeMbox(filePath: string): Promise<AnalysisResult> {
  * Analyze Spotify export folder
  */
 export async function analyzeSpotify(folderPath: string): Promise<AnalysisResult> {
-	const files = readdirSync(folderPath);
+	const sanitizedPath = sanitizeFolderPath(folderPath);
+	const files = readdirSync(sanitizedPath);
 	let streamingCount = 0;
 	let playlistCount = 0;
 	let libraryCount = 0;
@@ -143,7 +165,7 @@ export async function analyzeSpotify(folderPath: string): Promise<AnalysisResult
 	);
 	for (const file of streamingFiles) {
 		try {
-			const content = readFileSync(join(folderPath, file), 'utf-8');
+			const content = readFileSync(join(sanitizedPath, file), 'utf-8');
 			const data = JSON.parse(content) as Array<{
 				endTime?: string;
 				artistName?: string;
@@ -174,7 +196,7 @@ export async function analyzeSpotify(folderPath: string): Promise<AnalysisResult
 	const playlistFiles = files.filter((f) => f.startsWith('Playlist') && f.endsWith('.json'));
 	for (const file of playlistFiles) {
 		try {
-			const content = readFileSync(join(folderPath, file), 'utf-8');
+			const content = readFileSync(join(sanitizedPath, file), 'utf-8');
 			const data = JSON.parse(content);
 			if (data.playlists) {
 				playlistCount += data.playlists.length;
@@ -187,7 +209,7 @@ export async function analyzeSpotify(folderPath: string): Promise<AnalysisResult
 	// Count library items
 	if (files.includes('YourLibrary.json')) {
 		try {
-			const content = readFileSync(join(folderPath, 'YourLibrary.json'), 'utf-8');
+			const content = readFileSync(join(sanitizedPath, 'YourLibrary.json'), 'utf-8');
 			const data = JSON.parse(content);
 			if (data.tracks) libraryCount += data.tracks.length;
 			if (data.albums) libraryCount += data.albums.length;
@@ -200,7 +222,7 @@ export async function analyzeSpotify(folderPath: string): Promise<AnalysisResult
 	const totalItems = streamingCount + playlistCount + libraryCount;
 	const folderSize = files.reduce((sum, f) => {
 		try {
-			return sum + statSync(join(folderPath, f)).size;
+			return sum + statSync(join(sanitizedPath, f)).size;
 		} catch {
 			return sum;
 		}
@@ -220,7 +242,7 @@ export async function analyzeSpotify(folderPath: string): Promise<AnalysisResult
 
 	return {
 		format: 'spotify',
-		filename: basename(folderPath),
+		filename: basename(sanitizedPath),
 		fileSizeBytes: folderSize,
 		canPreview: true,
 		totalItems,
@@ -240,7 +262,8 @@ export async function analyzeSpotify(folderPath: string): Promise<AnalysisResult
  * Analyze Reddit export folder
  */
 export async function analyzeReddit(folderPath: string): Promise<AnalysisResult> {
-	const files = readdirSync(folderPath);
+	const sanitizedPath = sanitizeFolderPath(folderPath);
+	const files = readdirSync(sanitizedPath);
 	let comments = 0;
 	let posts = 0;
 	let savedPosts = 0;
@@ -251,7 +274,7 @@ export async function analyzeReddit(folderPath: string): Promise<AnalysisResult>
 	const countCsvRows = (filename: string): number => {
 		if (!files.includes(filename)) return 0;
 		try {
-			const content = readFileSync(join(folderPath, filename), 'utf-8');
+			const content = readFileSync(join(sanitizedPath, filename), 'utf-8');
 			const lines = content.split('\n').filter((l) => l.trim());
 			return Math.max(0, lines.length - 1);
 		} catch {
@@ -267,7 +290,7 @@ export async function analyzeReddit(folderPath: string): Promise<AnalysisResult>
 	// Get sample comments
 	if (files.includes('comments.csv')) {
 		try {
-			const content = readFileSync(join(folderPath, 'comments.csv'), 'utf-8');
+			const content = readFileSync(join(sanitizedPath, 'comments.csv'), 'utf-8');
 			const lines = content.split('\n').slice(1, 6);
 			for (const line of lines) {
 				const parts = line.split(',');
@@ -285,7 +308,7 @@ export async function analyzeReddit(folderPath: string): Promise<AnalysisResult>
 	const totalItems = comments + posts + savedPosts + messages;
 	const folderSize = files.reduce((sum, f) => {
 		try {
-			return sum + statSync(join(folderPath, f)).size;
+			return sum + statSync(join(sanitizedPath, f)).size;
 		} catch {
 			return sum;
 		}
@@ -293,7 +316,7 @@ export async function analyzeReddit(folderPath: string): Promise<AnalysisResult>
 
 	return {
 		format: 'reddit',
-		filename: basename(folderPath),
+		filename: basename(sanitizedPath),
 		fileSizeBytes: folderSize,
 		canPreview: true,
 		totalItems,
@@ -313,6 +336,7 @@ export async function analyzeReddit(folderPath: string): Promise<AnalysisResult>
  * Analyze Facebook export folder
  */
 export async function analyzeFacebook(folderPath: string): Promise<AnalysisResult> {
+	const sanitizedPath = sanitizeFolderPath(folderPath);
 	let messageThreads = 0;
 	let photos = 0;
 	let videos = 0;
@@ -320,7 +344,7 @@ export async function analyzeFacebook(folderPath: string): Promise<AnalysisResul
 	const samples: string[] = [];
 
 	// Count message threads
-	const messagesDir = join(folderPath, 'messages');
+	const messagesDir = join(sanitizedPath, 'messages');
 	if (existsSync(messagesDir)) {
 		try {
 			const threads = readdirSync(messagesDir).filter((f) => {
@@ -338,7 +362,7 @@ export async function analyzeFacebook(folderPath: string): Promise<AnalysisResul
 	}
 
 	// Count photos
-	const photosDir = join(folderPath, 'photos');
+	const photosDir = join(sanitizedPath, 'photos');
 	if (existsSync(photosDir)) {
 		try {
 			const countFiles = (dir: string): number => {
@@ -362,7 +386,7 @@ export async function analyzeFacebook(folderPath: string): Promise<AnalysisResul
 	}
 
 	// Count videos
-	const videosDir = join(folderPath, 'videos');
+	const videosDir = join(sanitizedPath, 'videos');
 	if (existsSync(videosDir)) {
 		try {
 			const items = readdirSync(videosDir);
@@ -373,7 +397,7 @@ export async function analyzeFacebook(folderPath: string): Promise<AnalysisResul
 	}
 
 	// Check for posts in HTML
-	const htmlDir = join(folderPath, 'html');
+	const htmlDir = join(sanitizedPath, 'html');
 	if (existsSync(htmlDir)) {
 		try {
 			const htmlFiles = readdirSync(htmlDir).filter(
@@ -407,11 +431,11 @@ export async function analyzeFacebook(folderPath: string): Promise<AnalysisResul
 		return size;
 	};
 
-	const fileSizeBytes = getFolderSize(folderPath);
+	const fileSizeBytes = getFolderSize(sanitizedPath);
 
 	return {
 		format: 'facebook',
-		filename: basename(folderPath),
+		filename: basename(sanitizedPath),
 		fileSizeBytes,
 		canPreview: true,
 		totalItems,
@@ -431,6 +455,7 @@ export async function analyzeFacebook(folderPath: string): Promise<AnalysisResul
  * Analyze Instagram export folder
  */
 export async function analyzeInstagram(folderPath: string): Promise<AnalysisResult> {
+	const sanitizedPath = sanitizeFolderPath(folderPath);
 	let messageThreads = 0;
 	let likes = 0;
 	let comments = 0;
@@ -439,7 +464,7 @@ export async function analyzeInstagram(folderPath: string): Promise<AnalysisResu
 	const samples: string[] = [];
 
 	// Count message threads
-	const messagesDir = join(folderPath, 'messages');
+	const messagesDir = join(sanitizedPath, 'messages');
 	if (existsSync(messagesDir)) {
 		try {
 			// Check inbox subfolder
@@ -467,7 +492,7 @@ export async function analyzeInstagram(folderPath: string): Promise<AnalysisResu
 	}
 
 	// Count likes
-	const likesDir = join(folderPath, 'likes');
+	const likesDir = join(sanitizedPath, 'likes');
 	if (existsSync(likesDir)) {
 		try {
 			const files = readdirSync(likesDir);
@@ -488,7 +513,7 @@ export async function analyzeInstagram(folderPath: string): Promise<AnalysisResu
 	}
 
 	// Count comments
-	const commentsDir = join(folderPath, 'comments');
+	const commentsDir = join(sanitizedPath, 'comments');
 	if (existsSync(commentsDir)) {
 		try {
 			const files = readdirSync(commentsDir);
@@ -509,7 +534,7 @@ export async function analyzeInstagram(folderPath: string): Promise<AnalysisResu
 	}
 
 	// Count media
-	const mediaDir = join(folderPath, 'media');
+	const mediaDir = join(sanitizedPath, 'media');
 	if (existsSync(mediaDir)) {
 		try {
 			const countMedia = (dir: string): number => {
@@ -533,7 +558,7 @@ export async function analyzeInstagram(folderPath: string): Promise<AnalysisResu
 	}
 
 	// Count content/posts
-	const contentDir = join(folderPath, 'content');
+	const contentDir = join(sanitizedPath, 'content');
 	if (existsSync(contentDir)) {
 		try {
 			const files = readdirSync(contentDir);
@@ -573,11 +598,11 @@ export async function analyzeInstagram(folderPath: string): Promise<AnalysisResu
 		return size;
 	};
 
-	const fileSizeBytes = getFolderSize(folderPath);
+	const fileSizeBytes = getFolderSize(sanitizedPath);
 
 	return {
 		format: 'instagram',
-		filename: basename(folderPath),
+		filename: basename(sanitizedPath),
 		fileSizeBytes,
 		canPreview: true,
 		totalItems,
