@@ -253,8 +253,9 @@ function parseCommentsHtml(filePath: string): Array<{ content: string; timestamp
 	const commentBlockPattern =
 		/<div class="[^"]*_2let[^"]*">([\s\S]*?)<\/div>[\s\S]*?<div class="[^"]*_2lem[^"]*">([^<]+)<\/div>/g;
 
-	let match;
-	while ((match = commentBlockPattern.exec(html)) !== null) {
+	while (true) {
+		const match = commentBlockPattern.exec(html);
+		if (!match) break;
 		const content = extractTextFromHtml(match[1]);
 		if (content && !content.includes('Your Posts')) {
 			const timestamp = match[2]?.trim();
@@ -276,8 +277,9 @@ function parseLikesHtml(filePath: string): Array<{ content: string; timestamp?: 
 	const likeBlockPattern =
 		/<div class="[^"]*_2let[^"]*">([\s\S]*?)<\/div>[\s\S]*?<div class="[^"]*_2lem[^"]*">([^<]+)<\/div>/g;
 
-	let match;
-	while ((match = likeBlockPattern.exec(html)) !== null) {
+	while (true) {
+		const match = likeBlockPattern.exec(html);
+		if (!match) break;
 		const content = extractTextFromHtml(match[1]);
 		if (content && content.length > 0) {
 			const timestamp = match[2]?.trim();
@@ -350,8 +352,8 @@ async function convertMessages(
 				const timeA = a.timestamp ? new Date(a.timestamp).getTime() : Number.POSITIVE_INFINITY;
 				const timeB = b.timestamp ? new Date(b.timestamp).getTime() : Number.POSITIVE_INFINITY;
 				// Handle NaN from malformed timestamps
-				const safeA = isNaN(timeA) ? Number.POSITIVE_INFINITY : timeA;
-				const safeB = isNaN(timeB) ? Number.POSITIVE_INFINITY : timeB;
+				const safeA = Number.isNaN(timeA) ? Number.POSITIVE_INFINITY : timeA;
+				const safeB = Number.isNaN(timeB) ? Number.POSITIVE_INFINITY : timeB;
 				return safeA - safeB;
 			});
 
@@ -656,7 +658,7 @@ async function convertInstagram(inputPath: string, options: InstagramOptions): P
 		const analysis = await analyzeInstagram(instagramDir);
 
 		logger.info('');
-		logger.info(`  Instagram Data Export Analysis`);
+		logger.info('  Instagram Data Export Analysis');
 		logger.info(`  ${'─'.repeat(40)}`);
 		logger.info(`  Directory: ${analysis.filename}`);
 		logger.info(`  Size: ${(analysis.fileSizeBytes / 1024).toFixed(1)} KB`);

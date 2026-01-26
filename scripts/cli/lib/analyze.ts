@@ -12,6 +12,7 @@ import {
 	mkdirSync,
 	readFileSync,
 	readdirSync,
+	realpathSync,
 	rmSync,
 	statSync,
 } from 'node:fs';
@@ -22,39 +23,43 @@ import { Open } from 'unzipper';
 
 /**
  * Sanitize and normalize a folder path to prevent path traversal attacks.
- * Resolves to absolute path, validates it exists as a directory, and ensures
+ * Resolves symlinks to canonical path, validates it exists as a directory, and ensures
  * it is within an allowed base directory (home, temp, or current working directory).
  */
 function sanitizeFolderPath(folderPath: string): string {
 	// Resolve to absolute path, normalizing any '..' segments
 	const resolvedPath = resolve(folderPath);
 
-	// Verify the path exists and is a directory
+	// Verify the path exists
 	if (!existsSync(resolvedPath)) {
 		throw new Error(`Path does not exist: ${resolvedPath}`);
 	}
 
-	const stat = statSync(resolvedPath);
+	// Resolve symlinks to get the real path (prevents symlink-based escapes)
+	const realPath = realpathSync(resolvedPath);
+
+	const stat = statSync(realPath);
 	if (!stat.isDirectory()) {
-		throw new Error(`Path is not a directory: ${resolvedPath}`);
+		throw new Error(`Path is not a directory: ${realPath}`);
 	}
 
 	// Security: ensure the directory is within an allowed base directory
-	const homeDir = resolve(homedir());
-	const tempDir = resolve(tmpdir());
-	const cwdDir = resolve(process.cwd());
+	// Use realpathSync on base dirs too to handle symlinks consistently
+	const homeDir = realpathSync(resolve(homedir()));
+	const tempDir = realpathSync(resolve(tmpdir()));
+	const cwdDir = realpathSync(resolve(process.cwd()));
 
-	const isWithinHome = resolvedPath === homeDir || resolvedPath.startsWith(homeDir + sep);
-	const isWithinTemp = resolvedPath === tempDir || resolvedPath.startsWith(tempDir + sep);
-	const isWithinCwd = resolvedPath === cwdDir || resolvedPath.startsWith(cwdDir + sep);
+	const isWithinHome = realPath === homeDir || realPath.startsWith(homeDir + sep);
+	const isWithinTemp = realPath === tempDir || realPath.startsWith(tempDir + sep);
+	const isWithinCwd = realPath === cwdDir || realPath.startsWith(cwdDir + sep);
 
 	if (!isWithinHome && !isWithinTemp && !isWithinCwd) {
 		throw new Error(
-			`Directory must be within home, temp, or working directory: ${resolvedPath}`,
+			`Directory must be within home, temp, or working directory: ${realPath}`,
 		);
 	}
 
-	return resolvedPath;
+	return realPath;
 }
 
 /**
