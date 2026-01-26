@@ -14,47 +14,55 @@ import { logger } from '../utils/logger.js';
  * This tool performs hybrid semantic + full-text search over the knowledge base.
  */
 export function registerSearchTool(server: McpServer): void {
-	server.tool(
+	server.registerTool(
 		'search_knowledge',
 		{
-			query: z
-				.string()
-				.min(1)
-				.max(10000, 'Query must be at most 10KB')
-				.describe('Natural language search query'),
-			limit: z.number().min(1).max(50).default(10).describe('Maximum results to return'),
-			fullTextWeight: z
-				.number()
-				.min(0)
-				.max(2)
-				.default(1.0)
-				.describe('Weight for keyword matching (0-2)'),
-			semanticWeight: z
-				.number()
-				.min(0)
-				.max(2)
-				.default(1.0)
-				.describe('Weight for semantic similarity (0-2)'),
-			tags: z
-				.array(z.string())
-				.optional()
-				.describe('Filter results to only include documents with ALL specified tags'),
-			sourceType: z
-				.enum(['note', 'file', 'url'])
-				.optional()
-				.describe('Filter by document source type'),
-			contentType: z
-				.enum(['email', 'youtube', 'calendar', 'contact', 'webpage', 'document'])
-				.optional()
-				.describe(
-					'Filter by content type (email, youtube watch history, calendar events, contacts, webpages)',
-				),
-			minScore: z
-				.number()
-				.min(0)
-				.max(1)
-				.optional()
-				.describe('Minimum relevance score threshold (0-1) to filter out low-quality results'),
+			description: 'Search the knowledge base using hybrid semantic + full-text search',
+			inputSchema: {
+				query: z
+					.string()
+					.min(1)
+					.max(10000, 'Query must be at most 10KB')
+					.describe('Natural language search query'),
+				limit: z.number().min(1).max(50).default(10).describe('Maximum results to return'),
+				fullTextWeight: z
+					.number()
+					.min(0)
+					.max(2)
+					.default(1.0)
+					.describe('Weight for keyword matching (0-2)'),
+				semanticWeight: z
+					.number()
+					.min(0)
+					.max(2)
+					.default(1.0)
+					.describe('Weight for semantic similarity (0-2)'),
+				tags: z
+					.array(z.string())
+					.optional()
+					.describe('Filter results to only include documents with ALL specified tags'),
+				sourceType: z
+					.enum(['note', 'file', 'url'])
+					.optional()
+					.describe('Filter by document source type'),
+				contentType: z
+					.enum(['email', 'youtube', 'calendar', 'contact', 'webpage', 'document'])
+					.optional()
+					.describe(
+						'Filter by content type (email, youtube watch history, calendar events, contacts, webpages)',
+					),
+				minScore: z
+					.number()
+					.min(0)
+					.max(1)
+					.optional()
+					.describe('Minimum relevance score threshold (0-1) to filter out low-quality results'),
+			},
+			_meta: {
+				ui: {
+					resourceUri: 'ui://textrawl/search-results',
+				},
+			},
 		},
 		async ({
 			query,
@@ -219,38 +227,46 @@ export function registerSearchTool(server: McpServer): void {
 	// Tool: search_with_context
 	// Unified search across documents, memories, and conversations
 	// ============================================
-	server.tool(
+	server.registerTool(
 		'search_with_context',
 		{
-			query: z.string().min(1).max(10000).describe('Natural language search query'),
-			limit: z.number().int().min(1).max(30).default(10).describe('Maximum results per source'),
-			includeDocuments: z.boolean().default(true).describe('Search documents/notes'),
-			includeMemories: z
-				.boolean()
-				.default(true)
-				.describe('Search entity memories (requires ENABLE_MEMORY)'),
-			includeConversations: z
-				.boolean()
-				.default(false)
-				.describe('Search past conversations (requires ENABLE_CONVERSATIONS)'),
-			documentWeight: z
-				.number()
-				.min(0)
-				.max(2)
-				.default(1.0)
-				.describe('Weight for document results in fusion'),
-			memoryWeight: z
-				.number()
-				.min(0)
-				.max(2)
-				.default(1.0)
-				.describe('Weight for memory results in fusion'),
-			conversationWeight: z
-				.number()
-				.min(0)
-				.max(2)
-				.default(0.5)
-				.describe('Weight for conversation results in fusion'),
+			description: 'Unified search across documents, memories, and conversations',
+			inputSchema: {
+				query: z.string().min(1).max(10000).describe('Natural language search query'),
+				limit: z.number().int().min(1).max(30).default(10).describe('Maximum results per source'),
+				includeDocuments: z.boolean().default(true).describe('Search documents/notes'),
+				includeMemories: z
+					.boolean()
+					.default(true)
+					.describe('Search entity memories (requires ENABLE_MEMORY)'),
+				includeConversations: z
+					.boolean()
+					.default(false)
+					.describe('Search past conversations (requires ENABLE_CONVERSATIONS)'),
+				documentWeight: z
+					.number()
+					.min(0)
+					.max(2)
+					.default(1.0)
+					.describe('Weight for document results in fusion'),
+				memoryWeight: z
+					.number()
+					.min(0)
+					.max(2)
+					.default(1.0)
+					.describe('Weight for memory results in fusion'),
+				conversationWeight: z
+					.number()
+					.min(0)
+					.max(2)
+					.default(0.5)
+					.describe('Weight for conversation results in fusion'),
+			},
+			_meta: {
+				ui: {
+					resourceUri: 'ui://textrawl/search-results',
+				},
+			},
 		},
 		async ({
 			query,

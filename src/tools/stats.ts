@@ -9,60 +9,72 @@ import { logger } from '../utils/logger.js';
  * This tool provides statistics about the knowledge base contents.
  */
 export function registerStatsTools(server: McpServer): void {
-	server.tool('knowledge_stats', {}, async () => {
-		logger.info('knowledge_stats called');
+	server.registerTool(
+		'knowledge_stats',
+		{
+			description: 'Get statistics about the knowledge base contents',
+			inputSchema: {},
+			_meta: {
+				ui: {
+					resourceUri: 'ui://textrawl/knowledge-stats',
+				},
+			},
+		},
+		async () => {
+			logger.info('knowledge_stats called');
 
-		if (!isSupabaseConfigured()) {
-			return {
-				content: [
-					{
-						type: 'text' as const,
-						text: JSON.stringify(
-							{
-								error: 'Database not configured',
-								message: 'Set SUPABASE_URL and SUPABASE_SERVICE_KEY to enable stats.',
-							},
-							null,
-							2,
-						),
-					},
-				],
-			};
-		}
+			if (!isSupabaseConfigured()) {
+				return {
+					content: [
+						{
+							type: 'text' as const,
+							text: JSON.stringify(
+								{
+									error: 'Database not configured',
+									message: 'Set SUPABASE_URL and SUPABASE_SERVICE_KEY to enable stats.',
+								},
+								null,
+								2,
+							),
+						},
+					],
+				};
+			}
 
-		try {
-			const stats = await getKnowledgeStats();
+			try {
+				const stats = await getKnowledgeStats();
 
-			return {
-				content: [
-					{
-						type: 'text' as const,
-						text: JSON.stringify(stats, null, 2),
-					},
-				],
-			};
-		} catch (error) {
-			logger.error('knowledge_stats failed', {
-				error: error instanceof Error ? error.message : String(error),
-			});
+				return {
+					content: [
+						{
+							type: 'text' as const,
+							text: JSON.stringify(stats, null, 2),
+						},
+					],
+				};
+			} catch (error) {
+				logger.error('knowledge_stats failed', {
+					error: error instanceof Error ? error.message : String(error),
+				});
 
-			return {
-				content: [
-					{
-						type: 'text' as const,
-						text: JSON.stringify(
-							{
-								error: 'Failed to get knowledge stats',
-								message: error instanceof Error ? error.message : 'Unknown error',
-							},
-							null,
-							2,
-						),
-					},
-				],
-			};
-		}
-	});
+				return {
+					content: [
+						{
+							type: 'text' as const,
+							text: JSON.stringify(
+								{
+									error: 'Failed to get knowledge stats',
+									message: error instanceof Error ? error.message : 'Unknown error',
+								},
+								null,
+								2,
+							),
+						},
+					],
+				};
+			}
+		},
+	);
 
 	logger.debug('Registered tool: knowledge_stats');
 }
