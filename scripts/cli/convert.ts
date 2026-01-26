@@ -341,11 +341,18 @@ program
 				format = 'reddit';
 			}
 			// Check for Facebook export
-			else if (files.includes('messages') && (files.includes('index.htm') || files.includes('html'))) {
+			else if (
+				files.includes('messages') &&
+				(files.includes('index.htm') || files.includes('html'))
+			) {
 				format = 'facebook';
 			}
 			// Check for Instagram export
-			else if (files.includes('messages') && files.includes('likes') && files.includes('comments')) {
+			else if (
+				files.includes('messages') &&
+				files.includes('likes') &&
+				files.includes('comments')
+			) {
 				format = 'instagram';
 			}
 			// Check for EML files

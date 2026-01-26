@@ -28,8 +28,8 @@ import { promisify } from 'node:util';
 // @ts-ignore - unzipper types
 import * as unzipper from 'unzipper';
 
-import { type TakeoutOptions, addTakeoutOptions, createBaseCommand } from '../lib/args.js';
 import { analyzeTakeout } from '../lib/analyze.js';
+import { type TakeoutOptions, addTakeoutOptions, createBaseCommand } from '../lib/args.js';
 import { createFrontmatter, serializeFrontmatter } from '../lib/frontmatter.js';
 import { slugify } from '../lib/normalizer.js';
 import { ProgressReporter, logger } from '../lib/progress.js';
@@ -721,14 +721,16 @@ async function convertTakeout(inputPath: string, options: TakeoutOptions): Promi
 		const analysis = await analyzeTakeout(resolvedInput);
 
 		logger.info('');
-		logger.info(`  Google Takeout Analysis`);
+		logger.info('  Google Takeout Analysis');
 		logger.info(`  ${'─'.repeat(40)}`);
 		logger.info(`  File: ${analysis.filename}`);
 		logger.info(`  Size: ${(analysis.fileSizeBytes / 1024 / 1024).toFixed(1)} MB`);
 		logger.info('');
 		logger.info(`  Total Items: ${analysis.totalItems.toLocaleString()}`);
 		logger.info(`  Estimated Output Files: ${analysis.estimatedOutputFiles.toLocaleString()}`);
-		logger.info(`  Estimated Output Size: ${(analysis.estimatedOutputSizeBytes / 1024).toFixed(1)} KB`);
+		logger.info(
+			`  Estimated Output Size: ${(analysis.estimatedOutputSizeBytes / 1024).toFixed(1)} KB`,
+		);
 		logger.info('');
 
 		if (analysis.breakdown) {

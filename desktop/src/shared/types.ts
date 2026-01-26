@@ -36,7 +36,16 @@ export type FileType =
 	| 'unknown';
 
 // Converter type for routing
-export type ConverterType = 'mbox' | 'eml' | 'html' | 'takeout' | 'facebook' | 'instagram' | 'spotify' | 'reddit' | 'processor';
+export type ConverterType =
+	| 'mbox'
+	| 'eml'
+	| 'html'
+	| 'takeout'
+	| 'facebook'
+	| 'instagram'
+	| 'spotify'
+	| 'reddit'
+	| 'processor';
 
 // Scanned file with routing info
 export interface ScannedFile {

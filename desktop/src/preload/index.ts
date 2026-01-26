@@ -74,10 +74,22 @@ const electronAPI = {
 		return () => ipcRenderer.removeListener(IPC.LOG, handler);
 	},
 
-	onComplete: (callback: (data: { type: 'conversion' | 'upload'; success: boolean; successCount?: number; errorCount?: number }) => void) => {
+	onComplete: (
+		callback: (data: {
+			type: 'conversion' | 'upload';
+			success: boolean;
+			successCount?: number;
+			errorCount?: number;
+		}) => void,
+	) => {
 		const handler = (
 			_event: Electron.IpcRendererEvent,
-			data: { type: 'conversion' | 'upload'; success: boolean; successCount?: number; errorCount?: number },
+			data: {
+				type: 'conversion' | 'upload';
+				success: boolean;
+				successCount?: number;
+				errorCount?: number;
+			},
 		) => {
 			callback(data);
 		};

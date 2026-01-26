@@ -10,15 +10,15 @@
  */
 
 import { createHash } from 'node:crypto';
-import { existsSync, mkdirSync, readdirSync, readFileSync, statSync, writeFileSync } from 'node:fs';
+import { existsSync, mkdirSync, readFileSync, readdirSync, statSync, writeFileSync } from 'node:fs';
 import { basename, dirname, join, resolve } from 'node:path';
 
-import { type CommonOptions, createBaseCommand } from '../lib/args.js';
 import { analyzeSpotify } from '../lib/analyze.js';
+import { type CommonOptions, createBaseCommand } from '../lib/args.js';
 import { createFrontmatter, serializeFrontmatter } from '../lib/frontmatter.js';
 import { slugify } from '../lib/normalizer.js';
 import { ProgressReporter, logger } from '../lib/progress.js';
-import type { ConversionResult, ContentType, DocumentFrontMatter } from '../lib/types.js';
+import type { ContentType, ConversionResult, DocumentFrontMatter } from '../lib/types.js';
 
 /**
  * Spotify streaming history entry
@@ -308,7 +308,9 @@ async function convertStreamingHistory(
 			}
 		} catch (error) {
 			errors++;
-			progress.log(`  ✗ ${artistName} - ${trackName}: ${error instanceof Error ? error.message : String(error)}`);
+			progress.log(
+				`  ✗ ${artistName} - ${trackName}: ${error instanceof Error ? error.message : String(error)}`,
+			);
 		}
 	}
 
@@ -364,7 +366,9 @@ async function convertPlaylists(
 
 				for (let i = 0; i < tracks.length; i++) {
 					const track = tracks[i];
-					contentLines.push(`${i + 1}. **${track.trackName}** - ${track.artistName} (*${track.albumName}*)`);
+					contentLines.push(
+						`${i + 1}. **${track.trackName}** - ${track.artistName} (*${track.albumName}*)`,
+					);
 				}
 
 				const markdownContent = contentLines.join('\n');
@@ -415,7 +419,9 @@ async function convertPlaylists(
 				}
 			} catch (error) {
 				errors++;
-				progress.log(`  ✗ Playlist: ${playlist.name}: ${error instanceof Error ? error.message : String(error)}`);
+				progress.log(
+					`  ✗ Playlist: ${playlist.name}: ${error instanceof Error ? error.message : String(error)}`,
+				);
 			}
 		}
 	}
@@ -541,14 +547,16 @@ async function convertSpotify(inputPath: string, options: SpotifyOptions): Promi
 		const analysis = await analyzeSpotify(resolvedInput);
 
 		logger.info('');
-		logger.info(`  Spotify Data Export Analysis`);
+		logger.info('  Spotify Data Export Analysis');
 		logger.info(`  ${'─'.repeat(40)}`);
 		logger.info(`  File: ${analysis.filename}`);
 		logger.info(`  Size: ${(analysis.fileSizeBytes / 1024 / 1024).toFixed(1)} MB`);
 		logger.info('');
 		logger.info(`  Total Items: ${analysis.totalItems.toLocaleString()}`);
 		logger.info(`  Estimated Output Files: ${analysis.estimatedOutputFiles.toLocaleString()}`);
-		logger.info(`  Estimated Output Size: ${(analysis.estimatedOutputSizeBytes / 1024).toFixed(1)} KB`);
+		logger.info(
+			`  Estimated Output Size: ${(analysis.estimatedOutputSizeBytes / 1024).toFixed(1)} KB`,
+		);
 		logger.info('');
 
 		if (analysis.breakdown) {
@@ -597,7 +605,9 @@ async function convertSpotify(inputPath: string, options: SpotifyOptions): Promi
 	}
 
 	if (totalItems === 0) {
-		logger.error('No Spotify data files found. Expected StreamingHistory*.json, Playlist*.json, or YourLibrary.json');
+		logger.error(
+			'No Spotify data files found. Expected StreamingHistory*.json, Playlist*.json, or YourLibrary.json',
+		);
 		process.exit(1);
 	}
 
@@ -646,7 +656,13 @@ async function convertSpotify(inputPath: string, options: SpotifyOptions): Promi
 		const progress = new ProgressReporter(playlistCount, { verbose: options.verbose });
 		progress.start();
 
-		const result = await convertPlaylists(resolvedInput, files.playlists, outputDir, options, progress);
+		const result = await convertPlaylists(
+			resolvedInput,
+			files.playlists,
+			outputDir,
+			options,
+			progress,
+		);
 
 		progress.finish(`Playlists: ${result.success} converted, ${result.errors} errors`);
 		totalSuccess += result.success;
@@ -677,7 +693,10 @@ async function convertSpotify(inputPath: string, options: SpotifyOptions): Promi
 }
 
 // CLI setup
-const program = createBaseCommand('convert-spotify', 'Convert Spotify data export to Markdown with YAML front matter');
+const program = createBaseCommand(
+	'convert-spotify',
+	'Convert Spotify data export to Markdown with YAML front matter',
+);
 
 program
 	.option('--history', 'Include streaming history', true)

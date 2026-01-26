@@ -5,6 +5,8 @@ import { isSupabaseConfigured } from '../db/client.js';
 import { createDocument } from '../db/documents.js';
 import { smartChunk } from '../services/chunker.js';
 import { generateEmbeddings, isOpenAIConfigured } from '../services/embeddings.js';
+import { extractAndStoreMemories, isExtractionConfigured } from '../services/memory-extraction.js';
+import { config } from '../utils/config.js';
 import { logger } from '../utils/logger.js';
 
 /**
@@ -23,12 +25,19 @@ export function registerNoteTool(server: McpServer): void {
 				.max(1000000, 'Content must be at most 1MB')
 				.describe('Note content (markdown supported)'),
 			tags: z.array(z.string()).optional().describe('Optional tags for organization'),
+			extractMemories: z
+				.boolean()
+				.default(false)
+				.describe(
+					'Extract entities and facts from content and store as memories (requires ENABLE_MEMORY_EXTRACTION=true and ANTHROPIC_API_KEY)',
+				),
 		},
-		async ({ title, content, tags }) => {
+		async ({ title, content, tags, extractMemories }) => {
 			logger.info('add_note called', {
 				title,
 				contentLength: content.length,
 				tags,
+				extractMemories,
 			});
 
 			// Check if services are configured
@@ -97,26 +106,67 @@ export function registerNoteTool(server: McpServer): void {
 
 				await createChunks(chunkInputs);
 
+				// Memory extraction (Phase 3)
+				let memoryResult = null;
+				if (extractMemories) {
+					if (!config.ENABLE_MEMORY_EXTRACTION) {
+						memoryResult = {
+							skipped: true,
+							reason: 'ENABLE_MEMORY_EXTRACTION is false',
+						};
+					} else if (!isExtractionConfigured()) {
+						memoryResult = {
+							skipped: true,
+							reason: 'ANTHROPIC_API_KEY not configured',
+						};
+					} else {
+						try {
+							logger.info('Extracting memories from note', { documentId: document.id });
+							const { extraction, storage } = await extractAndStoreMemories(content, 'note');
+							memoryResult = {
+								entitiesFound: extraction.entities.length,
+								relationsFound: extraction.relations.length,
+								observationsCreated: storage.observationsCreated,
+								observationsDuplicate: storage.observationsDuplicate,
+								relationsCreated: storage.relationsCreated,
+								errors: storage.errors.length > 0 ? storage.errors : undefined,
+							};
+							logger.info('Memory extraction complete', memoryResult);
+						} catch (extractError) {
+							logger.error('Memory extraction failed', {
+								error: extractError instanceof Error ? extractError.message : String(extractError),
+							});
+							memoryResult = {
+								error: 'Memory extraction failed',
+								message: extractError instanceof Error ? extractError.message : 'Unknown error',
+							};
+						}
+					}
+				}
+
 				logger.info('Note added successfully', {
 					documentId: document.id,
 					chunkCount: chunks.length,
+					memoryExtraction: !!memoryResult,
 				});
+
+				const response: Record<string, unknown> = {
+					success: true,
+					documentId: document.id,
+					title: document.title,
+					chunksCreated: chunks.length,
+					message: 'Note saved and indexed for search.',
+				};
+
+				if (memoryResult) {
+					response.memoryExtraction = memoryResult;
+				}
 
 				return {
 					content: [
 						{
 							type: 'text' as const,
-							text: JSON.stringify(
-								{
-									success: true,
-									documentId: document.id,
-									title: document.title,
-									chunksCreated: chunks.length,
-									message: 'Note saved and indexed for search.',
-								},
-								null,
-								2,
-							),
+							text: JSON.stringify(response, null, 2),
 						},
 					],
 				};

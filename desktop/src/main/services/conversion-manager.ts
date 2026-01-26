@@ -239,9 +239,10 @@ export class ConversionManager {
 						// Log progress milestones (every 10%)
 						if (progress >= lastLoggedProgress + 10) {
 							lastLoggedProgress = Math.floor(progress / 10) * 10;
-							const logMsg = current !== null && total !== null
-								? `Processing ${file.name}: ${current}/${total} (${progress}%)`
-								: `Processing ${file.name}: ${progress}%`;
+							const logMsg =
+								current !== null && total !== null
+									? `Processing ${file.name}: ${current}/${total} (${progress}%)`
+									: `Processing ${file.name}: ${progress}%`;
 							this.sendLog('info', logMsg, undefined, file.id);
 						}
 					}

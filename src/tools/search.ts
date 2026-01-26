@@ -1,8 +1,11 @@
 import type { McpServer } from '@modelcontextprotocol/sdk/server/mcp.js';
 import { z } from 'zod';
 import { isSupabaseConfigured } from '../db/client.js';
+import { hybridConversationSearch } from '../db/conversation-search.js';
+import { hybridMemorySearch } from '../db/memory-search.js';
 import { hybridSearch } from '../db/search.js';
 import { generateEmbedding, isOpenAIConfigured } from '../services/embeddings.js';
+import { config } from '../utils/config.js';
 import { logger } from '../utils/logger.js';
 
 /**
@@ -43,7 +46,9 @@ export function registerSearchTool(server: McpServer): void {
 			contentType: z
 				.enum(['email', 'youtube', 'calendar', 'contact', 'webpage', 'document'])
 				.optional()
-				.describe('Filter by content type (email, youtube watch history, calendar events, contacts, webpages)'),
+				.describe(
+					'Filter by content type (email, youtube watch history, calendar events, contacts, webpages)',
+				),
 			minScore: z
 				.number()
 				.min(0)
@@ -51,7 +56,16 @@ export function registerSearchTool(server: McpServer): void {
 				.optional()
 				.describe('Minimum relevance score threshold (0-1) to filter out low-quality results'),
 		},
-		async ({ query, limit, fullTextWeight, semanticWeight, tags, sourceType, contentType, minScore }) => {
+		async ({
+			query,
+			limit,
+			fullTextWeight,
+			semanticWeight,
+			tags,
+			sourceType,
+			contentType,
+			minScore,
+		}) => {
 			logger.info('search_knowledge called', {
 				query,
 				limit,
@@ -200,4 +214,274 @@ export function registerSearchTool(server: McpServer): void {
 	);
 
 	logger.debug('Registered tool: search_knowledge');
+
+	// ============================================
+	// Tool: search_with_context
+	// Unified search across documents, memories, and conversations
+	// ============================================
+	server.tool(
+		'search_with_context',
+		{
+			query: z.string().min(1).max(10000).describe('Natural language search query'),
+			limit: z.number().int().min(1).max(30).default(10).describe('Maximum results per source'),
+			includeDocuments: z.boolean().default(true).describe('Search documents/notes'),
+			includeMemories: z
+				.boolean()
+				.default(true)
+				.describe('Search entity memories (requires ENABLE_MEMORY)'),
+			includeConversations: z
+				.boolean()
+				.default(false)
+				.describe('Search past conversations (requires ENABLE_CONVERSATIONS)'),
+			documentWeight: z
+				.number()
+				.min(0)
+				.max(2)
+				.default(1.0)
+				.describe('Weight for document results in fusion'),
+			memoryWeight: z
+				.number()
+				.min(0)
+				.max(2)
+				.default(1.0)
+				.describe('Weight for memory results in fusion'),
+			conversationWeight: z
+				.number()
+				.min(0)
+				.max(2)
+				.default(0.5)
+				.describe('Weight for conversation results in fusion'),
+		},
+		async ({
+			query,
+			limit,
+			includeDocuments,
+			includeMemories,
+			includeConversations,
+			documentWeight,
+			memoryWeight,
+			conversationWeight,
+		}) => {
+			logger.info('search_with_context called', {
+				query,
+				limit,
+				includeDocuments,
+				includeMemories,
+				includeConversations,
+			});
+
+			if (!isSupabaseConfigured()) {
+				return {
+					content: [
+						{
+							type: 'text' as const,
+							text: JSON.stringify({ error: 'Database not configured' }, null, 2),
+						},
+					],
+				};
+			}
+
+			if (!isOpenAIConfigured()) {
+				return {
+					content: [
+						{
+							type: 'text' as const,
+							text: JSON.stringify({ error: 'Embedding not configured' }, null, 2),
+						},
+					],
+				};
+			}
+
+			try {
+				// Generate embedding for the query
+				const embedStart = Date.now();
+				const queryEmbedding = await generateEmbedding(query);
+				logger.debug('Query embedding generated', { latencyMs: Date.now() - embedStart });
+
+				// Collect results from all sources
+				const documentResults: Array<{
+					type: 'document';
+					id: string;
+					title: string;
+					content: string;
+					score: number;
+					sourceType: string;
+				}> = [];
+
+				const memoryResults: Array<{
+					type: 'memory';
+					entityId: string;
+					entityName: string;
+					entityType: string;
+					content: string;
+					score: number;
+				}> = [];
+
+				const conversationResults: Array<{
+					type: 'conversation';
+					sessionId: string;
+					sessionKey: string | null;
+					title: string | null;
+					summary: string | null;
+					score: number;
+				}> = [];
+
+				// Search documents
+				if (includeDocuments) {
+					const docs = await hybridSearch({
+						queryText: query,
+						queryEmbedding,
+						limit,
+					});
+					for (const doc of docs) {
+						documentResults.push({
+							type: 'document',
+							id: doc.document_id,
+							title: doc.document_title,
+							content: doc.content,
+							score: doc.score * documentWeight,
+							sourceType: doc.source_type,
+						});
+					}
+				}
+
+				// Search memories
+				if (includeMemories && config.ENABLE_MEMORY) {
+					const memories = await hybridMemorySearch(query, queryEmbedding, { limit });
+					for (const mem of memories) {
+						memoryResults.push({
+							type: 'memory',
+							entityId: mem.entity_id,
+							entityName: mem.entity_name,
+							entityType: mem.entity_type,
+							content: mem.observation_content,
+							score: mem.score * memoryWeight,
+						});
+					}
+				}
+
+				// Search conversations
+				if (includeConversations && config.ENABLE_CONVERSATIONS) {
+					const convos = await hybridConversationSearch(query, queryEmbedding, { limit });
+					for (const conv of convos) {
+						conversationResults.push({
+							type: 'conversation',
+							sessionId: conv.session_id,
+							sessionKey: conv.session_key,
+							title: conv.title,
+							summary: conv.summary,
+							score: conv.score * conversationWeight,
+						});
+					}
+				}
+
+				// Merge and sort by weighted score
+				const allResults: Array<{
+					type: 'document' | 'memory' | 'conversation';
+					score: number;
+					data: unknown;
+				}> = [];
+
+				for (const doc of documentResults) {
+					allResults.push({
+						type: 'document',
+						score: doc.score,
+						data: {
+							id: doc.id,
+							title: doc.title,
+							content: doc.content.slice(0, 500), // Truncate for response size
+							sourceType: doc.sourceType,
+						},
+					});
+				}
+
+				for (const mem of memoryResults) {
+					allResults.push({
+						type: 'memory',
+						score: mem.score,
+						data: {
+							entityId: mem.entityId,
+							entityName: mem.entityName,
+							entityType: mem.entityType,
+							content: mem.content,
+						},
+					});
+				}
+
+				for (const conv of conversationResults) {
+					allResults.push({
+						type: 'conversation',
+						score: conv.score,
+						data: {
+							sessionId: conv.sessionId,
+							sessionKey: conv.sessionKey,
+							title: conv.title,
+							summary: conv.summary?.slice(0, 300),
+						},
+					});
+				}
+
+				// Sort by score (highest first)
+				allResults.sort((a, b) => b.score - a.score);
+
+				// Limit total results
+				const limitedResults = allResults.slice(0, limit * 2);
+
+				logger.info('search_with_context completed', {
+					documentCount: documentResults.length,
+					memoryCount: memoryResults.length,
+					conversationCount: conversationResults.length,
+					totalFused: limitedResults.length,
+				});
+
+				return {
+					content: [
+						{
+							type: 'text' as const,
+							text: JSON.stringify(
+								{
+									query,
+									sources: {
+										documents: includeDocuments,
+										memories: includeMemories && config.ENABLE_MEMORY,
+										conversations: includeConversations && config.ENABLE_CONVERSATIONS,
+									},
+									counts: {
+										documents: documentResults.length,
+										memories: memoryResults.length,
+										conversations: conversationResults.length,
+									},
+									results: limitedResults,
+								},
+								null,
+								2,
+							),
+						},
+					],
+				};
+			} catch (error) {
+				logger.error('search_with_context failed', {
+					error: error instanceof Error ? error.message : String(error),
+				});
+
+				return {
+					content: [
+						{
+							type: 'text' as const,
+							text: JSON.stringify(
+								{
+									error: 'Search failed',
+									message: error instanceof Error ? error.message : 'Unknown error',
+								},
+								null,
+								2,
+							),
+						},
+					],
+				};
+			}
+		},
+	);
+
+	logger.debug('Registered tool: search_with_context');
 }

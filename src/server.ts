@@ -1,4 +1,5 @@
 import { McpServer } from '@modelcontextprotocol/sdk/server/mcp.js';
+import { registerConversationTools } from './tools/conversation.js';
 import { registerDocumentTools } from './tools/document.js';
 import { registerMemoryTools } from './tools/memory.js';
 import { registerNoteTool } from './tools/note.js';
@@ -32,10 +33,19 @@ export function createMcpServer(): McpServer {
 		logger.info('Memory tools disabled (ENABLE_MEMORY=false)');
 	}
 
+	// Register conversation tools (feature flagged)
+	if (config.ENABLE_CONVERSATIONS) {
+		registerConversationTools(server);
+		logger.info('Conversation tools enabled');
+	} else {
+		logger.info('Conversation tools disabled (ENABLE_CONVERSATIONS=false)');
+	}
+
 	logger.info('MCP server created', {
 		name: 'textrawl',
 		version: '0.2.0',
 		memoryEnabled: config.ENABLE_MEMORY,
+		conversationsEnabled: config.ENABLE_CONVERSATIONS,
 	});
 
 	return server;

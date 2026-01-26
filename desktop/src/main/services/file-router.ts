@@ -366,7 +366,9 @@ export async function scanPaths(paths: string[]): Promise<ScannedFile[]> {
 					console.error(`[file-router] classifying ZIP file: "${path}"`);
 					type = await classifyZip(path);
 					converterType = CONVERTER_MAP[type];
-					console.error(`[file-router] ZIP classified as: type="${type}" converterType="${converterType}"`);
+					console.error(
+						`[file-router] ZIP classified as: type="${type}" converterType="${converterType}"`,
+					);
 				}
 
 				if (type !== 'unknown' && converterType !== null) {
@@ -407,7 +409,7 @@ export async function classifyZip(zipPath: string): Promise<FileType> {
 		const hasFacebookSignature = entries.some(
 			(e) =>
 				(e.includes('/messages/') || e.startsWith('messages/')) &&
-				(entries.some((f) => f.endsWith('index.htm') || f.endsWith('index.html'))),
+				entries.some((f) => f.endsWith('index.htm') || f.endsWith('index.html')),
 		);
 		if (hasFacebookSignature) {
 			console.error('[file-router] classifyZip: detected Facebook export');
