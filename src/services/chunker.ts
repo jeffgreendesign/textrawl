@@ -429,7 +429,7 @@ export async function chunkTextSemantic(
 			// Can merge
 			accumulator = {
 				spans: [...accumulator.spans, ...group.spans],
-				text: accumulator.text + ' ' + group.text,
+				text: `${accumulator.text} ${group.text}`,
 				startOffset: accumulator.startOffset,
 				endOffset: group.endOffset,
 			};
@@ -440,7 +440,7 @@ export async function chunkTextSemantic(
 			// Current accumulator is too small, try to merge even if slightly over max
 			accumulator = {
 				spans: [...accumulator.spans, ...group.spans],
-				text: accumulator.text + ' ' + group.text,
+				text: `${accumulator.text} ${group.text}`,
 				startOffset: accumulator.startOffset,
 				endOffset: group.endOffset,
 			};

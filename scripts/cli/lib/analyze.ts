@@ -54,9 +54,7 @@ function sanitizeFolderPath(folderPath: string): string {
 	const isWithinCwd = realPath === cwdDir || realPath.startsWith(cwdDir + sep);
 
 	if (!isWithinHome && !isWithinTemp && !isWithinCwd) {
-		throw new Error(
-			`Directory must be within home, temp, or working directory: ${realPath}`,
-		);
+		throw new Error(`Directory must be within home, temp, or working directory: ${realPath}`);
 	}
 
 	return realPath;
@@ -112,7 +110,7 @@ export async function analyzeMbox(filePath: string): Promise<AnalysisResult> {
 			}
 			if (currentDate) {
 				const parsed = new Date(currentDate);
-				if (!isNaN(parsed.getTime())) {
+				if (!Number.isNaN(parsed.getTime())) {
 					dates.push(parsed);
 				}
 			}
@@ -137,7 +135,7 @@ export async function analyzeMbox(filePath: string): Promise<AnalysisResult> {
 	}
 	if (currentDate) {
 		const parsed = new Date(currentDate);
-		if (!isNaN(parsed.getTime())) {
+		if (!Number.isNaN(parsed.getTime())) {
 			dates.push(parsed);
 		}
 	}
@@ -199,7 +197,7 @@ export async function analyzeSpotify(folderPath: string): Promise<AnalysisResult
 				for (const entry of data.slice(0, 100)) {
 					if (entry.endTime) {
 						const parsed = new Date(entry.endTime);
-						if (!isNaN(parsed.getTime())) {
+						if (!Number.isNaN(parsed.getTime())) {
 							dates.push(parsed);
 						}
 					}

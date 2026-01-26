@@ -126,7 +126,7 @@ export async function extractMemoriesFromText(text: string): Promise<ExtractionR
 	// Truncate text if too long (keep under 10k tokens)
 	const maxChars = 30000; // ~7500 tokens
 	const truncatedText =
-		text.length > maxChars ? text.slice(0, maxChars) + '\n\n[Text truncated...]' : text;
+		text.length > maxChars ? `${text.slice(0, maxChars)}\n\n[Text truncated...]` : text;
 
 	logger.info('Extracting memories from text', {
 		originalLength: text.length,
@@ -351,8 +351,13 @@ export async function storeExtractedMemories(
 				else result.entitiesExisting++;
 			}
 
-			const finalFromId = entityIdMap.get(relation.from.toLowerCase())!;
-			const finalToId = entityIdMap.get(relation.to.toLowerCase())!;
+			const finalFromId = entityIdMap.get(relation.from.toLowerCase());
+			const finalToId = entityIdMap.get(relation.to.toLowerCase());
+
+			if (!finalFromId || !finalToId) {
+				result.errors.push(`Missing entity ID for relation ${relation.from} -> ${relation.to}`);
+				continue;
+			}
 
 			await getOrCreateRelation({
 				fromEntityId: finalFromId,

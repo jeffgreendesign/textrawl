@@ -136,7 +136,7 @@ export async function analyzeMbox(filePath: string): Promise<MboxAnalysis> {
 			}
 			if (currentDate) {
 				const parsed = new Date(currentDate);
-				if (!isNaN(parsed.getTime())) {
+				if (!Number.isNaN(parsed.getTime())) {
 					dates.push(parsed);
 				}
 			}
@@ -163,7 +163,7 @@ export async function analyzeMbox(filePath: string): Promise<MboxAnalysis> {
 	}
 	if (currentDate) {
 		const parsed = new Date(currentDate);
-		if (!isNaN(parsed.getTime())) {
+		if (!Number.isNaN(parsed.getTime())) {
 			dates.push(parsed);
 		}
 	}

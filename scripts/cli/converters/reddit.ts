@@ -463,8 +463,8 @@ async function convertMessages(
 			threadMessages.sort((a, b) => {
 				const timeA = new Date(a.date).getTime();
 				const timeB = new Date(b.date).getTime();
-				const safeA = isNaN(timeA) ? Number.POSITIVE_INFINITY : timeA;
-				const safeB = isNaN(timeB) ? Number.POSITIVE_INFINITY : timeB;
+				const safeA = Number.isNaN(timeA) ? Number.POSITIVE_INFINITY : timeA;
+				const safeB = Number.isNaN(timeB) ? Number.POSITIVE_INFINITY : timeB;
 				return safeA - safeB;
 			});
 
@@ -660,7 +660,7 @@ async function convertReddit(inputPath: string, options: RedditOptions): Promise
 		const analysis = await analyzeReddit(redditDir);
 
 		logger.info('');
-		logger.info(`  Reddit Data Export Analysis`);
+		logger.info('  Reddit Data Export Analysis');
 		logger.info(`  ${'─'.repeat(40)}`);
 		logger.info(`  Directory: ${analysis.filename}`);
 		logger.info(`  Size: ${(analysis.fileSizeBytes / 1024).toFixed(1)} KB`);

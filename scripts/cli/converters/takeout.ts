@@ -721,7 +721,7 @@ async function convertTakeout(inputPath: string, options: TakeoutOptions): Promi
 		const analysis = await analyzeTakeout(resolvedInput);
 
 		logger.info('');
-		logger.info(`  Google Takeout Analysis`);
+		logger.info('  Google Takeout Analysis');
 		logger.info(`  ${'─'.repeat(40)}`);
 		logger.info(`  File: ${analysis.filename}`);
 		logger.info(`  Size: ${(analysis.fileSizeBytes / 1024 / 1024).toFixed(1)} MB`);

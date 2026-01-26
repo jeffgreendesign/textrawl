@@ -547,7 +547,7 @@ async function convertSpotify(inputPath: string, options: SpotifyOptions): Promi
 		const analysis = await analyzeSpotify(resolvedInput);
 
 		logger.info('');
-		logger.info(`  Spotify Data Export Analysis`);
+		logger.info('  Spotify Data Export Analysis');
 		logger.info(`  ${'─'.repeat(40)}`);
 		logger.info(`  File: ${analysis.filename}`);
 		logger.info(`  Size: ${(analysis.fileSizeBytes / 1024 / 1024).toFixed(1)} MB`);

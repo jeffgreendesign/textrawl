@@ -163,8 +163,9 @@ function parseHTMLMessages(filePath: string): FacebookConversation | null {
 	const messagePattern =
 		/<div class="message_header">[\s\S]*?<span class="user">([^<]*)<\/span>[\s\S]*?<span class="meta">([^<]+)<\/span>[\s\S]*?<\/div>[\s\S]*?<\/div>(?:<p>([^<]*)<\/p>)?/g;
 
-	let match;
-	while ((match = messagePattern.exec(html)) !== null) {
+	while (true) {
+		const match = messagePattern.exec(html);
+		if (!match) break;
 		const sender = match[1]?.trim() || 'Unknown';
 		const timestamp = match[2]?.trim() || '';
 		const content = match[3]?.trim() || '';
@@ -178,8 +179,9 @@ function parseHTMLMessages(filePath: string): FacebookConversation | null {
 	if (messages.length === 0) {
 		// Try a simpler extraction - find all <p> tags after message_header divs
 		const simplePattern = /<p>([^<]+)<\/p>/g;
-		let simpleMatch;
-		while ((simpleMatch = simplePattern.exec(html)) !== null) {
+		while (true) {
+			const simpleMatch = simplePattern.exec(html);
+			if (!simpleMatch) break;
 			const content = simpleMatch[1]?.trim();
 			if (content && content.length > 0) {
 				messages.push({
@@ -344,8 +346,8 @@ async function convertMessages(
 				const timeA = a.timestamp ? new Date(a.timestamp).getTime() : Number.POSITIVE_INFINITY;
 				const timeB = b.timestamp ? new Date(b.timestamp).getTime() : Number.POSITIVE_INFINITY;
 				// Handle NaN from malformed timestamps
-				const safeA = isNaN(timeA) ? Number.POSITIVE_INFINITY : timeA;
-				const safeB = isNaN(timeB) ? Number.POSITIVE_INFINITY : timeB;
+				const safeA = Number.isNaN(timeA) ? Number.POSITIVE_INFINITY : timeA;
+				const safeB = Number.isNaN(timeB) ? Number.POSITIVE_INFINITY : timeB;
 				return safeA - safeB;
 			});
 
@@ -474,7 +476,7 @@ async function convertFacebook(inputPath: string, options: FacebookOptions): Pro
 			const analysis = await analyzeFacebook(facebookDir);
 
 			logger.info('');
-			logger.info(`  Facebook Data Export Analysis`);
+			logger.info('  Facebook Data Export Analysis');
 			logger.info(`  ${'─'.repeat(40)}`);
 			logger.info(`  Directory: ${analysis.filename}`);
 			logger.info(`  Size: ${(analysis.fileSizeBytes / 1024).toFixed(1)} KB`);

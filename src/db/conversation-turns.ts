@@ -106,8 +106,10 @@ export async function createTurns(input: CreateTurnsInput): Promise<Conversation
 	const client = getSupabaseClient();
 
 	// Get the starting index
-	let startIndex = input.startIndex;
-	if (startIndex === undefined) {
+	let startIndex: number;
+	if (input.startIndex !== undefined) {
+		startIndex = input.startIndex;
+	} else {
 		const { data: lastTurn } = await client
 			.from('conversation_turns')
 			.select('turn_index')
@@ -125,7 +127,7 @@ export async function createTurns(input: CreateTurnsInput): Promise<Conversation
 		role: turn.role,
 		content: turn.content,
 		embedding: turn.embedding || null,
-		turn_index: startIndex! + i,
+		turn_index: startIndex + i,
 		token_count: turn.tokenCount || null,
 		metadata: turn.metadata || {},
 	}));

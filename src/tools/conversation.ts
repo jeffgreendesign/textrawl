@@ -8,6 +8,7 @@ import {
 	searchConversationTurns,
 } from '../db/conversation-search.js';
 import {
+	type ConversationSession,
 	createSession,
 	deleteSession,
 	findSessionByKey,
@@ -121,7 +122,7 @@ export function registerConversationTools(server: McpServer): void {
 				});
 
 				// Create or update session
-				let session;
+				let session: ConversationSession;
 				if (sessionKey) {
 					session = await getOrCreateSession(sessionKey, {
 						title,
@@ -579,7 +580,18 @@ export function registerConversationTools(server: McpServer): void {
 					resolvedSessionId = session.id;
 				}
 
-				const result = await getConversationWithTurns(resolvedSessionId!, { maxTurns });
+				if (!resolvedSessionId) {
+					return {
+						content: [
+							{
+								type: 'text' as const,
+								text: toJSON({ error: 'No session ID resolved' }),
+							},
+						],
+					};
+				}
+
+				const result = await getConversationWithTurns(resolvedSessionId, { maxTurns });
 
 				if (!result) {
 					return {
@@ -724,7 +736,18 @@ export function registerConversationTools(server: McpServer): void {
 					resolvedSessionId = session.id;
 				}
 
-				await deleteSession(resolvedSessionId!);
+				if (!resolvedSessionId) {
+					return {
+						content: [
+							{
+								type: 'text' as const,
+								text: toJSON({ error: 'No session ID resolved' }),
+							},
+						],
+					};
+				}
+
+				await deleteSession(resolvedSessionId);
 
 				logger.info('Conversation deleted', { sessionId: resolvedSessionId });
 
@@ -738,7 +761,7 @@ export function registerConversationTools(server: McpServer): void {
 									: {
 											success: true,
 											message: 'Conversation deleted',
-											deletedSessionId: formatId(resolvedSessionId!),
+											deletedSessionId: formatId(resolvedSessionId),
 										},
 							),
 						},
