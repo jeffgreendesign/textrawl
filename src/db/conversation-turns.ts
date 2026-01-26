@@ -130,10 +130,7 @@ export async function createTurns(input: CreateTurnsInput): Promise<Conversation
 		metadata: turn.metadata || {},
 	}));
 
-	const { data, error } = await client
-		.from('conversation_turns')
-		.insert(turnRecords)
-		.select();
+	const { data, error } = await client.from('conversation_turns').insert(turnRecords).select();
 
 	if (error) {
 		logger.error('Failed to create turns', { error: error.message });
@@ -157,11 +154,7 @@ export async function getTurn(id: string): Promise<ConversationTurn> {
 
 	const client = getSupabaseClient();
 
-	const { data, error } = await client
-		.from('conversation_turns')
-		.select('*')
-		.eq('id', id)
-		.single();
+	const { data, error } = await client.from('conversation_turns').select('*').eq('id', id).single();
 
 	if (error) {
 		if (error.code === 'PGRST116') {
@@ -213,10 +206,7 @@ export async function getSessionTurns(
 /**
  * Get recent turns for a session (useful for context window)
  */
-export async function getRecentTurns(
-	sessionId: string,
-	limit: number = 10,
-): Promise<ConversationTurn[]> {
+export async function getRecentTurns(sessionId: string, limit = 10): Promise<ConversationTurn[]> {
 	if (!isSupabaseConfigured()) {
 		throw new DatabaseError('Supabase not configured');
 	}
@@ -300,10 +290,7 @@ export async function updateTurnEmbedding(id: string, embedding: number[]): Prom
 
 	const client = getSupabaseClient();
 
-	const { error } = await client
-		.from('conversation_turns')
-		.update({ embedding })
-		.eq('id', id);
+	const { error } = await client.from('conversation_turns').update({ embedding }).eq('id', id);
 
 	if (error) {
 		logger.error('Failed to update turn embedding', { error: error.message });

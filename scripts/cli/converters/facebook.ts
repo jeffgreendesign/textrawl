@@ -26,8 +26,8 @@ import { basename, join, resolve } from 'node:path';
 // @ts-ignore - unzipper types
 import * as unzipper from 'unzipper';
 
-import { type CommonOptions, createBaseCommand } from '../lib/args.js';
 import { analyzeFacebook } from '../lib/analyze.js';
+import { type CommonOptions, createBaseCommand } from '../lib/args.js';
 import { createFrontmatter, serializeFrontmatter } from '../lib/frontmatter.js';
 import { slugify, stripHtml } from '../lib/normalizer.js';
 import { ProgressReporter, logger } from '../lib/progress.js';
@@ -149,7 +149,10 @@ function parseHTMLMessages(filePath: string): FacebookConversation | null {
 	// Extract participants from text after "Participants:"
 	const participantsMatch = html.match(/Participants:\s*([^<]+)/);
 	const participants = participantsMatch
-		? participantsMatch[1].split(',').map((p) => p.trim()).filter(Boolean)
+		? participantsMatch[1]
+				.split(',')
+				.map((p) => p.trim())
+				.filter(Boolean)
 		: [];
 
 	// Extract messages - they're in divs with class "message"
@@ -228,9 +231,7 @@ function parseJSONMessages(filePath: string): FacebookConversation | null {
 			if (msgContent.trim()) {
 				messages.push({
 					sender: msg.sender_name || 'Unknown',
-					timestamp: msg.timestamp_ms
-						? new Date(msg.timestamp_ms).toISOString()
-						: '',
+					timestamp: msg.timestamp_ms ? new Date(msg.timestamp_ms).toISOString() : '',
 					content: msgContent.trim(),
 				});
 			}
@@ -314,8 +315,7 @@ async function convertMessages(
 		progress.update(i + 1, basename(file));
 
 		try {
-			const conversation =
-				format === 'html' ? parseHTMLMessages(file) : parseJSONMessages(file);
+			const conversation = format === 'html' ? parseHTMLMessages(file) : parseJSONMessages(file);
 
 			if (!conversation) continue;
 
@@ -330,7 +330,9 @@ async function convertMessages(
 			}
 		} catch (error) {
 			errors++;
-			progress.log(`  ✗ ${basename(file)}: ${error instanceof Error ? error.message : String(error)}`);
+			progress.log(
+				`  ✗ ${basename(file)}: ${error instanceof Error ? error.message : String(error)}`,
+			);
 		}
 	}
 
@@ -360,17 +362,8 @@ async function convertMessages(
 				contentLines.push('## Messages', '');
 
 				for (const msg of conversation.messages) {
-					const timestamp = msg.timestamp
-						? `*${new Date(msg.timestamp).toLocaleString()}*`
-						: '';
-					contentLines.push(
-						`**${msg.sender}** ${timestamp}`,
-						'',
-						msg.content,
-						'',
-						'---',
-						'',
-					);
+					const timestamp = msg.timestamp ? `*${new Date(msg.timestamp).toLocaleString()}*` : '';
+					contentLines.push(`**${msg.sender}** ${timestamp}`, '', msg.content, '', '---', '');
 				}
 			}
 
@@ -420,7 +413,9 @@ async function convertMessages(
 			}
 		} catch (error) {
 			errors++;
-			progress.log(`  ✗ ${conversation.title}: ${error instanceof Error ? error.message : String(error)}`);
+			progress.log(
+				`  ✗ ${conversation.title}: ${error instanceof Error ? error.message : String(error)}`,
+			);
 		}
 	}
 
@@ -486,7 +481,9 @@ async function convertFacebook(inputPath: string, options: FacebookOptions): Pro
 			logger.info('');
 			logger.info(`  Total Items: ${analysis.totalItems.toLocaleString()}`);
 			logger.info(`  Estimated Output Files: ${analysis.estimatedOutputFiles.toLocaleString()}`);
-			logger.info(`  Estimated Output Size: ${(analysis.estimatedOutputSizeBytes / 1024).toFixed(1)} KB`);
+			logger.info(
+				`  Estimated Output Size: ${(analysis.estimatedOutputSizeBytes / 1024).toFixed(1)} KB`,
+			);
 			logger.info('');
 
 			if (analysis.breakdown) {

@@ -2,6 +2,12 @@ import type { McpServer } from '@modelcontextprotocol/sdk/server/mcp.js';
 import { z } from 'zod';
 import { isSupabaseConfigured } from '../db/client.js';
 import {
+	getConversationSearchStats,
+	getConversationWithTurns,
+	hybridConversationSearch,
+	searchConversationTurns,
+} from '../db/conversation-search.js';
+import {
 	createSession,
 	deleteSession,
 	findSessionByKey,
@@ -10,17 +16,7 @@ import {
 	listSessions,
 	updateSession,
 } from '../db/conversation-sessions.js';
-import {
-	createTurns,
-	getRecentTurns,
-	getSessionTurns,
-} from '../db/conversation-turns.js';
-import {
-	getConversationWithTurns,
-	hybridConversationSearch,
-	searchConversationTurns,
-	getConversationSearchStats,
-} from '../db/conversation-search.js';
+import { createTurns, getRecentTurns, getSessionTurns } from '../db/conversation-turns.js';
 import { generateEmbedding, isOpenAIConfigured } from '../services/embeddings.js';
 import { config } from '../utils/config.js';
 import { logger } from '../utils/logger.js';
@@ -60,16 +56,8 @@ export function registerConversationTools(server: McpServer): void {
 				.max(200)
 				.optional()
 				.describe('Optional session key to identify this conversation'),
-			title: z
-				.string()
-				.max(500)
-				.optional()
-				.describe('Title for this conversation'),
-			summary: z
-				.string()
-				.min(1)
-				.max(10000)
-				.describe('Summary of the conversation context to save'),
+			title: z.string().max(500).optional().describe('Title for this conversation'),
+			summary: z.string().min(1).max(10000).describe('Summary of the conversation context to save'),
 			recentTurns: z
 				.array(
 					z.object({
@@ -83,7 +71,9 @@ export function registerConversationTools(server: McpServer): void {
 			embedTurns: z
 				.boolean()
 				.default(false)
-				.describe('Generate embeddings for individual turns (slower but enables turn-level search)'),
+				.describe(
+					'Generate embeddings for individual turns (slower but enables turn-level search)',
+				),
 		},
 		async ({ sessionKey, title, summary, recentTurns, embedTurns }) => {
 			logger.info('save_conversation_context called', {
@@ -232,11 +222,7 @@ export function registerConversationTools(server: McpServer): void {
 	server.tool(
 		'recall_conversation',
 		{
-			query: z
-				.string()
-				.min(1)
-				.max(1000)
-				.describe('What to search for in past conversations'),
+			query: z.string().min(1).max(1000).describe('What to search for in past conversations'),
 			limit: z
 				.number()
 				.int()
@@ -400,7 +386,9 @@ export function registerConversationTools(server: McpServer): void {
 								s: Math.round(r.score * 100) / 100,
 								sum: r.summary?.slice(0, 200),
 								turns: r.turns?.map((t) => ({ r: t.role[0], c: t.content })),
-								matched: r.matchedTurns?.slice(0, 3).map((t) => ({ r: t.role[0], c: t.content.slice(0, 100) })),
+								matched: r.matchedTurns
+									?.slice(0, 3)
+									.map((t) => ({ r: t.role[0], c: t.content.slice(0, 100) })),
 							})),
 						}
 					: {
@@ -460,12 +448,7 @@ export function registerConversationTools(server: McpServer): void {
 				.max(50)
 				.default(20)
 				.describe('Maximum number of conversations to return'),
-			offset: z
-				.number()
-				.int()
-				.min(0)
-				.default(0)
-				.describe('Pagination offset'),
+			offset: z.number().int().min(0).default(0).describe('Pagination offset'),
 		},
 		async ({ limit, offset }) => {
 			logger.info('list_conversations called', { limit, offset });
@@ -545,21 +528,9 @@ export function registerConversationTools(server: McpServer): void {
 	server.tool(
 		'get_conversation',
 		{
-			sessionId: z
-				.string()
-				.optional()
-				.describe('Session ID to retrieve'),
-			sessionKey: z
-				.string()
-				.optional()
-				.describe('Session key to retrieve'),
-			maxTurns: z
-				.number()
-				.int()
-				.min(1)
-				.max(200)
-				.default(50)
-				.describe('Maximum turns to include'),
+			sessionId: z.string().optional().describe('Session ID to retrieve'),
+			sessionKey: z.string().optional().describe('Session key to retrieve'),
+			maxTurns: z.number().int().min(1).max(200).default(50).describe('Maximum turns to include'),
 		},
 		async ({ sessionId, sessionKey, maxTurns }) => {
 			logger.info('get_conversation called', { sessionId, sessionKey, maxTurns });
@@ -618,7 +589,10 @@ export function registerConversationTools(server: McpServer): void {
 								text: toJSON(
 									isCompact()
 										? { found: false }
-										: { found: false, message: `No conversation found with ID: ${resolvedSessionId}` },
+										: {
+												found: false,
+												message: `No conversation found with ID: ${resolvedSessionId}`,
+											},
 								),
 							},
 						],
@@ -692,17 +666,9 @@ export function registerConversationTools(server: McpServer): void {
 	server.tool(
 		'delete_conversation',
 		{
-			sessionId: z
-				.string()
-				.optional()
-				.describe('Session ID to delete'),
-			sessionKey: z
-				.string()
-				.optional()
-				.describe('Session key to delete'),
-			confirm: z
-				.boolean()
-				.describe('Must be true to confirm deletion'),
+			sessionId: z.string().optional().describe('Session ID to delete'),
+			sessionKey: z.string().optional().describe('Session key to delete'),
+			confirm: z.boolean().describe('Must be true to confirm deletion'),
 		},
 		async ({ sessionId, sessionKey, confirm }) => {
 			logger.info('delete_conversation called', { sessionId, sessionKey, confirm });

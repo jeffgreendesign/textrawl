@@ -46,7 +46,9 @@ export function registerSearchTool(server: McpServer): void {
 			contentType: z
 				.enum(['email', 'youtube', 'calendar', 'contact', 'webpage', 'document'])
 				.optional()
-				.describe('Filter by content type (email, youtube watch history, calendar events, contacts, webpages)'),
+				.describe(
+					'Filter by content type (email, youtube watch history, calendar events, contacts, webpages)',
+				),
 			minScore: z
 				.number()
 				.min(0)
@@ -54,7 +56,16 @@ export function registerSearchTool(server: McpServer): void {
 				.optional()
 				.describe('Minimum relevance score threshold (0-1) to filter out low-quality results'),
 		},
-		async ({ query, limit, fullTextWeight, semanticWeight, tags, sourceType, contentType, minScore }) => {
+		async ({
+			query,
+			limit,
+			fullTextWeight,
+			semanticWeight,
+			tags,
+			sourceType,
+			contentType,
+			minScore,
+		}) => {
 			logger.info('search_knowledge called', {
 				query,
 				limit,
@@ -211,22 +222,9 @@ export function registerSearchTool(server: McpServer): void {
 	server.tool(
 		'search_with_context',
 		{
-			query: z
-				.string()
-				.min(1)
-				.max(10000)
-				.describe('Natural language search query'),
-			limit: z
-				.number()
-				.int()
-				.min(1)
-				.max(30)
-				.default(10)
-				.describe('Maximum results per source'),
-			includeDocuments: z
-				.boolean()
-				.default(true)
-				.describe('Search documents/notes'),
+			query: z.string().min(1).max(10000).describe('Natural language search query'),
+			limit: z.number().int().min(1).max(30).default(10).describe('Maximum results per source'),
+			includeDocuments: z.boolean().default(true).describe('Search documents/notes'),
 			includeMemories: z
 				.boolean()
 				.default(true)
@@ -470,10 +468,14 @@ export function registerSearchTool(server: McpServer): void {
 					content: [
 						{
 							type: 'text' as const,
-							text: JSON.stringify({
-								error: 'Search failed',
-								message: error instanceof Error ? error.message : 'Unknown error',
-							}, null, 2),
+							text: JSON.stringify(
+								{
+									error: 'Search failed',
+									message: error instanceof Error ? error.message : 'Unknown error',
+								},
+								null,
+								2,
+							),
 						},
 					],
 				};

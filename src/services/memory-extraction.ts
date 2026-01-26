@@ -6,9 +6,9 @@ import {
 	findSimilarObservation,
 } from '../db/memory-observations.js';
 import { getOrCreateRelation } from '../db/memory-relations.js';
-import { generateEmbedding } from './embeddings.js';
 import { config } from '../utils/config.js';
 import { logger } from '../utils/logger.js';
+import { generateEmbedding } from './embeddings.js';
 
 /**
  * Extracted entity from text
@@ -116,14 +116,17 @@ function getAnthropicClient(): Anthropic {
  */
 export async function extractMemoriesFromText(text: string): Promise<ExtractionResult> {
 	if (!isExtractionConfigured()) {
-		throw new Error('Memory extraction not configured. Set ENABLE_MEMORY_EXTRACTION=true and ANTHROPIC_API_KEY');
+		throw new Error(
+			'Memory extraction not configured. Set ENABLE_MEMORY_EXTRACTION=true and ANTHROPIC_API_KEY',
+		);
 	}
 
 	const client = getAnthropicClient();
 
 	// Truncate text if too long (keep under 10k tokens)
 	const maxChars = 30000; // ~7500 tokens
-	const truncatedText = text.length > maxChars ? text.slice(0, maxChars) + '\n\n[Text truncated...]' : text;
+	const truncatedText =
+		text.length > maxChars ? text.slice(0, maxChars) + '\n\n[Text truncated...]' : text;
 
 	logger.info('Extracting memories from text', {
 		originalLength: text.length,
@@ -187,9 +190,7 @@ export async function extractMemoriesFromText(text: string): Promise<ExtractionR
 				if (!Array.isArray(e.observations)) {
 					e.observations = [];
 				}
-				e.observations = e.observations.filter(
-					(o) => typeof o === 'string' && o.trim().length > 0
-				);
+				e.observations = e.observations.filter((o) => typeof o === 'string' && o.trim().length > 0);
 				return e.name.trim().length > 0;
 			});
 
@@ -231,9 +232,15 @@ export async function extractMemoriesFromText(text: string): Promise<ExtractionR
  * Validate entity type
  */
 function isValidEntityType(type: string): type is EntityType {
-	return ['person', 'concept', 'project', 'preference', 'fact', 'location', 'organization'].includes(
-		type
-	);
+	return [
+		'person',
+		'concept',
+		'project',
+		'preference',
+		'fact',
+		'location',
+		'organization',
+	].includes(type);
 }
 
 /**
@@ -241,7 +248,7 @@ function isValidEntityType(type: string): type is EntityType {
  */
 export async function storeExtractedMemories(
 	extraction: ExtractionResult,
-	source: ObservationSource = 'extraction'
+	source: ObservationSource = 'extraction',
 ): Promise<StorageResult> {
 	const result: StorageResult = {
 		entitiesCreated: 0,
@@ -299,13 +306,13 @@ export async function storeExtractedMemories(
 					result.observationsCreated++;
 				} catch (obsError) {
 					result.errors.push(
-						`Failed to create observation for ${entity.name}: ${obsError instanceof Error ? obsError.message : String(obsError)}`
+						`Failed to create observation for ${entity.name}: ${obsError instanceof Error ? obsError.message : String(obsError)}`,
 					);
 				}
 			}
 		} catch (entityError) {
 			result.errors.push(
-				`Failed to create entity ${entity.name}: ${entityError instanceof Error ? entityError.message : String(entityError)}`
+				`Failed to create entity ${entity.name}: ${entityError instanceof Error ? entityError.message : String(entityError)}`,
 			);
 		}
 	}
@@ -345,7 +352,7 @@ export async function storeExtractedMemories(
 			result.relationsCreated++;
 		} catch (relError) {
 			result.errors.push(
-				`Failed to create relation ${relation.from} -> ${relation.to}: ${relError instanceof Error ? relError.message : String(relError)}`
+				`Failed to create relation ${relation.from} -> ${relation.to}: ${relError instanceof Error ? relError.message : String(relError)}`,
 			);
 		}
 	}
@@ -366,7 +373,7 @@ export async function storeExtractedMemories(
  */
 export async function extractAndStoreMemories(
 	text: string,
-	source: ObservationSource = 'extraction'
+	source: ObservationSource = 'extraction',
 ): Promise<{
 	extraction: ExtractionResult;
 	storage: StorageResult;

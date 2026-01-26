@@ -13,8 +13,8 @@ import { createHash } from 'node:crypto';
 import { existsSync, mkdirSync, readFileSync, readdirSync, statSync, writeFileSync } from 'node:fs';
 import { basename, dirname, join, resolve } from 'node:path';
 
-import { type CommonOptions, createBaseCommand } from '../lib/args.js';
 import { analyzeInstagram } from '../lib/analyze.js';
+import { type CommonOptions, createBaseCommand } from '../lib/args.js';
 import { createFrontmatter, serializeFrontmatter } from '../lib/frontmatter.js';
 import { slugify, stripHtml } from '../lib/normalizer.js';
 import { ProgressReporter, logger } from '../lib/progress.js';
@@ -123,7 +123,10 @@ function parseInstagramMessages(filePath: string): InstagramConversation | null 
 	// Extract participants from "Participants:" text
 	const participantsMatch = html.match(/Participants:\s*([^<]+)/);
 	const participants = participantsMatch
-		? participantsMatch[1].split(',').map((p) => p.trim()).filter(Boolean)
+		? participantsMatch[1]
+				.split(',')
+				.map((p) => p.trim())
+				.filter(Boolean)
 		: [];
 
 	// Parse messages from HTML structure
@@ -158,7 +161,7 @@ function parseInstagramMessages(filePath: string): InstagramConversation | null 
 
 		// Extract content
 		const contentMatch = block.match(/<div class="[^"]*_2let[^"]*">([\s\S]*?)<\/div>/);
-		let content = contentMatch ? extractTextFromHtml(contentMatch[1]) : '';
+		const content = contentMatch ? extractTextFromHtml(contentMatch[1]) : '';
 
 		// Extract timestamp
 		const timestampMatch = block.match(/<div class="[^"]*_2lem[^"]*">([^<]+)<\/div>/);
@@ -245,7 +248,8 @@ function parseCommentsHtml(filePath: string): Array<{ content: string; timestamp
 	const comments: Array<{ content: string; timestamp?: string }> = [];
 
 	// Pattern for comment blocks - match content and timestamp together
-	const commentBlockPattern = /<div class="[^"]*_2let[^"]*">([\s\S]*?)<\/div>[\s\S]*?<div class="[^"]*_2lem[^"]*">([^<]+)<\/div>/g;
+	const commentBlockPattern =
+		/<div class="[^"]*_2let[^"]*">([\s\S]*?)<\/div>[\s\S]*?<div class="[^"]*_2lem[^"]*">([^<]+)<\/div>/g;
 
 	let match;
 	while ((match = commentBlockPattern.exec(html)) !== null) {
@@ -267,7 +271,8 @@ function parseLikesHtml(filePath: string): Array<{ content: string; timestamp?: 
 	const likes: Array<{ content: string; timestamp?: string }> = [];
 
 	// Pattern for like entries - match content and timestamp together
-	const likeBlockPattern = /<div class="[^"]*_2let[^"]*">([\s\S]*?)<\/div>[\s\S]*?<div class="[^"]*_2lem[^"]*">([^<]+)<\/div>/g;
+	const likeBlockPattern =
+		/<div class="[^"]*_2let[^"]*">([\s\S]*?)<\/div>[\s\S]*?<div class="[^"]*_2lem[^"]*">([^<]+)<\/div>/g;
 
 	let match;
 	while ((match = likeBlockPattern.exec(html)) !== null) {
@@ -329,7 +334,9 @@ async function convertMessages(
 			}
 		} catch (error) {
 			errors++;
-			progress.log(`  ✗ ${basename(file)}: ${error instanceof Error ? error.message : String(error)}`);
+			progress.log(
+				`  ✗ ${basename(file)}: ${error instanceof Error ? error.message : String(error)}`,
+			);
 		}
 	}
 
@@ -425,7 +432,9 @@ async function convertMessages(
 			}
 		} catch (error) {
 			errors++;
-			progress.log(`  ✗ ${conversation.title}: ${error instanceof Error ? error.message : String(error)}`);
+			progress.log(
+				`  ✗ ${conversation.title}: ${error instanceof Error ? error.message : String(error)}`,
+			);
 		}
 	}
 
@@ -652,7 +661,9 @@ async function convertInstagram(inputPath: string, options: InstagramOptions): P
 		logger.info('');
 		logger.info(`  Total Items: ${analysis.totalItems.toLocaleString()}`);
 		logger.info(`  Estimated Output Files: ${analysis.estimatedOutputFiles.toLocaleString()}`);
-		logger.info(`  Estimated Output Size: ${(analysis.estimatedOutputSizeBytes / 1024).toFixed(1)} KB`);
+		logger.info(
+			`  Estimated Output Size: ${(analysis.estimatedOutputSizeBytes / 1024).toFixed(1)} KB`,
+		);
 		logger.info('');
 
 		if (analysis.breakdown) {

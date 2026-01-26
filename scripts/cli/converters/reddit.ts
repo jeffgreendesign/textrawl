@@ -13,8 +13,8 @@ import { createHash } from 'node:crypto';
 import { existsSync, mkdirSync, readFileSync, readdirSync, statSync, writeFileSync } from 'node:fs';
 import { basename, join, resolve } from 'node:path';
 
-import { type CommonOptions, createBaseCommand } from '../lib/args.js';
 import { analyzeReddit } from '../lib/analyze.js';
+import { type CommonOptions, createBaseCommand } from '../lib/args.js';
 import { createFrontmatter, serializeFrontmatter } from '../lib/frontmatter.js';
 import { slugify } from '../lib/normalizer.js';
 import { ProgressReporter, logger } from '../lib/progress.js';
@@ -303,7 +303,9 @@ async function convertComments(
 			}
 		} catch (error) {
 			errors++;
-			progress.log(`  ✗ Comment ${comment.id}: ${error instanceof Error ? error.message : String(error)}`);
+			progress.log(
+				`  ✗ Comment ${comment.id}: ${error instanceof Error ? error.message : String(error)}`,
+			);
 		}
 	}
 
@@ -411,7 +413,9 @@ async function convertPosts(
 			}
 		} catch (error) {
 			errors++;
-			progress.log(`  ✗ Post ${post.id}: ${error instanceof Error ? error.message : String(error)}`);
+			progress.log(
+				`  ✗ Post ${post.id}: ${error instanceof Error ? error.message : String(error)}`,
+			);
 		}
 	}
 
@@ -526,7 +530,9 @@ async function convertMessages(
 			}
 		} catch (error) {
 			errors++;
-			progress.log(`  ✗ Thread ${threadId}: ${error instanceof Error ? error.message : String(error)}`);
+			progress.log(
+				`  ✗ Thread ${threadId}: ${error instanceof Error ? error.message : String(error)}`,
+			);
 		}
 	}
 
@@ -661,7 +667,9 @@ async function convertReddit(inputPath: string, options: RedditOptions): Promise
 		logger.info('');
 		logger.info(`  Total Items: ${analysis.totalItems.toLocaleString()}`);
 		logger.info(`  Estimated Output Files: ${analysis.estimatedOutputFiles.toLocaleString()}`);
-		logger.info(`  Estimated Output Size: ${(analysis.estimatedOutputSizeBytes / 1024).toFixed(1)} KB`);
+		logger.info(
+			`  Estimated Output Size: ${(analysis.estimatedOutputSizeBytes / 1024).toFixed(1)} KB`,
+		);
 		logger.info('');
 
 		if (analysis.breakdown) {
@@ -692,7 +700,9 @@ async function convertReddit(inputPath: string, options: RedditOptions): Promise
 		(options.saved && (files.savedPosts || files.savedComments));
 
 	if (!hasFiles) {
-		logger.error('No Reddit data files found. Expected comments.csv, posts.csv, messages.csv, etc.');
+		logger.error(
+			'No Reddit data files found. Expected comments.csv, posts.csv, messages.csv, etc.',
+		);
 		process.exit(1);
 	}
 
@@ -719,7 +729,9 @@ async function convertReddit(inputPath: string, options: RedditOptions): Promise
 
 		const result = await convertComments(redditDir, files.comments, outputDir, options, progress);
 
-		progress.finish(`Comments: ${result.success} converted, ${result.skipped} skipped, ${result.errors} errors`);
+		progress.finish(
+			`Comments: ${result.success} converted, ${result.skipped} skipped, ${result.errors} errors`,
+		);
 		totalSuccess += result.success;
 		totalErrors += result.errors;
 		totalSkipped += result.skipped;
@@ -737,7 +749,9 @@ async function convertReddit(inputPath: string, options: RedditOptions): Promise
 
 		const result = await convertPosts(redditDir, files.posts, outputDir, options, progress);
 
-		progress.finish(`Posts: ${result.success} converted, ${result.skipped} skipped, ${result.errors} errors`);
+		progress.finish(
+			`Posts: ${result.success} converted, ${result.skipped} skipped, ${result.errors} errors`,
+		);
 		totalSuccess += result.success;
 		totalErrors += result.errors;
 		totalSkipped += result.skipped;
@@ -786,7 +800,9 @@ async function convertReddit(inputPath: string, options: RedditOptions): Promise
 
 	// Summary
 	logger.info('');
-	logger.info(`Done: ${totalSuccess} files created, ${totalSkipped} skipped, ${totalErrors} errors`);
+	logger.info(
+		`Done: ${totalSuccess} files created, ${totalSkipped} skipped, ${totalErrors} errors`,
+	);
 
 	if (totalErrors > 0) {
 		process.exit(1);
@@ -794,7 +810,10 @@ async function convertReddit(inputPath: string, options: RedditOptions): Promise
 }
 
 // CLI setup
-const program = createBaseCommand('convert-reddit', 'Convert Reddit data export to Markdown with YAML front matter');
+const program = createBaseCommand(
+	'convert-reddit',
+	'Convert Reddit data export to Markdown with YAML front matter',
+);
 
 program
 	.option('--comments', 'Include comments', true)

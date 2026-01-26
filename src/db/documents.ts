@@ -91,7 +91,15 @@ export async function listDocuments(
 		throw new DatabaseError('Supabase not configured');
 	}
 
-	const { limit = 20, offset = 0, sourceType, contentType, tags, sortBy = 'created_at', sortOrder = 'desc' } = options;
+	const {
+		limit = 20,
+		offset = 0,
+		sourceType,
+		contentType,
+		tags,
+		sortBy = 'created_at',
+		sortOrder = 'desc',
+	} = options;
 	const client = getSupabaseClient();
 
 	let query = client

@@ -111,7 +111,9 @@ export function registerDocumentTools(server: McpServer): void {
 			contentType: z
 				.enum(['email', 'youtube', 'calendar', 'contact', 'webpage', 'document'])
 				.optional()
-				.describe('Filter by content type (email, youtube watch history, calendar events, contacts, webpages)'),
+				.describe(
+					'Filter by content type (email, youtube watch history, calendar events, contacts, webpages)',
+				),
 			tags: z
 				.array(z.string())
 				.optional()
@@ -128,7 +130,15 @@ export function registerDocumentTools(server: McpServer): void {
 				.describe('Sort order (asc for oldest first, desc for newest first)'),
 		},
 		async ({ limit, offset, sourceType, contentType, tags, sortBy, sortOrder }) => {
-			logger.info('list_documents called', { limit, offset, sourceType, contentType, tags, sortBy, sortOrder });
+			logger.info('list_documents called', {
+				limit,
+				offset,
+				sourceType,
+				contentType,
+				tags,
+				sortBy,
+				sortOrder,
+			});
 
 			if (!isSupabaseConfigured()) {
 				return {

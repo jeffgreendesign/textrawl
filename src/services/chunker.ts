@@ -433,7 +433,10 @@ export async function chunkTextSemantic(
 				startOffset: accumulator.startOffset,
 				endOffset: group.endOffset,
 			};
-		} else if (accumulator.text.length < minChars && accumulator.text.length + group.text.length + 1 <= maxChars * 1.5) {
+		} else if (
+			accumulator.text.length < minChars &&
+			accumulator.text.length + group.text.length + 1 <= maxChars * 1.5
+		) {
 			// Current accumulator is too small, try to merge even if slightly over max
 			accumulator = {
 				spans: [...accumulator.spans, ...group.spans],

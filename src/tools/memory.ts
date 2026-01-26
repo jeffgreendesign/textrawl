@@ -882,11 +882,7 @@ export function registerMemoryTools(server: McpServer): void {
 	server.tool(
 		'extract_memories',
 		{
-			text: z
-				.string()
-				.min(10)
-				.max(100000)
-				.describe('Text to extract entities and facts from'),
+			text: z.string().min(10).max(100000).describe('Text to extract entities and facts from'),
 			source: z
 				.enum(['conversation', 'note', 'document', 'manual'])
 				.default('manual')

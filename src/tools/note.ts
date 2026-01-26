@@ -5,10 +5,7 @@ import { isSupabaseConfigured } from '../db/client.js';
 import { createDocument } from '../db/documents.js';
 import { smartChunk } from '../services/chunker.js';
 import { generateEmbeddings, isOpenAIConfigured } from '../services/embeddings.js';
-import {
-	extractAndStoreMemories,
-	isExtractionConfigured,
-} from '../services/memory-extraction.js';
+import { extractAndStoreMemories, isExtractionConfigured } from '../services/memory-extraction.js';
 import { config } from '../utils/config.js';
 import { logger } from '../utils/logger.js';
 

@@ -62,7 +62,10 @@ export function App() {
 				if (data.success) {
 					setState('complete');
 					if (data.errorCount && data.errorCount > 0) {
-						addLog('warn', `Conversion completed with ${data.errorCount} error(s). ${data.successCount} file(s) ready to upload.`);
+						addLog(
+							'warn',
+							`Conversion completed with ${data.errorCount} error(s). ${data.successCount} file(s) ready to upload.`,
+						);
 					}
 				} else {
 					setState('ready');

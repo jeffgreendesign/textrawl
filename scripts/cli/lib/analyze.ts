@@ -6,7 +6,15 @@
  * before committing to a potentially lengthy conversion process.
  */
 
-import { createReadStream, existsSync, mkdirSync, readdirSync, readFileSync, rmSync, statSync } from 'node:fs';
+import {
+	createReadStream,
+	existsSync,
+	mkdirSync,
+	readFileSync,
+	readdirSync,
+	rmSync,
+	statSync,
+} from 'node:fs';
 import { tmpdir } from 'node:os';
 import { basename, extname, join } from 'node:path';
 import { createInterface } from 'node:readline';
@@ -130,11 +138,17 @@ export async function analyzeSpotify(folderPath: string): Promise<AnalysisResult
 	const samples: string[] = [];
 
 	// Count streaming history entries
-	const streamingFiles = files.filter((f) => f.startsWith('StreamingHistory') && f.endsWith('.json'));
+	const streamingFiles = files.filter(
+		(f) => f.startsWith('StreamingHistory') && f.endsWith('.json'),
+	);
 	for (const file of streamingFiles) {
 		try {
 			const content = readFileSync(join(folderPath, file), 'utf-8');
-			const data = JSON.parse(content) as Array<{ endTime?: string; artistName?: string; trackName?: string }>;
+			const data = JSON.parse(content) as Array<{
+				endTime?: string;
+				artistName?: string;
+				trackName?: string;
+			}>;
 			streamingCount += data.length;
 
 			// Extract dates and samples from first file
@@ -362,7 +376,9 @@ export async function analyzeFacebook(folderPath: string): Promise<AnalysisResul
 	const htmlDir = join(folderPath, 'html');
 	if (existsSync(htmlDir)) {
 		try {
-			const htmlFiles = readdirSync(htmlDir).filter((f) => f.endsWith('.htm') || f.endsWith('.html'));
+			const htmlFiles = readdirSync(htmlDir).filter(
+				(f) => f.endsWith('.htm') || f.endsWith('.html'),
+			);
 			posts = htmlFiles.length;
 		} catch {
 			// Skip
@@ -606,7 +622,10 @@ async function analyzeZip(zipPath: string): Promise<AnalysisResult> {
 		const zipFilename = basename(zipPath);
 
 		// Facebook: messages/ folder + index.htm
-		if (files.includes('messages') && (files.includes('index.htm') || files.includes('index.html'))) {
+		if (
+			files.includes('messages') &&
+			(files.includes('index.htm') || files.includes('index.html'))
+		) {
 			const result = await analyzeFacebook(contentRoot);
 			result.filename = zipFilename;
 			result.fileSizeBytes = zipSize;
@@ -624,7 +643,9 @@ async function analyzeZip(zipPath: string): Promise<AnalysisResult> {
 		// Instagram: messages/ + account_information/ or content/ or likes/
 		if (
 			files.includes('messages') &&
-			(files.includes('account_information') || files.includes('content') || files.includes('likes'))
+			(files.includes('account_information') ||
+				files.includes('content') ||
+				files.includes('likes'))
 		) {
 			const result = await analyzeInstagram(contentRoot);
 			result.filename = zipFilename;
@@ -704,14 +725,19 @@ export async function analyzeExport(path: string): Promise<AnalysisResult> {
 		}
 
 		// Facebook: has messages/ folder and index.htm
-		if (files.includes('messages') && (files.includes('index.htm') || files.includes('index.html'))) {
+		if (
+			files.includes('messages') &&
+			(files.includes('index.htm') || files.includes('index.html'))
+		) {
 			return analyzeFacebook(path);
 		}
 
 		// Instagram: has messages/ and account_information/ or content/
 		if (
 			files.includes('messages') &&
-			(files.includes('account_information') || files.includes('content') || files.includes('likes'))
+			(files.includes('account_information') ||
+				files.includes('content') ||
+				files.includes('likes'))
 		) {
 			return analyzeInstagram(path);
 		}
