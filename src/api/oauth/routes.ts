@@ -71,8 +71,11 @@ oauthRoutes.get('/authorize', async (req, res, next) => {
 		const sessionToken = await signJwt({ ...sessionPayload }, '10m');
 
 		// Redirect to Google OAuth consent screen
+		if (!config.GOOGLE_CLIENT_ID) {
+			throw new ValidationError('OAuth misconfigured: GOOGLE_CLIENT_ID is not set');
+		}
 		const googleAuthUrl = new URL('https://accounts.google.com/o/oauth2/v2/auth');
-		googleAuthUrl.searchParams.set('client_id', config.GOOGLE_CLIENT_ID ?? '');
+		googleAuthUrl.searchParams.set('client_id', config.GOOGLE_CLIENT_ID);
 		googleAuthUrl.searchParams.set('redirect_uri', `${config.OAUTH_SERVER_URL}/oauth/callback`);
 		googleAuthUrl.searchParams.set('response_type', 'code');
 		googleAuthUrl.searchParams.set('scope', 'openid email');
