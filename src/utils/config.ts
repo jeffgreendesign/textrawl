@@ -53,6 +53,13 @@ const envSchema = z.object({
 		.default('true')
 		.transform((val) => val.toLowerCase() === 'true'),
 
+	// OAuth (optional - enables OAuth flow when all are set)
+	GOOGLE_CLIENT_ID: z.string().optional(),
+	GOOGLE_CLIENT_SECRET: z.string().optional(),
+	OAUTH_JWT_SECRET: z.string().min(32).optional(),
+	OAUTH_ALLOWED_EMAILS: z.string().optional(),
+	OAUTH_SERVER_URL: z.string().url().optional(),
+
 	// Chunking strategy
 	// - fixed: Paragraph-aware splitting at ~512 tokens (fast, no extra API calls)
 	// - semantic: Embedding-based splitting at topic boundaries (better retrieval, slower)
@@ -93,9 +100,17 @@ export function loadConfig(): Config {
 
 	cachedConfig = result.data;
 
-	// Require token in production mode
-	if (result.data.NODE_ENV === 'production' && !result.data.API_BEARER_TOKEN) {
-		logger.error('API_BEARER_TOKEN is required in production mode');
+	// Require some auth in production mode
+	if (result.data.NODE_ENV === 'production' && !result.data.API_BEARER_TOKEN && !result.data.GOOGLE_CLIENT_ID) {
+		logger.error('API_BEARER_TOKEN or OAuth (GOOGLE_CLIENT_ID) is required in production mode');
+		process.exit(1);
+	}
+
+	// Validate OAuth config: if any OAuth var is set, all required ones must be
+	const oauthVars = [result.data.GOOGLE_CLIENT_ID, result.data.GOOGLE_CLIENT_SECRET, result.data.OAUTH_JWT_SECRET, result.data.OAUTH_SERVER_URL];
+	const oauthSet = oauthVars.filter(Boolean).length;
+	if (oauthSet > 0 && oauthSet < 4) {
+		logger.error('OAuth partially configured. Set all of: GOOGLE_CLIENT_ID, GOOGLE_CLIENT_SECRET, OAUTH_JWT_SECRET, OAUTH_SERVER_URL');
 		process.exit(1);
 	}
 
