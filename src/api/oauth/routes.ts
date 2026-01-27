@@ -1,4 +1,4 @@
-import express, { Router } from 'express';
+import express, { type Router as RouterType, Router } from 'express';
 import { config } from '../../utils/config.js';
 import { ValidationError } from '../../utils/errors.js';
 import { logger } from '../../utils/logger.js';
@@ -11,7 +11,7 @@ import type {
 	TokenRequest,
 } from './types.js';
 
-export const oauthRoutes = Router();
+export const oauthRoutes: RouterType = Router();
 
 // OAuth 2.0 Protected Resource Metadata (RFC 9728)
 oauthRoutes.get('/.well-known/oauth-protected-resource', (_req, res) => {
@@ -72,7 +72,7 @@ oauthRoutes.get('/authorize', async (req, res, next) => {
 
 		// Redirect to Google OAuth consent screen
 		const googleAuthUrl = new URL('https://accounts.google.com/o/oauth2/v2/auth');
-		googleAuthUrl.searchParams.set('client_id', config.GOOGLE_CLIENT_ID!);
+		googleAuthUrl.searchParams.set('client_id', config.GOOGLE_CLIENT_ID ?? '');
 		googleAuthUrl.searchParams.set('redirect_uri', `${config.OAUTH_SERVER_URL}/oauth/callback`);
 		googleAuthUrl.searchParams.set('response_type', 'code');
 		googleAuthUrl.searchParams.set('scope', 'openid email');

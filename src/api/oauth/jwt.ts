@@ -5,8 +5,10 @@ function getSecret(): Uint8Array {
 	return new TextEncoder().encode(config.OAUTH_JWT_SECRET);
 }
 
-// eslint-disable-next-line @typescript-eslint/no-explicit-any
-export async function signJwt(payload: Record<string, any>, expiresIn: string): Promise<string> {
+export async function signJwt(
+	payload: Record<string, unknown>,
+	expiresIn: string,
+): Promise<string> {
 	return new SignJWT(payload)
 		.setProtectedHeader({ alg: 'HS256' })
 		.setIssuedAt()
