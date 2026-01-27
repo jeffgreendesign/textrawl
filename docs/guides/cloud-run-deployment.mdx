@@ -81,12 +81,31 @@ echo -n "https://your-project.supabase.co" | gcloud secrets create textrawl-supa
 echo -n "your-service-key" | gcloud secrets create textrawl-supabase-key --data-file=-
 echo -n "sk-your-openai-key" | gcloud secrets create textrawl-openai-key --data-file=-
 echo -n "your-64-char-token" | gcloud secrets create textrawl-api-token --data-file=-
-
-# Grant Cloud Run access
-gcloud secrets add-iam-policy-binding textrawl-supabase-url \
-  --member="serviceAccount:PROJECT_NUMBER-compute@developer.gserviceaccount.com" \
-  --role="roles/secretmanager.secretAccessor"
 ```
+
+### Grant Cloud Run Access to Secrets
+
+Cloud Run needs permission to read each secret. First, get your project number (not project ID):
+
+```bash
+# Get your project number
+gcloud projects describe YOUR_PROJECT_ID --format="value(projectNumber)"
+```
+
+Then grant the default Compute Engine service account access to each secret:
+
+```bash
+PROJECT_NUMBER=123456789012  # Replace with your project number
+
+# Grant access to each secret
+for SECRET in textrawl-supabase-url textrawl-supabase-key textrawl-openai-key textrawl-api-token; do
+  gcloud secrets add-iam-policy-binding $SECRET \
+    --member="serviceAccount:${PROJECT_NUMBER}-compute@developer.gserviceaccount.com" \
+    --role="roles/secretmanager.secretAccessor"
+done
+```
+
+> **Note**: PROJECT_NUMBER is a numeric ID (e.g., `123456789012`), different from PROJECT_ID (e.g., `my-project`). You can also find it in the Cloud Console under **IAM & Admin > Settings**.
 
 ## Configuration
 
