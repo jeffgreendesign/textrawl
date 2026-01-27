@@ -18,7 +18,7 @@ import { type CommonOptions, createBaseCommand } from '../lib/args.js';
 import { createFrontmatter, serializeFrontmatter } from '../lib/frontmatter.js';
 import { slugify } from '../lib/normalizer.js';
 import { ProgressReporter, logger } from '../lib/progress.js';
-import { validateOutputPath } from '../lib/security.js';
+import { validateInputPath, validateOutputPath } from '../lib/security.js';
 import type { ContentType, ConversionResult } from '../lib/types.js';
 
 /**
@@ -639,17 +639,12 @@ async function convertSavedItems(
  * Main conversion function
  */
 async function convertReddit(inputPath: string, options: RedditOptions): Promise<void> {
-	const resolvedInput = resolve(inputPath);
-
-	// Check if input exists
-	if (!existsSync(resolvedInput)) {
-		logger.error(`Input not found: ${resolvedInput}`);
-		process.exit(1);
-	}
-
-	const stats = statSync(resolvedInput);
-	if (!stats.isDirectory()) {
-		logger.error('Input must be a Reddit data export directory');
+	// Security: validate input path to prevent symlink-based escapes
+	let resolvedInput: string;
+	try {
+		resolvedInput = validateInputPath(inputPath, { mustExist: true, mustBeDirectory: true });
+	} catch (error) {
+		logger.error(`Invalid input path: ${error instanceof Error ? error.message : String(error)}`);
 		process.exit(1);
 	}
 

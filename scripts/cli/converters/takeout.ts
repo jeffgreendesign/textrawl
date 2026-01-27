@@ -753,7 +753,15 @@ async function convertTakeout(inputPath: string, options: TakeoutOptions): Promi
 	}
 
 	// Security: validate output directory to prevent path traversal
-	const outputDir = validateOutputPath(options.output);
+	let outputDir: string;
+	try {
+		outputDir = validateOutputPath(options.output);
+	} catch (error) {
+		logger.error(
+			`Invalid output directory: ${error instanceof Error ? error.message : String(error)}`,
+		);
+		process.exit(1);
+	}
 	mkdirSync(outputDir, { recursive: true });
 
 	// Extract ZIP if needed

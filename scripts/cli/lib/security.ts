@@ -94,16 +94,8 @@ export function validateOutputPath(outputDir: string, options: PathValidationOpt
 	// Resolve to absolute path and normalize
 	const resolved = normalize(resolve(process.cwd(), outputDir));
 
-	// Check for explicit traversal attempts in the original input
-	// This catches cases where someone passes "../../etc/passwd"
-	if (outputDir.includes('..')) {
-		// Allow ".." if it resolves to a valid allowed location
-		// This is checked below, but we log a warning
-		const rel = relative(process.cwd(), resolved);
-		if (rel.startsWith('..')) {
-			// Path escapes current working directory via ".." - verify it's still allowed
-		}
-	}
+	// Note: ".." is allowed if it resolves to a valid allowed location
+	// The check below validates the final resolved path
 
 	// Get allowed base directories
 	const allowedBases = getAllowedBaseDirs(options.additionalAllowedBases);

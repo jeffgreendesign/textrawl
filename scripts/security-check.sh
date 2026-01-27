@@ -24,14 +24,13 @@ ISSUES_FOUND=0
 echo "Checking for unvalidated path operations..."
 
 # Pattern 1: resolve(options.output) without validateOutputPath
-if git diff --cached --name-only | grep -E '\.ts$' | xargs grep -l 'resolve(options.output)' 2>/dev/null | while read -r file; do
+# Use process substitution to avoid subshell variable scoping issues
+while read -r file; do
     if ! grep -q 'validateOutputPath' "$file"; then
         echo -e "${RED}ERROR:${NC} $file uses resolve(options.output) without validateOutputPath"
         ISSUES_FOUND=1
     fi
-done; then
-    :
-fi
+done < <(git diff --cached --name-only | grep -E '\.ts$' | xargs grep -l 'resolve(options.output)' 2>/dev/null || true)
 
 # Pattern 2: req.body/params/query flowing into path.join or fs operations
 DANGEROUS_PATTERNS=(

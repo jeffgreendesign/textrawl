@@ -18,7 +18,7 @@ import { type ParsedMail, simpleParser } from 'mailparser';
 import { type MboxOptions, addMboxOptions, createBaseCommand } from '../lib/args.js';
 import { serializeFrontmatter } from '../lib/frontmatter.js';
 import { ProgressReporter, logger } from '../lib/progress.js';
-import { validateOutputPath } from '../lib/security.js';
+import { sanitizeFilename, validateOutputPath } from '../lib/security.js';
 import type { ConversionResult } from '../lib/types.js';
 import { convertEmail, generateOutputPath } from './eml.js';
 
@@ -272,7 +272,10 @@ async function convertMboxMessage(
 				mkdirSync(attachmentDir, { recursive: true });
 
 				for (const attachment of mail.attachments) {
-					const filename = attachment.filename || `unnamed-${attachment.checksum}`;
+					// Security: sanitize filename to prevent path traversal
+					const filename = sanitizeFilename(
+						attachment.filename || `unnamed-${attachment.checksum}`,
+					);
 					// Prefix with date to avoid collisions
 					const date = mail.date || new Date();
 					const prefix = `${date.getFullYear()}-${String(date.getMonth() + 1).padStart(2, '0')}-${String(date.getDate()).padStart(2, '0')}`;
