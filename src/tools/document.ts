@@ -7,18 +7,8 @@ import {
 	listDocuments as listDocumentsFromDb,
 	updateDocument as updateDocumentInDb,
 } from '../db/documents.js';
-import { config } from '../utils/config.js';
+import { formatId, isCompact } from '../utils/compact.js';
 import { logger } from '../utils/logger.js';
-
-const isCompact = () => config.COMPACT_RESPONSES;
-
-function toJSON(obj: unknown): string {
-	return isCompact() ? JSON.stringify(obj) : JSON.stringify(obj, null, 2);
-}
-
-function formatId(uuid: string): string {
-	return isCompact() ? uuid.slice(0, 8) : uuid;
-}
 
 /**
  * Register document-related tools: get_document and list_documents

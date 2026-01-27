@@ -5,18 +5,9 @@ import { hybridConversationSearch } from '../db/conversation-search.js';
 import { hybridMemorySearch } from '../db/memory-search.js';
 import { hybridSearch } from '../db/search.js';
 import { generateEmbedding, isOpenAIConfigured } from '../services/embeddings.js';
+import { formatId, isCompact } from '../utils/compact.js';
 import { config } from '../utils/config.js';
 import { logger } from '../utils/logger.js';
-
-const isCompact = () => config.COMPACT_RESPONSES;
-
-function toJSON(obj: unknown): string {
-	return isCompact() ? JSON.stringify(obj) : JSON.stringify(obj, null, 2);
-}
-
-function formatId(uuid: string): string {
-	return isCompact() ? uuid.slice(0, 8) : uuid;
-}
 
 /**
  * Register the search_knowledge tool
@@ -442,7 +433,7 @@ export function registerSearchTool(server: McpServer): void {
 							entityId: mem.entityId,
 							entityName: mem.entityName,
 							entityType: mem.entityType,
-							content: mem.content,
+							content: mem.content.slice(0, 500),
 						},
 					});
 				}
