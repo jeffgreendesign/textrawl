@@ -31,8 +31,9 @@
 	"dependencies": {
 		"@anthropic-ai/sdk": "^0.71.2",
 		"@modelcontextprotocol/ext-apps": "^1.0.0",
-		"@modelcontextprotocol/sdk": "^1.25.2",
+		"@modelcontextprotocol/sdk": "^1.25.3",
 		"@supabase/supabase-js": "^2.45.0",
+		"hono": "^4.11.4",
 		"cors": "^2.8.5",
 		"dotenv": "^17.2.3",
 		"express": "^5.0.0",
@@ -73,6 +74,11 @@
 		"turndown-plugin-gfm": "^1.0.2",
 		"typescript": "^5.7.0",
 		"unzipper": "^0.12.0"
+	},
+	"pnpm": {
+		"overrides": {
+			"hono": "^4.11.4"
+		}
 	},
 	"keywords": ["mcp", "rag", "knowledge-base", "semantic-search", "claude"],
 	"author": "Jeff",
