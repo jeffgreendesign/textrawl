@@ -46,6 +46,13 @@ app.use(
 app.use(express.json({ limit: '1mb' }));
 app.use('/api', apiLimiter);
 
+// OAuth routes (no auth middleware - these ARE the auth flow)
+if (config.GOOGLE_CLIENT_ID) {
+	const { oauthRoutes } = await import('./api/oauth/routes.js');
+	app.use(oauthRoutes);
+	logger.info('OAuth routes enabled');
+}
+
 // Health check endpoints (rate-limited to prevent DoS)
 app.get('/health', healthLimiter, (_req, res) => {
 	res.json({
