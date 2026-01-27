@@ -26,11 +26,12 @@ import { basename, join, resolve } from 'node:path';
 // @ts-ignore - unzipper types
 import * as unzipper from 'unzipper';
 
-import { type CommonOptions, createBaseCommand } from '../lib/args.js';
 import { analyzeFacebook } from '../lib/analyze.js';
+import { type CommonOptions, createBaseCommand } from '../lib/args.js';
 import { createFrontmatter, serializeFrontmatter } from '../lib/frontmatter.js';
 import { slugify, stripHtml } from '../lib/normalizer.js';
 import { ProgressReporter, logger } from '../lib/progress.js';
+import { validateOutputPath } from '../lib/security.js';
 import type { ContentType, ConversionResult } from '../lib/types.js';
 
 /**
@@ -149,7 +150,10 @@ function parseHTMLMessages(filePath: string): FacebookConversation | null {
 	// Extract participants from text after "Participants:"
 	const participantsMatch = html.match(/Participants:\s*([^<]+)/);
 	const participants = participantsMatch
-		? participantsMatch[1].split(',').map((p) => p.trim()).filter(Boolean)
+		? participantsMatch[1]
+				.split(',')
+				.map((p) => p.trim())
+				.filter(Boolean)
 		: [];
 
 	// Extract messages - they're in divs with class "message"
@@ -160,8 +164,9 @@ function parseHTMLMessages(filePath: string): FacebookConversation | null {
 	const messagePattern =
 		/<div class="message_header">[\s\S]*?<span class="user">([^<]*)<\/span>[\s\S]*?<span class="meta">([^<]+)<\/span>[\s\S]*?<\/div>[\s\S]*?<\/div>(?:<p>([^<]*)<\/p>)?/g;
 
-	let match;
-	while ((match = messagePattern.exec(html)) !== null) {
+	while (true) {
+		const match = messagePattern.exec(html);
+		if (!match) break;
 		const sender = match[1]?.trim() || 'Unknown';
 		const timestamp = match[2]?.trim() || '';
 		const content = match[3]?.trim() || '';
@@ -175,8 +180,9 @@ function parseHTMLMessages(filePath: string): FacebookConversation | null {
 	if (messages.length === 0) {
 		// Try a simpler extraction - find all <p> tags after message_header divs
 		const simplePattern = /<p>([^<]+)<\/p>/g;
-		let simpleMatch;
-		while ((simpleMatch = simplePattern.exec(html)) !== null) {
+		while (true) {
+			const simpleMatch = simplePattern.exec(html);
+			if (!simpleMatch) break;
 			const content = simpleMatch[1]?.trim();
 			if (content && content.length > 0) {
 				messages.push({
@@ -228,9 +234,7 @@ function parseJSONMessages(filePath: string): FacebookConversation | null {
 			if (msgContent.trim()) {
 				messages.push({
 					sender: msg.sender_name || 'Unknown',
-					timestamp: msg.timestamp_ms
-						? new Date(msg.timestamp_ms).toISOString()
-						: '',
+					timestamp: msg.timestamp_ms ? new Date(msg.timestamp_ms).toISOString() : '',
 					content: msgContent.trim(),
 				});
 			}
@@ -314,8 +318,7 @@ async function convertMessages(
 		progress.update(i + 1, basename(file));
 
 		try {
-			const conversation =
-				format === 'html' ? parseHTMLMessages(file) : parseJSONMessages(file);
+			const conversation = format === 'html' ? parseHTMLMessages(file) : parseJSONMessages(file);
 
 			if (!conversation) continue;
 
@@ -330,7 +333,9 @@ async function convertMessages(
 			}
 		} catch (error) {
 			errors++;
-			progress.log(`  ✗ ${basename(file)}: ${error instanceof Error ? error.message : String(error)}`);
+			progress.log(
+				`  ✗ ${basename(file)}: ${error instanceof Error ? error.message : String(error)}`,
+			);
 		}
 	}
 
@@ -342,8 +347,8 @@ async function convertMessages(
 				const timeA = a.timestamp ? new Date(a.timestamp).getTime() : Number.POSITIVE_INFINITY;
 				const timeB = b.timestamp ? new Date(b.timestamp).getTime() : Number.POSITIVE_INFINITY;
 				// Handle NaN from malformed timestamps
-				const safeA = isNaN(timeA) ? Number.POSITIVE_INFINITY : timeA;
-				const safeB = isNaN(timeB) ? Number.POSITIVE_INFINITY : timeB;
+				const safeA = Number.isNaN(timeA) ? Number.POSITIVE_INFINITY : timeA;
+				const safeB = Number.isNaN(timeB) ? Number.POSITIVE_INFINITY : timeB;
 				return safeA - safeB;
 			});
 
@@ -360,17 +365,8 @@ async function convertMessages(
 				contentLines.push('## Messages', '');
 
 				for (const msg of conversation.messages) {
-					const timestamp = msg.timestamp
-						? `*${new Date(msg.timestamp).toLocaleString()}*`
-						: '';
-					contentLines.push(
-						`**${msg.sender}** ${timestamp}`,
-						'',
-						msg.content,
-						'',
-						'---',
-						'',
-					);
+					const timestamp = msg.timestamp ? `*${new Date(msg.timestamp).toLocaleString()}*` : '';
+					contentLines.push(`**${msg.sender}** ${timestamp}`, '', msg.content, '', '---', '');
 				}
 			}
 
@@ -420,7 +416,9 @@ async function convertMessages(
 			}
 		} catch (error) {
 			errors++;
-			progress.log(`  ✗ ${conversation.title}: ${error instanceof Error ? error.message : String(error)}`);
+			progress.log(
+				`  ✗ ${conversation.title}: ${error instanceof Error ? error.message : String(error)}`,
+			);
 		}
 	}
 
@@ -479,14 +477,16 @@ async function convertFacebook(inputPath: string, options: FacebookOptions): Pro
 			const analysis = await analyzeFacebook(facebookDir);
 
 			logger.info('');
-			logger.info(`  Facebook Data Export Analysis`);
+			logger.info('  Facebook Data Export Analysis');
 			logger.info(`  ${'─'.repeat(40)}`);
 			logger.info(`  Directory: ${analysis.filename}`);
 			logger.info(`  Size: ${(analysis.fileSizeBytes / 1024).toFixed(1)} KB`);
 			logger.info('');
 			logger.info(`  Total Items: ${analysis.totalItems.toLocaleString()}`);
 			logger.info(`  Estimated Output Files: ${analysis.estimatedOutputFiles.toLocaleString()}`);
-			logger.info(`  Estimated Output Size: ${(analysis.estimatedOutputSizeBytes / 1024).toFixed(1)} KB`);
+			logger.info(
+				`  Estimated Output Size: ${(analysis.estimatedOutputSizeBytes / 1024).toFixed(1)} KB`,
+			);
 			logger.info('');
 
 			if (analysis.breakdown) {
@@ -509,7 +509,8 @@ async function convertFacebook(inputPath: string, options: FacebookOptions): Pro
 
 		logger.info(`Found Facebook ${format.toUpperCase()} export in: ${facebookDir}`);
 
-		const outputDir = resolve(options.output);
+		// Security: validate output directory to prevent path traversal
+		const outputDir = validateOutputPath(options.output);
 
 		// Create output directory
 		if (!options.dryRun) {

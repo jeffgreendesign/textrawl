@@ -1,4 +1,5 @@
 import type { McpServer } from '@modelcontextprotocol/sdk/server/mcp.js';
+import { z } from 'zod';
 import { isSupabaseConfigured } from '../db/client.js';
 import { getKnowledgeStats } from '../db/stats.js';
 import { logger } from '../utils/logger.js';
@@ -9,9 +10,17 @@ import { logger } from '../utils/logger.js';
  * This tool provides statistics about the knowledge base contents.
  */
 export function registerStatsTools(server: McpServer): void {
-	server.tool(
+	server.registerTool(
 		'knowledge_stats',
-		{},
+		{
+			description: 'Get statistics about the knowledge base contents',
+			inputSchema: z.object({}),
+			_meta: {
+				ui: {
+					resourceUri: 'ui://textrawl/knowledge-stats',
+				},
+			},
+		},
 		async () => {
 			logger.info('knowledge_stats called');
 

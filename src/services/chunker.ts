@@ -429,15 +429,18 @@ export async function chunkTextSemantic(
 			// Can merge
 			accumulator = {
 				spans: [...accumulator.spans, ...group.spans],
-				text: accumulator.text + ' ' + group.text,
+				text: `${accumulator.text} ${group.text}`,
 				startOffset: accumulator.startOffset,
 				endOffset: group.endOffset,
 			};
-		} else if (accumulator.text.length < minChars && accumulator.text.length + group.text.length + 1 <= maxChars * 1.5) {
+		} else if (
+			accumulator.text.length < minChars &&
+			accumulator.text.length + group.text.length + 1 <= maxChars * 1.5
+		) {
 			// Current accumulator is too small, try to merge even if slightly over max
 			accumulator = {
 				spans: [...accumulator.spans, ...group.spans],
-				text: accumulator.text + ' ' + group.text,
+				text: `${accumulator.text} ${group.text}`,
 				startOffset: accumulator.startOffset,
 				endOffset: group.endOffset,
 			};

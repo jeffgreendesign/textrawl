@@ -47,6 +47,24 @@ const envSchema = z.object({
 		.default('true')
 		.transform((val) => val.toLowerCase() === 'true'),
 
+	// Conversation memory (Phase 2)
+	ENABLE_CONVERSATIONS: z
+		.string()
+		.default('true')
+		.transform((val) => val.toLowerCase() === 'true'),
+
+	// Memory extraction (Phase 3)
+	ENABLE_MEMORY_EXTRACTION: z
+		.string()
+		.default('false')
+		.transform((val) => val.toLowerCase() === 'true'),
+
+	// Anthropic API for memory extraction (uses Claude for entity/fact extraction)
+	ANTHROPIC_API_KEY: z.string().startsWith('sk-ant-').optional(),
+
+	// Model for memory extraction (fast, cheap model recommended)
+	EXTRACTION_MODEL: z.string().default('claude-3-haiku-20240307'),
+
 	// Response format - compact saves 40-60% tokens but uses short keys
 	COMPACT_RESPONSES: z
 		.string()

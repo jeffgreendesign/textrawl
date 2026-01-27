@@ -13,11 +13,12 @@ import { createHash } from 'node:crypto';
 import { existsSync, mkdirSync, readFileSync, readdirSync, statSync, writeFileSync } from 'node:fs';
 import { basename, dirname, join, resolve } from 'node:path';
 
-import { type CommonOptions, createBaseCommand } from '../lib/args.js';
 import { analyzeInstagram } from '../lib/analyze.js';
+import { type CommonOptions, createBaseCommand } from '../lib/args.js';
 import { createFrontmatter, serializeFrontmatter } from '../lib/frontmatter.js';
 import { slugify, stripHtml } from '../lib/normalizer.js';
 import { ProgressReporter, logger } from '../lib/progress.js';
+import { validateOutputPath } from '../lib/security.js';
 import type { ContentType, ConversionResult } from '../lib/types.js';
 
 /**
@@ -123,7 +124,10 @@ function parseInstagramMessages(filePath: string): InstagramConversation | null 
 	// Extract participants from "Participants:" text
 	const participantsMatch = html.match(/Participants:\s*([^<]+)/);
 	const participants = participantsMatch
-		? participantsMatch[1].split(',').map((p) => p.trim()).filter(Boolean)
+		? participantsMatch[1]
+				.split(',')
+				.map((p) => p.trim())
+				.filter(Boolean)
 		: [];
 
 	// Parse messages from HTML structure
@@ -143,8 +147,9 @@ function parseInstagramMessages(filePath: string): InstagramConversation | null 
 	const messageBlockPattern =
 		/<div class="pam _3-95 _2ph- _2lej uiBoxWhite noborder">([\s\S]*?)<\/div>(?=<div class="pam|<\/div><\/div><\/div>)/g;
 
-	let blockMatch;
-	while ((blockMatch = messageBlockPattern.exec(html)) !== null) {
+	while (true) {
+		const blockMatch = messageBlockPattern.exec(html);
+		if (!blockMatch) break;
 		const block = blockMatch[1];
 
 		// Skip non-message blocks
@@ -158,7 +163,7 @@ function parseInstagramMessages(filePath: string): InstagramConversation | null 
 
 		// Extract content
 		const contentMatch = block.match(/<div class="[^"]*_2let[^"]*">([\s\S]*?)<\/div>/);
-		let content = contentMatch ? extractTextFromHtml(contentMatch[1]) : '';
+		const content = contentMatch ? extractTextFromHtml(contentMatch[1]) : '';
 
 		// Extract timestamp
 		const timestampMatch = block.match(/<div class="[^"]*_2lem[^"]*">([^<]+)<\/div>/);
@@ -173,8 +178,9 @@ function parseInstagramMessages(filePath: string): InstagramConversation | null 
 	if (messages.length === 0) {
 		// Try to find any content between timestamps
 		const simplePattern = /<div class="[^"]*_2let[^"]*"><div><div><\/div><div>([^<]+)<\/div>/g;
-		let simpleMatch;
-		while ((simpleMatch = simplePattern.exec(html)) !== null) {
+		while (true) {
+			const simpleMatch = simplePattern.exec(html);
+			if (!simpleMatch) break;
 			const content = simpleMatch[1].trim();
 			if (content) {
 				messages.push({ sender: 'Unknown', timestamp: '', content });
@@ -245,10 +251,12 @@ function parseCommentsHtml(filePath: string): Array<{ content: string; timestamp
 	const comments: Array<{ content: string; timestamp?: string }> = [];
 
 	// Pattern for comment blocks - match content and timestamp together
-	const commentBlockPattern = /<div class="[^"]*_2let[^"]*">([\s\S]*?)<\/div>[\s\S]*?<div class="[^"]*_2lem[^"]*">([^<]+)<\/div>/g;
+	const commentBlockPattern =
+		/<div class="[^"]*_2let[^"]*">([\s\S]*?)<\/div>[\s\S]*?<div class="[^"]*_2lem[^"]*">([^<]+)<\/div>/g;
 
-	let match;
-	while ((match = commentBlockPattern.exec(html)) !== null) {
+	while (true) {
+		const match = commentBlockPattern.exec(html);
+		if (!match) break;
 		const content = extractTextFromHtml(match[1]);
 		if (content && !content.includes('Your Posts')) {
 			const timestamp = match[2]?.trim();
@@ -267,10 +275,12 @@ function parseLikesHtml(filePath: string): Array<{ content: string; timestamp?: 
 	const likes: Array<{ content: string; timestamp?: string }> = [];
 
 	// Pattern for like entries - match content and timestamp together
-	const likeBlockPattern = /<div class="[^"]*_2let[^"]*">([\s\S]*?)<\/div>[\s\S]*?<div class="[^"]*_2lem[^"]*">([^<]+)<\/div>/g;
+	const likeBlockPattern =
+		/<div class="[^"]*_2let[^"]*">([\s\S]*?)<\/div>[\s\S]*?<div class="[^"]*_2lem[^"]*">([^<]+)<\/div>/g;
 
-	let match;
-	while ((match = likeBlockPattern.exec(html)) !== null) {
+	while (true) {
+		const match = likeBlockPattern.exec(html);
+		if (!match) break;
 		const content = extractTextFromHtml(match[1]);
 		if (content && content.length > 0) {
 			const timestamp = match[2]?.trim();
@@ -329,7 +339,9 @@ async function convertMessages(
 			}
 		} catch (error) {
 			errors++;
-			progress.log(`  ✗ ${basename(file)}: ${error instanceof Error ? error.message : String(error)}`);
+			progress.log(
+				`  ✗ ${basename(file)}: ${error instanceof Error ? error.message : String(error)}`,
+			);
 		}
 	}
 
@@ -341,8 +353,8 @@ async function convertMessages(
 				const timeA = a.timestamp ? new Date(a.timestamp).getTime() : Number.POSITIVE_INFINITY;
 				const timeB = b.timestamp ? new Date(b.timestamp).getTime() : Number.POSITIVE_INFINITY;
 				// Handle NaN from malformed timestamps
-				const safeA = isNaN(timeA) ? Number.POSITIVE_INFINITY : timeA;
-				const safeB = isNaN(timeB) ? Number.POSITIVE_INFINITY : timeB;
+				const safeA = Number.isNaN(timeA) ? Number.POSITIVE_INFINITY : timeA;
+				const safeB = Number.isNaN(timeB) ? Number.POSITIVE_INFINITY : timeB;
 				return safeA - safeB;
 			});
 
@@ -379,7 +391,7 @@ async function convertMessages(
 			if (firstMsgDate) {
 				try {
 					date = new Date(firstMsgDate);
-					if (isNaN(date.getTime())) date = new Date();
+					if (Number.isNaN(date.getTime())) date = new Date();
 				} catch {
 					date = new Date();
 				}
@@ -425,7 +437,9 @@ async function convertMessages(
 			}
 		} catch (error) {
 			errors++;
-			progress.log(`  ✗ ${conversation.title}: ${error instanceof Error ? error.message : String(error)}`);
+			progress.log(
+				`  ✗ ${conversation.title}: ${error instanceof Error ? error.message : String(error)}`,
+			);
 		}
 	}
 
@@ -645,14 +659,16 @@ async function convertInstagram(inputPath: string, options: InstagramOptions): P
 		const analysis = await analyzeInstagram(instagramDir);
 
 		logger.info('');
-		logger.info(`  Instagram Data Export Analysis`);
+		logger.info('  Instagram Data Export Analysis');
 		logger.info(`  ${'─'.repeat(40)}`);
 		logger.info(`  Directory: ${analysis.filename}`);
 		logger.info(`  Size: ${(analysis.fileSizeBytes / 1024).toFixed(1)} KB`);
 		logger.info('');
 		logger.info(`  Total Items: ${analysis.totalItems.toLocaleString()}`);
 		logger.info(`  Estimated Output Files: ${analysis.estimatedOutputFiles.toLocaleString()}`);
-		logger.info(`  Estimated Output Size: ${(analysis.estimatedOutputSizeBytes / 1024).toFixed(1)} KB`);
+		logger.info(
+			`  Estimated Output Size: ${(analysis.estimatedOutputSizeBytes / 1024).toFixed(1)} KB`,
+		);
 		logger.info('');
 
 		if (analysis.breakdown) {
@@ -668,7 +684,8 @@ async function convertInstagram(inputPath: string, options: InstagramOptions): P
 
 	logger.info(`Found Instagram export in: ${instagramDir}`);
 
-	const outputDir = resolve(options.output);
+	// Security: validate output directory to prevent path traversal
+	const outputDir = validateOutputPath(options.output);
 
 	// Create output directory
 	if (!options.dryRun) {
