@@ -7,44 +7,85 @@ Deploy textrawl as a serverless container on Google Cloud Run.
 
 ## Prerequisites
 
-- Google Cloud account
-- `gcloud` CLI installed
+- Google Cloud account with billing enabled
+- `gcloud` CLI installed and authenticated
 - Docker installed
+- Artifact Registry API enabled
 
-## Build and Push
+## Quick Deploy (Recommended)
+
+Use the provided deployment script:
 
 ```bash
-# Authenticate
-gcloud auth configure-docker
+export GCP_PROJECT_ID=your-project-id
+export GCP_REGION=us-central1  # optional, defaults to us-central1
 
-# Build image
-docker build -t gcr.io/YOUR_PROJECT/textrawl .
-
-# Push to Container Registry
-docker push gcr.io/YOUR_PROJECT/textrawl
+./scripts/deploy.sh
 ```
 
-## Deploy
+## Manual Deployment
+
+### 1. Set Up Artifact Registry
+
+```bash
+# Enable the API
+gcloud services enable artifactregistry.googleapis.com
+
+# Create a repository
+gcloud artifacts repositories create textrawl \
+  --repository-format=docker \
+  --location=us-central1
+
+# Configure Docker authentication
+gcloud auth configure-docker us-central1-docker.pkg.dev
+```
+
+### 2. Build and Push
+
+```bash
+# Set variables
+PROJECT_ID=your-project-id
+REGION=us-central1
+IMAGE=$REGION-docker.pkg.dev/$PROJECT_ID/textrawl/textrawl
+
+# Build and push
+docker build -t $IMAGE:latest .
+docker push $IMAGE:latest
+```
+
+### 3. Deploy
 
 ```bash
 gcloud run deploy textrawl \
-  --image gcr.io/YOUR_PROJECT/textrawl \
+  --image $IMAGE:latest \
   --platform managed \
-  --region us-central1 \
+  --region $REGION \
   --allow-unauthenticated \
-  --set-secrets=SUPABASE_URL=supabase-url:latest,SUPABASE_SERVICE_KEY=supabase-key:latest,OPENAI_API_KEY=openai-key:latest,API_BEARER_TOKEN=api-token:latest
+  --set-secrets="SUPABASE_URL=textrawl-supabase-url:latest,SUPABASE_SERVICE_KEY=textrawl-supabase-key:latest,OPENAI_API_KEY=textrawl-openai-key:latest,API_BEARER_TOKEN=textrawl-api-token:latest" \
+  --min-instances 0 \
+  --max-instances 10 \
+  --memory 512Mi \
+  --cpu 1 \
+  --cpu-boost
 ```
+
+> **Tip**: For production, pin secrets to specific versions instead of `:latest` for stability (e.g., `textrawl-api-token:1`).
 
 ## Secret Manager
 
 Store secrets in Google Secret Manager:
 
 ```bash
-# Create secrets
-echo -n "your-value" | gcloud secrets create supabase-url --data-file=-
-echo -n "your-value" | gcloud secrets create supabase-key --data-file=-
-echo -n "your-value" | gcloud secrets create openai-key --data-file=-
-echo -n "your-value" | gcloud secrets create api-token --data-file=-
+# Create secrets (use textrawl- prefix for organization)
+echo -n "https://your-project.supabase.co" | gcloud secrets create textrawl-supabase-url --data-file=-
+echo -n "your-service-key" | gcloud secrets create textrawl-supabase-key --data-file=-
+echo -n "sk-your-openai-key" | gcloud secrets create textrawl-openai-key --data-file=-
+echo -n "your-64-char-token" | gcloud secrets create textrawl-api-token --data-file=-
+
+# Grant Cloud Run access
+gcloud secrets add-iam-policy-binding textrawl-supabase-url \
+  --member="serviceAccount:PROJECT_NUMBER-compute@developer.gserviceaccount.com" \
+  --role="roles/secretmanager.secretAccessor"
 ```
 
 ## Configuration
