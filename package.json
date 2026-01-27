@@ -14,6 +14,8 @@
 		"lint": "biome check .",
 		"lint:fix": "biome check --write .",
 		"quality": "pnpm lint && pnpm typecheck",
+		"security-check": "./scripts/security-check.sh",
+		"prepare": "husky",
 		"inspector": "npx @modelcontextprotocol/inspector http://localhost:3000/mcp",
 		"setup": "bash scripts/setup.sh",
 		"convert": "tsx scripts/cli/convert.ts",
@@ -72,7 +74,8 @@
 		"turndown": "^7.1.0",
 		"turndown-plugin-gfm": "^1.0.2",
 		"typescript": "^5.7.0",
-		"unzipper": "^0.12.0"
+		"unzipper": "^0.12.0",
+		"husky": "^9.1.0"
 	},
 	"keywords": ["mcp", "rag", "knowledge-base", "semantic-search", "claude"],
 	"author": "Jeff",

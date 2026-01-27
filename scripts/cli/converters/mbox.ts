@@ -18,6 +18,7 @@ import { type ParsedMail, simpleParser } from 'mailparser';
 import { type MboxOptions, addMboxOptions, createBaseCommand } from '../lib/args.js';
 import { serializeFrontmatter } from '../lib/frontmatter.js';
 import { ProgressReporter, logger } from '../lib/progress.js';
+import { validateOutputPath } from '../lib/security.js';
 import type { ConversionResult } from '../lib/types.js';
 import { convertEmail, generateOutputPath } from './eml.js';
 
@@ -311,7 +312,8 @@ async function convertMbox(inputPath: string, options: MboxOptions): Promise<voi
 		process.exit(1);
 	}
 
-	const outputDir = resolve(options.output);
+	// Security: validate output directory to prevent path traversal
+	const outputDir = validateOutputPath(options.output);
 
 	logger.info('Counting messages in MBOX file...');
 	let totalMessages = await countMboxMessages(resolvedInput);

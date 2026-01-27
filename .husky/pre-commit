@@ -1,0 +1,10 @@
+#!/bin/sh
+
+# Run linting on staged files
+pnpm lint
+
+# Run security checks
+./scripts/security-check.sh
+
+# Run type checking
+pnpm typecheck
