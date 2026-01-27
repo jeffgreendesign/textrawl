@@ -84,13 +84,7 @@
 			"hono": "^4.11.4"
 		}
 	},
-	"keywords": [
-		"mcp",
-		"rag",
-		"knowledge-base",
-		"semantic-search",
-		"claude"
-	],
+	"keywords": ["mcp", "rag", "knowledge-base", "semantic-search", "claude"],
 	"author": "Jeff",
 	"license": "MIT"
 }

@@ -4,6 +4,7 @@ import { isSupabaseConfigured } from '../db/client.js';
 import {
 	type InsightStatus,
 	type InsightType,
+	type ProactiveInsight,
 	getInsightStats,
 	getInsights,
 	searchInsights,
@@ -28,33 +29,18 @@ export function registerInsightTools(server: McpServer): void {
 		'get_insights',
 		{
 			description:
-				'Get proactive insights discovered from your knowledge base. Shows cross-source connections, recurring themes, entity bridges, and outliers that were automatically found. Use this to discover things you didn\'t know to ask about.',
+				"Get proactive insights discovered from your knowledge base. Shows cross-source connections, recurring themes, entity bridges, and outliers that were automatically found. Use this to discover things you didn't know to ask about.",
 			inputSchema: {
 				status: z
 					.enum(['new', 'seen', 'dismissed'])
 					.optional()
 					.describe('Filter by status (default: show "new" insights)'),
 				insightType: z
-					.enum([
-						'cross_source',
-						'theme_cluster',
-						'entity_bridge',
-						'temporal_pattern',
-						'outlier',
-					])
+					.enum(['cross_source', 'theme_cluster', 'entity_bridge', 'temporal_pattern', 'outlier'])
 					.optional()
 					.describe('Filter by insight type'),
-				query: z
-					.string()
-					.optional()
-					.describe('Semantic search query to find relevant insights'),
-				limit: z
-					.number()
-					.int()
-					.min(1)
-					.max(50)
-					.default(10)
-					.describe('Maximum insights to return'),
+				query: z.string().optional().describe('Semantic search query to find relevant insights'),
+				limit: z.number().int().min(1).max(50).default(5).describe('Maximum insights to return'),
 			},
 		},
 		async ({ status, insightType, query, limit }) => {
@@ -72,7 +58,7 @@ export function registerInsightTools(server: McpServer): void {
 			}
 
 			try {
-				let results;
+				let results: ProactiveInsight[];
 
 				if (query) {
 					// Semantic search over insights
@@ -183,7 +169,7 @@ export function registerInsightTools(server: McpServer): void {
 		'discover_connections',
 		{
 			description:
-				'Trigger an insight scan to discover connections, patterns, and outliers in your knowledge base. Use after bulk imports (email, Facebook, Google Takeout) to find what\'s interesting. The scan compares recent content against everything in the database.',
+				"Trigger an insight scan to discover connections, patterns, and outliers in your knowledge base. Use after bulk imports (email, Facebook, Google Takeout) to find what's interesting. The scan compares recent content against everything in the database.",
 			inputSchema: {
 				fullScan: z
 					.boolean()
@@ -315,7 +301,9 @@ export function registerInsightTools(server: McpServer): void {
 					content: [
 						{
 							type: 'text' as const,
-							text: JSON.stringify(isCompact() ? { ok: true } : { success: true, message: 'Insight dismissed' }),
+							text: JSON.stringify(
+								isCompact() ? { ok: true } : { success: true, message: 'Insight dismissed' },
+							),
 						},
 					],
 				};
