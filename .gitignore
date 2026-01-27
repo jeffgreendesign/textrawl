@@ -33,6 +33,7 @@ temp/
 
 # Claude Code
 .claude/
+CLAUDE.local.md
 
 # TypeScript
 *.tsbuildinfo
