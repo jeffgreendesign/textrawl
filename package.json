@@ -37,6 +37,7 @@
 		"express-rate-limit": "^7.4.0",
 		"file-type": "^21.2.0",
 		"helmet": "^8.1.0",
+		"jose": "^6.1.3",
 		"mammoth": "^1.8.0",
 		"multer": "^2.0.2",
 		"openai": "^4.70.0",
@@ -72,7 +73,13 @@
 		"typescript": "^5.7.0",
 		"unzipper": "^0.12.0"
 	},
-	"keywords": ["mcp", "rag", "knowledge-base", "semantic-search", "claude"],
+	"keywords": [
+		"mcp",
+		"rag",
+		"knowledge-base",
+		"semantic-search",
+		"claude"
+	],
 	"author": "Jeff",
 	"license": "MIT"
 }
