@@ -18,6 +18,7 @@ import { type CommonOptions, createBaseCommand } from '../lib/args.js';
 import { createFrontmatter, serializeFrontmatter } from '../lib/frontmatter.js';
 import { slugify, stripHtml } from '../lib/normalizer.js';
 import { ProgressReporter, logger } from '../lib/progress.js';
+import { validateOutputPath } from '../lib/security.js';
 import type { ContentType, ConversionResult } from '../lib/types.js';
 
 /**
@@ -683,7 +684,8 @@ async function convertInstagram(inputPath: string, options: InstagramOptions): P
 
 	logger.info(`Found Instagram export in: ${instagramDir}`);
 
-	const outputDir = resolve(options.output);
+	// Security: validate output directory to prevent path traversal
+	const outputDir = validateOutputPath(options.output);
 
 	// Create output directory
 	if (!options.dryRun) {

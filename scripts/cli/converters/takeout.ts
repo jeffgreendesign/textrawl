@@ -33,6 +33,7 @@ import { type TakeoutOptions, addTakeoutOptions, createBaseCommand } from '../li
 import { createFrontmatter, serializeFrontmatter } from '../lib/frontmatter.js';
 import { slugify } from '../lib/normalizer.js';
 import { ProgressReporter, logger } from '../lib/progress.js';
+import { validateOutputPath } from '../lib/security.js';
 import type {
 	CalendarMetadata,
 	ContactMetadata,
@@ -751,7 +752,16 @@ async function convertTakeout(inputPath: string, options: TakeoutOptions): Promi
 		return;
 	}
 
-	const outputDir = resolve(options.output);
+	// Security: validate output directory to prevent path traversal
+	let outputDir: string;
+	try {
+		outputDir = validateOutputPath(options.output);
+	} catch (error) {
+		logger.error(
+			`Invalid output directory: ${error instanceof Error ? error.message : String(error)}`,
+		);
+		process.exit(1);
+	}
 	mkdirSync(outputDir, { recursive: true });
 
 	// Extract ZIP if needed

@@ -21,6 +21,7 @@ import { type MboxOptions, addMboxOptions, createBaseCommand } from '../lib/args
 import { createFrontmatter, serializeFrontmatter } from '../lib/frontmatter.js';
 import { normalizeText, slugify, stripHtml } from '../lib/normalizer.js';
 import { ProgressReporter, logger } from '../lib/progress.js';
+import { sanitizeFilename, validateOutputPath } from '../lib/security.js';
 import type { ConversionResult, EmailMetadata } from '../lib/types.js';
 
 /**
@@ -290,10 +291,11 @@ async function convertEmlFile(
 				mkdirSync(attachmentDir, { recursive: true });
 
 				for (const attachment of mail.attachments) {
-					const attachmentPath = join(
-						attachmentDir,
+					// Security: sanitize filename to prevent path traversal
+					const safeFilename = sanitizeFilename(
 						attachment.filename || `unnamed-${attachment.checksum}`,
 					);
+					const attachmentPath = join(attachmentDir, safeFilename);
 					writeFileSync(attachmentPath, attachment.content);
 				}
 			}
@@ -330,7 +332,8 @@ async function convertEml(inputPath: string, options: MboxOptions): Promise<void
 	}
 
 	const stats = statSync(resolvedInput);
-	const outputDir = resolve(options.output);
+	// Security: validate output directory to prevent path traversal
+	const outputDir = validateOutputPath(options.output);
 
 	let files: string[] = [];
 

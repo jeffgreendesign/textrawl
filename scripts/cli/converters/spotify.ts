@@ -18,6 +18,7 @@ import { type CommonOptions, createBaseCommand } from '../lib/args.js';
 import { createFrontmatter, serializeFrontmatter } from '../lib/frontmatter.js';
 import { slugify } from '../lib/normalizer.js';
 import { ProgressReporter, logger } from '../lib/progress.js';
+import { validateOutputPath } from '../lib/security.js';
 import type { ContentType, ConversionResult, DocumentFrontMatter } from '../lib/types.js';
 
 /**
@@ -585,7 +586,8 @@ async function convertSpotify(inputPath: string, options: SpotifyOptions): Promi
 
 	// Find Spotify data files
 	const files = findSpotifyFiles(resolvedInput);
-	const outputDir = resolve(options.output);
+	// Security: validate output directory to prevent path traversal
+	const outputDir = validateOutputPath(options.output);
 
 	// Count total items for progress
 	let totalItems = 0;

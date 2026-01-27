@@ -25,6 +25,7 @@ import {
 } from '../lib/frontmatter.js';
 import { normalizeText, slugify } from '../lib/normalizer.js';
 import { ProgressReporter, logger } from '../lib/progress.js';
+import { validateOutputPath } from '../lib/security.js';
 import type { ConversionResult, WebpageMetadata } from '../lib/types.js';
 
 /**
@@ -362,7 +363,8 @@ async function convertHtml(inputPath: string, options: HtmlOptions): Promise<voi
 	}
 
 	const stats = statSync(resolvedInput);
-	const outputDir = resolve(options.output);
+	// Security: validate output directory to prevent path traversal
+	const outputDir = validateOutputPath(options.output);
 
 	let files: string[] = [];
 
