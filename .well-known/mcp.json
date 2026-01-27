@@ -10,12 +10,20 @@
 		"endpoint": "/mcp",
 		"stateless": true
 	},
-	"authentication": {
-		"type": "bearer",
-		"header": "Authorization",
-		"required": true,
-		"description": "API_BEARER_TOKEN (minimum 32 characters)"
-	},
+	"authentication": [
+		{
+			"type": "bearer",
+			"header": "Authorization",
+			"description": "Static API_BEARER_TOKEN (minimum 32 characters)"
+		},
+		{
+			"type": "oauth2",
+			"authorization_endpoint": "/authorize",
+			"token_endpoint": "/token",
+			"metadata_endpoint": "/.well-known/oauth-authorization-server",
+			"description": "OAuth 2.0 with Google (for Claude/ChatGPT mobile apps)"
+		}
+	],
 	"rateLimit": {
 		"api": {
 			"requests": 100,
