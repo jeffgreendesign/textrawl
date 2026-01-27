@@ -78,6 +78,24 @@ const envSchema = z.object({
 	OAUTH_ALLOWED_EMAILS: z.string().optional(),
 	OAUTH_SERVER_URL: z.string().url().optional(),
 
+	// Proactive insights
+	ENABLE_INSIGHTS: z
+		.string()
+		.default('true')
+		.transform((val) => val.toLowerCase() === 'true'),
+
+	// Number of chunks that must be inserted before an insight scan is eligible
+	INSIGHT_BATCH_THRESHOLD: z
+		.string()
+		.default('50')
+		.transform((val) => parseInt(val, 10)),
+
+	// Debounce seconds — wait this long after last insert before scanning
+	INSIGHT_DEBOUNCE_SECONDS: z
+		.string()
+		.default('300')
+		.transform((val) => parseInt(val, 10)),
+
 	// Chunking strategy
 	// - fixed: Paragraph-aware splitting at ~512 tokens (fast, no extra API calls)
 	// - semantic: Embedding-based splitting at topic boundaries (better retrieval, slower)

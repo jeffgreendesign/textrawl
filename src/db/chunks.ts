@@ -1,6 +1,7 @@
 import { DatabaseError } from '../utils/errors.js';
 import { logger } from '../utils/logger.js';
 import { type Chunk, getSupabaseClient, isSupabaseConfigured } from './client.js';
+import { incrementInsightQueue } from './insights.js';
 
 export interface CreateChunkInput {
 	documentId: string;
@@ -47,6 +48,9 @@ export async function createChunks(chunks: CreateChunkInput[]): Promise<Chunk[]>
 		documentId: chunks[0].documentId,
 		count: data.length,
 	});
+
+	// Track chunk insertion for proactive insight queue (non-blocking)
+	incrementInsightQueue(data.length).catch(() => {});
 
 	return data as Chunk[];
 }
