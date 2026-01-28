@@ -135,7 +135,9 @@ oauthRoutes.get('/oauth/callback', async (req, res, next) => {
 
 		// Check email allowlist
 		const allowedEmails =
-			config.OAUTH_ALLOWED_EMAILS?.split(',').map((e) => e.trim().toLowerCase()) ?? [];
+			config.OAUTH_ALLOWED_EMAILS?.split(',')
+				.map((e) => e.trim().toLowerCase())
+				.filter(Boolean) ?? [];
 
 		if (allowedEmails.length > 0 && !allowedEmails.includes(userInfo.email.toLowerCase())) {
 			logger.warn('OAuth: email not in allowlist', { email: userInfo.email });
