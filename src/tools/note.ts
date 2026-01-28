@@ -150,6 +150,18 @@ export function registerNoteTool(server: McpServer): void {
 					memoryExtraction: !!memoryResult,
 				});
 
+				if (config.COMPACT_RESPONSES) {
+					const resp: Record<string, unknown> = {
+						ok: true,
+						id: document.id.slice(0, 8),
+						ch: chunks.length,
+					};
+					if (memoryResult) resp.mem = memoryResult;
+					return {
+						content: [{ type: 'text' as const, text: JSON.stringify(resp) }],
+					};
+				}
+
 				const response: Record<string, unknown> = {
 					success: true,
 					documentId: document.id,

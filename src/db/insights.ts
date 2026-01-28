@@ -76,11 +76,7 @@ export async function getInsightQueueState(): Promise<InsightQueueState | null> 
 	if (!isSupabaseConfigured()) return null;
 
 	const client = getSupabaseClient();
-	const { data, error } = await client
-		.from('insight_queue')
-		.select('*')
-		.eq('id', 1)
-		.single();
+	const { data, error } = await client.from('insight_queue').select('*').eq('id', 1).single();
 
 	if (error) {
 		logger.error('Failed to get insight queue state', { error: error.message });
@@ -92,8 +88,8 @@ export async function getInsightQueueState(): Promise<InsightQueueState | null> 
 
 /** Check if scan should run (threshold reached + debounce elapsed) */
 export async function shouldRunInsightScan(
-	threshold: number = 50,
-	debounceSeconds: number = 300,
+	threshold = 50,
+	debounceSeconds = 300,
 ): Promise<{ shouldScan: boolean; pending: number }> {
 	if (!isSupabaseConfigured()) return { shouldScan: false, pending: 0 };
 
@@ -225,19 +221,13 @@ export async function searchInsights(
 }
 
 /** Update insight status (new → seen, seen → dismissed) */
-export async function updateInsightStatus(
-	insightId: string,
-	status: InsightStatus,
-): Promise<void> {
+export async function updateInsightStatus(insightId: string, status: InsightStatus): Promise<void> {
 	if (!isSupabaseConfigured()) {
 		throw new DatabaseError('Supabase not configured');
 	}
 
 	const client = getSupabaseClient();
-	const { error } = await client
-		.from('proactive_insights')
-		.update({ status })
-		.eq('id', insightId);
+	const { error } = await client.from('proactive_insights').update({ status }).eq('id', insightId);
 
 	if (error) {
 		logger.error('Failed to update insight status', { error: error.message });

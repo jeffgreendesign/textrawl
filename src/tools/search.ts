@@ -5,6 +5,7 @@ import { hybridConversationSearch } from '../db/conversation-search.js';
 import { hybridMemorySearch } from '../db/memory-search.js';
 import { hybridSearch } from '../db/search.js';
 import { generateEmbedding, isOpenAIConfigured } from '../services/embeddings.js';
+import { formatId, isCompact } from '../utils/compact.js';
 import { config } from '../utils/config.js';
 import { logger } from '../utils/logger.js';
 
@@ -24,7 +25,7 @@ export function registerSearchTool(server: McpServer): void {
 					.min(1)
 					.max(10000, 'Query must be at most 10KB')
 					.describe('Natural language search query'),
-				limit: z.number().min(1).max(50).default(10).describe('Maximum results to return'),
+				limit: z.number().min(1).max(50).default(5).describe('Maximum results to return'),
 				fullTextWeight: z
 					.number()
 					.min(0)
@@ -162,6 +163,25 @@ export function registerSearchTool(server: McpServer): void {
 				results = results.slice(0, limit);
 
 				// Format results for output with metadata
+				if (isCompact()) {
+					return {
+						content: [
+							{
+								type: 'text' as const,
+								text: JSON.stringify({
+									n: results.length,
+									r: results.map((r) => ({
+										d: formatId(r.document_id),
+										t: r.document_title,
+										c: r.content.slice(0, 300),
+										s: Math.round(r.score * 1000) / 1000,
+									})),
+								}),
+							},
+						],
+					};
+				}
+
 				const formattedResults = results.map((r) => {
 					const docTags = (r.document_metadata?.tags as string[]) || [];
 					return {
@@ -170,7 +190,7 @@ export function registerSearchTool(server: McpServer): void {
 						sourceType: r.source_type,
 						tags: docTags,
 						chunkId: r.chunk_id,
-						content: r.content,
+						content: r.content.slice(0, 500),
 						score: r.score,
 					};
 				});
@@ -182,12 +202,6 @@ export function registerSearchTool(server: McpServer): void {
 							text: JSON.stringify(
 								{
 									query,
-									filters: {
-										tags: tags || null,
-										sourceType: sourceType || null,
-										contentType: contentType || null,
-										minScore: minScore ?? null,
-									},
 									totalResults: formattedResults.length,
 									results: formattedResults,
 								},
@@ -233,7 +247,7 @@ export function registerSearchTool(server: McpServer): void {
 			description: 'Unified search across documents, memories, and conversations',
 			inputSchema: {
 				query: z.string().min(1).max(10000).describe('Natural language search query'),
-				limit: z.number().int().min(1).max(30).default(10).describe('Maximum results per source'),
+				limit: z.number().int().min(1).max(30).default(5).describe('Maximum results per source'),
 				includeDocuments: z.boolean().default(true).describe('Search documents/notes'),
 				includeMemories: z
 					.boolean()
@@ -419,7 +433,7 @@ export function registerSearchTool(server: McpServer): void {
 							entityId: mem.entityId,
 							entityName: mem.entityName,
 							entityType: mem.entityType,
-							content: mem.content,
+							content: mem.content.slice(0, 500),
 						},
 					});
 				}
@@ -450,6 +464,24 @@ export function registerSearchTool(server: McpServer): void {
 					totalFused: limitedResults.length,
 				});
 
+				if (isCompact()) {
+					return {
+						content: [
+							{
+								type: 'text' as const,
+								text: JSON.stringify({
+									n: limitedResults.length,
+									r: limitedResults.map((r) => ({
+										src: r.type[0],
+										s: Math.round(r.score * 1000) / 1000,
+										...(r.data as Record<string, unknown>),
+									})),
+								}),
+							},
+						],
+					};
+				}
+
 				return {
 					content: [
 						{
@@ -457,11 +489,6 @@ export function registerSearchTool(server: McpServer): void {
 							text: JSON.stringify(
 								{
 									query,
-									sources: {
-										documents: includeDocuments,
-										memories: includeMemories && config.ENABLE_MEMORY,
-										conversations: includeConversations && config.ENABLE_CONVERSATIONS,
-									},
 									counts: {
 										documents: documentResults.length,
 										memories: memoryResults.length,

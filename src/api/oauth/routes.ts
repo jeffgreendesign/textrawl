@@ -1,12 +1,17 @@
-import express, { Router } from 'express';
+import express, { type Router as RouterType, Router } from 'express';
 import { config } from '../../utils/config.js';
 import { ValidationError } from '../../utils/errors.js';
 import { logger } from '../../utils/logger.js';
 import { signJwt, verifyJwt } from './jwt.js';
 import { verifyPkce } from './pkce.js';
-import type { AuthCodePayload, AuthSessionPayload, AuthorizeParams, TokenRequest } from './types.js';
+import type {
+	AuthCodePayload,
+	AuthSessionPayload,
+	AuthorizeParams,
+	TokenRequest,
+} from './types.js';
 
-export const oauthRoutes = Router();
+export const oauthRoutes: RouterType = Router();
 
 // OAuth 2.0 Protected Resource Metadata (RFC 9728)
 oauthRoutes.get('/.well-known/oauth-protected-resource', (_req, res) => {
@@ -66,8 +71,11 @@ oauthRoutes.get('/authorize', async (req, res, next) => {
 		const sessionToken = await signJwt({ ...sessionPayload }, '10m');
 
 		// Redirect to Google OAuth consent screen
+		if (!config.GOOGLE_CLIENT_ID) {
+			throw new ValidationError('OAuth misconfigured: GOOGLE_CLIENT_ID is not set');
+		}
 		const googleAuthUrl = new URL('https://accounts.google.com/o/oauth2/v2/auth');
-		googleAuthUrl.searchParams.set('client_id', config.GOOGLE_CLIENT_ID!);
+		googleAuthUrl.searchParams.set('client_id', config.GOOGLE_CLIENT_ID);
 		googleAuthUrl.searchParams.set('redirect_uri', `${config.OAUTH_SERVER_URL}/oauth/callback`);
 		googleAuthUrl.searchParams.set('response_type', 'code');
 		googleAuthUrl.searchParams.set('scope', 'openid email');
@@ -91,7 +99,7 @@ oauthRoutes.get('/oauth/callback', async (req, res, next) => {
 		}
 
 		// Verify and decode our session JWT from state
-		const session = await verifyJwt(state) as unknown as AuthSessionPayload;
+		const session = (await verifyJwt(state)) as unknown as AuthSessionPayload;
 
 		// Exchange Google auth code for tokens
 		const tokenResponse = await fetch('https://oauth2.googleapis.com/token', {
@@ -126,9 +134,10 @@ oauthRoutes.get('/oauth/callback', async (req, res, next) => {
 		const userInfo = (await userInfoResponse.json()) as { email: string };
 
 		// Check email allowlist
-		const allowedEmails = config.OAUTH_ALLOWED_EMAILS
-			?.split(',')
-			.map((e) => e.trim().toLowerCase()) ?? [];
+		const allowedEmails =
+			config.OAUTH_ALLOWED_EMAILS?.split(',')
+				.map((e) => e.trim().toLowerCase())
+				.filter(Boolean) ?? [];
 
 		if (allowedEmails.length > 0 && !allowedEmails.includes(userInfo.email.toLowerCase())) {
 			logger.warn('OAuth: email not in allowlist', { email: userInfo.email });
@@ -169,7 +178,7 @@ oauthRoutes.post('/token', express.urlencoded({ extended: false }), async (req, 
 		}
 
 		// Verify the authorization code JWT
-		const authCode = await verifyJwt(body.code) as unknown as AuthCodePayload;
+		const authCode = (await verifyJwt(body.code)) as unknown as AuthCodePayload;
 
 		// Verify PKCE
 		if (!verifyPkce(body.code_verifier, authCode.code_challenge)) {
@@ -182,10 +191,7 @@ oauthRoutes.post('/token', express.urlencoded({ extended: false }), async (req, 
 		}
 
 		// Issue long-lived access token
-		const accessToken = await signJwt(
-			{ sub: authCode.email },
-			'30d',
-		);
+		const accessToken = await signJwt({ sub: authCode.email }, '30d');
 
 		logger.debug('OAuth token: issued access token', { email: authCode.email });
 

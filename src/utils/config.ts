@@ -137,16 +137,27 @@ export function loadConfig(): Config {
 	cachedConfig = result.data;
 
 	// Require some auth in production mode
-	if (result.data.NODE_ENV === 'production' && !result.data.API_BEARER_TOKEN && !result.data.GOOGLE_CLIENT_ID) {
+	if (
+		result.data.NODE_ENV === 'production' &&
+		!result.data.API_BEARER_TOKEN &&
+		!result.data.GOOGLE_CLIENT_ID
+	) {
 		logger.error('API_BEARER_TOKEN or OAuth (GOOGLE_CLIENT_ID) is required in production mode');
 		process.exit(1);
 	}
 
 	// Validate OAuth config: if any OAuth var is set, all required ones must be
-	const oauthVars = [result.data.GOOGLE_CLIENT_ID, result.data.GOOGLE_CLIENT_SECRET, result.data.OAUTH_JWT_SECRET, result.data.OAUTH_SERVER_URL];
+	const oauthVars = [
+		result.data.GOOGLE_CLIENT_ID,
+		result.data.GOOGLE_CLIENT_SECRET,
+		result.data.OAUTH_JWT_SECRET,
+		result.data.OAUTH_SERVER_URL,
+	];
 	const oauthSet = oauthVars.filter(Boolean).length;
 	if (oauthSet > 0 && oauthSet < 4) {
-		logger.error('OAuth partially configured. Set all of: GOOGLE_CLIENT_ID, GOOGLE_CLIENT_SECRET, OAUTH_JWT_SECRET, OAUTH_SERVER_URL');
+		logger.error(
+			'OAuth partially configured. Set all of: GOOGLE_CLIENT_ID, GOOGLE_CLIENT_SECRET, OAUTH_JWT_SECRET, OAUTH_SERVER_URL',
+		);
 		process.exit(1);
 	}
 

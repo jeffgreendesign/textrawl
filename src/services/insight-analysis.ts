@@ -1,10 +1,14 @@
 import { randomUUID } from 'node:crypto';
 import Anthropic from '@anthropic-ai/sdk';
-import { type CreateInsightInput, createInsights, setInsightQueueProcessing } from '../db/insights.js';
 import { getSupabaseClient, isSupabaseConfigured } from '../db/client.js';
-import { generateEmbedding, isEmbeddingsConfigured } from './embeddings.js';
+import {
+	type CreateInsightInput,
+	createInsights,
+	setInsightQueueProcessing,
+} from '../db/insights.js';
 import { config } from '../utils/config.js';
 import { logger } from '../utils/logger.js';
+import { generateEmbedding, isEmbeddingsConfigured } from './embeddings.js';
 
 // ---------------------------------------------------------------------------
 // Types
@@ -106,7 +110,7 @@ export async function runInsightScan(options?: {
 
 			// 5. Generate embeddings for insights and store
 			for (const insight of llmInsights) {
-				const embedding = await generateEmbedding(insight.title + ' ' + insight.summary);
+				const embedding = await generateEmbedding(`${insight.title} ${insight.summary}`);
 
 				// Build evidence from the pairs that contributed to this insight
 				const evidence = buildEvidence(insight, connections, outliers);
@@ -154,10 +158,7 @@ export async function runInsightScan(options?: {
 // Data fetching
 // ---------------------------------------------------------------------------
 
-async function fetchRecentChunks(
-	limit: number,
-	fullScan?: boolean,
-): Promise<ChunkWithContext[]> {
+async function fetchRecentChunks(limit: number, fullScan?: boolean): Promise<ChunkWithContext[]> {
 	const client = getSupabaseClient();
 
 	// Get last scan time to only fetch new chunks
@@ -231,9 +232,7 @@ function cosineSimilarity(a: number[], b: number[]): number {
 	return dot / (Math.sqrt(normA) * Math.sqrt(normB));
 }
 
-async function findCrossSourceConnections(
-	chunks: ChunkWithContext[],
-): Promise<ConnectionPair[]> {
+async function findCrossSourceConnections(chunks: ChunkWithContext[]): Promise<ConnectionPair[]> {
 	const connections: ConnectionPair[] = [];
 
 	// For each recent chunk, find similar chunks from DIFFERENT documents
@@ -374,9 +373,13 @@ async function synthesizeInsights(
 
 		for (const conn of topConnections) {
 			parts.push(`### Similarity: ${conn.similarity.toFixed(3)}`);
-			parts.push(`**Document A:** "${conn.a.document_title}" (${conn.a.source_type}${conn.a.content_type ? '/' + conn.a.content_type : ''})`);
+			parts.push(
+				`**Document A:** "${conn.a.document_title}" (${conn.a.source_type}${conn.a.content_type ? `/${conn.a.content_type}` : ''})`,
+			);
 			parts.push(`> ${conn.a.content.slice(0, 500)}\n`);
-			parts.push(`**Document B:** "${conn.b.document_title}" (${conn.b.source_type}${conn.b.content_type ? '/' + conn.b.content_type : ''})`);
+			parts.push(
+				`**Document B:** "${conn.b.document_title}" (${conn.b.source_type}${conn.b.content_type ? `/${conn.b.content_type}` : ''})`,
+			);
 			parts.push(`> ${conn.b.content.slice(0, 500)}\n---\n`);
 		}
 	}
@@ -384,7 +387,9 @@ async function synthesizeInsights(
 	if (outliers.length > 0) {
 		parts.push('## OUTLIERS\n');
 		for (const outlier of outliers.slice(0, 10)) {
-			parts.push(`**"${outlier.document_title}"** (${outlier.source_type}${outlier.content_type ? '/' + outlier.content_type : ''})`);
+			parts.push(
+				`**"${outlier.document_title}"** (${outlier.source_type}${outlier.content_type ? `/${outlier.content_type}` : ''})`,
+			);
 			parts.push(`> ${outlier.content.slice(0, 500)}\n---\n`);
 		}
 	}
@@ -410,10 +415,7 @@ async function synthesizeInsights(
 		}
 
 		const parsed = JSON.parse(jsonMatch[0]) as LLMInsight[];
-		return parsed.filter(
-			(i) =>
-				i.type && i.title && i.summary && Array.isArray(i.entities),
-		);
+		return parsed.filter((i) => i.type && i.title && i.summary && Array.isArray(i.entities));
 	} catch (error) {
 		logger.error('LLM insight synthesis failed', {
 			error: error instanceof Error ? error.message : String(error),
@@ -453,7 +455,8 @@ function generateRuleBasedInsights(
 		insights.push({
 			type: 'theme_cluster',
 			title: `Recurring theme across ${sameSourcePairs.length} document pairs`,
-			summary: `Multiple documents share similar content, suggesting a recurring theme or topic you revisit frequently.`,
+			summary:
+				'Multiple documents share similar content, suggesting a recurring theme or topic you revisit frequently.',
 			entities: [],
 		});
 	}
@@ -463,7 +466,8 @@ function generateRuleBasedInsights(
 			insights.push({
 				type: 'outlier',
 				title: `Unique content: "${outlier.document_title}"`,
-				summary: `This content is unlike anything else in your knowledge base. It may represent a unique interest, a one-time event, or a topic worth exploring further.`,
+				summary:
+					'This content is unlike anything else in your knowledge base. It may represent a unique interest, a one-time event, or a topic worth exploring further.',
 				entities: [],
 			});
 		}
@@ -496,9 +500,7 @@ function buildEvidence(
 		}
 	} else {
 		// Use top connections as evidence
-		const top = connections
-			.sort((a, b) => b.similarity - a.similarity)
-			.slice(0, 5);
+		const top = connections.sort((a, b) => b.similarity - a.similarity).slice(0, 5);
 
 		for (const conn of top) {
 			evidence.push({

@@ -7,6 +7,7 @@ import {
 	listDocuments as listDocumentsFromDb,
 	updateDocument as updateDocumentInDb,
 } from '../db/documents.js';
+import { formatId, isCompact } from '../utils/compact.js';
 import { logger } from '../utils/logger.js';
 
 /**
@@ -19,8 +20,14 @@ export function registerDocumentTools(server: McpServer): void {
 		{
 			documentId: z.string().uuid().describe('The document UUID'),
 			includeChunks: z.boolean().default(false).describe('Include document chunks in response'),
+			maxContentLength: z
+				.number()
+				.int()
+				.min(0)
+				.default(4000)
+				.describe('Maximum content characters to return (0 = full content)'),
 		},
-		async ({ documentId, includeChunks }) => {
+		async ({ documentId, includeChunks, maxContentLength }) => {
 			logger.info('get_document called', { documentId, includeChunks });
 
 			if (!isSupabaseConfigured()) {
@@ -44,6 +51,31 @@ export function registerDocumentTools(server: McpServer): void {
 
 			try {
 				const document = await getDocumentFromDb(documentId);
+				const rawContent = document.raw_content || '';
+				const truncateContent = maxContentLength > 0 && rawContent.length > maxContentLength;
+				const content = truncateContent ? rawContent.slice(0, maxContentLength) : rawContent;
+
+				if (isCompact()) {
+					const result: Record<string, unknown> = {
+						id: formatId(document.id),
+						t: document.title,
+						src: document.source_type,
+						c: content,
+						...(truncateContent ? { trunc: true, full: rawContent.length } : {}),
+					};
+
+					if (includeChunks) {
+						const chunks = await getChunksForDocument(documentId);
+						result.ch = chunks.map((c) => ({
+							i: c.chunk_index,
+							c: c.content.slice(0, 300),
+						}));
+					}
+
+					return {
+						content: [{ type: 'text' as const, text: JSON.stringify(result) }],
+					};
+				}
 
 				const result: Record<string, unknown> = {
 					document: {
@@ -51,7 +83,8 @@ export function registerDocumentTools(server: McpServer): void {
 						title: document.title,
 						sourceType: document.source_type,
 						sourceUrl: document.source_url,
-						content: document.raw_content,
+						content,
+						...(truncateContent ? { truncated: true, fullLength: rawContent.length } : {}),
 						metadata: document.metadata,
 						createdAt: document.created_at,
 						updatedAt: document.updated_at,
@@ -169,6 +202,26 @@ export function registerDocumentTools(server: McpServer): void {
 					sortOrder,
 				});
 
+				if (isCompact()) {
+					return {
+						content: [
+							{
+								type: 'text' as const,
+								text: JSON.stringify({
+									n: total,
+									more: offset + documents.length < total,
+									d: documents.map((d) => ({
+										id: formatId(d.id),
+										t: d.title,
+										src: d.source_type,
+										at: d.created_at,
+									})),
+								}),
+							},
+						],
+					};
+				}
+
 				const formattedDocuments = documents.map((d) => {
 					const metadata = d.metadata as Record<string, unknown> | null;
 					return {
@@ -279,6 +332,17 @@ export function registerDocumentTools(server: McpServer): void {
 
 			try {
 				const document = await updateDocumentInDb(documentId, { title, tags });
+
+				if (isCompact()) {
+					return {
+						content: [
+							{
+								type: 'text' as const,
+								text: JSON.stringify({ ok: true, id: formatId(document.id), t: document.title }),
+							},
+						],
+					};
+				}
 
 				const metadata = document.metadata as Record<string, unknown> | null;
 
