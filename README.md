@@ -164,7 +164,7 @@ npm run upload -- ./converted/
 | `ENABLE_INSIGHTS` | No | Enable proactive insight tools (default: true) |
 | `ENABLE_MEMORY_EXTRACTION` | No | Enable LLM-based memory extraction (default: false) |
 | `ANTHROPIC_API_KEY` | If extraction | Required for `extract_memories` tool |
-| `EXTRACTION_MODEL` | No | Model for extraction (default: claude-3-haiku-20240307) |
+| `EXTRACTION_MODEL` | No | Model for extraction (default: claude-3-haiku) |
 | `COMPACT_RESPONSES` | No | Token-efficient responses (default: true) |
 
 ## MCP Tools

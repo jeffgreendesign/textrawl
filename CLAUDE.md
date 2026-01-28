@@ -43,7 +43,7 @@ Copy `.env.example` to `.env` and configure:
 - `ENABLE_INSIGHTS` - Enable/disable proactive insight tools (default: true)
 - `ENABLE_MEMORY_EXTRACTION` - Enable LLM-based memory extraction (default: false)
 - `ANTHROPIC_API_KEY` - Required for memory extraction (Claude API)
-- `EXTRACTION_MODEL` - Model for extraction (default: claude-3-haiku-20240307)
+- `EXTRACTION_MODEL` - Model for extraction (default: claude-3-haiku)
 - `COMPACT_RESPONSES` - Token-efficient response format (default: true)
 - `CHUNKING_MODE` - `fixed` (default) or `semantic` for embedding-based topic splitting
 - `SEMANTIC_SIMILARITY_THRESHOLD` - Threshold for semantic chunking (default: 0.5)

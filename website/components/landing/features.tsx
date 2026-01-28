@@ -10,22 +10,26 @@ const features = [
 	{
 		icon: Search,
 		title: 'Semantic Search',
-		description: 'Find by meaning, not just keywords. Hybrid search fuses keyword and vector results.',
+		description:
+			'Find by meaning, not just keywords. Hybrid search fuses keyword and vector results.',
 	},
 	{
 		icon: Brain,
 		title: 'Persistent Memory',
-		description: 'Remember facts, track conversations, and build a knowledge graph across sessions.',
+		description:
+			'Remember facts, track conversations, and build a knowledge graph across sessions.',
 	},
 	{
 		icon: Lightbulb,
 		title: 'Proactive Insights',
-		description: 'Automatically discover connections, patterns, and outliers across your knowledge base.',
+		description:
+			'Automatically discover connections, patterns, and outliers across your knowledge base.',
 	},
 	{
 		icon: Cpu,
 		title: 'MCP Native',
-		description: 'Built for Claude and other MCP clients. 22 tools for your knowledge in every chat.',
+		description:
+			'Built for Claude and other MCP clients. 22 tools for your knowledge in every chat.',
 	},
 	{
 		icon: Lock,
