@@ -167,19 +167,19 @@ Major upgrade from current nomic-embed-text:
 
 ### High Priority (High value, low effort)
 
-1. **Upgrade Ollama embedding model** to `nomic-embed-text-v2-moe`
-   - Better performance, multilingual, Matryoshka support
-   - Note: Different dimensions (768 vs 1024) - requires re-embedding
+1. ✅ **Upgrade Ollama embedding model** to `nomic-embed-text-v2-moe`
+   - **Shipped:** Added `setup-db-ollama-v2.sql` schema (768 dimensions)
+   - Documented in CLAUDE.md and README.md as recommended Ollama model
 
 ### Medium Priority (Medium effort, high impact)
 
-2. **Implement adaptive/semantic chunking**
-   - Research shows significant accuracy improvements
-   - Start with hybrid approach: semantic boundaries + size constraints
+2. ✅ **Implement adaptive/semantic chunking**
+   - **Shipped:** `CHUNKING_MODE=semantic` with configurable `SEMANTIC_SIMILARITY_THRESHOLD`
+   - Uses embedding similarity to detect topic boundaries at upload time
 
-3. **Add weighted RRF support**
-   - Allow configurable weights for FTS vs semantic in `hybrid_search()`
-   - Consider linear retriever as alternative fusion method
+3. ✅ **Add weighted RRF support**
+   - **Shipped:** `fullTextWeight` and `semanticWeight` parameters on `search_knowledge`
+   - Range 0-2, default 1.0 each
 
 ### Monitor / Future Consideration
 
@@ -187,6 +187,12 @@ Major upgrade from current nomic-embed-text:
 5. **MCP Server Cards** for improved discoverability
 6. **HiFi-RAG** multi-stage filtering with re-ranking
 7. **Bidirectional RAG** write-back with grounding checks for `add_note`
+
+### New Priorities (January 2026)
+
+8. **Test suite** - No automated tests exist yet; highest-impact infrastructure need
+9. **MDX doc pages** for conversation, insight, and unified search tools (`docs/mcp-tools/`)
+10. **Dependabot security alerts** - 18 vulnerabilities flagged (5 high, 13 moderate)
 
 ---
 
