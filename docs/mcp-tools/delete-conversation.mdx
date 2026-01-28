@@ -1,0 +1,25 @@
+---
+title: delete_conversation
+description: Delete a conversation session
+---
+
+Permanently delete a conversation session and all its turns. Must provide either `sessionId` or `sessionKey`.
+
+## Parameters
+
+| Parameter | Type | Required | Default | Description |
+|-----------|------|----------|---------|-------------|
+| `sessionId` | string | OPTIONAL | - | Session UUID to delete |
+| `sessionKey` | string | OPTIONAL | - | Session key to delete |
+| `confirm` | boolean | REQUIRED | - | Must be `true` to confirm deletion |
+
+## Example Request
+
+```json
+{ "sessionKey": "db-migration-2026-01", "confirm": true }
+```
+
+## Related Tools
+
+- `list_conversations` - Find sessions to delete
+- `conversation_stats` - Check storage after deletion

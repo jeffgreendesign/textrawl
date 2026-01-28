@@ -4,10 +4,12 @@
 		"index",
 		"---Document Tools---",
 		"search-knowledge",
+		"search-with-context",
 		"get-document",
 		"list-documents",
 		"update-document",
 		"add-note",
+		"knowledge-stats",
 		"---Memory Tools---",
 		"remember-fact",
 		"recall-memories",
@@ -15,6 +17,19 @@
 		"get-entity-context",
 		"list-entities",
 		"forget-entity",
-		"memory-stats"
+		"memory-stats",
+		"extract-memories",
+		"---Conversation Tools---",
+		"save-conversation-context",
+		"recall-conversation",
+		"list-conversations",
+		"get-conversation",
+		"delete-conversation",
+		"conversation-stats",
+		"---Insight Tools---",
+		"get-insights",
+		"discover-connections",
+		"dismiss-insight",
+		"insight-stats"
 	]
 }

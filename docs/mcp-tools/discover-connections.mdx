@@ -1,0 +1,26 @@
+---
+title: discover_connections
+description: Trigger an insight scan across the knowledge base
+---
+
+Scan the knowledge base to discover connections, patterns, and outliers. Best used after bulk imports (email, documents, Google Takeout) to find what's interesting.
+
+## Parameters
+
+| Parameter | Type | Required | Default | Description |
+|-----------|------|----------|---------|-------------|
+| `fullScan` | boolean | OPTIONAL | `false` | Scan all content (not just recent) |
+| `maxChunks` | number | OPTIONAL | `200` | Max chunks to analyze (10-1000) |
+
+## Example Request
+
+```json
+{ "fullScan": false, "maxChunks": 200 }
+```
+
+Use `fullScan: true` sparingly on large databases as it analyzes all content.
+
+## Related Tools
+
+- `get_insights` - View discovered insights
+- `insight_stats` - Check queue and processing state

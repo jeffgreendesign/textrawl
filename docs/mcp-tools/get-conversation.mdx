@@ -1,0 +1,26 @@
+---
+title: get_conversation
+description: Get full conversation by session ID or key
+---
+
+Retrieve a complete conversation session including summary and turns. Must provide either `sessionId` or `sessionKey`.
+
+## Parameters
+
+| Parameter | Type | Required | Default | Description |
+|-----------|------|----------|---------|-------------|
+| `sessionId` | string | OPTIONAL | - | Session UUID |
+| `sessionKey` | string | OPTIONAL | - | Session key string |
+| `maxTurns` | number | OPTIONAL | `50` | Max turns to include (1-200) |
+
+## Example Request
+
+```json
+{ "sessionKey": "db-migration-2026-01" }
+```
+
+## Related Tools
+
+- `list_conversations` - Browse sessions to find IDs/keys
+- `recall_conversation` - Search by content
+- `delete_conversation` - Delete a session

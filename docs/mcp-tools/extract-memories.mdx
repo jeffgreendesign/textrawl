@@ -1,0 +1,54 @@
+---
+title: extract_memories
+description: Extract entities and facts from text using LLM analysis
+---
+
+Extract entities, facts, and relationships from text using Claude. Requires `ENABLE_MEMORY_EXTRACTION=true` and `ANTHROPIC_API_KEY`.
+
+## Parameters
+
+| Parameter | Type | Required | Default | Description |
+|-----------|------|----------|---------|-------------|
+| `text` | string | REQUIRED | - | Text to extract from (10-100000 chars) |
+| `source` | enum | OPTIONAL | `document` | Source: conversation, note, document, manual |
+| `storeResults` | boolean | OPTIONAL | `false` | Store extracted memories in database |
+
+## Example Request
+
+```json
+{
+  "text": "Jeff prefers TypeScript and uses Supabase for his projects. He works at Acme Corp.",
+  "source": "conversation",
+  "storeResults": false
+}
+```
+
+## Response
+
+Returns extracted entities with their types, observations, and relationships.
+
+```json
+{
+  "entities": [
+    { "name": "Jeff", "type": "person", "observations": ["prefers TypeScript", "uses Supabase", "works at Acme Corp"] }
+  ],
+  "relations": [
+    { "from": "Jeff", "relation": "works_at", "to": "Acme Corp" }
+  ],
+  "stored": false
+}
+```
+
+Set `storeResults: true` to persist extracted memories to the database.
+
+## Errors
+
+| Error | Cause | Fix |
+|-------|-------|-----|
+| Memory extraction not enabled | `ENABLE_MEMORY_EXTRACTION` is false | Set `ENABLE_MEMORY_EXTRACTION=true` |
+| Missing API key | No `ANTHROPIC_API_KEY` configured | Set `ANTHROPIC_API_KEY` in `.env` |
+
+## Related Tools
+
+- `remember_fact` - Manually store individual facts
+- `recall_memories` - Search extracted memories
