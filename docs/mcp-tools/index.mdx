@@ -1,9 +1,9 @@
 ---
 title: MCP Tools Overview
-description: Complete reference for textrawl's MCP tools
+description: Complete reference for textrawl's 22 MCP tools
 ---
 
-textrawl exposes 12 tools via the Model Context Protocol (MCP). These tools allow Claude and other MCP clients to search, retrieve, create, and manage documents and memories in your knowledge base.
+textrawl exposes 22 tools via the Model Context Protocol (MCP). These tools allow Claude and other MCP clients to search, retrieve, create, and manage documents, memories, conversations, and insights in your knowledge base.
 
 ## Document Tools
 
@@ -12,6 +12,12 @@ textrawl exposes 12 tools via the Model Context Protocol (MCP). These tools allo
 Hybrid semantic + full-text search using Reciprocal Rank Fusion.
 
 [View documentation →](/docs/mcp-tools/search-knowledge)
+
+### search_with_context
+
+Unified search across documents, memories, and conversations simultaneously.
+
+[View documentation →](/docs/mcp-tools/search-with-context)
 
 ### get_document
 
@@ -36,6 +42,12 @@ Update document title and/or tags for organization.
 Create markdown notes with automatic chunking and embedding.
 
 [View documentation →](/docs/mcp-tools/add-note)
+
+### knowledge_stats
+
+Get statistics about the knowledge base contents.
+
+[View documentation →](/docs/mcp-tools/knowledge-stats)
 
 ## Memory Tools (Persistent Memory)
 
@@ -83,6 +95,80 @@ Get statistics about stored memories.
 
 [View documentation →](/docs/mcp-tools/memory-stats)
 
+### extract_memories
+
+Extract entities and facts from text using LLM analysis. Requires `ENABLE_MEMORY_EXTRACTION=true`.
+
+[View documentation →](/docs/mcp-tools/extract-memories)
+
+## Conversation Tools (Conversation Memory)
+
+Enable with `ENABLE_CONVERSATIONS=true` (default). Requires `setup-db-conversation.sql` schema.
+
+### save_conversation_context
+
+Save conversation summary and turns for later recall.
+
+[View documentation →](/docs/mcp-tools/save-conversation-context)
+
+### recall_conversation
+
+Semantic search across past conversations by summary, turns, or both.
+
+[View documentation →](/docs/mcp-tools/recall-conversation)
+
+### list_conversations
+
+List recent conversation sessions with pagination.
+
+[View documentation →](/docs/mcp-tools/list-conversations)
+
+### get_conversation
+
+Get full conversation by session ID or key.
+
+[View documentation →](/docs/mcp-tools/get-conversation)
+
+### delete_conversation
+
+Delete a conversation session and all its turns.
+
+[View documentation →](/docs/mcp-tools/delete-conversation)
+
+### conversation_stats
+
+Get conversation storage statistics.
+
+[View documentation →](/docs/mcp-tools/conversation-stats)
+
+## Insight Tools (Proactive Discovery)
+
+Enable with `ENABLE_INSIGHTS=true` (default).
+
+### get_insights
+
+View cross-source connections, themes, entity bridges, and outliers discovered from your knowledge base.
+
+[View documentation →](/docs/mcp-tools/get-insights)
+
+### discover_connections
+
+Trigger an insight scan to find patterns across your knowledge base. Best used after bulk imports.
+
+[View documentation →](/docs/mcp-tools/discover-connections)
+
+### dismiss_insight
+
+Dismiss an insight so it no longer appears in results.
+
+[View documentation →](/docs/mcp-tools/dismiss-insight)
+
+### insight_stats
+
+Get statistics about the insight queue and processing state.
+
+[View documentation →](/docs/mcp-tools/insight-stats)
+
 ## Tool Selection Guide
 
 ### Document Tools
@@ -91,7 +177,7 @@ Get statistics about stored memories.
 |-------------|------------------|----------------|
 | Find content by meaning | `search_knowledge` | `semanticWeight: 1.5` |
 | Find exact keywords | `search_knowledge` | `fullTextWeight: 1.5` |
-| Balanced search | `search_knowledge` | Default weights |
+| Search everything at once | `search_with_context` | `includeMemories`, `includeConversations` |
 | Read full document | `get_document` | `documentId` |
 | Browse all documents | `list_documents` | `limit`, `offset` |
 | Filter by source type | `list_documents` | `sourceType` |
@@ -108,7 +194,26 @@ Get statistics about stored memories.
 | Get all info about an entity | `get_entity_context` | `entityName` |
 | List all known entities | `list_entities` | `entityTypes`, `limit` |
 | Delete an entity completely | `forget_entity` | `entityName`, `confirm: true` |
-| View memory statistics | `memory_stats` | (no parameters) |
+| Extract facts from text | `extract_memories` | `text`, `storeResults` |
+
+### Conversation Tools
+
+| User Intent | Recommended Tool | Key Parameters |
+|-------------|------------------|----------------|
+| Save conversation for later | `save_conversation_context` | `summary`, `recentTurns` |
+| Find past conversations | `recall_conversation` | `query`, `searchMode` |
+| Browse conversation history | `list_conversations` | `limit`, `offset` |
+| Get full transcript | `get_conversation` | `sessionKey` or `sessionId` |
+| Delete a conversation | `delete_conversation` | `sessionKey`, `confirm: true` |
+
+### Insight Tools
+
+| User Intent | Recommended Tool | Key Parameters |
+|-------------|------------------|----------------|
+| View discovered patterns | `get_insights` | `status`, `insightType` |
+| Run insight scan | `discover_connections` | `fullScan`, `maxChunks` |
+| Dismiss an insight | `dismiss_insight` | `insightId` |
+| Check queue status | `insight_stats` | (none) |
 
 ## Common Patterns
 
@@ -122,6 +227,14 @@ Get statistics about stored memories.
 3. Synthesize answer from full context
 ```
 
+### Comprehensive Context
+
+```text
+1. search_with_context(query: "topic", includeMemories: true, includeConversations: true)
+   → Get results from all sources at once
+2. Synthesize answer from documents, memories, and past conversations
+```
+
 ### Knowledge Capture
 
 ```text
@@ -129,16 +242,6 @@ Get statistics about stored memories.
 2. add_note(title: "...", content: "...", tags: ["topic"])
    → Creates document + generates embeddings
 3. Return documentId for reference
-```
-
-### Iterative Refinement
-
-```text
-1. search_knowledge(query: "broad topic", limit: 5)
-   → Review initial results
-2. If insufficient, adjust weights or add filters
-3. search_knowledge(query: "refined", tags: ["specific"])
-   → Get more targeted results
 ```
 
 ### Memory Capture
@@ -150,15 +253,25 @@ Get statistics about stored memories.
 3. For relationships: relate_entities(fromEntity: "User", relation: "works_at", toEntity: "Acme")
 ```
 
-### Context Retrieval
+### Conversation Continuity
 
 ```text
-1. Before responding, check for relevant memories
-2. recall_memories(query: "user preferences", entityTypes: ["person", "preference"])
-   → Get matching memories
-3. get_entity_context(entityName: "User")
-   → Get full entity context
-4. Incorporate memories into response
+1. At end of conversation, save context:
+   save_conversation_context(summary: "...", sessionKey: "project-planning", recentTurns: [...])
+2. At start of next session, recall:
+   recall_conversation(query: "project planning")
+   → Resume with full context
+```
+
+### Insight Discovery
+
+```text
+1. After bulk import (email, documents):
+   discover_connections(maxChunks: 500)
+2. Check for discoveries:
+   get_insights(status: "new")
+3. Review and dismiss irrelevant insights:
+   dismiss_insight(insightId: "...")
 ```
 
 ## Response Format
@@ -231,6 +344,9 @@ Common errors:
 | `Embedding service not configured` | Memory tools need embeddings | Set `OPENAI_API_KEY` or configure Ollama |
 | `Entity not found` | forget_entity with unknown name | Check entity name with `list_entities` |
 | `Confirmation required` | forget_entity without confirm | Set `confirm: true` to delete |
+| `Conversations not enabled` | Feature flag off | Set `ENABLE_CONVERSATIONS=true` |
+| `Memory extraction not enabled` | Feature flag off | Set `ENABLE_MEMORY_EXTRACTION=true` |
+| `Insights not enabled` | Feature flag off | Set `ENABLE_INSIGHTS=true` |
 
 ## Testing Tools
 
