@@ -79,6 +79,38 @@ Enable with `ENABLE_MEMORY=true` (default). Requires `setup-db-memory.sql` (Open
 | List all known entities | `list_entities` | `entityTypes`, `limit` |
 | Delete an entity completely | `forget_entity` | `entityName`, `confirm: true` |
 | View memory statistics | `memory_stats` | (no parameters) |
+| Extract entities from text | `extract_memories` | `text`, `source`, `storeResults` |
+
+### Conversation Tools (Conversation Memory)
+
+Enable with `ENABLE_CONVERSATIONS=true` (default). Requires `setup-db-conversation.sql` (OpenAI) or `setup-db-conversation-ollama.sql` (Ollama).
+
+| User Intent | Tool | Key Parameters |
+|-------------|------|----------------|
+| Save conversation for later recall | `save_conversation_context` | `summary`, `recentTurns`, `sessionKey` |
+| Search past conversations | `recall_conversation` | `query`, `searchMode: 'summary'` |
+| Browse conversation history | `list_conversations` | `limit`, `offset` |
+| Get full conversation transcript | `get_conversation` | `sessionId` or `sessionKey` |
+| Delete a conversation | `delete_conversation` | `sessionId` or `sessionKey`, `confirm: true` |
+| View conversation statistics | `conversation_stats` | (no parameters) |
+
+### Unified Search & Stats
+
+| User Intent | Tool | Key Parameters |
+|-------------|------|----------------|
+| Search across all sources | `search_with_context` | `query`, `includeDocuments`, `includeMemories`, `includeConversations` |
+| Get knowledge base statistics | `knowledge_stats` | (no parameters) |
+
+### Insight Tools (Proactive Discovery)
+
+Enable with `ENABLE_INSIGHTS=true` (default).
+
+| User Intent | Tool | Key Parameters |
+|-------------|------|----------------|
+| View discovered patterns/connections | `get_insights` | `status`, `insightType`, `query` |
+| Trigger insight scan | `discover_connections` | `fullScan`, `maxChunks` |
+| Dismiss an insight | `dismiss_insight` | `insightId` |
+| View insight queue stats | `insight_stats` | (no parameters) |
 
 ## Tool Schemas (RFC 2119)
 
@@ -384,6 +416,132 @@ Get statistics about stored memories.
 }
 ```
 
+### extract_memories
+
+Extract entities and facts from text using LLM analysis. Requires `ENABLE_MEMORY_EXTRACTION=true` and `ANTHROPIC_API_KEY`.
+
+**Parameters:**
+
+- `text` (string, REQUIRED): Text to extract entities and facts from (10-100000 chars)
+- `source` (enum, OPTIONAL): `'conversation' | 'note' | 'document' | 'manual'`, default 'document'
+- `storeResults` (boolean, OPTIONAL): Store extracted memories in database, default false (preview only)
+
+### save_conversation_context
+
+Save conversation summary and turns for later recall.
+
+**Parameters:**
+
+- `summary` (string, REQUIRED): Summary of the conversation context (1-10000 chars)
+- `sessionKey` (string, OPTIONAL): Key to identify this conversation (1-200 chars)
+- `title` (string, OPTIONAL): Title for this conversation (max 500 chars)
+- `recentTurns` (array, OPTIONAL): Recent turns to save (max 50), each with `role` and `content`
+- `embedTurns` (boolean, OPTIONAL): Generate embeddings for individual turns, default false
+
+### recall_conversation
+
+Semantic search across past conversations.
+
+**Parameters:**
+
+- `query` (string, REQUIRED): What to search for (1-1000 chars)
+- `limit` (number, OPTIONAL): Max results 1-20, default 5
+- `searchMode` (enum, OPTIONAL): `'summary' | 'turns' | 'both'`, default 'summary'
+- `includeTranscript` (boolean, OPTIONAL): Include recent turns, default false
+- `maxTurnsPerConversation` (number, OPTIONAL): Max turns per conversation, default 10
+
+### list_conversations
+
+List recent conversation sessions.
+
+**Parameters:**
+
+- `limit` (number, OPTIONAL): 1-50, default 20
+- `offset` (number, OPTIONAL): Pagination offset, default 0
+
+### get_conversation
+
+Get full conversation by session ID or key.
+
+**Parameters:**
+
+- `sessionId` (string, OPTIONAL): Session ID to retrieve
+- `sessionKey` (string, OPTIONAL): Session key to retrieve
+- `maxTurns` (number, OPTIONAL): Max turns to include, default 50
+
+MUST provide either `sessionId` or `sessionKey`.
+
+### delete_conversation
+
+Delete a conversation session.
+
+**Parameters:**
+
+- `sessionId` (string, OPTIONAL): Session ID to delete
+- `sessionKey` (string, OPTIONAL): Session key to delete
+- `confirm` (boolean, REQUIRED): Must be true to confirm deletion
+
+### conversation_stats
+
+Get conversation storage statistics.
+
+**Parameters:** None
+
+### search_with_context
+
+Unified search across documents, memories, and conversations.
+
+**Parameters:**
+
+- `query` (string, REQUIRED): Natural language search query (1-10000 chars)
+- `limit` (number, OPTIONAL): Max results per source 1-30, default 5
+- `includeDocuments` (boolean, OPTIONAL): Search documents, default true
+- `includeMemories` (boolean, OPTIONAL): Search memories, default true
+- `includeConversations` (boolean, OPTIONAL): Search conversations, default false
+- `documentWeight` (number, OPTIONAL): Weight for document results 0-2, default 1.0
+- `memoryWeight` (number, OPTIONAL): Weight for memory results 0-2, default 1.0
+- `conversationWeight` (number, OPTIONAL): Weight for conversation results 0-2, default 0.5
+
+### knowledge_stats
+
+Get statistics about the knowledge base contents.
+
+**Parameters:** None
+
+### get_insights
+
+Get proactive insights discovered from your knowledge base.
+
+**Parameters:**
+
+- `status` (enum, OPTIONAL): `'new' | 'seen' | 'dismissed'`, default 'new'
+- `insightType` (enum, OPTIONAL): `'cross_source' | 'theme_cluster' | 'entity_bridge' | 'temporal_pattern' | 'outlier'`
+- `query` (string, OPTIONAL): Semantic search query for relevant insights
+- `limit` (number, OPTIONAL): Max insights 1-50, default 5
+
+### discover_connections
+
+Trigger an insight scan to discover patterns in the knowledge base.
+
+**Parameters:**
+
+- `fullScan` (boolean, OPTIONAL): Scan all content (not just recent), default false
+- `maxChunks` (number, OPTIONAL): Max chunks to analyze 10-1000, default 200
+
+### dismiss_insight
+
+Dismiss an insight from the queue.
+
+**Parameters:**
+
+- `insightId` (string, REQUIRED): The insight ID to dismiss
+
+### insight_stats
+
+Get insight queue and processing statistics.
+
+**Parameters:** None
+
 ## Common Agent Patterns
 
 ### Pattern 1: Search and Retrieve
@@ -489,6 +647,22 @@ npm run inspector    # MCP Inspector at http://localhost:5173
 5. `list_entities` - Verify entity exists
 6. `memory_stats` - Check counts
 7. `forget_entity` - Clean up test data
+
+**Conversation tools test sequence:**
+
+1. `save_conversation_context` - Save a test conversation
+2. `recall_conversation` - Search for it
+3. `get_conversation` - Retrieve full transcript
+4. `list_conversations` - Verify in list
+5. `conversation_stats` - Check counts
+6. `delete_conversation` - Clean up test data
+
+**Insight tools test sequence:**
+
+1. `discover_connections` - Run a scan
+2. `get_insights` - View discovered insights
+3. `insight_stats` - Check queue stats
+4. `dismiss_insight` - Dismiss a test insight
 
 ## When Modifying This Codebase
 

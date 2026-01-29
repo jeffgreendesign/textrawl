@@ -1,0 +1,39 @@
+---
+title: get_insights
+description: Get proactive insights discovered from your knowledge base
+---
+
+View cross-source connections, recurring themes, entity bridges, and outliers automatically discovered from your knowledge base. Requires `ENABLE_INSIGHTS=true` (default).
+
+## Parameters
+
+| Parameter | Type | Required | Default | Description |
+|-----------|------|----------|---------|-------------|
+| `status` | enum | OPTIONAL | `new` | Filter: new, seen, dismissed |
+| `insightType` | enum | OPTIONAL | all | Filter: cross_source, theme_cluster, entity_bridge, temporal_pattern, outlier |
+| `query` | string | OPTIONAL | - | Semantic search for relevant insights |
+| `limit` | number | OPTIONAL | `5` | Max insights (1-50) |
+
+## Insight Types
+
+| Type | Description |
+|------|-------------|
+| `cross_source` | Connections found across different documents/sources |
+| `theme_cluster` | Recurring themes across content |
+| `entity_bridge` | Entities that connect different topics |
+| `temporal_pattern` | Time-based patterns in content |
+| `outlier` | Unusual or unique content that stands out |
+
+## Example Request
+
+```json
+{ "status": "new", "limit": 10 }
+```
+
+New insights are automatically marked as "seen" when retrieved.
+
+## Related Tools
+
+- `discover_connections` - Trigger a new insight scan
+- `dismiss_insight` - Remove an insight from the queue
+- `insight_stats` - View queue statistics

@@ -430,6 +430,345 @@
 				"type": "object",
 				"properties": {}
 			}
+		},
+		{
+			"name": "extract_memories",
+			"description": "Extract entities and facts from text using LLM analysis",
+			"featureFlag": "ENABLE_MEMORY_EXTRACTION",
+			"inputSchema": {
+				"type": "object",
+				"required": ["text"],
+				"properties": {
+					"text": {
+						"type": "string",
+						"minLength": 10,
+						"maxLength": 100000,
+						"description": "Text to extract entities and facts from"
+					},
+					"source": {
+						"type": "string",
+						"enum": ["conversation", "note", "document", "manual"],
+						"default": "document",
+						"description": "Source of the text"
+					},
+					"storeResults": {
+						"type": "boolean",
+						"default": false,
+						"description": "Store extracted memories in database (false for preview)"
+					}
+				}
+			}
+		},
+		{
+			"name": "save_conversation_context",
+			"description": "Save conversation summary and turns for later recall",
+			"featureFlag": "ENABLE_CONVERSATIONS",
+			"inputSchema": {
+				"type": "object",
+				"required": ["summary"],
+				"properties": {
+					"sessionKey": {
+						"type": "string",
+						"minLength": 1,
+						"maxLength": 200,
+						"description": "Optional key to identify this conversation"
+					},
+					"title": {
+						"type": "string",
+						"maxLength": 500,
+						"description": "Title for this conversation"
+					},
+					"summary": {
+						"type": "string",
+						"minLength": 1,
+						"maxLength": 10000,
+						"description": "Summary of the conversation context"
+					},
+					"recentTurns": {
+						"type": "array",
+						"maxItems": 50,
+						"items": {
+							"type": "object",
+							"properties": {
+								"role": { "type": "string", "enum": ["user", "assistant", "system"] },
+								"content": { "type": "string", "maxLength": 50000 }
+							}
+						},
+						"description": "Recent conversation turns to save"
+					},
+					"embedTurns": {
+						"type": "boolean",
+						"default": false,
+						"description": "Generate embeddings for individual turns"
+					}
+				}
+			}
+		},
+		{
+			"name": "recall_conversation",
+			"description": "Semantic search across past conversations",
+			"featureFlag": "ENABLE_CONVERSATIONS",
+			"inputSchema": {
+				"type": "object",
+				"required": ["query"],
+				"properties": {
+					"query": {
+						"type": "string",
+						"minLength": 1,
+						"maxLength": 1000,
+						"description": "What to search for in past conversations"
+					},
+					"limit": {
+						"type": "integer",
+						"minimum": 1,
+						"maximum": 20,
+						"default": 5,
+						"description": "Maximum conversations to return"
+					},
+					"searchMode": {
+						"type": "string",
+						"enum": ["summary", "turns", "both"],
+						"default": "summary",
+						"description": "Search summaries, turns, or both"
+					},
+					"includeTranscript": {
+						"type": "boolean",
+						"default": false,
+						"description": "Include recent turns from matches"
+					},
+					"maxTurnsPerConversation": {
+						"type": "integer",
+						"minimum": 1,
+						"maximum": 50,
+						"default": 10,
+						"description": "Max turns per conversation if includeTranscript is true"
+					}
+				}
+			}
+		},
+		{
+			"name": "list_conversations",
+			"description": "List recent conversation sessions",
+			"featureFlag": "ENABLE_CONVERSATIONS",
+			"inputSchema": {
+				"type": "object",
+				"properties": {
+					"limit": {
+						"type": "integer",
+						"minimum": 1,
+						"maximum": 50,
+						"default": 20,
+						"description": "Maximum conversations to return"
+					},
+					"offset": {
+						"type": "integer",
+						"minimum": 0,
+						"default": 0,
+						"description": "Pagination offset"
+					}
+				}
+			}
+		},
+		{
+			"name": "get_conversation",
+			"description": "Get full conversation by session ID or key",
+			"featureFlag": "ENABLE_CONVERSATIONS",
+			"inputSchema": {
+				"type": "object",
+				"properties": {
+					"sessionId": {
+						"type": "string",
+						"description": "Session ID to retrieve"
+					},
+					"sessionKey": {
+						"type": "string",
+						"description": "Session key to retrieve"
+					},
+					"maxTurns": {
+						"type": "integer",
+						"minimum": 1,
+						"maximum": 200,
+						"default": 50,
+						"description": "Maximum turns to include"
+					}
+				}
+			}
+		},
+		{
+			"name": "delete_conversation",
+			"description": "Delete a conversation session",
+			"featureFlag": "ENABLE_CONVERSATIONS",
+			"inputSchema": {
+				"type": "object",
+				"required": ["confirm"],
+				"properties": {
+					"sessionId": {
+						"type": "string",
+						"description": "Session ID to delete"
+					},
+					"sessionKey": {
+						"type": "string",
+						"description": "Session key to delete"
+					},
+					"confirm": {
+						"type": "boolean",
+						"description": "Must be true to confirm deletion"
+					}
+				}
+			}
+		},
+		{
+			"name": "conversation_stats",
+			"description": "Get conversation storage statistics",
+			"featureFlag": "ENABLE_CONVERSATIONS",
+			"inputSchema": {
+				"type": "object",
+				"properties": {}
+			}
+		},
+		{
+			"name": "search_with_context",
+			"description": "Unified search across documents, memories, and conversations",
+			"inputSchema": {
+				"type": "object",
+				"required": ["query"],
+				"properties": {
+					"query": {
+						"type": "string",
+						"minLength": 1,
+						"maxLength": 10000,
+						"description": "Natural language search query"
+					},
+					"limit": {
+						"type": "integer",
+						"minimum": 1,
+						"maximum": 30,
+						"default": 5,
+						"description": "Maximum results per source"
+					},
+					"includeDocuments": {
+						"type": "boolean",
+						"default": true,
+						"description": "Search documents/notes"
+					},
+					"includeMemories": {
+						"type": "boolean",
+						"default": true,
+						"description": "Search entity memories"
+					},
+					"includeConversations": {
+						"type": "boolean",
+						"default": false,
+						"description": "Search past conversations"
+					},
+					"documentWeight": {
+						"type": "number",
+						"minimum": 0,
+						"maximum": 2,
+						"default": 1.0,
+						"description": "Weight for document results"
+					},
+					"memoryWeight": {
+						"type": "number",
+						"minimum": 0,
+						"maximum": 2,
+						"default": 1.0,
+						"description": "Weight for memory results"
+					},
+					"conversationWeight": {
+						"type": "number",
+						"minimum": 0,
+						"maximum": 2,
+						"default": 0.5,
+						"description": "Weight for conversation results"
+					}
+				}
+			}
+		},
+		{
+			"name": "knowledge_stats",
+			"description": "Get statistics about the knowledge base contents",
+			"inputSchema": {
+				"type": "object",
+				"properties": {}
+			}
+		},
+		{
+			"name": "get_insights",
+			"description": "Get proactive insights discovered from your knowledge base",
+			"featureFlag": "ENABLE_INSIGHTS",
+			"inputSchema": {
+				"type": "object",
+				"properties": {
+					"status": {
+						"type": "string",
+						"enum": ["new", "seen", "dismissed"],
+						"description": "Filter by status (default: new)"
+					},
+					"insightType": {
+						"type": "string",
+						"enum": ["cross_source", "theme_cluster", "entity_bridge", "temporal_pattern", "outlier"],
+						"description": "Filter by insight type"
+					},
+					"query": {
+						"type": "string",
+						"description": "Semantic search query for relevant insights"
+					},
+					"limit": {
+						"type": "integer",
+						"minimum": 1,
+						"maximum": 50,
+						"default": 5,
+						"description": "Maximum insights to return"
+					}
+				}
+			}
+		},
+		{
+			"name": "discover_connections",
+			"description": "Trigger an insight scan to discover connections and patterns in the knowledge base",
+			"featureFlag": "ENABLE_INSIGHTS",
+			"inputSchema": {
+				"type": "object",
+				"properties": {
+					"fullScan": {
+						"type": "boolean",
+						"default": false,
+						"description": "Scan all content (not just recent)"
+					},
+					"maxChunks": {
+						"type": "integer",
+						"minimum": 10,
+						"maximum": 1000,
+						"default": 200,
+						"description": "Maximum chunks to analyze"
+					}
+				}
+			}
+		},
+		{
+			"name": "dismiss_insight",
+			"description": "Dismiss an insight so it no longer appears in results",
+			"featureFlag": "ENABLE_INSIGHTS",
+			"inputSchema": {
+				"type": "object",
+				"required": ["insightId"],
+				"properties": {
+					"insightId": {
+						"type": "string",
+						"description": "The insight ID to dismiss"
+					}
+				}
+			}
+		},
+		{
+			"name": "insight_stats",
+			"description": "Get statistics about proactive insights and the insight queue",
+			"featureFlag": "ENABLE_INSIGHTS",
+			"inputSchema": {
+				"type": "object",
+				"properties": {}
+			}
 		}
 	],
 	"capabilities": {
@@ -469,6 +808,17 @@
 			],
 			"searchModes": ["hybrid", "semantic"],
 			"relations": true
+		},
+		"conversations": {
+			"enabled": true,
+			"featureFlag": "ENABLE_CONVERSATIONS",
+			"searchModes": ["summary", "turns", "both"],
+			"turnEmbeddings": true
+		},
+		"insights": {
+			"enabled": true,
+			"featureFlag": "ENABLE_INSIGHTS",
+			"insightTypes": ["cross_source", "theme_cluster", "entity_bridge", "temporal_pattern", "outlier"]
 		}
 	},
 	"healthEndpoints": {

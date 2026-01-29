@@ -1,0 +1,23 @@
+---
+title: dismiss_insight
+description: Dismiss an insight from the queue
+---
+
+Dismiss an insight so it no longer appears in new or seen results.
+
+## Parameters
+
+| Parameter | Type | Required | Default | Description |
+|-----------|------|----------|---------|-------------|
+| `insightId` | string | REQUIRED | - | The insight ID to dismiss |
+
+## Example Request
+
+```json
+{ "insightId": "a1b2c3d4-..." }
+```
+
+## Related Tools
+
+- `get_insights` - View insights (provides insight IDs)
+- `insight_stats` - Check remaining queue size

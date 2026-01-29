@@ -1,21 +1,35 @@
-import { Cpu, FileText, Lock, Search } from 'lucide-react';
+import { Brain, Cpu, FileText, Lightbulb, Lock, Search } from 'lucide-react';
 import type { ReactNode } from 'react';
 
 const features = [
 	{
 		icon: FileText,
 		title: 'Crawl Everything',
-		description: 'Markdown, PDF, HTML, plain text. Your documents, structured for AI.',
+		description: 'Markdown, PDF, HTML, email, DOCX. Your documents, structured for AI.',
 	},
 	{
 		icon: Search,
 		title: 'Semantic Search',
-		description: 'Find by meaning, not just keywords. Ask questions, get answers.',
+		description:
+			'Find by meaning, not just keywords. Hybrid search fuses keyword and vector results.',
+	},
+	{
+		icon: Brain,
+		title: 'Persistent Memory',
+		description:
+			'Remember facts, track conversations, and build a knowledge graph across sessions.',
+	},
+	{
+		icon: Lightbulb,
+		title: 'Proactive Insights',
+		description:
+			'Automatically discover connections, patterns, and outliers across your knowledge base.',
 	},
 	{
 		icon: Cpu,
 		title: 'MCP Native',
-		description: 'Built for Claude and other MCP clients. Your knowledge in every chat.',
+		description:
+			'Built for Claude and other MCP clients. 22 tools for your knowledge in every chat.',
 	},
 	{
 		icon: Lock,

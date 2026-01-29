@@ -118,6 +118,113 @@ Delete entity and all associated memories.
 
 Get memory statistics. No parameters.
 
+### extract_memories
+
+Extract entities and facts from text using LLM. Requires ENABLE_MEMORY_EXTRACTION=true and ANTHROPIC_API_KEY.
+
+- text (string, REQUIRED): Text to extract from (10-100000 chars)
+- source (enum): conversation | note | document | manual, default 'document'
+- storeResults (boolean): Store in database, default false (preview only)
+
+## Conversation Tools (Conversation Memory)
+
+Enable with ENABLE_CONVERSATIONS=true (default). Requires setup-db-conversation.sql schema.
+
+### save_conversation_context
+
+Save conversation summary and turns for later recall.
+
+- summary (string, REQUIRED): Conversation summary (1-10000 chars)
+- sessionKey (string): Key to identify conversation (1-200 chars)
+- title (string): Conversation title (max 500 chars)
+- recentTurns (array): Turns with role and content (max 50)
+- embedTurns (boolean): Generate turn embeddings, default false
+
+### recall_conversation
+
+Search past conversations.
+
+- query (string, REQUIRED): Search query (max 1000 chars)
+- limit (number): Max results 1-20, default 5
+- searchMode (enum): summary | turns | both, default summary
+- includeTranscript (boolean): Include turns, default false
+
+### list_conversations
+
+List conversation sessions.
+
+- limit (number): 1-50, default 20
+- offset (number): Pagination offset
+
+### get_conversation
+
+Get full conversation by ID or key.
+
+- sessionId (string): Session ID
+- sessionKey (string): Session key
+- maxTurns (number): Max turns, default 50
+
+### delete_conversation
+
+Delete a conversation session.
+
+- sessionId (string): Session ID
+- sessionKey (string): Session key
+- confirm (boolean, REQUIRED): Must be true
+
+### conversation_stats
+
+Get conversation storage statistics. No parameters.
+
+## Unified Search & Stats
+
+### search_with_context
+
+Search across documents, memories, and conversations simultaneously.
+
+- query (string, REQUIRED): Search query (1-10000 chars)
+- limit (number): Max results per source 1-30, default 5
+- includeDocuments (boolean): Search documents, default true
+- includeMemories (boolean): Search memories, default true
+- includeConversations (boolean): Search conversations, default false
+- documentWeight (number): Document weight 0-2, default 1.0
+- memoryWeight (number): Memory weight 0-2, default 1.0
+- conversationWeight (number): Conversation weight 0-2, default 0.5
+
+### knowledge_stats
+
+Get knowledge base statistics. No parameters.
+
+## Insight Tools (Proactive Discovery)
+
+Enable with ENABLE_INSIGHTS=true (default).
+
+### get_insights
+
+Get discovered cross-source connections and patterns.
+
+- status (enum): new | seen | dismissed, default new
+- insightType (enum): cross_source | theme_cluster | entity_bridge | temporal_pattern | outlier
+- query (string): Semantic search for relevant insights
+- limit (number): Max insights 1-50, default 5
+
+### discover_connections
+
+Trigger insight scan across knowledge base.
+
+- fullScan (boolean): Scan all content, default false
+- maxChunks (number): Max chunks to analyze 10-1000, default 200
+
+### dismiss_insight
+
+Dismiss an insight.
+
+- insightId (string, REQUIRED): Insight ID to dismiss
+
+### insight_stats
+
+Get insight queue and processing statistics. No parameters.
+
 ## Documentation
 
 - /AGENTS.md - Agent conventions and tool selection guide
@@ -128,7 +235,7 @@ Get memory statistics. No parameters.
 
 ## Quick Facts
 
-- 12 MCP tools available (5 document + 7 memory)
+- 22 MCP tools available (6 document/search + 8 memory + 6 conversation + 4 insight)
 - Embedding: OpenAI (1536 dim) or Ollama (1024 dim)
 - Database: Supabase PostgreSQL with pgvector
 - Chunking: 512 tokens, 50 token overlap, paragraph-aware

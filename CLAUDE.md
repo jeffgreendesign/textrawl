@@ -40,6 +40,7 @@ Copy `.env.example` to `.env` and configure:
 - `UI_PORT` - Web UI port (default: 3001)
 - `ENABLE_MEMORY` - Enable/disable memory tools (default: true)
 - `ENABLE_CONVERSATIONS` - Enable/disable conversation memory tools (default: true)
+- `ENABLE_INSIGHTS` - Enable/disable proactive insight tools (default: true)
 - `ENABLE_MEMORY_EXTRACTION` - Enable LLM-based memory extraction (default: false)
 - `ANTHROPIC_API_KEY` - Required for memory extraction (Claude API)
 - `EXTRACTION_MODEL` - Model for extraction (default: claude-3-haiku-20240307)
@@ -114,6 +115,15 @@ The `search_knowledge` tool supports weighted Reciprocal Rank Fusion:
 - `get_conversation` - Get full conversation by session ID or key
 - `delete_conversation` - Delete a conversation session
 - `conversation_stats` - Get conversation storage statistics
+
+**Insight Tools (Proactive Discovery):**
+- `get_insights` - View discovered cross-source connections and patterns
+- `discover_connections` - Trigger an insight scan across the knowledge base
+- `dismiss_insight` - Dismiss an insight from the queue
+- `insight_stats` - Get insight queue and processing statistics
+
+**Stats:**
+- `knowledge_stats` - Get overall knowledge base statistics
 
 ### Key Directories
 - `src/tools/` - MCP tool definitions with Zod schemas
@@ -228,6 +238,27 @@ For AI agents using Textrawl as an MCP server:
 - `.well-known/mcp.json` - MCP capability advertisement (tools, auth, rate limits)
 - `llms.txt` - AI sitemap with RFC 2119 language for tool requirements
 - `llms-full.txt` - Complete documentation in single file
+
+## Documentation Sync Rules
+
+When adding or modifying MCP tools, **all** of the following files must be updated:
+
+1. **`CLAUDE.md`** - MCP Tools section (tool name + one-line description)
+2. **`README.md`** - Tool tables in MCP Tools section
+3. **`AGENTS.md`** - Tool selection guide + RFC 2119 parameter schemas
+4. **`llms.txt`** - Tool name, description, and parameters
+5. **`llms-full.txt`** - Full tool documentation with parameters
+6. **`.well-known/mcp.json`** - JSON schema in `tools` array + `capabilities`
+7. **`docs/mcp-tools/<tool-name>.mdx`** - Dedicated doc page with parameters, examples, related tools
+8. **`docs/mcp-tools/meta.json`** - Add page to navigation under correct section separator
+
+**Naming conventions:**
+- Root project files: UPPERCASE (`README.md`, `AGENTS.md`, `CLAUDE.md`, `CONTRIBUTING.md`)
+- Root AI files: lowercase (`llms.txt`, `llms-full.txt`)
+- All files under `docs/`: lowercase-kebab-case (e.g., `search-knowledge.mdx`, `get-document.mdx`)
+- MDX doc pages use tool name with hyphens replacing underscores (e.g., `get_insights` → `get-insights.mdx`)
+
+**Archive:** Completed planning/research docs go in `docs/archive/` with lowercase-kebab names.
 
 ## Documentation Website
 

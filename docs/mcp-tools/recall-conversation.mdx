@@ -1,0 +1,40 @@
+---
+title: recall_conversation
+description: Semantic search across past conversations
+---
+
+Search past conversations by summary, individual turns, or both.
+
+## Parameters
+
+| Parameter | Type | Required | Default | Description |
+|-----------|------|----------|---------|-------------|
+| `query` | string | REQUIRED | - | Search query (1-1000 chars) |
+| `limit` | number | OPTIONAL | `5` | Max results (1-20) |
+| `searchMode` | enum | OPTIONAL | `summary` | Search mode: summary, turns, both |
+| `includeTranscript` | boolean | OPTIONAL | `false` | Include recent turns from matches |
+| `maxTurnsPerConversation` | number | OPTIONAL | `10` | Max turns per conversation |
+
+## Search Modes
+
+| Mode | Description |
+|------|-------------|
+| `summary` | Search conversation summaries only (fastest) |
+| `turns` | Search individual turn content |
+| `both` | Search summaries and turns |
+
+## Example Request
+
+```json
+{
+  "query": "database migration decisions",
+  "searchMode": "summary",
+  "includeTranscript": true,
+  "limit": 5
+}
+```
+
+## Related Tools
+
+- `save_conversation_context` - Save conversations
+- `get_conversation` - Get full transcript by ID/key

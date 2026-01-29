@@ -5,7 +5,7 @@ export function MCPShowcase(): ReactNode {
 		<section className="mcp-showcase">
 			<h2 className="section-title">MCP Tools</h2>
 			<p className="section-subtitle">
-				Twelve tools that give your AI access to everything you know.
+				Twenty-two tools that give your AI access to everything you know.
 			</p>
 
 			<h3 className="tools-category">Document Tools</h3>
@@ -13,6 +13,10 @@ export function MCPShowcase(): ReactNode {
 				<div className="mcp-tool">
 					<code className="mcp-tool-name">search_knowledge</code>
 					<p className="mcp-tool-description">Hybrid semantic + full-text search</p>
+				</div>
+				<div className="mcp-tool">
+					<code className="mcp-tool-name">search_with_context</code>
+					<p className="mcp-tool-description">Search documents, memories, and conversations</p>
 				</div>
 				<div className="mcp-tool">
 					<code className="mcp-tool-name">get_document</code>
@@ -29,6 +33,10 @@ export function MCPShowcase(): ReactNode {
 				<div className="mcp-tool">
 					<code className="mcp-tool-name">add_note</code>
 					<p className="mcp-tool-description">Create notes with auto-embedding</p>
+				</div>
+				<div className="mcp-tool">
+					<code className="mcp-tool-name">knowledge_stats</code>
+					<p className="mcp-tool-description">Knowledge base statistics</p>
 				</div>
 			</div>
 
@@ -61,6 +69,58 @@ export function MCPShowcase(): ReactNode {
 				<div className="mcp-tool">
 					<code className="mcp-tool-name">memory_stats</code>
 					<p className="mcp-tool-description">View memory statistics</p>
+				</div>
+				<div className="mcp-tool">
+					<code className="mcp-tool-name">extract_memories</code>
+					<p className="mcp-tool-description">Extract entities from text via LLM</p>
+				</div>
+			</div>
+
+			<h3 className="tools-category">Conversation Tools</h3>
+			<div className="mcp-tools-grid">
+				<div className="mcp-tool">
+					<code className="mcp-tool-name">save_conversation_context</code>
+					<p className="mcp-tool-description">Save conversation for recall</p>
+				</div>
+				<div className="mcp-tool">
+					<code className="mcp-tool-name">recall_conversation</code>
+					<p className="mcp-tool-description">Search past conversations</p>
+				</div>
+				<div className="mcp-tool">
+					<code className="mcp-tool-name">list_conversations</code>
+					<p className="mcp-tool-description">Browse conversation history</p>
+				</div>
+				<div className="mcp-tool">
+					<code className="mcp-tool-name">get_conversation</code>
+					<p className="mcp-tool-description">Get full conversation transcript</p>
+				</div>
+				<div className="mcp-tool">
+					<code className="mcp-tool-name">delete_conversation</code>
+					<p className="mcp-tool-description">Delete a conversation session</p>
+				</div>
+				<div className="mcp-tool">
+					<code className="mcp-tool-name">conversation_stats</code>
+					<p className="mcp-tool-description">Conversation storage statistics</p>
+				</div>
+			</div>
+
+			<h3 className="tools-category">Insight Tools</h3>
+			<div className="mcp-tools-grid">
+				<div className="mcp-tool">
+					<code className="mcp-tool-name">get_insights</code>
+					<p className="mcp-tool-description">View discovered patterns and connections</p>
+				</div>
+				<div className="mcp-tool">
+					<code className="mcp-tool-name">discover_connections</code>
+					<p className="mcp-tool-description">Trigger insight scan</p>
+				</div>
+				<div className="mcp-tool">
+					<code className="mcp-tool-name">dismiss_insight</code>
+					<p className="mcp-tool-description">Dismiss an insight</p>
+				</div>
+				<div className="mcp-tool">
+					<code className="mcp-tool-name">insight_stats</code>
+					<p className="mcp-tool-description">Insight queue statistics</p>
 				</div>
 			</div>
 		</section>

@@ -23,6 +23,14 @@ Give Claude access to your personal documents, emails, notes, and knowledge. tex
 
 Combine semantic similarity with full-text keyword matching. Adjust weights to optimize for your use case.
 
+### Persistent Memory
+
+Remember facts about people, projects, and concepts. Build a knowledge graph with relationships between entities. Track conversation context across sessions.
+
+### Proactive Insights
+
+Automatically discover cross-source connections, recurring themes, and outliers in your knowledge base after bulk imports.
+
 ### Multi-Format Support
 
 Import MBOX emails, HTML pages, PDFs, DOCX files, and more. Convert once, search forever.
@@ -52,19 +60,21 @@ npm run inspector
 
 ## MCP Tools
 
-textrawl exposes 12 tools via MCP:
+textrawl exposes 22 tools via MCP:
 
 ### Document Tools
 
 | Tool | Purpose |
 |------|---------|
 | `search_knowledge` | Hybrid search with configurable weights |
+| `search_with_context` | Unified search across documents, memories, and conversations |
 | `get_document` | Retrieve full document content |
 | `list_documents` | Browse documents with pagination |
 | `update_document` | Update document title and tags |
 | `add_note` | Create notes with automatic embedding |
+| `knowledge_stats` | Knowledge base statistics |
 
-### Memory Tools (Persistent Memory)
+### Memory Tools
 
 | Tool | Purpose |
 |------|---------|
@@ -75,6 +85,27 @@ textrawl exposes 12 tools via MCP:
 | `list_entities` | List known entities with pagination |
 | `forget_entity` | Delete entity and associated memories |
 | `memory_stats` | Get memory statistics |
+| `extract_memories` | Extract entities and facts from text via LLM |
+
+### Conversation Tools
+
+| Tool | Purpose |
+|------|---------|
+| `save_conversation_context` | Save conversation summary and turns for recall |
+| `recall_conversation` | Search past conversations |
+| `list_conversations` | Browse conversation history |
+| `get_conversation` | Get full conversation transcript |
+| `delete_conversation` | Delete a conversation session |
+| `conversation_stats` | Conversation storage statistics |
+
+### Insight Tools
+
+| Tool | Purpose |
+|------|---------|
+| `get_insights` | View discovered patterns and connections |
+| `discover_connections` | Trigger insight scan across knowledge base |
+| `dismiss_insight` | Dismiss an insight from the queue |
+| `insight_stats` | Insight queue and processing statistics |
 
 [View all tools →](/docs/mcp-tools)
 
@@ -89,17 +120,19 @@ textrawl exposes 12 tools via MCP:
                          ▼
 ┌─────────────────────────────────────────────────────────┐
 │                    textrawl Server                       │
-│  ┌─────────────┐  ┌─────────────┐  ┌─────────────────┐  │
-│  │   Search    │  │  Documents  │  │     Memory      │  │
-│  │  (Hybrid)   │  │  (CRUD)     │  │  (Entities)     │  │
-│  └──────┬──────┘  └──────┬──────┘  └────────┬────────┘  │
-│         │                │                   │           │
-│         └────────────────┼───────────────────┘           │
+│  ┌───────────┐ ┌───────────┐ ┌────────┐ ┌───────────┐  │
+│  │  Search   │ │ Documents │ │ Memory │ │  Insights │  │
+│  │ (Hybrid)  │ │  (CRUD)   │ │(Graph) │ │(Patterns) │  │
+│  └─────┬─────┘ └─────┬─────┘ └───┬────┘ └─────┬─────┘  │
+│        │              │           │             │        │
+│        └──────────────┴───────────┴─────────────┘        │
 │                          ▼                               │
 │  ┌─────────────────────────────────────────────────────┐│
 │  │           Supabase PostgreSQL + pgvector            ││
 │  │  • documents + chunks (document search)             ││
 │  │  • memory_entities + observations (memory)          ││
+│  │  • conversation_sessions + turns (conversations)    ││
+│  │  • proactive_insights (insight discovery)           ││
 │  │  • hybrid_search() / memory_search() RPCs           ││
 │  └─────────────────────────────────────────────────────┘│
 └─────────────────────────────────────────────────────────┘

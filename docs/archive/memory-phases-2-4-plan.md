@@ -6,11 +6,13 @@ description: Implementation plan for conversation memory, automatic extraction, 
 # Memory System Phases 2-4 Implementation Plan
 
 **Date:** January 25, 2026
-**Status:** ✅ IMPLEMENTATION COMPLETE
+**Status:** ✅ IMPLEMENTATION COMPLETE (all phases shipped)
 
 ## Overview
 
 This document details the implementation plan for extending Textrawl's persistent memory system with conversation memory (Phase 2), automatic memory formation (Phase 3), and memory-aware search (Phase 4).
+
+> **Note:** All phases have been implemented. The actual implementation may differ slightly from the original plan below. See [AGENTS.md](/AGENTS.md) for current tool schemas and [CLAUDE.md](/CLAUDE.md) for configuration.
 
 ## Phase 2: Conversation Memory
 
@@ -46,23 +48,19 @@ CREATE TABLE conversation_turns (
 );
 ```
 
-### New MCP Tools
+### MCP Tools (Implemented)
 
-1. **save_conversation_context** - Save conversation summary and optionally extract facts
-   - Parameters: `sessionKey?`, `summary`, `recentTurns?[]`, `keyFacts?[]`
-   - Creates/updates session, saves turns, extracts facts to memory
-
+1. **save_conversation_context** - Save conversation summary and turns
+   - Parameters: `summary`, `sessionKey?`, `title?`, `recentTurns?[]`, `embedTurns?`
 2. **recall_conversation** - Semantic search across past conversations
-   - Parameters: `query`, `limit?`, `includeTranscript?`
-   - Returns matching sessions with summaries and optionally turns
-
+   - Parameters: `query`, `limit?`, `searchMode?`, `includeTranscript?`, `maxTurnsPerConversation?`
 3. **list_conversations** - List recent conversation sessions
    - Parameters: `limit?`, `offset?`
-   - Returns session list with metadata
-
 4. **get_conversation** - Get full conversation by session key or ID
-   - Parameters: `sessionKey` or `sessionId`
-   - Returns full session with all turns
+   - Parameters: `sessionId?` or `sessionKey?`, `maxTurns?`
+5. **delete_conversation** - Delete a conversation session
+   - Parameters: `sessionId?` or `sessionKey?`, `confirm`
+6. **conversation_stats** - Get conversation storage statistics
 
 ### Implementation Files
 

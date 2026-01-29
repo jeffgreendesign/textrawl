@@ -1,0 +1,47 @@
+---
+title: save_conversation_context
+description: Save conversation summary and turns for later recall
+---
+
+Save a conversation summary and optionally individual turns for later semantic search. Requires `ENABLE_CONVERSATIONS=true` (default).
+
+## Parameters
+
+| Parameter | Type | Required | Default | Description |
+|-----------|------|----------|---------|-------------|
+| `summary` | string | REQUIRED | - | Conversation summary (1-10000 chars) |
+| `sessionKey` | string | OPTIONAL | auto-generated | Key to identify this conversation (1-200 chars) |
+| `title` | string | OPTIONAL | - | Title for this conversation (max 500 chars) |
+| `recentTurns` | array | OPTIONAL | - | Recent turns to save (max 50) |
+| `embedTurns` | boolean | OPTIONAL | `false` | Generate embeddings for individual turns |
+
+Each turn in `recentTurns` has:
+- `role`: `user`, `assistant`, or `system`
+- `content`: The message content (max 50000 chars)
+
+## Example Request
+
+```json
+{
+  "summary": "Discussed migrating the database from MySQL to PostgreSQL. Decided to use Supabase.",
+  "sessionKey": "db-migration-2026-01",
+  "title": "Database Migration Planning",
+  "recentTurns": [
+    { "role": "user", "content": "Should we use Supabase or PlanetScale?" },
+    { "role": "assistant", "content": "Supabase is recommended for its pgvector support." }
+  ]
+}
+```
+
+## Errors
+
+| Error | Cause | Fix |
+|-------|-------|-----|
+| Conversations not enabled | `ENABLE_CONVERSATIONS` is false | Set `ENABLE_CONVERSATIONS=true` |
+| Database not configured | Missing Supabase credentials | Set `SUPABASE_URL` and `SUPABASE_SERVICE_KEY` |
+
+## Related Tools
+
+- `recall_conversation` - Search past conversations
+- `get_conversation` - Retrieve full transcript
+- `list_conversations` - Browse conversation history
