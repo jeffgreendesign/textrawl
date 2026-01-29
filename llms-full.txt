@@ -356,7 +356,7 @@ Optional:
 - ENABLE_INSIGHTS: Enable proactive insight tools (default true)
 - ENABLE_MEMORY_EXTRACTION: Enable LLM-based memory extraction (default false)
 - ANTHROPIC_API_KEY: Required for extract_memories tool
-- EXTRACTION_MODEL: Model for extraction (default claude-3-haiku)
+- EXTRACTION_MODEL: Model for extraction (default claude-3-haiku-20240307)
 
 ## CLI Tools
 

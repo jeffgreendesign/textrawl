@@ -78,7 +78,7 @@ npm run dev      # Start the server
 1. Create a free project at [supabase.com](https://supabase.com)
 2. Run `scripts/setup-db.sql` in the SQL Editor (or `setup-db-ollama.sql` for Ollama)
 3. (Optional) For memory tools, also run `scripts/setup-db-memory.sql` (or `setup-db-memory-ollama.sql`)
-4. (Optional) For conversation tools, also run `scripts/setup-db-conversation.sql` (or `setup-db-conversation-ollama.sql`)
+4. (Optional) For conversation tools, also run `scripts/setup-db-conversation.sql` (or `setup-db-conversation-ollama.sql` / `setup-db-conversation-ollama-v2.sql`)
 5. Run `scripts/security-rls.sql` for security hardening
 6. Copy your project URL and service role key to `.env`
 
@@ -160,11 +160,11 @@ npm run upload -- ./converted/
 | `LOG_LEVEL` | No | debug, info, warn, error |
 | `ALLOWED_ORIGINS` | No | Comma-separated CORS origins |
 | `ENABLE_MEMORY` | No | Enable memory tools (default: true); requires `setup-db-memory.sql` or `setup-db-memory-ollama.sql` |
-| `ENABLE_CONVERSATIONS` | No | Enable conversation memory tools (default: true); requires `setup-db-conversation.sql` |
+| `ENABLE_CONVERSATIONS` | No | Enable conversation memory tools (default: true); requires `setup-db-conversation.sql` or `setup-db-conversation-ollama.sql` or `setup-db-conversation-ollama-v2.sql` |
 | `ENABLE_INSIGHTS` | No | Enable proactive insight tools (default: true) |
 | `ENABLE_MEMORY_EXTRACTION` | No | Enable LLM-based memory extraction (default: false) |
 | `ANTHROPIC_API_KEY` | If extraction | Required for `extract_memories` tool |
-| `EXTRACTION_MODEL` | No | Model for extraction (default: claude-3-haiku) |
+| `EXTRACTION_MODEL` | No | Model for extraction (default: claude-3-haiku-20240307) |
 | `COMPACT_RESPONSES` | No | Token-efficient responses (default: true) |
 
 ## MCP Tools
@@ -196,7 +196,10 @@ Enable with `ENABLE_MEMORY=true` (default). Requires `scripts/setup-db-memory.sq
 
 ### Conversation Tools (Conversation Memory)
 
-Enable with `ENABLE_CONVERSATIONS=true` (default). Requires `scripts/setup-db-conversation.sql`.
+Enable with `ENABLE_CONVERSATIONS=true` (default). Requires running one of the conversation schema scripts:
+- `scripts/setup-db-conversation.sql` (OpenAI embeddings)
+- `scripts/setup-db-conversation-ollama.sql` (Ollama v1 - nomic-embed-text, 1024d)
+- `scripts/setup-db-conversation-ollama-v2.sql` (Ollama v2 - nomic-embed-text-v2-moe, 768d)
 
 | Tool | Description |
 |------|-------------|
