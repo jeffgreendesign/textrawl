@@ -2,6 +2,7 @@ import express, { type Router as RouterType, Router } from 'express';
 import { config } from '../../utils/config.js';
 import { ValidationError } from '../../utils/errors.js';
 import { logger } from '../../utils/logger.js';
+import { oauthLimiter } from '../middleware/rateLimit.js';
 import { signJwt, verifyJwt } from './jwt.js';
 import { verifyPkce } from './pkce.js';
 import type {
@@ -46,7 +47,7 @@ oauthRoutes.get('/.well-known/oauth-authorization-server', (_req, res) => {
 });
 
 // Step 1: Claude/ChatGPT redirects user here
-oauthRoutes.get('/authorize', async (req, res, next) => {
+oauthRoutes.get('/authorize', oauthLimiter, async (req, res, next) => {
 	try {
 		const params = req.query as unknown as AuthorizeParams;
 
@@ -90,7 +91,7 @@ oauthRoutes.get('/authorize', async (req, res, next) => {
 });
 
 // Step 2: Google redirects back here after user consents
-oauthRoutes.get('/oauth/callback', async (req, res, next) => {
+oauthRoutes.get('/oauth/callback', oauthLimiter, async (req, res, next) => {
 	try {
 		const { code, state } = req.query as { code?: string; state?: string };
 
@@ -166,41 +167,46 @@ oauthRoutes.get('/oauth/callback', async (req, res, next) => {
 
 // Step 3: Claude/ChatGPT exchanges auth code for access token
 // OAuth token requests use application/x-www-form-urlencoded per RFC 6749
-oauthRoutes.post('/token', express.urlencoded({ extended: false }), async (req, res, next) => {
-	try {
-		const body = req.body as TokenRequest;
+oauthRoutes.post(
+	'/token',
+	oauthLimiter,
+	express.urlencoded({ extended: false }),
+	async (req, res, next) => {
+		try {
+			const body = req.body as TokenRequest;
 
-		if (body.grant_type !== 'authorization_code') {
-			throw new ValidationError('grant_type must be "authorization_code"');
+			if (body.grant_type !== 'authorization_code') {
+				throw new ValidationError('grant_type must be "authorization_code"');
+			}
+			if (!body.code || !body.code_verifier) {
+				throw new ValidationError('Missing required parameters: code, code_verifier');
+			}
+
+			// Verify the authorization code JWT
+			const authCode = (await verifyJwt(body.code)) as unknown as AuthCodePayload;
+
+			// Verify PKCE
+			if (!verifyPkce(body.code_verifier, authCode.code_challenge)) {
+				throw new ValidationError('PKCE verification failed');
+			}
+
+			// Verify redirect_uri matches
+			if (body.redirect_uri && body.redirect_uri !== authCode.redirect_uri) {
+				throw new ValidationError('redirect_uri mismatch');
+			}
+
+			// Issue long-lived access token
+			const accessToken = await signJwt({ sub: authCode.email }, '30d');
+
+			logger.debug('OAuth token: issued access token', { email: authCode.email });
+
+			res.json({
+				access_token: accessToken,
+				token_type: 'Bearer',
+				expires_in: 30 * 24 * 60 * 60, // 30 days in seconds
+			});
+		} catch (error) {
+			next(error);
 		}
-		if (!body.code || !body.code_verifier) {
-			throw new ValidationError('Missing required parameters: code, code_verifier');
-		}
-
-		// Verify the authorization code JWT
-		const authCode = (await verifyJwt(body.code)) as unknown as AuthCodePayload;
-
-		// Verify PKCE
-		if (!verifyPkce(body.code_verifier, authCode.code_challenge)) {
-			throw new ValidationError('PKCE verification failed');
-		}
-
-		// Verify redirect_uri matches
-		if (body.redirect_uri && body.redirect_uri !== authCode.redirect_uri) {
-			throw new ValidationError('redirect_uri mismatch');
-		}
-
-		// Issue long-lived access token
-		const accessToken = await signJwt({ sub: authCode.email }, '30d');
-
-		logger.debug('OAuth token: issued access token', { email: authCode.email });
-
-		res.json({
-			access_token: accessToken,
-			token_type: 'Bearer',
-			expires_in: 30 * 24 * 60 * 60, // 30 days in seconds
-		});
-	} catch (error) {
-		next(error);
-	}
-});
+	},
+);
