@@ -707,7 +707,13 @@
 					},
 					"insightType": {
 						"type": "string",
-						"enum": ["cross_source", "theme_cluster", "entity_bridge", "temporal_pattern", "outlier"],
+						"enum": [
+							"cross_source",
+							"theme_cluster",
+							"entity_bridge",
+							"temporal_pattern",
+							"outlier"
+						],
 						"description": "Filter by insight type"
 					},
 					"query": {
@@ -818,7 +824,13 @@
 		"insights": {
 			"enabled": true,
 			"featureFlag": "ENABLE_INSIGHTS",
-			"insightTypes": ["cross_source", "theme_cluster", "entity_bridge", "temporal_pattern", "outlier"]
+			"insightTypes": [
+				"cross_source",
+				"theme_cluster",
+				"entity_bridge",
+				"temporal_pattern",
+				"outlier"
+			]
 		}
 	},
 	"healthEndpoints": {

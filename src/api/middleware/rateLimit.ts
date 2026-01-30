@@ -16,6 +16,15 @@ export const uploadLimiter = rateLimit({
 	message: { error: { message: 'Upload rate limit exceeded', code: 'RATE_LIMIT_ERROR' } },
 });
 
+// OAuth endpoint rate limiter (stricter to prevent brute-force and abuse)
+export const oauthLimiter = rateLimit({
+	windowMs: 60 * 1000,
+	max: 20,
+	standardHeaders: true,
+	legacyHeaders: false,
+	message: { error: { message: 'OAuth rate limit exceeded', code: 'RATE_LIMIT_ERROR' } },
+});
+
 // Health endpoint rate limiter (more permissive but still prevents DoS)
 export const healthLimiter = rateLimit({
 	windowMs: 60 * 1000,
