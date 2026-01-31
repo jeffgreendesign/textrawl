@@ -33,6 +33,8 @@ export interface UploadResult {
 	documentId?: string;
 	/** Number of chunks created */
 	chunksCreated?: number;
+	/** Source hash from frontmatter (avoids re-reading file for manifest) */
+	sourceHash?: string;
 	/** Error message if upload failed */
 	error?: string;
 	/** Whether the file was skipped (already in manifest) */
