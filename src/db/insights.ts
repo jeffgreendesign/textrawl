@@ -79,7 +79,12 @@ export async function getInsightQueueState(): Promise<InsightQueueState | null> 
 	const { data, error } = await client.from('insight_queue').select('*').eq('id', 1).single();
 
 	if (error) {
-		logger.error('Failed to get insight queue state', { error: error.message });
+		logger.error('Failed to get insight queue state', {
+			error: error.message,
+			code: error.code,
+			details: error.details,
+			hint: error.hint,
+		});
 		return null;
 	}
 
@@ -155,8 +160,13 @@ export async function createInsights(inputs: CreateInsightInput[]): Promise<Proa
 	const { data, error } = await client.from('proactive_insights').insert(records).select();
 
 	if (error) {
-		logger.error('Failed to create insights', { error: error.message });
-		throw new DatabaseError('Failed to create insights');
+		logger.error('Failed to create insights', {
+			error: error.message,
+			code: error.code,
+			details: error.details,
+			hint: error.hint,
+		});
+		throw new DatabaseError(`Failed to create insights: ${error.message}`);
 	}
 
 	logger.info('Created insights', { count: data.length });
@@ -189,8 +199,13 @@ export async function getInsights(options: {
 	const { data, error } = await query;
 
 	if (error) {
-		logger.error('Failed to get insights', { error: error.message });
-		throw new DatabaseError('Failed to get insights');
+		logger.error('Failed to get insights', {
+			error: error.message,
+			code: error.code,
+			details: error.details,
+			hint: error.hint,
+		});
+		throw new DatabaseError(`Failed to get insights: ${error.message}`);
 	}
 
 	return data as ProactiveInsight[];
@@ -213,8 +228,13 @@ export async function searchInsights(
 	});
 
 	if (error) {
-		logger.error('Insight semantic search failed', { error: error.message });
-		throw new DatabaseError('Insight search failed');
+		logger.error('Insight semantic search failed', {
+			error: error.message,
+			code: error.code,
+			details: error.details,
+			hint: error.hint,
+		});
+		throw new DatabaseError(`Insight search failed: ${error.message}`);
 	}
 
 	return data as ProactiveInsight[];
@@ -230,8 +250,13 @@ export async function updateInsightStatus(insightId: string, status: InsightStat
 	const { error } = await client.from('proactive_insights').update({ status }).eq('id', insightId);
 
 	if (error) {
-		logger.error('Failed to update insight status', { error: error.message });
-		throw new DatabaseError('Failed to update insight status');
+		logger.error('Failed to update insight status', {
+			error: error.message,
+			code: error.code,
+			details: error.details,
+			hint: error.hint,
+		});
+		throw new DatabaseError(`Failed to update insight status: ${error.message}`);
 	}
 }
 
@@ -256,8 +281,13 @@ export async function getInsightStats(): Promise<{
 	]);
 
 	if (countResult.error) {
-		logger.error('Failed to get insight stats', { error: countResult.error.message });
-		throw new DatabaseError('Failed to get insight stats');
+		logger.error('Failed to get insight stats', {
+			error: countResult.error.message,
+			code: countResult.error.code,
+			details: countResult.error.details,
+			hint: countResult.error.hint,
+		});
+		throw new DatabaseError(`Failed to get insight stats: ${countResult.error.message}`);
 	}
 
 	const rows = countResult.data ?? [];
@@ -279,4 +309,44 @@ export async function getInsightStats(): Promise<{
 	}
 
 	return stats;
+}
+
+// ---------------------------------------------------------------------------
+// Schema validation
+// ---------------------------------------------------------------------------
+
+/** Check if insight tables exist in the database */
+export async function validateInsightSchema(): Promise<{
+	valid: boolean;
+	missing: string[];
+	hint: string;
+}> {
+	if (!isSupabaseConfigured()) {
+		return { valid: false, missing: [], hint: 'Supabase not configured' };
+	}
+
+	const client = getSupabaseClient();
+	const missing: string[] = [];
+
+	// Check proactive_insights table
+	const { error: insightsError } = await client.from('proactive_insights').select('id').limit(0);
+	if (insightsError) {
+		missing.push('proactive_insights');
+	}
+
+	// Check insight_queue table
+	const { error: queueError } = await client.from('insight_queue').select('id').limit(0);
+	if (queueError) {
+		missing.push('insight_queue');
+	}
+
+	if (missing.length > 0) {
+		return {
+			valid: false,
+			missing,
+			hint: `Missing table(s): ${missing.join(', ')}. Run the appropriate setup-db-insights SQL script in your Supabase SQL Editor. See scripts/setup-db-insights.sql (OpenAI), scripts/setup-db-insights-ollama.sql (Ollama v1), or scripts/setup-db-insights-ollama-v2.sql (Ollama v2).`,
+		};
+	}
+
+	return { valid: true, missing: [], hint: '' };
 }
