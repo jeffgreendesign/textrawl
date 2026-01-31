@@ -10,6 +10,7 @@ import {
 	searchInsights,
 	shouldRunInsightScan,
 	updateInsightStatus,
+	validateInsightSchema,
 } from '../db/insights.js';
 import { generateEmbedding, isOpenAIConfigured } from '../services/embeddings.js';
 import { runInsightScan } from '../services/insight-analysis.js';
@@ -22,6 +23,29 @@ const isCompact = () => config.COMPACT_RESPONSES;
  * Register proactive insight tools
  */
 export function registerInsightTools(server: McpServer): void {
+	/** Run schema validation on first call, cache the result for 60s */
+	let schemaCheckCache: { valid: boolean; hint: string; checkedAt: number } | null = null;
+	const SCHEMA_CACHE_TTL = 60_000;
+
+	async function ensureSchema(): Promise<{ ok: true } | { ok: false; error: string }> {
+		const now = Date.now();
+		if (schemaCheckCache && now - schemaCheckCache.checkedAt < SCHEMA_CACHE_TTL) {
+			if (schemaCheckCache.valid) return { ok: true };
+			return { ok: false, error: schemaCheckCache.hint };
+		}
+
+		const result = await validateInsightSchema();
+		schemaCheckCache = { valid: result.valid, hint: result.hint, checkedAt: now };
+		if (!result.valid) {
+			logger.error('Insight schema validation failed', {
+				missing: result.missing,
+				hint: result.hint,
+			});
+			return { ok: false, error: result.hint };
+		}
+		return { ok: true };
+	}
+
 	// ========================================================================
 	// Tool: get_insights
 	// ========================================================================
@@ -52,6 +76,21 @@ export function registerInsightTools(server: McpServer): void {
 						{
 							type: 'text' as const,
 							text: JSON.stringify({ error: 'Database not configured' }),
+						},
+					],
+				};
+			}
+
+			const schema = await ensureSchema();
+			if (!schema.ok) {
+				return {
+					content: [
+						{
+							type: 'text' as const,
+							text: JSON.stringify({
+								error: 'Insight schema not initialized',
+								message: schema.error,
+							}),
 						},
 					],
 				};
@@ -198,6 +237,21 @@ export function registerInsightTools(server: McpServer): void {
 				};
 			}
 
+			const schema = await ensureSchema();
+			if (!schema.ok) {
+				return {
+					content: [
+						{
+							type: 'text' as const,
+							text: JSON.stringify({
+								error: 'Insight schema not initialized',
+								message: schema.error,
+							}),
+						},
+					],
+				};
+			}
+
 			if (!isOpenAIConfigured()) {
 				return {
 					content: [
@@ -295,6 +349,21 @@ export function registerInsightTools(server: McpServer): void {
 				};
 			}
 
+			const schema = await ensureSchema();
+			if (!schema.ok) {
+				return {
+					content: [
+						{
+							type: 'text' as const,
+							text: JSON.stringify({
+								error: 'Insight schema not initialized',
+								message: schema.error,
+							}),
+						},
+					],
+				};
+			}
+
 			try {
 				await updateInsightStatus(insightId, 'dismissed');
 				return {
@@ -344,6 +413,21 @@ export function registerInsightTools(server: McpServer): void {
 						{
 							type: 'text' as const,
 							text: JSON.stringify({ error: 'Database not configured' }),
+						},
+					],
+				};
+			}
+
+			const schema = await ensureSchema();
+			if (!schema.ok) {
+				return {
+					content: [
+						{
+							type: 'text' as const,
+							text: JSON.stringify({
+								error: 'Insight schema not initialized',
+								message: schema.error,
+							}),
 						},
 					],
 				};
