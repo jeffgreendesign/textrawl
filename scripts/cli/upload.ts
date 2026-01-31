@@ -110,10 +110,10 @@ async function uploadFileSemantic(
 		);
 
 		// Chunk the content (semantic mode calls generateEmbeddings internally)
-		const chunks = await withRetry(
-			() => smartChunk(prepared.bodyContent, generateEmbeddings),
-			{ ...retryOpts, maxRetries: 2 },
-		);
+		const chunks = await withRetry(() => smartChunk(prepared.bodyContent, generateEmbeddings), {
+			...retryOpts,
+			maxRetries: 2,
+		});
 
 		if (chunks.length === 0) {
 			return {
@@ -126,10 +126,7 @@ async function uploadFileSemantic(
 
 		// Generate embeddings for all chunks
 		const chunkContents = chunks.map((c) => c.content);
-		const embeddings = await withRetry(
-			() => generateEmbeddings(chunkContents),
-			embeddingRetryOpts,
-		);
+		const embeddings = await withRetry(() => generateEmbeddings(chunkContents), embeddingRetryOpts);
 
 		// Create chunk records
 		const chunkInputs: CreateChunkInput[] = chunks.map((chunk, i) => ({
@@ -176,7 +173,13 @@ async function uploadBatchedFixed(
 	// Phase 1: Chunk all files locally (no network calls)
 	interface ChunkedFile {
 		prepared: PreparedFile;
-		chunks: { content: string; index: number; startOffset: number; endOffset: number; tokenCount: number }[];
+		chunks: {
+			content: string;
+			index: number;
+			startOffset: number;
+			endOffset: number;
+			tokenCount: number;
+		}[];
 	}
 
 	const chunkedFiles: ChunkedFile[] = [];
@@ -217,10 +220,7 @@ async function uploadBatchedFixed(
 
 	let allEmbeddings: number[][];
 	try {
-		allEmbeddings = await withRetry(
-			() => generateEmbeddings(allChunkTexts),
-			embeddingRetryOpts,
-		);
+		allEmbeddings = await withRetry(() => generateEmbeddings(allChunkTexts), embeddingRetryOpts);
 	} catch (error) {
 		// If batch embedding fails entirely, mark all files as failed
 		const errMsg = error instanceof Error ? error.message : String(error);
@@ -386,7 +386,9 @@ async function uploadDocuments(directory: string, options: UploadOptions): Promi
 	}
 
 	logger.info(`Uploading ${toUpload.length} file(s)...`);
-	logger.info(`Chunking mode: ${config.CHUNKING_MODE}, Concurrency: ${options.concurrency}, Max retries: ${options.maxRetries}`);
+	logger.info(
+		`Chunking mode: ${config.CHUNKING_MODE}, Concurrency: ${options.concurrency}, Max retries: ${options.maxRetries}`,
+	);
 
 	// Create progress reporter
 	const progress = new ProgressReporter(toUpload.length, { verbose: options.verbose });

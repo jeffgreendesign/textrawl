@@ -5,8 +5,8 @@
  */
 
 import matter from 'gray-matter';
-import type { ContentType, DocumentFrontMatter, SourceType } from './types.js';
 import { logger } from './progress.js';
+import type { ContentType, DocumentFrontMatter, SourceType } from './types.js';
 
 const VALID_SOURCE_TYPES = new Set<SourceType>(['note', 'file', 'url']);
 const VALID_CONTENT_TYPES = new Set<ContentType>([
