@@ -15,6 +15,7 @@
 		"lint:fix": "biome check --write .",
 		"quality": "pnpm lint && pnpm typecheck",
 		"security-check": "./scripts/security-check.sh",
+		"preinstall": "npx only-allow pnpm",
 		"prepare": "husky",
 		"inspector": "npx @modelcontextprotocol/inspector http://localhost:3000/mcp",
 		"setup": "bash scripts/setup.sh",
