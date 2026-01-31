@@ -8,26 +8,38 @@ Textrawl is a Personal Knowledge MCP (Model Context Protocol) Server that provid
 
 ## Development Commands
 
+**Package manager:** pnpm (v9.15+). Do not use npm.
+
 ```bash
-npm run setup       # Generate .env with secure token + enter credentials
-npm run dev         # Watch mode dev server (tsx)
-npm run build       # TypeScript compile + esbuild bundle to dist/
-npm run start       # Run production build
-npm run typecheck   # Type-check without emitting
-npm run inspector   # MCP Inspector at http://localhost:5173
+pnpm setup          # Generate .env with secure token + enter credentials
+pnpm dev            # Watch mode dev server (tsx)
+pnpm build          # TypeScript compile + esbuild bundle to dist/
+pnpm start          # Run production build
+pnpm typecheck      # Type-check without emitting
+pnpm lint           # Biome lint check
+pnpm lint:fix       # Biome lint with auto-fix
+pnpm quality        # Lint + typecheck combined
+pnpm inspector      # MCP Inspector at http://localhost:5173
 
 # CLI conversion tools (see docs/cli/ for full documentation)
-npm run convert -- mbox ~/Mail/archive.mbox    # Convert MBOX to markdown
-npm run convert -- html ./saved-pages/ -r      # Convert HTML recursively
-npm run upload -- ./converted/                 # Upload to Supabase
-npm run ui                                     # Web UI at http://localhost:3001
+pnpm convert -- mbox ~/Mail/archive.mbox    # Convert MBOX to markdown
+pnpm convert -- html ./saved-pages/ -r      # Convert HTML recursively
+pnpm upload -- ./converted/                 # Upload to Supabase
+pnpm ui                                     # Web UI at http://localhost:3001
+
+# Documentation website
+pnpm docs:dev       # Dev server at http://localhost:3000
+pnpm docs:build     # Build website
 ```
 
-**Note:** CLI scripts require `--` before arguments (npm run convert `--` mbox file.mbox)
+**Note:** CLI scripts require `--` before arguments (pnpm convert `--` mbox file.mbox)
 
 **Requirements:** Node.js >= 22.0.0
 
-**Testing:** No test suite yet. Use `npm run inspector` to manually test MCP tools.
+**Testing:** No test suite yet. Use `pnpm inspector` to manually test MCP tools.
+
+### Pre-commit Hooks (Husky)
+Commits run `pnpm lint`, `./scripts/security-check.sh`, and `pnpm typecheck`. All three must pass.
 
 ## Environment Setup
 
@@ -187,6 +199,14 @@ Set `COMPACT_RESPONSES=false` for human-readable debugging or when readability i
 
 ## Critical Conventions
 
+### Code Style (Biome)
+- **Indentation:** Tabs (not spaces)
+- **Quotes:** Single quotes
+- **Trailing commas:** Always
+- **Line width:** 100 characters
+- `noExplicitAny` and `noNonNullAssertion` are warnings (not errors)
+- Scripts in `desktop/` and `scripts/` have relaxed lint rules
+
 ### Logging
 **All logs must use `console.error()` (stderr)** - stdout is reserved for MCP JSON-RPC communication. Never use `console.log()`. Use the `logger` from `src/utils/logger.ts`.
 
@@ -262,16 +282,7 @@ When adding or modifying MCP tools, **all** of the following files must be updat
 
 ## Documentation Website
 
-The documentation site is in `website/` (Next.js + Fumadocs):
-
-```bash
-cd website
-npm install
-npm run dev      # Dev server at http://localhost:3000
-npm run build    # Build to website/.next/
-```
-
-**Stack:** Next.js 15, Fumadocs (MDX documentation framework), React 19, Tailwind CSS 4.
+The documentation site is in `website/` (Next.js 15 + Fumadocs + React 19 + Tailwind CSS 4). Run via `pnpm docs:dev` / `pnpm docs:build` from the project root.
 
 **Content:** Documentation source files are in `/docs` (referenced via `source.config.ts`).
 
@@ -305,7 +316,7 @@ gh pr create --title "feat: add user authentication" --body "$(cat <<'EOF'
 Closes #42
 
 ## Test Plan
-- Run `npm run inspector` and test protected endpoints
+- Run `pnpm inspector` and test protected endpoints
 - Verify tokens expire after configured TTL
 EOF
 )"

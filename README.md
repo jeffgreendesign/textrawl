@@ -68,9 +68,9 @@ Textrawl is a personal knowledge base that lets Claude search through your email
 ```bash
 git clone https://github.com/jeffgreendesign/textrawl.git
 cd textrawl
-npm install
-npm run setup    # Interactive setup for credentials
-npm run dev      # Start the server
+pnpm install
+pnpm setup    # Interactive setup for credentials
+pnpm dev      # Start the server
 ```
 
 ### 2. Set Up Supabase
@@ -126,14 +126,14 @@ See [OpenAI MCP documentation](https://platform.openai.com/docs/mcp) for details
 
 **Option A: Desktop App** (easiest)
 ```bash
-cd desktop && npm install && npm run dev
+cd desktop && pnpm install && pnpm dev
 ```
 Drag files onto the window to convert and upload.
 
 **Option B: CLI** (for batch imports)
 ```bash
-npm run convert -- mbox ~/Mail/archive.mbox
-npm run upload -- ./converted/
+pnpm convert -- mbox ~/Mail/archive.mbox
+pnpm upload -- ./converted/
 ```
 
 ## Documentation
@@ -292,12 +292,14 @@ export GCP_PROJECT_ID=your-project-id
 ## Development
 
 ```bash
-npm run dev         # Watch mode
-npm run build       # Production build
-npm run start       # Run production
-npm run typecheck   # Type check
-npm run inspector   # MCP Inspector
-npm run setup       # Generate .env with secure token
+pnpm dev            # Watch mode
+pnpm build          # Production build
+pnpm start          # Run production
+pnpm typecheck      # Type check
+pnpm lint           # Biome lint check
+pnpm quality        # Lint + typecheck combined
+pnpm inspector      # MCP Inspector
+pnpm setup          # Generate .env with secure token
 ```
 
 ### Local Database (Optional)
