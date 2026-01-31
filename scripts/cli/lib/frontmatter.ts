@@ -5,7 +5,18 @@
  */
 
 import matter from 'gray-matter';
-import type { DocumentFrontMatter } from './types.js';
+import type { ContentType, DocumentFrontMatter, SourceType } from './types.js';
+import { logger } from './progress.js';
+
+const VALID_SOURCE_TYPES = new Set<SourceType>(['note', 'file', 'url']);
+const VALID_CONTENT_TYPES = new Set<ContentType>([
+	'email',
+	'youtube',
+	'calendar',
+	'contact',
+	'webpage',
+	'document',
+]);
 
 /**
  * Parsed document with front matter and content
@@ -27,6 +38,24 @@ export function parseFrontmatter(markdown: string): ParsedDocument {
 	}
 	if (!data.source_type) {
 		throw new Error('Missing required front matter field: source_type');
+	}
+
+	// Coerce invalid source_type to 'file' (CLI uploads are file-based)
+	if (!VALID_SOURCE_TYPES.has(data.source_type as SourceType)) {
+		logger.debug(`Coercing source_type '${data.source_type}' -> 'file'`);
+		data.source_type = 'file';
+	}
+
+	// Coerce invalid content_type to 'document'
+	if (!data.content_type || !VALID_CONTENT_TYPES.has(data.content_type as ContentType)) {
+		logger.debug(`Coercing content_type '${data.content_type ?? 'undefined'}' -> 'document'`);
+		data.content_type = 'document';
+	}
+
+	// Ensure tags is an array of strings
+	if (!Array.isArray(data.tags)) {
+		logger.debug(`Coercing tags '${String(data.tags ?? 'undefined')}' -> array`);
+		data.tags = data.tags ? [String(data.tags)] : [];
 	}
 
 	return {
