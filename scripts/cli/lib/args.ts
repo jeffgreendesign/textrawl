@@ -150,6 +150,8 @@ export interface UploadOptions extends CommonOptions {
 	concurrency: number;
 	/** Glob pattern for files */
 	pattern: string;
+	/** Maximum retries for transient failures */
+	maxRetries: number;
 }
 
 /**
@@ -160,8 +162,9 @@ export function addUploadOptions(command: Command): Command {
 		.option('-r, --recursive', 'Process subdirectories', true)
 		.option('--force', 'Re-upload even if in manifest', false)
 		.option('--batch-size <n>', 'Embeddings per batch', parseInt, 50)
-		.option('--concurrency <n>', 'Parallel document processing', parseInt, 5)
-		.option('--pattern <glob>', 'Glob pattern for files', '**/*.md');
+		.option('--concurrency <n>', 'Parallel document processing (recommended: 10-20 for OpenAI, 5-10 for Ollama)', parseInt, 20)
+		.option('--pattern <glob>', 'Glob pattern for files', '**/*.md')
+		.option('--max-retries <n>', 'Max retries for transient failures', parseInt, 3);
 }
 
 /**

@@ -24,71 +24,112 @@ import { isUploadConfigured, loadCLIConfig } from './lib/config.js';
 import { parseFrontmatter } from './lib/frontmatter.js';
 import { ManifestManager } from './lib/manifest.js';
 import { ProgressReporter, logger } from './lib/progress.js';
+import { isRetryableError, withRetry } from './lib/retry.js';
 import type { DocumentFrontMatter, UploadResult } from './lib/types.js';
 
 import { type CreateChunkInput, createChunks } from '../../src/db/chunks.js';
 import { createDocument } from '../../src/db/documents.js';
 // Import existing services from the main project
 // These paths work because tsx resolves them at runtime
-import { smartChunk } from '../../src/services/chunker.js';
+import { chunkText, smartChunk } from '../../src/services/chunker.js';
 import { generateEmbeddings } from '../../src/services/embeddings.js';
+import { config } from '../../src/utils/config.js';
+
+/** Manifest save interval (every N successful uploads) */
+const MANIFEST_SAVE_INTERVAL = 50;
 
 /**
- * Upload a single markdown file
+ * Parsed and validated file ready for upload
  */
-async function uploadFile(
+interface PreparedFile {
+	filePath: string;
+	relativePath: string;
+	frontmatter: DocumentFrontMatter;
+	bodyContent: string;
+	tags: string[];
+}
+
+/**
+ * Prepare a file for upload: read, parse, validate frontmatter
+ */
+function prepareFile(
 	filePath: string,
 	baseDir: string,
 	options: UploadOptions,
-): Promise<UploadResult> {
+): PreparedFile | { error: string } {
 	try {
-		// Read file
 		const content = readFileSync(filePath, 'utf-8');
-
-		// Parse front matter
 		const { frontmatter, content: bodyContent } = parseFrontmatter(content);
-
-		// Merge tags from CLI options
 		const tags = [...new Set([...(frontmatter.tags || []), ...options.tags])];
 
-		// Check for source hash
 		if (!frontmatter.source_hash) {
-			return {
-				success: false,
-				error: 'Missing source_hash in front matter',
-			};
+			return { error: 'Missing source_hash in front matter' };
 		}
 
-		// Create document in Supabase
-		const document = await createDocument({
-			title: frontmatter.title,
-			sourceType: frontmatter.source_type,
-			rawContent: bodyContent,
-			metadata: {
-				...frontmatter.metadata,
-				tags,
-				content_type: frontmatter.content_type,
-				source_file: frontmatter.source_file,
-				source_hash: frontmatter.source_hash,
-				created_at: frontmatter.created_at,
-				converted_at: frontmatter.converted_at,
-			},
-		});
+		return {
+			filePath,
+			relativePath: relative(baseDir, filePath),
+			frontmatter,
+			bodyContent,
+			tags,
+		};
+	} catch (error) {
+		return { error: error instanceof Error ? error.message : String(error) };
+	}
+}
 
-		// Chunk the content (uses semantic or fixed chunking based on CHUNKING_MODE)
-		const chunks = await smartChunk(bodyContent, generateEmbeddings);
+/**
+ * Upload a single file using per-file chunking and embedding (semantic mode or fallback)
+ */
+async function uploadFileSemantic(
+	prepared: PreparedFile,
+	options: UploadOptions,
+): Promise<UploadResult> {
+	try {
+		const retryOpts = { maxRetries: options.maxRetries, retryableCheck: isRetryableError };
+		const embeddingRetryOpts = { ...retryOpts, baseDelayMs: 2000 };
+
+		// Create document in Supabase
+		const document = await withRetry(
+			() =>
+				createDocument({
+					title: prepared.frontmatter.title,
+					sourceType: prepared.frontmatter.source_type,
+					rawContent: prepared.bodyContent,
+					metadata: {
+						...prepared.frontmatter.metadata,
+						tags: prepared.tags,
+						content_type: prepared.frontmatter.content_type,
+						source_file: prepared.frontmatter.source_file,
+						source_hash: prepared.frontmatter.source_hash,
+						created_at: prepared.frontmatter.created_at,
+						converted_at: prepared.frontmatter.converted_at,
+					},
+				}),
+			retryOpts,
+		);
+
+		// Chunk the content (semantic mode calls generateEmbeddings internally)
+		const chunks = await withRetry(
+			() => smartChunk(prepared.bodyContent, generateEmbeddings),
+			{ ...retryOpts, maxRetries: 2 },
+		);
 
 		if (chunks.length === 0) {
 			return {
 				success: true,
 				documentId: document.id,
 				chunksCreated: 0,
+				sourceHash: prepared.frontmatter.source_hash,
 			};
 		}
 
 		// Generate embeddings for all chunks
 		const chunkContents = chunks.map((c) => c.content);
-		const embeddings = await generateEmbeddings(chunkContents);
+		const embeddings = await withRetry(
+			() => generateEmbeddings(chunkContents),
+			embeddingRetryOpts,
+		);
 
 		// Create chunk records
 		const chunkInputs: CreateChunkInput[] = chunks.map((chunk, i) => ({
@@ -101,12 +142,13 @@ async function uploadFile(
 			metadata: { tokenCount: chunk.tokenCount },
 		}));
 
-		await createChunks(chunkInputs);
+		await withRetry(() => createChunks(chunkInputs), retryOpts);
 
 		return {
 			success: true,
 			documentId: document.id,
 			chunksCreated: chunks.length,
+			sourceHash: prepared.frontmatter.source_hash,
 		};
 	} catch (error) {
 		return {
@@ -114,6 +156,164 @@ async function uploadFile(
 			error: error instanceof Error ? error.message : String(error),
 		};
 	}
+}
+
+/**
+ * Two-phase batched upload for fixed chunking mode.
+ * Phase 1: Prepare and chunk all files (CPU-only, no API calls)
+ * Phase 2: Batch embed all chunks across files, then insert
+ */
+async function uploadBatchedFixed(
+	preparedFiles: PreparedFile[],
+	options: UploadOptions,
+	manifest: ManifestManager,
+	progress: ProgressReporter,
+	counters: { success: number; errors: number; chunks: number },
+): Promise<void> {
+	const retryOpts = { maxRetries: options.maxRetries, retryableCheck: isRetryableError };
+	const embeddingRetryOpts = { ...retryOpts, baseDelayMs: 2000 };
+
+	// Phase 1: Chunk all files locally (no network calls)
+	interface ChunkedFile {
+		prepared: PreparedFile;
+		chunks: { content: string; index: number; startOffset: number; endOffset: number; tokenCount: number }[];
+	}
+
+	const chunkedFiles: ChunkedFile[] = [];
+	const chunkErrors: { relativePath: string; error: string }[] = [];
+
+	for (const prepared of preparedFiles) {
+		try {
+			const chunks = chunkText(prepared.bodyContent);
+			chunkedFiles.push({ prepared, chunks });
+		} catch (error) {
+			chunkErrors.push({
+				relativePath: prepared.relativePath,
+				error: error instanceof Error ? error.message : String(error),
+			});
+		}
+	}
+
+	for (const err of chunkErrors) {
+		counters.errors++;
+		progress.log(`  ✗ ${err.relativePath}: ${err.error}`);
+		progress.increment();
+	}
+
+	if (chunkedFiles.length === 0) {
+		return;
+	}
+
+	// Phase 2: Batch embed all chunks across all files
+	const allChunkTexts: string[] = [];
+	const chunkFileMap: { fileIndex: number; chunkIndex: number }[] = [];
+
+	for (let fi = 0; fi < chunkedFiles.length; fi++) {
+		for (let ci = 0; ci < chunkedFiles[fi].chunks.length; ci++) {
+			allChunkTexts.push(chunkedFiles[fi].chunks[ci].content);
+			chunkFileMap.push({ fileIndex: fi, chunkIndex: ci });
+		}
+	}
+
+	let allEmbeddings: number[][];
+	try {
+		allEmbeddings = await withRetry(
+			() => generateEmbeddings(allChunkTexts),
+			embeddingRetryOpts,
+		);
+	} catch (error) {
+		// If batch embedding fails entirely, mark all files as failed
+		const errMsg = error instanceof Error ? error.message : String(error);
+		for (const cf of chunkedFiles) {
+			counters.errors++;
+			progress.log(`  ✗ ${cf.prepared.relativePath}: Embedding failed: ${errMsg}`);
+			progress.increment();
+		}
+		return;
+	}
+
+	// Distribute embeddings back to files
+	const fileEmbeddings: number[][][] = chunkedFiles.map(() => []);
+	for (let i = 0; i < chunkFileMap.length; i++) {
+		const { fileIndex, chunkIndex } = chunkFileMap[i];
+		fileEmbeddings[fileIndex][chunkIndex] = allEmbeddings[i];
+	}
+
+	// Phase 3: Insert documents and chunks concurrently
+	const insertLimit = pLimit(options.concurrency);
+
+	const insertPromises = chunkedFiles.map((cf, fileIndex) =>
+		insertLimit(async () => {
+			progress.update(0, cf.prepared.relativePath);
+
+			try {
+				// Create document
+				const document = await withRetry(
+					() =>
+						createDocument({
+							title: cf.prepared.frontmatter.title,
+							sourceType: cf.prepared.frontmatter.source_type,
+							rawContent: cf.prepared.bodyContent,
+							metadata: {
+								...cf.prepared.frontmatter.metadata,
+								tags: cf.prepared.tags,
+								content_type: cf.prepared.frontmatter.content_type,
+								source_file: cf.prepared.frontmatter.source_file,
+								source_hash: cf.prepared.frontmatter.source_hash,
+								created_at: cf.prepared.frontmatter.created_at,
+								converted_at: cf.prepared.frontmatter.converted_at,
+							},
+						}),
+					retryOpts,
+				);
+
+				if (cf.chunks.length > 0) {
+					const chunkInputs: CreateChunkInput[] = cf.chunks.map((chunk, ci) => ({
+						documentId: document.id,
+						content: chunk.content,
+						chunkIndex: chunk.index,
+						startOffset: chunk.startOffset,
+						endOffset: chunk.endOffset,
+						embedding: fileEmbeddings[fileIndex][ci],
+						metadata: { tokenCount: chunk.tokenCount },
+					}));
+
+					await withRetry(() => createChunks(chunkInputs), retryOpts);
+				}
+
+				counters.success++;
+				counters.chunks += cf.chunks.length;
+
+				// Record in manifest
+				manifest.recordUpload({
+					sourceHash: cf.prepared.frontmatter.source_hash,
+					documentId: document.id,
+					uploadedAt: new Date().toISOString(),
+					markdownPath: cf.prepared.relativePath,
+					chunksCreated: cf.chunks.length,
+				});
+
+				if (counters.success % MANIFEST_SAVE_INTERVAL === 0) {
+					manifest.save();
+				}
+
+				if (options.verbose) {
+					progress.log(
+						`  ✓ ${cf.prepared.relativePath} → ${document.id} (${cf.chunks.length} chunks)`,
+					);
+				}
+			} catch (error) {
+				counters.errors++;
+				progress.log(
+					`  ✗ ${cf.prepared.relativePath}: ${error instanceof Error ? error.message : String(error)}`,
+				);
+			}
+
+			progress.increment();
+		}),
+	);
+
+	await Promise.all(insertPromises);
 }
 
 /**
@@ -135,9 +335,9 @@ async function uploadDocuments(directory: string, options: UploadOptions): Promi
 
 	// Load configuration
 	logger.info('Loading configuration...');
-	const config = loadCLIConfig(options.config);
+	const cliConfig = loadCLIConfig(options.config);
 
-	if (!isUploadConfigured(config)) {
+	if (!isUploadConfigured(cliConfig)) {
 		logger.error(
 			'Upload not configured. Check SUPABASE_URL, SUPABASE_SERVICE_KEY, and embedding provider.',
 		);
@@ -186,83 +386,118 @@ async function uploadDocuments(directory: string, options: UploadOptions): Promi
 	}
 
 	logger.info(`Uploading ${toUpload.length} file(s)...`);
+	logger.info(`Chunking mode: ${config.CHUNKING_MODE}, Concurrency: ${options.concurrency}, Max retries: ${options.maxRetries}`);
 
 	// Create progress reporter
 	const progress = new ProgressReporter(toUpload.length, { verbose: options.verbose });
 	progress.start();
 
-	// Set up concurrency limiter
-	const limit = pLimit(options.concurrency);
+	const counters = { success: 0, errors: 0, chunks: 0 };
 
-	let successCount = 0;
-	let errorCount = 0;
-	let totalChunks = 0;
-
-	// Process files with concurrency
-	const uploadPromises = toUpload.map((file, index) =>
-		limit(async () => {
-			const relativePath = relative(resolvedDir, file);
-			progress.update(index, relativePath);
-
+	if (config.CHUNKING_MODE === 'fixed') {
+		// Two-phase batched pipeline for fixed chunking
+		// Prepare all files first (CPU-only)
+		const prepared: PreparedFile[] = [];
+		for (const file of toUpload) {
 			if (options.dryRun) {
-				progress.increment(`[DRY RUN] ${relativePath}`);
-				successCount++;
-				return;
+				progress.increment(`[DRY RUN] ${relative(resolvedDir, file)}`);
+				counters.success++;
+				continue;
 			}
 
-			const result = await uploadFile(file, resolvedDir, options);
-
-			if (result.success) {
-				successCount++;
-				totalChunks += result.chunksCreated || 0;
-
-				// Record in manifest
-				try {
-					const content = readFileSync(file, 'utf-8');
-					const { frontmatter } = parseFrontmatter(content);
-
-					manifest.recordUpload({
-						sourceHash: frontmatter.source_hash,
-						documentId: result.documentId!,
-						uploadedAt: new Date().toISOString(),
-						markdownPath: relativePath,
-						chunksCreated: result.chunksCreated,
-					});
-				} catch {
-					// Ignore manifest errors
-				}
-
-				if (options.verbose) {
-					progress.log(
-						`  ✓ ${relativePath} → ${result.documentId} (${result.chunksCreated} chunks)`,
-					);
-				}
+			const result = prepareFile(file, resolvedDir, options);
+			if ('error' in result) {
+				counters.errors++;
+				progress.log(`  ✗ ${relative(resolvedDir, file)}: ${result.error}`);
+				progress.increment();
 			} else {
-				errorCount++;
-				progress.log(`  ✗ ${relativePath}: ${result.error}`);
+				prepared.push(result);
 			}
+		}
 
-			progress.increment();
-		}),
-	);
+		if (prepared.length > 0 && !options.dryRun) {
+			// Process in batches to avoid holding too many embeddings in memory
+			const BATCH_SIZE = 200;
+			for (let i = 0; i < prepared.length; i += BATCH_SIZE) {
+				const batch = prepared.slice(i, i + BATCH_SIZE);
+				await uploadBatchedFixed(batch, options, manifest, progress, counters);
+			}
+		}
+	} else {
+		// Per-file processing for semantic chunking mode
+		const limit = pLimit(options.concurrency);
 
-	// Wait for all uploads
-	await Promise.all(uploadPromises);
+		const uploadPromises = toUpload.map((file, index) =>
+			limit(async () => {
+				const relativePath = relative(resolvedDir, file);
+				progress.update(index, relativePath);
 
-	// Save manifest
+				if (options.dryRun) {
+					progress.increment(`[DRY RUN] ${relativePath}`);
+					counters.success++;
+					return;
+				}
+
+				const prepResult = prepareFile(file, resolvedDir, options);
+				if ('error' in prepResult) {
+					counters.errors++;
+					progress.log(`  ✗ ${relativePath}: ${prepResult.error}`);
+					progress.increment();
+					return;
+				}
+
+				const result = await uploadFileSemantic(prepResult, options);
+
+				if (result.success) {
+					counters.success++;
+					counters.chunks += result.chunksCreated || 0;
+
+					// Record in manifest (sourceHash already available, no re-read needed)
+					if (result.sourceHash && result.documentId) {
+						manifest.recordUpload({
+							sourceHash: result.sourceHash,
+							documentId: result.documentId,
+							uploadedAt: new Date().toISOString(),
+							markdownPath: relativePath,
+							chunksCreated: result.chunksCreated,
+						});
+					}
+
+					if (counters.success % MANIFEST_SAVE_INTERVAL === 0) {
+						manifest.save();
+					}
+
+					if (options.verbose) {
+						progress.log(
+							`  ✓ ${relativePath} → ${result.documentId} (${result.chunksCreated} chunks)`,
+						);
+					}
+				} else {
+					counters.errors++;
+					progress.log(`  ✗ ${relativePath}: ${result.error}`);
+				}
+
+				progress.increment();
+			}),
+		);
+
+		await Promise.all(uploadPromises);
+	}
+
+	// Save manifest (final save catches anything since last periodic save)
 	manifest.save();
 
 	// Finish progress
-	progress.finish(`Done: ${successCount} uploaded, ${errorCount} failed`);
+	progress.finish(`Done: ${counters.success} uploaded, ${counters.errors} failed`);
 
 	// Summary
 	logger.info('\n=== Upload Summary ===');
-	logger.info(`Files uploaded: ${successCount}`);
-	logger.info(`Chunks created: ${totalChunks}`);
-	logger.info(`Errors: ${errorCount}`);
+	logger.info(`Files uploaded: ${counters.success}`);
+	logger.info(`Chunks created: ${counters.chunks}`);
+	logger.info(`Errors: ${counters.errors}`);
 	logger.info(`Manifest location: ${resolvedDir}/.manifest.json`);
 
-	if (errorCount > 0) {
+	if (counters.errors > 0) {
 		process.exit(1);
 	}
 }
