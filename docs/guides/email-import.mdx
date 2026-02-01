@@ -22,10 +22,10 @@ Import your email archives into textrawl for AI-powered search across your corre
 
 ```bash
 # Convert MBOX to markdown
-npm run convert -- mbox ~/Downloads/All\ mail.mbox -o ./emails
+pnpm convert -- mbox ~/Downloads/All\ mail.mbox -o ./emails
 
 # Upload to knowledge base
-npm run upload -- ./emails
+pnpm upload -- ./emails
 ```
 
 ## Filtering Emails
@@ -33,8 +33,8 @@ npm run upload -- ./emails
 Use tags to organize:
 
 ```bash
-npm run convert -- mbox work.mbox -t work professional
-npm run convert -- mbox personal.mbox -t personal
+pnpm convert -- mbox work.mbox -t work professional
+pnpm convert -- mbox personal.mbox -t personal
 ```
 
 ## Searching Emails

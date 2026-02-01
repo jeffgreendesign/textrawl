@@ -30,7 +30,22 @@ pnpm ui                                     # Web UI at http://localhost:3001
 # Documentation website
 pnpm docs:dev       # Dev server at http://localhost:3000
 pnpm docs:build     # Build website
+
+# Desktop app (Electron)
+pnpm desktop:dev    # Build and run desktop app
+pnpm desktop:build  # Build desktop app bundles
+pnpm desktop:dist   # Create production distribution
 ```
+
+### Workspace Structure
+
+This is a pnpm workspace monorepo. All packages use pnpm — do not use npm.
+
+- **Root**: MCP server, CLI tools
+- **`website/`**: Next.js documentation site
+- **`desktop/`**: Electron desktop app (`shamefully-hoist=true` via `desktop/.npmrc` for Electron/native module compatibility)
+
+Install all dependencies from root with `pnpm install`.
 
 **Note:** CLI scripts require `--` before arguments (pnpm convert `--` mbox file.mbox)
 

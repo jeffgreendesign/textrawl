@@ -5,7 +5,7 @@
  * Converts MBOX email archives to markdown files with YAML front matter
  *
  * Usage:
- *   npm run convert:mbox -- <mbox-file> [options]
+ *   pnpm convert -- mbox <mbox-file> [options]
  *   npx tsx scripts/cli/converters/mbox.ts <mbox-file> [options]
  */
 

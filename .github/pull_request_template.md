@@ -17,8 +17,8 @@ Brief description of the changes.
 
 ## Checklist
 
-- [ ] I've run `npm run typecheck` with no errors
-- [ ] I've tested my changes locally with `npm run dev`
+- [ ] I've run `pnpm typecheck` with no errors
+- [ ] I've tested my changes locally with `pnpm dev`
 - [ ] I've followed the code style (ESM imports with `.js`, no `console.log`)
 - [ ] I've updated documentation if needed
 

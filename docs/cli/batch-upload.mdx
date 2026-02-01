@@ -8,7 +8,7 @@ Upload converted markdown files to your Supabase knowledge base with automatic c
 ## Usage
 
 ```bash
-npm run upload -- <path> [options]
+pnpm upload -- <path> [options]
 ```
 
 ## Options
@@ -24,13 +24,13 @@ npm run upload -- <path> [options]
 
 ```bash
 # Upload directory
-npm run upload -- ./converted/emails
+pnpm upload -- ./converted/emails
 
 # Force re-upload
-npm run upload -- ./converted/emails --force
+pnpm upload -- ./converted/emails --force
 
 # Dry run
-npm run upload -- ./converted/ --dry-run
+pnpm upload -- ./converted/ --dry-run
 ```
 
 ## Upload Process
@@ -81,7 +81,7 @@ Re-run the same command. Successfully uploaded files are skipped via manifest.
 
 ```bash
 # Retry after failure
-npm run upload -- ./converted/emails
+pnpm upload -- ./converted/emails
 ```
 
 ## Next Steps

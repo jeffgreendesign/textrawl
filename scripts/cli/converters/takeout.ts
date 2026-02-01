@@ -6,7 +6,7 @@
  * Supports: YouTube history, Calendar events, Contacts, Mail (MBOX)
  *
  * Usage:
- *   npm run convert:takeout -- <takeout.zip> [options]
+ *   pnpm convert -- takeout <takeout.zip> [options]
  *   npx tsx scripts/cli/converters/takeout.ts <takeout.zip> [options]
  */
 

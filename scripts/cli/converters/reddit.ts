@@ -5,7 +5,7 @@
  * Converts Reddit export data (comments, posts, saved items, messages) to markdown with YAML front matter
  *
  * Usage:
- *   npm run convert -- reddit <path> [options]
+ *   pnpm convert -- reddit <path> [options]
  *   npx tsx scripts/cli/converters/reddit.ts <path> [options]
  */
 

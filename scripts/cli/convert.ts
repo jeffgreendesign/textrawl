@@ -5,7 +5,7 @@
  * Unified entry point for all conversion utilities
  *
  * Usage:
- *   npm run convert -- <command> [options]
+ *   pnpm convert -- <command> [options]
  *   npx tsx scripts/cli/convert.ts <command> [options]
  *
  * Commands:

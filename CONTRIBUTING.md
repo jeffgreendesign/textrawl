@@ -19,10 +19,10 @@ git clone https://github.com/jeffgreendesign/textrawl.git
 cd textrawl
 
 # Install dependencies
-npm install
+pnpm install
 
 # Run the setup script (generates .env with secure token)
-npm run setup
+pnpm setup
 
 # Start local database (optional - or use Supabase)
 docker-compose -f docker-compose.local.yml up -d postgres
@@ -31,21 +31,21 @@ docker-compose -f docker-compose.local.yml up -d postgres
 docker exec -i textrawl-postgres psql -U postgres -d textrawl < scripts/setup-db.sql
 
 # Start dev server
-npm run dev
+pnpm dev
 ```
 
 ### Available Scripts
 
 ```bash
-npm run dev         # Watch mode with hot reload
-npm run build       # Production build
-npm run typecheck   # Type-check without emitting
-npm run inspector   # Test with MCP Inspector
+pnpm dev         # Watch mode with hot reload
+pnpm build       # Production build
+pnpm typecheck   # Type-check without emitting
+pnpm inspector   # Test with MCP Inspector
 
 # File conversion (see docs/cli/)
-npm run convert     # Convert files (mbox, eml, html, takeout)
-npm run upload      # Upload converted markdown to Supabase
-npm run ui          # Web UI for conversion
+pnpm convert     # Convert files (mbox, eml, html, takeout)
+pnpm upload      # Upload converted markdown to Supabase
+pnpm ui          # Web UI for conversion
 ```
 
 ## Code Style
@@ -124,8 +124,8 @@ scripts/
 
 1. **Fork and branch**: Create a feature branch from `main`
 2. **Make changes**: Follow the code style guidelines above
-3. **Type check**: Run `npm run typecheck` and fix any errors
-4. **Test locally**: Verify your changes work with `npm run dev`
+3. **Type check**: Run `pnpm typecheck` and fix any errors
+4. **Test locally**: Verify your changes work with `pnpm dev`
 5. **Commit**: Use clear, descriptive commit messages
 6. **Open PR**: Describe what you changed and why
 

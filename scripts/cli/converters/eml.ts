@@ -5,7 +5,7 @@
  * Converts individual .eml email files to markdown with YAML front matter
  *
  * Usage:
- *   npm run convert:eml -- <path> [options]
+ *   pnpm convert -- eml <path> [options]
  *   npx tsx scripts/cli/converters/eml.ts <path> [options]
  */
 

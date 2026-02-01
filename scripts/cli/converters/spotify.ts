@@ -5,7 +5,7 @@
  * Converts Spotify streaming history, playlists, and library to markdown with YAML front matter
  *
  * Usage:
- *   npm run convert -- spotify <path> [options]
+ *   pnpm convert -- spotify <path> [options]
  *   npx tsx scripts/cli/converters/spotify.ts <path> [options]
  */
 

@@ -5,7 +5,7 @@
  * Converts HTML files to markdown with YAML front matter
  *
  * Usage:
- *   npm run convert:html -- <path> [options]
+ *   pnpm convert -- html <path> [options]
  *   npx tsx scripts/cli/converters/html.ts <path> [options]
  */
 

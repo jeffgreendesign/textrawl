@@ -11,9 +11,9 @@ Textrawl provides hybrid semantic + full-text search over documents via the Mode
 ```bash
 git clone https://github.com/jeffgreendesign/textrawl.git
 cd textrawl
-npm run setup
-npm run dev
-npm run inspector  # Test at http://localhost:5173
+pnpm setup
+pnpm dev
+pnpm inspector  # Test at http://localhost:5173
 ```
 
 ## MCP Server Configuration
@@ -363,16 +363,16 @@ Optional:
 ### Convert Files
 
 ```bash
-npm run convert -- mbox ~/Mail/archive.mbox
-npm run convert -- html ./saved-pages/ -r
-npm run convert -- takeout ./Takeout.zip
+pnpm convert -- mbox ~/Mail/archive.mbox
+pnpm convert -- html ./saved-pages/ -r
+pnpm convert -- takeout ./Takeout.zip
 ```
 
 ### Upload to Supabase
 
 ```bash
-npm run upload -- ./converted/
-npm run upload -- ./converted/ --force  # Re-upload
+pnpm upload -- ./converted/
+pnpm upload -- ./converted/ --force  # Re-upload
 ```
 
 ## Architecture

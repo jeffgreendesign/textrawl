@@ -6,7 +6,7 @@
  * Reuses existing services for consistency with the main server
  *
  * Usage:
- *   npm run upload -- <directory> [options]
+ *   pnpm upload -- <directory> [options]
  *   npx tsx scripts/cli/upload.ts <directory> [options]
  */
 

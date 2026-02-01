@@ -8,7 +8,7 @@ Convert MBOX email archives from Gmail, Thunderbird, or other email clients to s
 ## Usage
 
 ```bash
-npm run convert -- mbox <file> [options]
+pnpm convert -- mbox <file> [options]
 ```
 
 ## Options
@@ -25,13 +25,13 @@ npm run convert -- mbox <file> [options]
 
 ```bash
 # Convert Gmail export
-npm run convert -- mbox ~/Downloads/All\ mail.mbox -o ./emails
+pnpm convert -- mbox ~/Downloads/All\ mail.mbox -o ./emails
 
 # With custom tags
-npm run convert -- mbox archive.mbox -t work important
+pnpm convert -- mbox archive.mbox -t work important
 
 # Dry run to preview
-npm run convert -- mbox archive.mbox --dry-run
+pnpm convert -- mbox archive.mbox --dry-run
 ```
 
 ## Output Format

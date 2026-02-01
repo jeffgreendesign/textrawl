@@ -126,7 +126,7 @@ See [OpenAI MCP documentation](https://platform.openai.com/docs/mcp) for details
 
 **Option A: Desktop App** (easiest)
 ```bash
-cd desktop && pnpm install && pnpm dev
+pnpm desktop:dev
 ```
 Drag files onto the window to convert and upload.
 
@@ -300,6 +300,8 @@ pnpm lint           # Biome lint check
 pnpm quality        # Lint + typecheck combined
 pnpm inspector      # MCP Inspector
 pnpm setup          # Generate .env with secure token
+pnpm desktop:dev    # Run desktop app
+pnpm docs:dev       # Run docs site
 ```
 
 ### Local Database (Optional)

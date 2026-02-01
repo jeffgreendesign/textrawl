@@ -5,7 +5,7 @@
  * Converts Instagram export data (messages, comments, likes) to markdown with YAML front matter
  *
  * Usage:
- *   npm run convert -- instagram <path> [options]
+ *   pnpm convert -- instagram <path> [options]
  *   npx tsx scripts/cli/converters/instagram.ts <path> [options]
  */
 

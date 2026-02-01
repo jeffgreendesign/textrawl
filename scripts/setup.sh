@@ -78,5 +78,5 @@ echo "  1. Edit .env if you skipped any credentials"
 echo "  2. Run database setup in Supabase SQL Editor:"
 echo "     - Open scripts/setup-db.sql"
 echo "     - Paste and run in your Supabase dashboard"
-echo "  3. Start the dev server: npm run dev"
+echo "  3. Start the dev server: pnpm dev"
 echo

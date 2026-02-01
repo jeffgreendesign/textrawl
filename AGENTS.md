@@ -627,7 +627,7 @@ Errors are returned in the result object (NOT as protocol-level errors):
 ## Testing Tools
 
 ```bash
-npm run inspector    # MCP Inspector at http://localhost:5173
+pnpm inspector    # MCP Inspector at http://localhost:5173
 ```
 
 **Document tools test sequence:**
@@ -671,7 +671,7 @@ See [CLAUDE.md](CLAUDE.md) for development conventions:
 - All logs MUST use `console.error()` (stdout reserved for MCP JSON-RPC)
 - ESM imports require `.js` extensions
 - Tools use Zod schemas in `src/tools/`
-- Run `npm run typecheck` before committing
+- Run `pnpm typecheck` before committing
 
 ## Integration Examples
 

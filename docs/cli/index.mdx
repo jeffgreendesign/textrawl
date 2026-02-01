@@ -9,11 +9,11 @@ textrawl includes CLI tools for converting various file formats to Markdown, the
 
 ```bash
 # Convert files
-npm run convert -- mbox ~/Mail/archive.mbox
-npm run convert -- html ./saved-pages/
+pnpm convert -- mbox ~/Mail/archive.mbox
+pnpm convert -- html ./saved-pages/
 
 # Upload to Supabase
-npm run upload -- ./converted/emails
+pnpm upload -- ./converted/emails
 ```
 
 ## Available Commands
@@ -41,7 +41,7 @@ Upload converted files to Supabase with automatic embedding.
 The main entry point for all conversions:
 
 ```bash
-npm run convert -- <command> <path> [options]
+pnpm convert -- <command> <path> [options]
 ```
 
 | Command | Description |
@@ -73,7 +73,7 @@ All conversion commands support these options:
 └─────────────┘     └─────────────┘     └─────────────┘
       │                    │                    │
       │                    │                    │
- npm run convert     Frontmatter         npm run upload
+ pnpm convert     Frontmatter         pnpm upload
                      with metadata
 ```
 
@@ -120,7 +120,7 @@ The `source_hash` prevents duplicate uploads when re-running the upload command.
 A drag-and-drop web interface for file conversion:
 
 ```bash
-npm run ui
+pnpm ui
 # Opens at http://localhost:3001
 ```
 

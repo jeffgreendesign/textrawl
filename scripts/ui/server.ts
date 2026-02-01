@@ -5,7 +5,7 @@
  * Provides a drag-and-drop interface for converting files
  *
  * Usage:
- *   npm run ui
+ *   pnpm ui
  *   npx tsx scripts/ui/server.ts
  */
 

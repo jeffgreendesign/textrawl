@@ -6,7 +6,7 @@
  * Supports both HTML (older format) and JSON (newer format) exports
  *
  * Usage:
- *   npm run convert -- facebook <path> [options]
+ *   pnpm convert -- facebook <path> [options]
  *   npx tsx scripts/cli/converters/facebook.ts <path> [options]
  */
 
