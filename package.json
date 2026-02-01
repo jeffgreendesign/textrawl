@@ -28,6 +28,9 @@
 		"ui": "tsx scripts/ui/server.ts",
 		"docs:dev": "pnpm --filter textrawl-website dev",
 		"docs:build": "pnpm --filter textrawl-website build",
+		"desktop:dev": "pnpm --filter textrawl-desktop dev",
+		"desktop:build": "pnpm --filter textrawl-desktop build",
+		"desktop:dist": "pnpm --filter textrawl-desktop dist",
 		"generate:favicons": "node scripts/generate-favicons.js"
 	},
 	"packageManager": "pnpm@9.15.0",

@@ -52,5 +52,8 @@ uploads/
 *.key
 *.crt
 
+# npm lock files (project uses pnpm)
+package-lock.json
+
 # Converted files
 converted/

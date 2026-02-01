@@ -6,16 +6,17 @@
 	"license": "MIT",
 	"main": "dist/main/index.js",
 	"scripts": {
-		"dev": "npm run build && env -u ELECTRON_RUN_AS_NODE electron .",
+		"preinstall": "npx only-allow pnpm",
+		"dev": "pnpm run build && env -u ELECTRON_RUN_AS_NODE electron .",
 		"dev:vite": "vite",
-		"build": "npm run build:main && npm run build:preload && npm run build:renderer",
+		"build": "pnpm run build:main && pnpm run build:preload && pnpm run build:renderer",
 		"build:main": "esbuild src/main/index.ts --bundle --platform=node --target=node20 --outfile=dist/main/index.js --format=cjs --external:electron --external:electron-store --external:pdf-parse --external:mammoth --external:xlsx --external:csv-parse --external:rtf-parser --external:unzipper --external:gray-matter --external:fast-xml-parser",
 		"build:preload": "esbuild src/preload/index.ts --bundle --platform=node --target=node20 --outfile=dist/preload/index.js --format=cjs --packages=external",
 		"build:renderer": "vite build",
 		"start": "env -u ELECTRON_RUN_AS_NODE electron .",
-		"pack": "npm run build && env -u ELECTRON_RUN_AS_NODE electron-builder --dir",
-		"dist": "npm run build && env -u ELECTRON_RUN_AS_NODE electron-builder",
-		"dist:mac": "npm run build && env -u ELECTRON_RUN_AS_NODE electron-builder --mac --x64",
+		"pack": "pnpm run build && env -u ELECTRON_RUN_AS_NODE electron-builder --dir",
+		"dist": "pnpm run build && env -u ELECTRON_RUN_AS_NODE electron-builder",
+		"dist:mac": "pnpm run build && env -u ELECTRON_RUN_AS_NODE electron-builder --mac --x64",
 		"typecheck": "tsc --noEmit -p tsconfig.main.json && tsc --noEmit -p tsconfig.preload.json"
 	},
 	"dependencies": {
