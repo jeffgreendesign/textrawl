@@ -9,7 +9,6 @@ export const baseOptions: BaseLayoutProps = {
 	links: [
 		{ text: 'Docs', url: '/docs' },
 		{ text: 'GitHub', url: 'https://github.com/jeffgreendesign/textrawl', external: true },
-		{ text: 'npm', url: 'https://www.npmjs.com/package/textrawl', external: true },
 	],
 	githubUrl: 'https://github.com/jeffgreendesign/textrawl',
 };

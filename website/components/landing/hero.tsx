@@ -12,7 +12,6 @@ export function Hero(): ReactNode {
 				Personal knowledge base for AI. Crawl your documents, search with meaning.
 			</p>
 			<div className="hero-meta">
-				<code className="hero-install">npx textrawl init</code>
 				<AuthorBadge />
 			</div>
 			<div className="hero-actions">
