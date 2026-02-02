@@ -133,7 +133,7 @@ scripts/
 
 Use conventional commit format when possible:
 
-```
+```text
 feat: add support for .epub files
 fix: handle empty search results gracefully
 docs: update API documentation

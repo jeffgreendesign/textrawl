@@ -36,6 +36,7 @@ Textrawl demonstrates a generally strong security posture for a single-tenant MC
 **File:** `src/api/middleware/auth.ts`
 
 Positive findings:
+
 - Uses `timingSafeEqual()` for token comparison (prevents timing attacks)
 - Dual-strategy auth: static bearer token OR OAuth JWT
 - Production mode requires auth (enforced in `src/utils/config.ts:140-147`)
@@ -55,6 +56,7 @@ When neither `API_BEARER_TOKEN` nor `GOOGLE_CLIENT_ID` is configured, auth is co
 **File:** `src/api/oauth/routes.ts`
 
 Positive findings:
+
 - PKCE with S256 enforced (`routes.ts:60-61`)
 - Email allowlist support (`routes.ts:138-146`)
 - Short-lived auth codes (5 minutes)
@@ -96,6 +98,7 @@ The `redirect_uri` from the authorize request is stored in the session JWT and l
 ### 2.1 [HIGH] Schema SQL Files Don't Enable RLS by Default
 
 **Files:**
+
 - `scripts/setup-db.sql` — No RLS
 - `scripts/setup-db-memory.sql:299-313` — RLS commented out
 - `scripts/setup-db-ollama.sql`, `scripts/setup-db-ollama-v2.sql` — Likely same pattern
@@ -218,6 +221,7 @@ Rate limiters use `express-rate-limit` with standard headers. All endpoints are 
 **File:** `src/index.ts:22`
 
 Helmet middleware is applied globally, providing:
+
 - `Content-Security-Policy`
 - `X-Content-Type-Options: nosniff`
 - `X-Frame-Options`
@@ -298,6 +302,7 @@ The upload title is taken directly from `req.body.title` without sanitization. W
 **File:** `scripts/cli/lib/security.ts`
 
 The CLI security module provides robust path traversal protection:
+
 - Null byte detection
 - Path normalization and canonicalization
 - Symlink resolution
@@ -313,6 +318,7 @@ The CLI security module provides robust path traversal protection:
 All database operations use the Supabase client library which generates parameterized queries. No string interpolation or concatenation is used in query construction.
 
 **Files reviewed:**
+
 - `src/db/documents.ts` — `.eq()`, `.filter()`, `.contains()` (all parameterized)
 - `src/db/chunks.ts` — `.insert()`, `.eq()` (parameterized)
 - `src/db/search.ts` — `.rpc()` with parameter objects
@@ -337,16 +343,16 @@ The search functions use `websearch_to_tsquery()` which safely parses user input
 
 `pnpm audit` reports **13 vulnerabilities** (6 high, 7 moderate):
 
-| Package            | Severity | Issue                                             | Used By                               |
-| ------------------ | -------- | ------------------------------------------------- | ------------------------------------- |
-| `xlsx` (SheetJS)   | HIGH     | Prototype Pollution                               | Indirect dep                          |
-| `xlsx` (SheetJS)   | HIGH     | ReDoS                                             | Indirect dep                          |
-| `tar`              | HIGH     | Arbitrary File Overwrite (x3)                     | Indirect dep                          |
-| `fast-xml-parser`  | HIGH     | RangeError DoS                                    | Indirect dep                          |
-| `hono`             | MODERATE | XSS, cache deception, IP spoofing, key read (x4) | Direct dep (v4.11.4, needs >=4.11.7) |
-| `esbuild`          | MODERATE | SSRF in dev server                                | Dev dep                               |
-| `electron`         | MODERATE | ASAR integrity bypass                             | Desktop app                           |
-| `next`             | MODERATE | Unbounded memory                                  | Website                               |
+| Package            | Severity | Issue                                             | Used By                                |
+| ------------------ | -------- | ------------------------------------------------- | -------------------------------------- |
+| `xlsx` (SheetJS)   | HIGH     | Prototype Pollution                               | Indirect dep                           |
+| `xlsx` (SheetJS)   | HIGH     | ReDoS                                             | Indirect dep                           |
+| `tar`              | HIGH     | Arbitrary File Overwrite (x3)                     | Indirect dep                           |
+| `fast-xml-parser`  | HIGH     | RangeError DoS                                    | Indirect dep                           |
+| `hono`             | MODERATE | XSS, cache deception, IP spoofing, key read (x4) | Direct dep (v4.11.4, needs >=4.11.7)  |
+| `esbuild`          | MODERATE | SSRF in dev server                                | Dev dep                                |
+| `electron`         | MODERATE | ASAR integrity bypass                             | Desktop app                            |
+| `next`             | MODERATE | Unbounded memory                                  | Website                                |
 
 **Critical note:** `hono` is listed as a direct dependency at `^4.11.4` with a pnpm override, and has 4 moderate vulnerabilities fixed in `>=4.11.7`. The override in `package.json` pins it below the fix version.
 
@@ -431,16 +437,16 @@ All logging correctly uses `console.error()` (stderr) to preserve stdout for MCP
 
 ### Medium Priority
 
-6. **Make security-check.sh block commits on errors** — Change `exit 0` to `exit 1`
-7. **Use timing-safe comparison for PKCE** — Apply `timingSafeEqual` in `pkce.ts`
-8. **Shorten OAuth token lifetime** — Consider 7 days with refresh tokens, or add revocation
-9. **Use Redis store for rate limiting in multi-instance deployments** — Document requirement
-10. **Add placeholder detection for bearer tokens** — Reject common placeholder values
+1. **Make security-check.sh block commits on errors** — Change `exit 0` to `exit 1`
+2. **Use timing-safe comparison for PKCE** — Apply `timingSafeEqual` in `pkce.ts`
+3. **Shorten OAuth token lifetime** — Consider 7 days with refresh tokens, or add revocation
+4. **Use Redis store for rate limiting in multi-instance deployments** — Document requirement
+5. **Add placeholder detection for bearer tokens** — Reject common placeholder values
 
 ### Low Priority
 
-11. **Restrict MCP endpoint to POST only** — Change `app.all` to `app.post`
-12. **Add `FORCE ROW LEVEL SECURITY` to insight tables** — Match the pattern in security-rls.sql
-13. **Validate OAuth redirect URIs against allowlist** — Add `OAUTH_ALLOWED_REDIRECT_URIS`
-14. **Sanitize upload titles** — Apply length limits and character filtering
-15. **Add request correlation IDs** — Improve debuggability and incident response
+1. **Restrict MCP endpoint to POST only** — Change `app.all` to `app.post`
+2. **Add `FORCE ROW LEVEL SECURITY` to insight tables** — Match the pattern in security-rls.sql
+3. **Validate OAuth redirect URIs against allowlist** — Add `OAUTH_ALLOWED_REDIRECT_URIS`
+4. **Sanitize upload titles** — Apply length limits and character filtering
+5. **Add request correlation IDs** — Improve debuggability and incident response

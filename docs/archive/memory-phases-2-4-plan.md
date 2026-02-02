@@ -17,6 +17,7 @@ This document details the implementation plan for extending Textrawl's persisten
 ## Phase 2: Conversation Memory
 
 ### Objective
+
 Enable persistence of conversation context across sessions, allowing Claude to recall past conversations and maintain continuity.
 
 ### Database Schema
@@ -77,11 +78,12 @@ CREATE TABLE conversation_turns (
 ## Phase 3: Automatic Memory Formation
 
 ### Objective
+
 Automatically extract entities, facts, and relationships from notes and conversations using LLM.
 
 ### Architecture
 
-```
+```text
 Text Input → Extraction Service → Deduplication → Memory Storage
                   ↓
            LLM (Claude API)
@@ -169,6 +171,7 @@ server.tool('add_note', {
 ## Phase 4: Memory-Aware Search
 
 ### Objective
+
 Fuse document search and memory search results for comprehensive context retrieval.
 
 ### New MCP Tool
@@ -263,11 +266,13 @@ EXTRACTION_MODEL=claude-3-haiku-20240307
 ## Rollback Plan
 
 Each phase is independently deployable:
+
 - Phase 2: New tables, new tools (no breaking changes)
 - Phase 3: New service, optional parameter (backward compatible)
 - Phase 4: New tool (additive only)
 
 Feature flags allow gradual rollout:
+
 - `ENABLE_CONVERSATIONS=false` disables Phase 2
 - `ENABLE_MEMORY_EXTRACTION=false` disables Phase 3
 - Phase 4 is always available (uses existing search)

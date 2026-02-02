@@ -32,7 +32,7 @@ What actually happened.
 
 ## Logs
 
-```
+```text
 Paste any relevant error messages here (sanitize sensitive data)
 ```
 

@@ -105,6 +105,7 @@ Add to your Claude config (`~/Library/Application Support/Claude/claude_desktop_
 **Note:** Requires Node.js 20+. If using nvm, ensure your default is set: `nvm alias default 22`
 
 If you've set `API_BEARER_TOKEN` in `.env`, add the auth header:
+
 ```json
 "--header",
 "Authorization: Bearer YOUR_TOKEN_HERE"
@@ -125,12 +126,15 @@ See [OpenAI MCP documentation](https://platform.openai.com/docs/mcp) for details
 ### 4. Add Your Documents
 
 **Option A: Desktop App** (easiest)
+
 ```bash
 pnpm desktop:dev
 ```
+
 Drag files onto the window to convert and upload.
 
 **Option B: CLI** (for batch imports)
+
 ```bash
 pnpm convert -- mbox ~/Mail/archive.mbox
 pnpm upload -- ./converted/
@@ -197,6 +201,7 @@ Enable with `ENABLE_MEMORY=true` (default). Requires `scripts/setup-db-memory.sq
 ### Conversation Tools (Conversation Memory)
 
 Enable with `ENABLE_CONVERSATIONS=true` (default). Requires running one of the conversation schema scripts:
+
 - `scripts/setup-db-conversation.sql` (OpenAI embeddings)
 - `scripts/setup-db-conversation-ollama.sql` (Ollama v1 - nomic-embed-text, 1024d)
 - `scripts/setup-db-conversation-ollama-v2.sql` (Ollama v2 - nomic-embed-text-v2-moe, 768d)
@@ -256,6 +261,7 @@ curl -X POST http://localhost:3000/api/upload \
 **Formats:** `.pdf`, `.docx`, `.txt`, `.md`
 
 **Response:**
+
 ```json
 {
   "success": true,
@@ -335,6 +341,7 @@ docker exec -i textrawl-postgres psql -U postgres -d textrawl < scripts/setup-db
 ```
 
 Set in `.env`:
+
 ```bash
 EMBEDDING_PROVIDER=ollama
 OLLAMA_BASE_URL=http://localhost:11434

@@ -3,6 +3,9 @@
 # Run linting on staged files
 pnpm lint
 
+# Run markdown linting
+pnpm lint:md
+
 # Run security checks
 ./scripts/security-check.sh
 
