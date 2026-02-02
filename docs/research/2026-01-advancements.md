@@ -72,6 +72,7 @@ Published at ICLR 2025, now implemented in Vertex AI RAG Engine:
 3. Tune abstention threshold with confidence signals
 
 **Implementation Ideas:**
+
 - Add relevance re-ranking as optional step after `hybrid_search()`
 - Consider context sufficiency scoring before returning results
 
@@ -84,23 +85,27 @@ Published at ICLR 2025, now implemented in Vertex AI RAG Engine:
 Current Textrawl approach: Fixed 512-token chunks with 50-token overlap.
 
 **Adaptive Alternative:**
+
 - Smaller chunks for information-dense paragraphs
 - Larger chunks for general/introductory sections
 - Uses ML models to analyze semantic density
 
 **Research Results:**
+
 - Clinical study: 87% accuracy vs 50% baseline with adaptive chunking
 - Precision 0.50, recall 0.88, F1 0.64 (vs baseline 0.17, 0.40, 0.24)
 
 ### Max-Min Semantic Chunking
 
 Novel method using semantic similarity and Max-Min algorithm:
+
 - Average AMI scores of 0.85-0.90
 - Significantly outperformed other methods on "hard questions"
 
 ### Recommended Hybrid Approach
 
 Semantic-first with size constraints:
+
 - Detect semantic boundaries using embeddings
 - Enforce minimum (200 tokens) and maximum (1000 tokens) constraints
 - Merge chunks that are too small
@@ -123,6 +128,7 @@ fts_weight: 0.8
 ### OpenSearch 2.19 RRF (Nov 2025)
 
 Planning improvements:
+
 - Z-score normalization
 - Custom normalization functions
 - Configurable handling of missing items (currently default to 0.0)
@@ -131,6 +137,7 @@ Planning improvements:
 ### Linear Retriever Alternative
 
 While RRF focuses on ranks (ignoring scores), linear retriever:
+
 - Calculates weighted sum across queries
 - Supports MinMax normalization
 - Easier to tune and optimize
@@ -173,26 +180,26 @@ Major upgrade from current nomic-embed-text:
 
 ### Medium Priority (Medium effort, high impact)
 
-2. ✅ **Implement adaptive/semantic chunking**
+1. ✅ **Implement adaptive/semantic chunking**
    - **Shipped:** `CHUNKING_MODE=semantic` with configurable `SEMANTIC_SIMILARITY_THRESHOLD`
    - Uses embedding similarity to detect topic boundaries at upload time
 
-3. ✅ **Add weighted RRF support**
+2. ✅ **Add weighted RRF support**
    - **Shipped:** `fullTextWeight` and `semanticWeight` parameters on `search_knowledge`
    - Range 0-2, default 1.0 each
 
 ### Monitor / Future Consideration
 
-4. **pgvectorscale** for scaling beyond RAM limits
-5. **MCP Server Cards** for improved discoverability
-6. **HiFi-RAG** multi-stage filtering with re-ranking
-7. **Bidirectional RAG** write-back with grounding checks for `add_note`
+1. **pgvectorscale** for scaling beyond RAM limits
+2. **MCP Server Cards** for improved discoverability
+3. **HiFi-RAG** multi-stage filtering with re-ranking
+4. **Bidirectional RAG** write-back with grounding checks for `add_note`
 
 ### New Priorities (January 2026)
 
-8. **Test suite** - No automated tests exist yet; highest-impact infrastructure need
-9. **MDX doc pages** for conversation, insight, and unified search tools (`docs/mcp-tools/`)
-10. **Dependabot security alerts** - 18 vulnerabilities flagged (5 high, 13 moderate)
+1. **Test suite** - No automated tests exist yet; highest-impact infrastructure need
+2. **MDX doc pages** for conversation, insight, and unified search tools (`docs/mcp-tools/`)
+3. **Dependabot security alerts** - 18 vulnerabilities flagged (5 high, 13 moderate)
 
 ---
 

@@ -53,11 +53,12 @@ RRF is a simple but effective algorithm for combining ranked lists.
 
 For each result appearing in either list:
 
-```
+```text
 RRF_score = Σ (weight / (k + rank))
 ```
 
 Where:
+
 - `weight` = fullTextWeight or semanticWeight (user-configurable, 0-2)
 - `k` = 60 (standard RRF constant, smooths rank differences)
 - `rank` = position in that result list (1-based)
@@ -67,11 +68,13 @@ Where:
 Query: "quarterly budget report"
 
 **Full-text results:**
+
 1. "Q4 Budget Report 2024" (rank 1)
 2. "Quarterly Financial Summary" (rank 2)
 3. "Budget Planning Guide" (rank 3)
 
 **Semantic results:**
+
 1. "Financial Overview Q4" (rank 1)
 2. "Q4 Budget Report 2024" (rank 2)
 3. "Expense Tracking Document" (rank 3)
@@ -87,6 +90,7 @@ Query: "quarterly budget report"
 | Expense Tracking Document | - | 3 | 1/(60+3) = 0.0159 |
 
 **Final ranking:**
+
 1. Q4 Budget Report 2024 (appears in both → highest score)
 2. Financial Overview Q4
 3. Quarterly Financial Summary

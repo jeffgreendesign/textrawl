@@ -1,0 +1,32 @@
+{
+	// Markdownlint configuration for Textrawl
+	// Rules: https://github.com/DavidAnson/markdownlint/blob/main/doc/Rules.md
+	"config": {
+		"default": true,
+		// Heading style: ATX (#)
+		"MD003": { "style": "atx" },
+		// Unordered list style: dashes
+		"MD004": { "style": "dash" },
+		// List indentation: 2 spaces
+		"MD007": { "indent": 2 },
+		// Line length: disabled (handled by Biome for code, prose wraps naturally)
+		"MD013": false,
+		// Duplicate headings: allowed if siblings (common in docs)
+		"MD024": { "siblings_only": true },
+		// Multiple h1 headings: disabled (MDX frontmatter title + # heading is standard)
+		"MD025": false,
+		// Inline HTML: disabled (MDX uses JSX components)
+		"MD033": false,
+		// First line heading: disabled (files use frontmatter)
+		"MD041": false,
+		// Code block style: fenced
+		"MD046": { "style": "fenced" },
+		// Table column alignment: disabled
+		// The project has hundreds of compact-style tables (no padding around pipes).
+		// MD060 is not auto-fixable and would require reformatting every table.
+		// Table alignment is enforced by code review (CodeRabbit) for new tables.
+		"MD060": false
+	},
+	"globs": ["**/*.md", "docs/**/*.mdx"],
+	"ignores": ["node_modules", "**/node_modules", ".next", "dist", "CHANGELOG.md"]
+}

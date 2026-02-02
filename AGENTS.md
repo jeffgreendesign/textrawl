@@ -18,6 +18,7 @@ Agent conventions for Textrawl - Personal Knowledge MCP Server.
 Memory tools return token-efficient responses by default (40-60% smaller). Set `COMPACT_RESPONSES=false` for verbose mode.
 
 **Key mappings (compact → verbose):**
+
 - `n` → `name` or `count` (context-dependent)
 - `t` → `type`
 - `o` → `observations`
@@ -30,11 +31,13 @@ Memory tools return token-efficient responses by default (40-60% smaller). Set `
 - `ent`/`obs`/`rel` → `totalEntities`/`totalObservations`/`totalRelations`
 
 **Example (`recall_memories` compact response):**
+
 ```json
 {"n":2,"e":[{"n":"Jeff","t":"person","m":[{"c":"prefers dark mode","s":0.92}]}]}
 ```
 
 **Same response in verbose mode:**
+
 ```json
 {
   "query": "preferences",

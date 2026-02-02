@@ -18,7 +18,9 @@ pnpm start          # Run production build
 pnpm typecheck      # Type-check without emitting
 pnpm lint           # Biome lint check
 pnpm lint:fix       # Biome lint with auto-fix
-pnpm quality        # Lint + typecheck combined
+pnpm lint:md        # Markdown lint check (markdownlint-cli2)
+pnpm lint:md:fix    # Markdown lint with auto-fix
+pnpm quality        # Lint + markdown lint + typecheck combined
 pnpm inspector      # MCP Inspector at http://localhost:5173
 
 # CLI conversion tools (see docs/cli/ for full documentation)
@@ -54,11 +56,13 @@ Install all dependencies from root with `pnpm install`.
 **Testing:** No test suite yet. Use `pnpm inspector` to manually test MCP tools.
 
 ### Pre-commit Hooks (Husky)
-Commits run `pnpm lint`, `./scripts/security-check.sh`, and `pnpm typecheck`. All three must pass.
+
+Commits run `pnpm lint`, `pnpm lint:md`, `./scripts/security-check.sh`, and `pnpm typecheck`. All four must pass.
 
 ## Environment Setup
 
 Copy `.env.example` to `.env` and configure:
+
 - `SUPABASE_URL` / `SUPABASE_SERVICE_KEY` - Database connection
 - `EMBEDDING_PROVIDER` - `openai` (default) or `ollama`
 - `OPENAI_API_KEY` - Required if using OpenAI (text-embedding-3-small, 1536 dimensions)
@@ -112,6 +116,7 @@ Express Server
 ### MCP Tools
 
 **Document Tools:**
+
 - `search_knowledge` - Hybrid search with weighted RRF fusion (see below)
 - `search_with_context` - Unified search across documents, memories, and conversations
 - `get_document` / `list_documents` - Document retrieval
@@ -120,12 +125,14 @@ Express Server
 
 **Weighted RRF in search_knowledge:**
 The `search_knowledge` tool supports weighted Reciprocal Rank Fusion:
+
 - `fullTextWeight` (0-2, default: 1.0) - Weight for keyword matching
 - `semanticWeight` (0-2, default: 1.0) - Weight for semantic similarity
 - Set `semanticWeight: 1.5, fullTextWeight: 0.5` to prioritize semantic matches
 - Set `fullTextWeight: 1.5, semanticWeight: 0.5` to prioritize exact keyword matches
 
 **Memory Tools (Persistent Memory):**
+
 - `remember_fact` - Store facts about entities (people, concepts, projects, etc.)
 - `recall_memories` - Semantic search across stored memories
 - `relate_entities` - Create relationships between entities
@@ -136,6 +143,7 @@ The `search_knowledge` tool supports weighted Reciprocal Rank Fusion:
 - `extract_memories` - Extract entities and facts from text using LLM (requires `ENABLE_MEMORY_EXTRACTION`)
 
 **Conversation Tools (Conversation Memory):**
+
 - `save_conversation_context` - Save conversation summary and turns for recall
 - `recall_conversation` - Semantic search across past conversations
 - `list_conversations` - List recent conversation sessions
@@ -144,15 +152,18 @@ The `search_knowledge` tool supports weighted Reciprocal Rank Fusion:
 - `conversation_stats` - Get conversation storage statistics
 
 **Insight Tools (Proactive Discovery):**
+
 - `get_insights` - View discovered cross-source connections and patterns
 - `discover_connections` - Trigger an insight scan across the knowledge base
 - `dismiss_insight` - Dismiss an insight from the queue
 - `insight_stats` - Get insight queue and processing statistics
 
 **Stats:**
+
 - `knowledge_stats` - Get overall knowledge base statistics
 
 ### Key Directories
+
 - `src/tools/` - MCP tool definitions with Zod schemas
 - `src/db/` - Supabase client and query functions
 - `src/services/` - Embedding generation, text chunking, file processing
@@ -165,24 +176,30 @@ The `search_knowledge` tool supports weighted Reciprocal Rank Fusion:
 **Upload Manifest:** The upload utility creates `.manifest.json` in each directory to track uploaded files (prevents duplicates). Use `--force` to re-upload.
 
 ### Database
+
 PostgreSQL (Supabase) with:
+
 - `documents` table with full-text search (`tsvector`)
 - `chunks` table with vector embeddings (`vector[1536]`, HNSW index)
 - `hybrid_search()` RPC for Reciprocal Rank Fusion
 
 **Persistent Memory Tables (run `scripts/setup-db-memory.sql`):**
+
 - `memory_entities` - Named entities (people, concepts, projects, etc.)
 - `memory_observations` - Atomic facts about entities with embeddings
 - `memory_relations` - Directed relationships between entities
 - `memory_hybrid_search()` / `memory_semantic_search()` RPCs
 
 **Conversation Memory Tables (run `scripts/setup-db-conversation.sql`):**
+
 - `conversation_sessions` - Conversation sessions with summaries
 - `conversation_turns` - Individual messages with embeddings
 - `conversation_hybrid_search()` / `conversation_semantic_search()` RPCs
 
 ### Database Security
+
 Row Level Security (RLS) is enabled with defense-in-depth policies:
+
 - RLS enabled with restrictive policies denying `anon`/`authenticated` roles
 - All permissions revoked from `anon`/`authenticated`
 - App uses service role key which bypasses RLS (intentional for single-tenant design)
@@ -206,6 +223,7 @@ Memory tools use a token-efficient response format by default (`COMPACT_RESPONSE
 | `recall_memories` | `{"n":3,"e":[{"n":"Jeff","t":"person","m":[{"c":"prefers dark mode","s":0.92}]}]}` | `{"query":"...","totalMemories":3,"entities":[...]}` |
 
 **Key mappings:**
+
 - `n` = name/count, `t` = type, `o` = observations, `m` = memories
 - `c` = content, `s` = score, `r` = relations
 - `ok` = success, `dup` = duplicate, `ent`/`obs`/`rel` = entity/observation/relation counts
@@ -215,6 +233,7 @@ Set `COMPACT_RESPONSES=false` for human-readable debugging or when readability i
 ## Critical Conventions
 
 ### Code Style (Biome)
+
 - **Indentation:** Tabs (not spaces)
 - **Quotes:** Single quotes
 - **Trailing commas:** Always
@@ -223,17 +242,22 @@ Set `COMPACT_RESPONSES=false` for human-readable debugging or when readability i
 - Scripts in `desktop/` and `scripts/` have relaxed lint rules
 
 ### Logging
+
 **All logs must use `console.error()` (stderr)** - stdout is reserved for MCP JSON-RPC communication. Never use `console.log()`. Use the `logger` from `src/utils/logger.ts`.
 
 ### ESM Imports
+
 This is an ES module project. All imports must use `.js` extensions even for TypeScript files:
+
 ```typescript
 import { logger } from '../utils/logger.js';  // Correct
 import { logger } from '../utils/logger';     // Wrong
 ```
 
 ### MCP Tool Pattern
+
 Tools are registered using `server.tool()` with inline Zod schemas and return `{ content: [{ type: 'text', text: JSON.stringify(...) }] }`:
+
 ```typescript
 server.tool('tool_name', {
   param: z.string().describe('Description'),
@@ -247,12 +271,14 @@ server.tool('tool_name', {
 Two chunking modes available via `CHUNKING_MODE`:
 
 **Fixed chunking (default):**
+
 - 512 tokens (~2048 chars) max chunk size
 - 50 token overlap for context preservation
 - Paragraph-aware splitting on `\n\n`
 - Fast, no extra API calls
 
 **Semantic chunking (`CHUNKING_MODE=semantic`):**
+
 - Splits at topic boundaries using embedding similarity
 - Generates embeddings for sentences, splits where similarity drops
 - Better retrieval accuracy (research shows ~87% vs 50% baseline)
@@ -260,9 +286,11 @@ Two chunking modes available via `CHUNKING_MODE`:
 - Configure sensitivity with `SEMANTIC_SIMILARITY_THRESHOLD` (0-1, default: 0.5)
 
 ### Error Handling
+
 Custom error hierarchy in `src/utils/errors.ts` - use specific error types (`NotFoundError`, `ValidationError`, etc.) for proper HTTP status codes.
 
 ### External Dependencies
+
 `pdf-parse` is externalized in esbuild (native module) - must be in `node_modules` at runtime.
 
 ## Agent Discovery Files
@@ -288,6 +316,7 @@ When adding or modifying MCP tools, **all** of the following files must be updat
 8. **`docs/mcp-tools/meta.json`** - Add page to navigation under correct section separator
 
 **Naming conventions:**
+
 - Root project files: UPPERCASE (`README.md`, `AGENTS.md`, `CLAUDE.md`, `CONTRIBUTING.md`)
 - Root AI files: lowercase (`llms.txt`, `llms-full.txt`)
 - All files under `docs/`: lowercase-kebab-case (e.g., `search-knowledge.mdx`, `get-document.mdx`)
@@ -321,6 +350,7 @@ When completing work that's ready for a PR:
 4. **After creating the PR**, report the actual PR URL returned by `gh`
 
 **Example:**
+
 ```bash
 gh pr create --title "feat: add user authentication" --body "$(cat <<'EOF'
 ## Summary
@@ -340,6 +370,7 @@ EOF
 ## Cursor IDE Integration
 
 Cursor rules in `.cursor/rules/`:
+
 - `typescript.mdc` - ESM imports, Node.js patterns
 - `mcp-tools.mdc` - Tool registration, Zod schemas
 - `database.mdc` - Embeddings, chunking

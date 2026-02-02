@@ -15,6 +15,7 @@ Textrawl currently operates as a **stateless MCP server** optimized for document
 ## Current Architecture Assessment
 
 ### What Textrawl Does Well
+
 - ✅ Hybrid semantic + full-text search via RRF fusion
 - ✅ Document chunking with overlap for context preservation
 - ✅ Flexible metadata (JSONB) including tags
@@ -22,6 +23,7 @@ Textrawl currently operates as a **stateless MCP server** optimized for document
 - ✅ Cloud-native stateless design for serverless deployment
 
 ### What's Missing (Memory Gaps)
+
 - ❌ **No conversation history persistence** - Each MCP request is independent
 - ❌ **No entity extraction** - User preferences, facts, and context aren't structured
 - ❌ **No relational memory** - No way to track relationships between concepts
@@ -36,16 +38,19 @@ Textrawl currently operates as a **stateless MCP server** optimized for document
 **Reference:** [Anthropic's MCP Memory Server](https://github.com/modelcontextprotocol/servers/tree/main/src/memory)
 
 The official MCP memory server uses a knowledge graph with:
+
 - **Entities**: Named nodes with types (person, concept, preference)
 - **Relations**: Directed connections in active voice
 - **Observations**: Atomic facts attached to entities
 
 **Pros:**
+
 - Standardized MCP pattern
 - Simple JSONL storage
 - Works well for relationship-heavy data
 
 **Cons:**
+
 - No semantic search
 - Limited scalability
 - Requires explicit entity management
@@ -55,21 +60,25 @@ The official MCP memory server uses a knowledge graph with:
 **Reference:** [Mem0 Research Paper](https://arxiv.org/abs/2504.19413) | [Mem0 Documentation](https://docs.mem0.ai/)
 
 Mem0's hybrid approach combines:
+
 - **Vector Store**: For semantic similarity search
 - **Graph Database**: For relationship modeling
 - **Key-Value Store**: For fast fact retrieval
 
 **Benchmarks (2025):**
+
 - 26% improvement over OpenAI's approach
 - 91% lower p95 latency than full-context approaches
 - 90%+ token cost savings
 
 **Pros:**
+
 - Production-proven at scale (Netflix, Rocket Money)
 - Automatic memory extraction from conversations
 - Semantic retrieval with graph relationships
 
 **Cons:**
+
 - Additional infrastructure (graph DB)
 - More complex implementation
 
@@ -78,6 +87,7 @@ Mem0's hybrid approach combines:
 **Reference:** [MemGPT Research](https://arxiv.org/abs/2310.08560) | [Letta Documentation](https://docs.letta.com/concepts/memgpt/)
 
 MemGPT treats memory like an operating system:
+
 - **Core Memory**: Always-in-context essential facts
 - **Recall Memory**: Searchable conversation archive
 - **Archival Memory**: Long-term storage with semantic search
@@ -85,11 +95,13 @@ MemGPT treats memory like an operating system:
 **Key Innovation:** The LLM manages its own memory through tool calls.
 
 **Pros:**
+
 - LLM-driven memory management
 - Handles very long conversations
 - Self-improving memory organization
 
 **Cons:**
+
 - Requires more LLM calls (latency/cost)
 - Complex state management
 
@@ -98,16 +110,19 @@ MemGPT treats memory like an operating system:
 **Reference:** [Chat History Summarization Guide](https://mem0.ai/blog/llm-chat-history-summarization-guide-2025)
 
 Rolling summarization approach:
+
 - Recent messages kept verbatim
 - Older messages progressively summarized
 - Token-efficient for long conversations
 
 **Pros:**
+
 - Simple to implement
 - Works with existing infrastructure
 - Predictable token usage
 
 **Cons:**
+
 - Information loss in summaries
 - No structured fact extraction
 
@@ -283,6 +298,7 @@ server.tool('recall_conversation', {
 #### Option A: LLM-Driven Extraction (Recommended)
 
 Add a background process that:
+
 1. Analyzes new notes and conversation turns
 2. Uses LLM to extract entities and facts
 3. Deduplicates against existing memories
@@ -308,6 +324,7 @@ Return as JSON:
 #### Option B: Rule-Based Extraction
 
 Use patterns to extract:
+
 - Names (proper nouns, @mentions)
 - Preferences ("I prefer", "I like", "I always")
 - Facts with temporal markers ("started in 2024", "works at")
@@ -425,20 +442,24 @@ server.tool('recall', {
 All four phases of the persistent memory system have been implemented.
 
 ### Phase 1: Entity-Based Memory Layer ✅
+
 - Memory entities, observations, relations tables
 - MCP tools: `remember_fact`, `recall_memories`, `relate_entities`, `get_entity_context`, `list_entities`, `forget_entity`, `memory_stats`
 
 ### Phase 2: Conversation Memory ✅
+
 - Conversation sessions and turns tables
 - MCP tools: `save_conversation_context`, `recall_conversation`, `list_conversations`, `get_conversation`, `delete_conversation`, `conversation_stats`
 
 ### Phase 3: Automatic Memory Formation ✅
+
 - LLM-based entity/fact extraction using Claude API
 - MCP tool: `extract_memories`
 - Enhanced `add_note` with `extractMemories` parameter
 - Configuration: `ENABLE_MEMORY_EXTRACTION`, `ANTHROPIC_API_KEY`, `EXTRACTION_MODEL`
 
 ### Phase 4: Memory-Aware Search ✅
+
 - Unified search across documents, memories, and conversations
 - MCP tool: `search_with_context`
 - Configurable weights for result fusion
@@ -548,12 +569,14 @@ ENABLE_MEMORY=true    # Default - enables memory tools
 ```
 
 When disabled:
+
 - Memory tools (`remember_fact`, `recall_memories`, etc.) are not registered
 - No embedding calls for memory operations
 - No queries to memory tables
 - Zero additional cost
 
 When re-enabled:
+
 - ⚠️ **NO automatic catch-up** - Memory only stores what's explicitly passed through `remember_fact`
 - Existing memories remain intact in the database
 - New facts can be added immediately
@@ -561,11 +584,13 @@ When re-enabled:
 ### Catch-Up Limitation
 
 The current implementation does NOT automatically extract memories from:
+
 - Existing documents in the knowledge base
 - Past conversations
 - Notes added while memory was disabled
 
 **Why?** Automatic extraction requires LLM calls to analyze content, which would be:
+
 - Expensive at scale
 - Potentially inaccurate without human review
 - A separate feature (Phase 2)
@@ -671,11 +696,13 @@ SUPABASE_URL=http://localhost:5432
 ## Future Enhancements
 
 Completed in January 2026:
+
 - ✅ **Conversation Memory**: Persist conversation context across sessions
 - ✅ **Automatic Extraction**: LLM-based entity/fact extraction from notes
 - ✅ **Memory-Aware Search**: Fuse document and memory results
 
 Remaining items:
+
 - ⏳ **Memory Decay**: Confidence degradation over time for expiring facts
 - ⏳ **Memory Backfill**: Extract entities from existing documents when memory enabled
 
