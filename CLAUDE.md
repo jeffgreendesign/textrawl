@@ -332,6 +332,14 @@ The documentation site is in `website/` (Next.js 15 + Fumadocs + React 19 + Tail
 
 Deploy to Vercel with custom domain. See `.github/workflows/deploy-website.yml`.
 
+### Critical: Search Infrastructure
+
+Fumadocs does **not** include built-in search — it requires an explicit API route. The search route **must** exist at `website/app/api/search/route.ts` and export a `GET` handler created via `createFromSource()`. **Never delete this file.** If search breaks, check:
+
+1. `website/app/api/search/route.ts` exists and exports `{ GET }`
+2. It imports `source` from `@/lib/source` and `createFromSource` from `fumadocs-core/search/server`
+3. `pnpm docs:build` succeeds and shows `/api/search` in the route table
+
 ## Pull Request Workflow
 
 When completing work that's ready for a PR:

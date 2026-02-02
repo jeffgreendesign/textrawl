@@ -9,5 +9,8 @@ pnpm lint:md
 # Run security checks
 ./scripts/security-check.sh
 
+# Verify critical docs website files exist
+./scripts/docs-check.sh
+
 # Run type checking
 pnpm typecheck
