@@ -337,16 +337,16 @@ The search functions use `websearch_to_tsquery()` which safely parses user input
 
 `pnpm audit` reports **13 vulnerabilities** (6 high, 7 moderate):
 
-| Package            | Severity | Issue                                          | Used By                               |
-| ------------------ | -------- | ---------------------------------------------- | ------------------------------------- |
-| `xlsx` (SheetJS)   | HIGH     | Prototype Pollution                            | Indirect dep                          |
-| `xlsx` (SheetJS)   | HIGH     | ReDoS                                          | Indirect dep                          |
-| `tar`              | HIGH     | Arbitrary File Overwrite (x3)                  | Indirect dep                          |
-| `fast-xml-parser`  | HIGH     | RangeError DoS                                 | Indirect dep                          |
+| Package            | Severity | Issue                                             | Used By                               |
+| ------------------ | -------- | ------------------------------------------------- | ------------------------------------- |
+| `xlsx` (SheetJS)   | HIGH     | Prototype Pollution                               | Indirect dep                          |
+| `xlsx` (SheetJS)   | HIGH     | ReDoS                                             | Indirect dep                          |
+| `tar`              | HIGH     | Arbitrary File Overwrite (x3)                     | Indirect dep                          |
+| `fast-xml-parser`  | HIGH     | RangeError DoS                                    | Indirect dep                          |
 | `hono`             | MODERATE | XSS, cache deception, IP spoofing, key read (x4) | Direct dep (v4.11.4, needs >=4.11.7) |
-| `esbuild`          | MODERATE | SSRF in dev server                             | Dev dep                               |
-| `electron`         | MODERATE | ASAR integrity bypass                          | Desktop app                           |
-| `next`             | MODERATE | Unbounded memory                               | Website                               |
+| `esbuild`          | MODERATE | SSRF in dev server                                | Dev dep                               |
+| `electron`         | MODERATE | ASAR integrity bypass                             | Desktop app                           |
+| `next`             | MODERATE | Unbounded memory                                  | Website                               |
 
 **Critical note:** `hono` is listed as a direct dependency at `^4.11.4` with a pnpm override, and has 4 moderate vulnerabilities fixed in `>=4.11.7`. The override in `package.json` pins it below the fix version.
 
