@@ -1,3 +1,9 @@
+---
+title: Textrawl Security Audit Report
+description: Full codebase security review covering authentication, Supabase/Postgres defaults, API security, and dependency vulnerabilities
+date: 2026-02-02
+---
+
 # Textrawl Security Audit Report
 
 **Date:** 2026-02-02
@@ -13,13 +19,13 @@ Textrawl demonstrates a generally strong security posture for a single-tenant MC
 
 **Findings by severity:**
 
-| Severity | Count |
-|----------|-------|
-| Critical | 0 |
-| High | 5 |
-| Medium | 7 |
-| Low | 5 |
-| Informational | 4 |
+| Severity      | Count |
+| ------------- | ----- |
+| Critical      | 0     |
+| High          | 5     |
+| Medium        | 7     |
+| Low           | 5     |
+| Informational | 4     |
 
 ---
 
@@ -190,12 +196,12 @@ The client correctly disables session persistence and token refresh (appropriate
 
 **File:** `src/api/middleware/rateLimit.ts`
 
-| Endpoint | Limit | Window |
-|----------|-------|--------|
-| API | 100/min | 60s |
-| Upload | 10/min | 60s |
-| OAuth | 20/min | 60s |
-| Health | 300/min | 60s |
+| Endpoint | Limit   | Window |
+| -------- | ------- | ------ |
+| API      | 100/min | 60s    |
+| Upload   | 10/min  | 60s    |
+| OAuth    | 20/min  | 60s    |
+| Health   | 300/min | 60s    |
 
 Rate limiters use `express-rate-limit` with standard headers. All endpoints are protected.
 
@@ -331,16 +337,16 @@ The search functions use `websearch_to_tsquery()` which safely parses user input
 
 `pnpm audit` reports **13 vulnerabilities** (6 high, 7 moderate):
 
-| Package | Severity | Issue | Used By |
-|---------|----------|-------|---------|
-| `xlsx` (SheetJS) | HIGH | Prototype Pollution | Indirect dep |
-| `xlsx` (SheetJS) | HIGH | ReDoS | Indirect dep |
-| `tar` | HIGH | Arbitrary File Overwrite (x3) | Indirect dep |
-| `fast-xml-parser` | HIGH | RangeError DoS | Indirect dep |
-| `hono` | MODERATE | XSS, cache deception, IP spoofing, key read (x4) | Direct dep (v4.11.4, needs >=4.11.7) |
-| `esbuild` | MODERATE | SSRF in dev server | Dev dep |
-| `electron` | MODERATE | ASAR integrity bypass | Desktop app |
-| `next` | MODERATE | Unbounded memory | Website |
+| Package            | Severity | Issue                                          | Used By                               |
+| ------------------ | -------- | ---------------------------------------------- | ------------------------------------- |
+| `xlsx` (SheetJS)   | HIGH     | Prototype Pollution                            | Indirect dep                          |
+| `xlsx` (SheetJS)   | HIGH     | ReDoS                                          | Indirect dep                          |
+| `tar`              | HIGH     | Arbitrary File Overwrite (x3)                  | Indirect dep                          |
+| `fast-xml-parser`  | HIGH     | RangeError DoS                                 | Indirect dep                          |
+| `hono`             | MODERATE | XSS, cache deception, IP spoofing, key read (x4) | Direct dep (v4.11.4, needs >=4.11.7) |
+| `esbuild`          | MODERATE | SSRF in dev server                             | Dev dep                               |
+| `electron`         | MODERATE | ASAR integrity bypass                          | Desktop app                           |
+| `next`             | MODERATE | Unbounded memory                               | Website                               |
 
 **Critical note:** `hono` is listed as a direct dependency at `^4.11.4` with a pnpm override, and has 4 moderate vulnerabilities fixed in `>=4.11.7`. The override in `package.json` pins it below the fix version.
 

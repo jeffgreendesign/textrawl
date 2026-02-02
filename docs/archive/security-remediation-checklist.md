@@ -1,3 +1,9 @@
+---
+title: Security Remediation Checklist
+description: Self-contained tasks for remediating findings from the security audit, executable in independent context windows
+date: 2026-02-02
+---
+
 # Security Remediation Checklist
 
 **Source:** `docs/archive/security-audit-2026-02.md`
