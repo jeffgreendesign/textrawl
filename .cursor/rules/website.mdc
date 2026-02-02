@@ -1,0 +1,31 @@
+---
+description: Documentation website (Fumadocs) conventions
+globs: ["website/**/*"]
+---
+
+# Website / Documentation Site
+
+The documentation site uses Next.js 15 + Fumadocs + React 19 + Tailwind CSS 4.
+
+## Search
+
+Fumadocs requires an explicit API route for search to work. The search route MUST exist:
+
+- **File:** `website/app/api/search/route.ts`
+- **Exports:** `{ GET }` created via `createFromSource(source)` from `fumadocs-core/search/server`
+- **NEVER** delete this file — search will silently break with no visible errors
+
+If upgrading Fumadocs, verify the `createFromSource` API signature hasn't changed by checking the type definitions in `node_modules/fumadocs-core/dist/search/server.d.ts`.
+
+## Source Configuration
+
+- `website/source.config.ts` — MDX content config
+- `website/lib/source.ts` — Fumadocs source loader (imports from `.source/server`)
+- Content lives in `/docs` at repo root (not `website/docs`)
+
+## Validation
+
+After any website changes, run `pnpm docs:build` and verify:
+1. Build completes without errors
+2. `/api/search` appears in the route table output
+3. All doc pages are listed under `/docs/[[...slug]]`
