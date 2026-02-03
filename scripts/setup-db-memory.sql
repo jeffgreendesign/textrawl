@@ -97,7 +97,7 @@ DROP FUNCTION IF EXISTS get_entity_context(TEXT, BOOLEAN);
 DROP FUNCTION IF EXISTS cleanup_expired_observations();
 
 -- Semantic search across memories (entities + observations)
-CREATE OR REPLACE FUNCTION memory_semantic_search(
+CREATE OR REPLACE FUNCTION public.memory_semantic_search(
   query_embedding VECTOR(1536),
   match_count INT DEFAULT 10,
   entity_types TEXT[] DEFAULT NULL,
@@ -114,6 +114,7 @@ RETURNS TABLE (
   similarity FLOAT
 )
 LANGUAGE SQL
+SET search_path = 'public', 'extensions'
 AS $$
 SELECT
   e.id AS entity_id,
@@ -124,8 +125,8 @@ SELECT
   o.source,
   o.confidence,
   1 - (o.embedding <=> query_embedding) AS similarity
-FROM memory_observations o
-JOIN memory_entities e ON o.entity_id = e.id
+FROM public.memory_observations o
+JOIN public.memory_entities e ON o.entity_id = e.id
 WHERE
   o.embedding IS NOT NULL
   AND (entity_types IS NULL OR e.entity_type = ANY(entity_types))
@@ -135,7 +136,7 @@ LIMIT match_count;
 $$;
 
 -- Hybrid memory search (FTS + semantic)
-CREATE OR REPLACE FUNCTION memory_hybrid_search(
+CREATE OR REPLACE FUNCTION public.memory_hybrid_search(
   query_text TEXT,
   query_embedding VECTOR(1536),
   match_count INT DEFAULT 10,
@@ -156,14 +157,15 @@ RETURNS TABLE (
   score FLOAT
 )
 LANGUAGE SQL
+SET search_path = 'public', 'extensions'
 AS $$
 WITH full_text AS (
   SELECT
     o.id,
     o.entity_id,
     ROW_NUMBER() OVER (ORDER BY ts_rank_cd(o.fts, websearch_to_tsquery(query_text)) DESC) AS rank_ix
-  FROM memory_observations o
-  JOIN memory_entities e ON o.entity_id = e.id
+  FROM public.memory_observations o
+  JOIN public.memory_entities e ON o.entity_id = e.id
   WHERE
     o.fts @@ websearch_to_tsquery(query_text)
     AND (entity_types IS NULL OR e.entity_type = ANY(entity_types))
@@ -175,8 +177,8 @@ semantic AS (
     o.id,
     o.entity_id,
     ROW_NUMBER() OVER (ORDER BY o.embedding <=> query_embedding) AS rank_ix
-  FROM memory_observations o
-  JOIN memory_entities e ON o.entity_id = e.id
+  FROM public.memory_observations o
+  JOIN public.memory_entities e ON o.entity_id = e.id
   WHERE
     o.embedding IS NOT NULL
     AND (entity_types IS NULL OR e.entity_type = ANY(entity_types))
@@ -198,14 +200,14 @@ SELECT
   ) AS score
 FROM full_text ft
 FULL OUTER JOIN semantic s ON ft.id = s.id
-JOIN memory_observations o ON COALESCE(ft.id, s.id) = o.id
-JOIN memory_entities e ON o.entity_id = e.id
+JOIN public.memory_observations o ON COALESCE(ft.id, s.id) = o.id
+JOIN public.memory_entities e ON o.entity_id = e.id
 ORDER BY score DESC
 LIMIT match_count;
 $$;
 
 -- Get entity with all observations and relations
-CREATE OR REPLACE FUNCTION get_entity_context(
+CREATE OR REPLACE FUNCTION public.get_entity_context(
   target_entity_name TEXT,
   include_related BOOLEAN DEFAULT TRUE
 )
@@ -219,10 +221,11 @@ RETURNS TABLE (
   incoming_relations JSONB
 )
 LANGUAGE SQL
+SET search_path = 'public', 'extensions'
 AS $$
 WITH target AS (
   SELECT id, name, entity_type, description
-  FROM memory_entities
+  FROM public.memory_entities
   WHERE LOWER(name) = LOWER(target_entity_name)
   LIMIT 1
 ),
@@ -239,7 +242,7 @@ entity_observations AS (
       ) ORDER BY o.created_at DESC
     ) FILTER (WHERE o.id IS NOT NULL), '[]'::jsonb) AS observations
   FROM target t
-  LEFT JOIN memory_observations o ON o.entity_id = t.id
+  LEFT JOIN public.memory_observations o ON o.entity_id = t.id
     AND (o.valid_until IS NULL OR o.valid_until > NOW())
   GROUP BY t.id
 ),
@@ -255,8 +258,8 @@ outgoing AS (
       )
     ) FILTER (WHERE r.id IS NOT NULL), '[]'::jsonb) AS relations
   FROM target t
-  LEFT JOIN memory_relations r ON r.from_entity_id = t.id
-  LEFT JOIN memory_entities e ON r.to_entity_id = e.id
+  LEFT JOIN public.memory_relations r ON r.from_entity_id = t.id
+  LEFT JOIN public.memory_entities e ON r.to_entity_id = e.id
   WHERE include_related
   GROUP BY t.id
 ),
@@ -272,8 +275,8 @@ incoming AS (
       )
     ) FILTER (WHERE r.id IS NOT NULL), '[]'::jsonb) AS relations
   FROM target t
-  LEFT JOIN memory_relations r ON r.to_entity_id = t.id
-  LEFT JOIN memory_entities e ON r.from_entity_id = e.id
+  LEFT JOIN public.memory_relations r ON r.to_entity_id = t.id
+  LEFT JOIN public.memory_entities e ON r.from_entity_id = e.id
   WHERE include_related
   GROUP BY t.id
 )
@@ -315,14 +318,15 @@ $$;
 -- ============================================
 -- Cleanup function for expired observations
 -- ============================================
-CREATE OR REPLACE FUNCTION cleanup_expired_observations()
+CREATE OR REPLACE FUNCTION public.cleanup_expired_observations()
 RETURNS INTEGER
 LANGUAGE PLPGSQL
+SET search_path = 'public', 'extensions'
 AS $$
 DECLARE
   deleted_count INTEGER;
 BEGIN
-  DELETE FROM memory_observations
+  DELETE FROM public.memory_observations
   WHERE valid_until IS NOT NULL AND valid_until < NOW();
 
   GET DIAGNOSTICS deleted_count = ROW_COUNT;
