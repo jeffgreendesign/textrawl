@@ -67,19 +67,22 @@ CREATE INDEX IF NOT EXISTS conversation_sessions_fts_idx ON conversation_session
 -- ============================================
 
 -- Update last_activity when turns are added
-CREATE OR REPLACE FUNCTION update_session_activity()
-RETURNS TRIGGER AS $$
+CREATE OR REPLACE FUNCTION public.update_session_activity()
+RETURNS TRIGGER
+LANGUAGE plpgsql
+SET search_path = 'public', 'extensions'
+AS $$
 BEGIN
-  UPDATE conversation_sessions
+  UPDATE public.conversation_sessions
   SET
     last_activity = NOW(),
     turn_count = (
-      SELECT COUNT(*) FROM conversation_turns WHERE session_id = NEW.session_id
+      SELECT COUNT(*) FROM public.conversation_turns WHERE session_id = NEW.session_id
     )
   WHERE id = NEW.session_id;
   RETURN NEW;
 END;
-$$ LANGUAGE plpgsql;
+$$;
 
 DROP TRIGGER IF EXISTS conversation_turns_activity ON conversation_turns;
 CREATE TRIGGER conversation_turns_activity
@@ -87,18 +90,21 @@ CREATE TRIGGER conversation_turns_activity
   FOR EACH ROW EXECUTE FUNCTION update_session_activity();
 
 -- Update turn_count when turns are deleted
-CREATE OR REPLACE FUNCTION update_session_activity_on_delete()
-RETURNS TRIGGER AS $$
+CREATE OR REPLACE FUNCTION public.update_session_activity_on_delete()
+RETURNS TRIGGER
+LANGUAGE plpgsql
+SET search_path = 'public', 'extensions'
+AS $$
 BEGIN
-  UPDATE conversation_sessions
+  UPDATE public.conversation_sessions
   SET
     turn_count = (
-      SELECT COUNT(*) FROM conversation_turns WHERE session_id = OLD.session_id
+      SELECT COUNT(*) FROM public.conversation_turns WHERE session_id = OLD.session_id
     )
   WHERE id = OLD.session_id;
   RETURN OLD;
 END;
-$$ LANGUAGE plpgsql;
+$$;
 
 DROP TRIGGER IF EXISTS conversation_turns_delete_activity ON conversation_turns;
 CREATE TRIGGER conversation_turns_delete_activity
@@ -115,7 +121,7 @@ DROP FUNCTION IF EXISTS conversation_hybrid_search(TEXT, VECTOR(1536), INT, FLOA
 DROP FUNCTION IF EXISTS conversation_turn_search(TEXT, VECTOR(1536), INT, FLOAT, FLOAT, INT, UUID);
 
 -- Semantic search across conversation summaries
-CREATE OR REPLACE FUNCTION conversation_semantic_search(
+CREATE OR REPLACE FUNCTION public.conversation_semantic_search(
   query_embedding VECTOR(1536),
   match_count INT DEFAULT 10
 )
@@ -129,6 +135,7 @@ RETURNS TABLE (
   similarity FLOAT
 )
 LANGUAGE SQL
+SET search_path = 'public', 'extensions'
 AS $$
 SELECT
   cs.id AS session_id,
@@ -138,14 +145,14 @@ SELECT
   cs.turn_count,
   cs.last_activity,
   1 - (cs.summary_embedding <=> query_embedding) AS similarity
-FROM conversation_sessions cs
+FROM public.conversation_sessions cs
 WHERE cs.summary_embedding IS NOT NULL
 ORDER BY cs.summary_embedding <=> query_embedding
 LIMIT match_count;
 $$;
 
 -- Hybrid search across conversation summaries (FTS + semantic)
-CREATE OR REPLACE FUNCTION conversation_hybrid_search(
+CREATE OR REPLACE FUNCTION public.conversation_hybrid_search(
   query_text TEXT,
   query_embedding VECTOR(1536),
   match_count INT DEFAULT 10,
@@ -163,12 +170,13 @@ RETURNS TABLE (
   score FLOAT
 )
 LANGUAGE SQL
+SET search_path = 'public', 'extensions'
 AS $$
 WITH full_text AS (
   SELECT
     cs.id,
     ROW_NUMBER() OVER (ORDER BY ts_rank_cd(cs.summary_fts, websearch_to_tsquery(query_text)) DESC) AS rank_ix
-  FROM conversation_sessions cs
+  FROM public.conversation_sessions cs
   WHERE cs.summary_fts @@ websearch_to_tsquery(query_text)
   LIMIT match_count * 2
 ),
@@ -176,7 +184,7 @@ semantic AS (
   SELECT
     cs.id,
     ROW_NUMBER() OVER (ORDER BY cs.summary_embedding <=> query_embedding) AS rank_ix
-  FROM conversation_sessions cs
+  FROM public.conversation_sessions cs
   WHERE cs.summary_embedding IS NOT NULL
   ORDER BY cs.summary_embedding <=> query_embedding
   LIMIT match_count * 2
@@ -194,13 +202,13 @@ SELECT
   ) AS score
 FROM full_text ft
 FULL OUTER JOIN semantic s ON ft.id = s.id
-JOIN conversation_sessions cs ON COALESCE(ft.id, s.id) = cs.id
+JOIN public.conversation_sessions cs ON COALESCE(ft.id, s.id) = cs.id
 ORDER BY score DESC
 LIMIT match_count;
 $$;
 
 -- Search within conversation turns (for finding specific messages)
-CREATE OR REPLACE FUNCTION conversation_turn_search(
+CREATE OR REPLACE FUNCTION public.conversation_turn_search(
   query_text TEXT,
   query_embedding VECTOR(1536),
   match_count INT DEFAULT 20,
@@ -219,12 +227,13 @@ RETURNS TABLE (
   score FLOAT
 )
 LANGUAGE SQL
+SET search_path = 'public', 'extensions'
 AS $$
 WITH full_text AS (
   SELECT
     ct.id,
     ROW_NUMBER() OVER (ORDER BY ts_rank_cd(ct.fts, websearch_to_tsquery(query_text)) DESC) AS rank_ix
-  FROM conversation_turns ct
+  FROM public.conversation_turns ct
   WHERE
     ct.fts @@ websearch_to_tsquery(query_text)
     AND (filter_session_id IS NULL OR ct.session_id = filter_session_id)
@@ -234,7 +243,7 @@ semantic AS (
   SELECT
     ct.id,
     ROW_NUMBER() OVER (ORDER BY ct.embedding <=> query_embedding) AS rank_ix
-  FROM conversation_turns ct
+  FROM public.conversation_turns ct
   WHERE
     ct.embedding IS NOT NULL
     AND (filter_session_id IS NULL OR ct.session_id = filter_session_id)
@@ -254,13 +263,13 @@ SELECT
   ) AS score
 FROM full_text ft
 FULL OUTER JOIN semantic s ON ft.id = s.id
-JOIN conversation_turns ct ON COALESCE(ft.id, s.id) = ct.id
+JOIN public.conversation_turns ct ON COALESCE(ft.id, s.id) = ct.id
 ORDER BY score DESC
 LIMIT match_count;
 $$;
 
 -- Get recent conversations
-CREATE OR REPLACE FUNCTION get_recent_conversations(
+CREATE OR REPLACE FUNCTION public.get_recent_conversations(
   result_limit INT DEFAULT 20,
   result_offset INT DEFAULT 0
 )
@@ -274,6 +283,7 @@ RETURNS TABLE (
   created_at TIMESTAMPTZ
 )
 LANGUAGE SQL
+SET search_path = 'public', 'extensions'
 AS $$
 SELECT
   cs.id AS session_id,
@@ -283,7 +293,7 @@ SELECT
   cs.turn_count,
   cs.last_activity,
   cs.created_at
-FROM conversation_sessions cs
+FROM public.conversation_sessions cs
 ORDER BY cs.last_activity DESC
 LIMIT result_limit
 OFFSET result_offset;
@@ -292,16 +302,17 @@ $$;
 -- ============================================
 -- Cleanup function for old conversations
 -- ============================================
-CREATE OR REPLACE FUNCTION cleanup_old_conversations(
+CREATE OR REPLACE FUNCTION public.cleanup_old_conversations(
   days_to_keep INT DEFAULT 90
 )
 RETURNS INTEGER
 LANGUAGE PLPGSQL
+SET search_path = 'public', 'extensions'
 AS $$
 DECLARE
   deleted_count INTEGER;
 BEGIN
-  DELETE FROM conversation_sessions
+  DELETE FROM public.conversation_sessions
   WHERE last_activity < NOW() - (days_to_keep || ' days')::INTERVAL;
 
   GET DIAGNOSTICS deleted_count = ROW_COUNT;
@@ -323,12 +334,12 @@ ALTER TABLE conversation_turns ENABLE ROW LEVEL SECURITY;
 ALTER TABLE conversation_sessions FORCE ROW LEVEL SECURITY;
 ALTER TABLE conversation_turns FORCE ROW LEVEL SECURITY;
 
--- Permissive policies (service_role bypasses RLS)
-CREATE POLICY "Allow all access to conversation_sessions"
-  ON conversation_sessions FOR ALL USING (true) WITH CHECK (true);
+-- Permissive policies scoped to service_role
+CREATE POLICY "Service role access to conversation_sessions"
+  ON conversation_sessions FOR ALL TO service_role USING (true) WITH CHECK (true);
 
-CREATE POLICY "Allow all access to conversation_turns"
-  ON conversation_turns FOR ALL USING (true) WITH CHECK (true);
+CREATE POLICY "Service role access to conversation_turns"
+  ON conversation_turns FOR ALL TO service_role USING (true) WITH CHECK (true);
 
 -- Restrictive policies to block anon and authenticated roles
 CREATE POLICY "Deny anon access to conversation_sessions"
