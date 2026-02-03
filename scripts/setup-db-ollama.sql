@@ -49,7 +49,7 @@ create index if not exists chunks_embedding_idx on chunks
   using hnsw (embedding vector_cosine_ops);
 
 -- Hybrid search function using Reciprocal Rank Fusion (RRF)
-create or replace function hybrid_search(
+create or replace function public.hybrid_search(
   query_text text,
   query_embedding vector(1024),
   match_count int default 10,
@@ -67,6 +67,7 @@ returns table (
   score float
 )
 language sql
+set search_path = 'public', 'extensions'
 as $$
 with full_text as (
   -- Full-text search ranked results
@@ -74,8 +75,8 @@ with full_text as (
     c.id,
     c.document_id,
     row_number() over (order by ts_rank_cd(d.fts, websearch_to_tsquery(query_text)) desc) as rank_ix
-  from chunks c
-  join documents d on c.document_id = d.id
+  from public.chunks c
+  join public.documents d on c.document_id = d.id
   where d.fts @@ websearch_to_tsquery(query_text)
   limit match_count * 2
 ),
@@ -85,7 +86,7 @@ semantic as (
     id,
     document_id,
     row_number() over (order by embedding <=> query_embedding) as rank_ix
-  from chunks
+  from public.chunks
   where embedding is not null
   order by embedding <=> query_embedding
   limit match_count * 2
@@ -104,14 +105,14 @@ select
   ) as score
 from full_text ft
 full outer join semantic s on ft.id = s.id
-join chunks c on coalesce(ft.id, s.id) = c.id
-join documents d on c.document_id = d.id
+join public.chunks c on coalesce(ft.id, s.id) = c.id
+join public.documents d on c.document_id = d.id
 order by score desc
 limit match_count;
 $$;
 
 -- Semantic-only search function (when full-text query is empty)
-create or replace function semantic_search(
+create or replace function public.semantic_search(
   query_embedding vector(1024),
   match_count int default 10
 )
@@ -125,6 +126,7 @@ returns table (
   similarity float
 )
 language sql
+set search_path = 'public', 'extensions'
 as $$
 select
   c.id as chunk_id,
@@ -134,21 +136,24 @@ select
   d.source_type,
   d.metadata as document_metadata,
   1 - (c.embedding <=> query_embedding) as similarity
-from chunks c
-join documents d on c.document_id = d.id
+from public.chunks c
+join public.documents d on c.document_id = d.id
 where c.embedding is not null
 order by c.embedding <=> query_embedding
 limit match_count;
 $$;
 
 -- Updated_at trigger function
-create or replace function update_updated_at()
-returns trigger as $$
+create or replace function public.update_updated_at()
+returns trigger
+language plpgsql
+set search_path = 'public', 'extensions'
+as $$
 begin
   new.updated_at = now();
   return new;
 end;
-$$ language plpgsql;
+$$;
 
 -- Apply trigger to documents table
 drop trigger if exists documents_updated_at on documents;
