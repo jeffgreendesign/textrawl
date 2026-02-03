@@ -59,12 +59,13 @@ CREATE INDEX IF NOT EXISTS idx_proactive_insights_type
 -- ---------------------------------------------------------------------------
 -- 3. Atomically increment the queue counter (called after chunk inserts)
 -- ---------------------------------------------------------------------------
-CREATE OR REPLACE FUNCTION insight_queue_increment(chunk_count INTEGER DEFAULT 1)
+CREATE OR REPLACE FUNCTION public.insight_queue_increment(chunk_count INTEGER DEFAULT 1)
 RETURNS void
 LANGUAGE plpgsql
+SET search_path = 'public', 'extensions'
 AS $$
 BEGIN
-  UPDATE insight_queue
+  UPDATE public.insight_queue
   SET chunks_pending = chunks_pending + chunk_count,
       last_insert_at = now()
   WHERE id = 1;
@@ -74,12 +75,13 @@ $$;
 -- ---------------------------------------------------------------------------
 -- 4. Check if a scan should run (threshold reached + debounce elapsed)
 -- ---------------------------------------------------------------------------
-CREATE OR REPLACE FUNCTION insight_queue_check(
+CREATE OR REPLACE FUNCTION public.insight_queue_check(
   threshold INTEGER DEFAULT 50,
   debounce_seconds INTEGER DEFAULT 300
 )
 RETURNS TABLE (should_scan BOOLEAN, pending INTEGER)
 LANGUAGE plpgsql
+SET search_path = 'public', 'extensions'
 AS $$
 BEGIN
   RETURN QUERY
@@ -90,7 +92,7 @@ BEGIN
           OR q.last_insert_at < now() - (debounce_seconds || ' seconds')::interval)
     ) AS should_scan,
     q.chunks_pending AS pending
-  FROM insight_queue q
+  FROM public.insight_queue q
   WHERE q.id = 1;
 END;
 $$;
@@ -98,7 +100,7 @@ $$;
 -- ---------------------------------------------------------------------------
 -- 5. Semantic search over insights
 -- ---------------------------------------------------------------------------
-CREATE OR REPLACE FUNCTION insight_semantic_search(
+CREATE OR REPLACE FUNCTION public.insight_semantic_search(
   query_embedding vector(768),
   match_count INTEGER DEFAULT 10,
   status_filter TEXT DEFAULT NULL
@@ -115,6 +117,7 @@ RETURNS TABLE (
   score FLOAT
 )
 LANGUAGE plpgsql
+SET search_path = 'public', 'extensions'
 AS $$
 BEGIN
   RETURN QUERY
@@ -128,7 +131,7 @@ BEGIN
     pi.status,
     pi.created_at,
     1 - (pi.embedding <=> query_embedding) AS score
-  FROM proactive_insights pi
+  FROM public.proactive_insights pi
   WHERE pi.embedding IS NOT NULL
     AND (status_filter IS NULL OR pi.status = status_filter)
   ORDER BY pi.embedding <=> query_embedding
