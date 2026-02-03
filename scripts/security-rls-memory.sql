@@ -28,12 +28,14 @@ ALTER TABLE public.memory_relations FORCE ROW LEVEL SECURITY;
 -- Policies for memory_entities table
 -- -----------------------------------------------------------------------------
 DROP POLICY IF EXISTS "Allow all access to memory_entities" ON public.memory_entities;
+DROP POLICY IF EXISTS "Service role access to memory_entities" ON public.memory_entities;
 DROP POLICY IF EXISTS "Deny anon access to memory_entities" ON public.memory_entities;
 DROP POLICY IF EXISTS "Deny authenticated access to memory_entities" ON public.memory_entities;
 
-CREATE POLICY "Allow all access to memory_entities"
+CREATE POLICY "Service role access to memory_entities"
   ON public.memory_entities
   FOR ALL
+  TO service_role
   USING (true)
   WITH CHECK (true);
 
@@ -53,12 +55,14 @@ CREATE POLICY "Deny authenticated access to memory_entities"
 -- Policies for memory_observations table
 -- -----------------------------------------------------------------------------
 DROP POLICY IF EXISTS "Allow all access to memory_observations" ON public.memory_observations;
+DROP POLICY IF EXISTS "Service role access to memory_observations" ON public.memory_observations;
 DROP POLICY IF EXISTS "Deny anon access to memory_observations" ON public.memory_observations;
 DROP POLICY IF EXISTS "Deny authenticated access to memory_observations" ON public.memory_observations;
 
-CREATE POLICY "Allow all access to memory_observations"
+CREATE POLICY "Service role access to memory_observations"
   ON public.memory_observations
   FOR ALL
+  TO service_role
   USING (true)
   WITH CHECK (true);
 
@@ -78,12 +82,14 @@ CREATE POLICY "Deny authenticated access to memory_observations"
 -- Policies for memory_relations table
 -- -----------------------------------------------------------------------------
 DROP POLICY IF EXISTS "Allow all access to memory_relations" ON public.memory_relations;
+DROP POLICY IF EXISTS "Service role access to memory_relations" ON public.memory_relations;
 DROP POLICY IF EXISTS "Deny anon access to memory_relations" ON public.memory_relations;
 DROP POLICY IF EXISTS "Deny authenticated access to memory_relations" ON public.memory_relations;
 
-CREATE POLICY "Allow all access to memory_relations"
+CREATE POLICY "Service role access to memory_relations"
   ON public.memory_relations
   FOR ALL
+  TO service_role
   USING (true)
   WITH CHECK (true);
 

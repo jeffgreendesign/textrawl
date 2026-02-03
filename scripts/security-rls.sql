@@ -26,10 +26,11 @@ ALTER TABLE public.chunks FORCE ROW LEVEL SECURITY;
 -- Policies for documents table
 -- -----------------------------------------------------------------------------
 
--- Permissive policy (service_role bypasses RLS anyway, but explicit is clearer)
-CREATE POLICY "Allow all access to documents"
+-- Permissive policy scoped to service_role
+CREATE POLICY "Service role access to documents"
   ON public.documents
   FOR ALL
+  TO service_role
   USING (true)
   WITH CHECK (true);
 
@@ -50,10 +51,11 @@ CREATE POLICY "Deny authenticated access to documents"
 -- Policies for chunks table
 -- -----------------------------------------------------------------------------
 
--- Permissive policy
-CREATE POLICY "Allow all access to chunks"
+-- Permissive policy scoped to service_role
+CREATE POLICY "Service role access to chunks"
   ON public.chunks
   FOR ALL
+  TO service_role
   USING (true)
   WITH CHECK (true);
 
@@ -101,3 +103,6 @@ SELECT tablename, policyname, permissive, roles, cmd
 FROM pg_policies
 WHERE schemaname = 'public' AND tablename IN ('documents', 'chunks')
 ORDER BY tablename, policyname;
+
+-- NOTE: If upgrading from an older installation, run migration-search-path-rls.sql
+-- to fix existing functions and policies on your live database.

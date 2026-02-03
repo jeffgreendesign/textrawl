@@ -28,5 +28,5 @@
 		"MD060": false
 	},
 	"globs": ["**/*.md", "docs/**/*.mdx"],
-	"ignores": ["node_modules", "**/node_modules", ".next", "dist", "CHANGELOG.md"]
+	"ignores": ["node_modules", "**/node_modules", ".next", "dist", "CHANGELOG.md", "converted"]
 }
