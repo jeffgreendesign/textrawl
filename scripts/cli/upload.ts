@@ -199,7 +199,7 @@ async function uploadBatchedFixed(
 
 	for (const err of chunkErrors) {
 		counters.errors++;
-		progress.log(`  ✗ ${err.relativePath}: ${err.error}`);
+		progress.logError(`  ✗ ${err.relativePath}: ${err.error}`);
 		progress.increment();
 	}
 
@@ -226,7 +226,7 @@ async function uploadBatchedFixed(
 		const errMsg = error instanceof Error ? error.message : String(error);
 		for (const cf of chunkedFiles) {
 			counters.errors++;
-			progress.log(`  ✗ ${cf.prepared.relativePath}: Embedding failed: ${errMsg}`);
+			progress.logError(`  ✗ ${cf.prepared.relativePath}: Embedding failed: ${errMsg}`);
 			progress.increment();
 		}
 		return;
@@ -304,7 +304,7 @@ async function uploadBatchedFixed(
 				}
 			} catch (error) {
 				counters.errors++;
-				progress.log(
+				progress.logError(
 					`  ✗ ${cf.prepared.relativePath}: ${error instanceof Error ? error.message : String(error)}`,
 				);
 			}
@@ -410,7 +410,7 @@ async function uploadDocuments(directory: string, options: UploadOptions): Promi
 			const result = prepareFile(file, resolvedDir, options);
 			if ('error' in result) {
 				counters.errors++;
-				progress.log(`  ✗ ${relative(resolvedDir, file)}: ${result.error}`);
+				progress.logError(`  ✗ ${relative(resolvedDir, file)}: ${result.error}`);
 				progress.increment();
 			} else {
 				prepared.push(result);
@@ -443,7 +443,7 @@ async function uploadDocuments(directory: string, options: UploadOptions): Promi
 				const prepResult = prepareFile(file, resolvedDir, options);
 				if ('error' in prepResult) {
 					counters.errors++;
-					progress.log(`  ✗ ${relativePath}: ${prepResult.error}`);
+					progress.logError(`  ✗ ${relativePath}: ${prepResult.error}`);
 					progress.increment();
 					return;
 				}
@@ -476,7 +476,7 @@ async function uploadDocuments(directory: string, options: UploadOptions): Promi
 					}
 				} else {
 					counters.errors++;
-					progress.log(`  ✗ ${relativePath}: ${result.error}`);
+					progress.logError(`  ✗ ${relativePath}: ${result.error}`);
 				}
 
 				progress.increment();

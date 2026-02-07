@@ -100,6 +100,19 @@ export class ProgressReporter {
 	}
 
 	/**
+	 * Log an error message (always shown, regardless of verbose mode)
+	 */
+	logError(message: string): void {
+		if (this.bar) {
+			this.bar.stop();
+			console.error(message);
+			this.bar.start(this.total, this.current);
+		} else {
+			console.error(message);
+		}
+	}
+
+	/**
 	 * Finish the progress bar
 	 */
 	finish(message?: string): void {
