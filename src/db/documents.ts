@@ -51,7 +51,7 @@ export async function createDocument(input: CreateDocumentInput): Promise<Docume
 
 	if (error) {
 		logger.error('Failed to create document', { error: error.message });
-		throw new DatabaseError('Failed to create document');
+		throw new DatabaseError(`Failed to create document: ${error.message}`);
 	}
 
 	logger.info('Created document', { id: data.id, title: data.title });

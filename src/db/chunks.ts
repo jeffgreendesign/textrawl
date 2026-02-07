@@ -41,7 +41,7 @@ export async function createChunks(chunks: CreateChunkInput[]): Promise<Chunk[]>
 
 	if (error) {
 		logger.error('Failed to create chunks', { error: error.message });
-		throw new DatabaseError('Failed to create chunks');
+		throw new DatabaseError(`Failed to create chunks: ${error.message}`);
 	}
 
 	logger.info('Created chunks', {
