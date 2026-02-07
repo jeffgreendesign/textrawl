@@ -95,6 +95,25 @@ export function chunkText(text: string, options: ChunkOptions = {}): Chunk[] {
 	let chunkStartOffset = 0;
 	let currentOffset = 0;
 
+	/** Save the current chunk and start a new one with overlap */
+	const flushChunk = () => {
+		const trimmedContent = currentChunk.trim();
+		if (trimmedContent.length > 0) {
+			chunks.push({
+				content: trimmedContent,
+				index: chunks.length,
+				startOffset: chunkStartOffset,
+				endOffset: currentOffset,
+				tokenCount: Math.ceil(trimmedContent.length / CHARS_PER_TOKEN),
+			});
+		}
+
+		const overlapStart = Math.max(0, currentChunk.length - overlapChars);
+		const overlapText = currentChunk.slice(overlapStart);
+		chunkStartOffset = currentOffset - overlapText.length;
+		currentChunk = overlapText;
+	};
+
 	for (let i = 0; i < paragraphs.length; i++) {
 		const paragraph = paragraphs[i];
 		const isLastParagraph = i === paragraphs.length - 1;
@@ -102,27 +121,43 @@ export function chunkText(text: string, options: ChunkOptions = {}): Chunk[] {
 
 		// Check if adding this paragraph would exceed max size
 		if (currentChunk.length > 0 && currentChunk.length + paragraphWithSep.length > maxChars) {
-			// Save current chunk
-			const trimmedContent = currentChunk.trim();
-			if (trimmedContent.length > 0) {
-				chunks.push({
-					content: trimmedContent,
-					index: chunks.length,
-					startOffset: chunkStartOffset,
-					endOffset: currentOffset,
-					tokenCount: Math.ceil(trimmedContent.length / CHARS_PER_TOKEN),
-				});
-			}
-
-			// Start new chunk with overlap from previous
-			const overlapStart = Math.max(0, currentChunk.length - overlapChars);
-			const overlapText = currentChunk.slice(overlapStart);
-			chunkStartOffset = currentOffset - overlapText.length;
-			currentChunk = overlapText;
+			flushChunk();
 		}
 
 		currentChunk += paragraphWithSep;
 		currentOffset += paragraphWithSep.length;
+
+		// Force-split if the chunk exceeds maxChars (handles oversized paragraphs)
+		while (currentChunk.length > maxChars) {
+			// Find a split point: prefer sentence boundary, fall back to word boundary
+			let splitAt = maxChars;
+			const searchRegion = currentChunk.slice(Math.floor(maxChars * 0.8), maxChars);
+			const sentenceEnd = searchRegion.search(/[.!?]\s/);
+			if (sentenceEnd !== -1) {
+				splitAt = Math.floor(maxChars * 0.8) + sentenceEnd + 2;
+			} else {
+				const lastSpace = currentChunk.lastIndexOf(' ', maxChars);
+				if (lastSpace > maxChars * 0.5) {
+					splitAt = lastSpace + 1;
+				}
+			}
+
+			const piece = currentChunk.slice(0, splitAt).trim();
+			if (piece.length > 0) {
+				chunks.push({
+					content: piece,
+					index: chunks.length,
+					startOffset: chunkStartOffset,
+					endOffset: chunkStartOffset + splitAt,
+					tokenCount: Math.ceil(piece.length / CHARS_PER_TOKEN),
+				});
+			}
+
+			const overlapStart = Math.max(0, splitAt - overlapChars);
+			const overlapText = currentChunk.slice(overlapStart, splitAt);
+			currentChunk = overlapText + currentChunk.slice(splitAt);
+			chunkStartOffset = chunkStartOffset + overlapStart;
+		}
 	}
 
 	// Don't forget the last chunk
