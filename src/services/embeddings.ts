@@ -7,8 +7,24 @@ import { logger } from '../utils/logger.js';
 const OPENAI_MODEL = 'text-embedding-3-small';
 const OPENAI_DIMENSIONS = 1536;
 const OPENAI_MAX_BATCH_SIZE = 2048;
+// OpenAI enforces a max of 300K tokens per embedding request.
+// Use a conservative limit to stay safely under the cap.
+const OPENAI_MAX_BATCH_TOKENS = 250_000;
+// text-embedding-3-small accepts max 8191 tokens per input.
+// Truncate at a conservative character limit (~4 chars/token).
+const OPENAI_MAX_INPUT_CHARS = 8191 * 4;
 
 const OLLAMA_MAX_BATCH_SIZE = 100;
+
+// Ollama model context windows (max tokens per input)
+// Used to truncate oversized inputs before sending to the API.
+// Ollama silently truncates, so without this you lose data without warning.
+const OLLAMA_MODEL_CONTEXT: Record<string, number> = {
+	'nomic-embed-text-v2-moe': 8192,
+	'nomic-embed-text': 8192,
+	'mxbai-embed-large': 512,
+	default: 2048,
+};
 
 // Ollama model dimensions mapping
 // Models with different embedding dimensions need different database schemas
@@ -23,6 +39,16 @@ const OLLAMA_MODEL_DIMENSIONS: Record<string, number> = {
 	// Default for unknown models
 	default: 1024,
 };
+
+/**
+ * Get max input characters for an Ollama model (~4 chars/token)
+ */
+function getOllamaMaxInputChars(model: string): number {
+	const baseModel = model.split(':')[0];
+	const tokens =
+		OLLAMA_MODEL_CONTEXT[model] ?? OLLAMA_MODEL_CONTEXT[baseModel] ?? OLLAMA_MODEL_CONTEXT.default;
+	return tokens * 4;
+}
 
 /**
  * Get embedding dimensions for an Ollama model
@@ -92,6 +118,8 @@ export function isEmbeddingsConfigured(): boolean {
  */
 async function generateOllamaEmbedding(text: string): Promise<number[]> {
 	const url = `${config.OLLAMA_BASE_URL}/api/embed`;
+	const maxChars = getOllamaMaxInputChars(config.OLLAMA_MODEL);
+	const input = text.length > maxChars ? text.slice(0, maxChars) : text;
 
 	try {
 		const response = await fetch(url, {
@@ -99,7 +127,7 @@ async function generateOllamaEmbedding(text: string): Promise<number[]> {
 			headers: { 'Content-Type': 'application/json' },
 			body: JSON.stringify({
 				model: config.OLLAMA_MODEL,
-				input: text,
+				input,
 			}),
 		});
 
@@ -133,10 +161,14 @@ async function generateOllamaEmbedding(text: string): Promise<number[]> {
  */
 async function generateOllamaEmbeddings(texts: string[]): Promise<number[][]> {
 	const url = `${config.OLLAMA_BASE_URL}/api/embed`;
+	const maxChars = getOllamaMaxInputChars(config.OLLAMA_MODEL);
+
+	// Truncate oversized inputs before batching
+	const safeTexts = texts.map((t) => (t.length > maxChars ? t.slice(0, maxChars) : t));
 
 	const batches: string[][] = [];
-	for (let i = 0; i < texts.length; i += OLLAMA_MAX_BATCH_SIZE) {
-		batches.push(texts.slice(i, i + OLLAMA_MAX_BATCH_SIZE));
+	for (let i = 0; i < safeTexts.length; i += OLLAMA_MAX_BATCH_SIZE) {
+		batches.push(safeTexts.slice(i, i + OLLAMA_MAX_BATCH_SIZE));
 	}
 
 	try {
@@ -206,9 +238,33 @@ async function generateOpenAIEmbedding(text: string): Promise<number[]> {
 async function generateOpenAIEmbeddings(texts: string[]): Promise<number[][]> {
 	const client = getOpenAIClient();
 
+	// Build batches respecting both item count and token limits.
+	// Estimate tokens as text.length / 4 (conservative approximation).
 	const batches: string[][] = [];
-	for (let i = 0; i < texts.length; i += OPENAI_MAX_BATCH_SIZE) {
-		batches.push(texts.slice(i, i + OPENAI_MAX_BATCH_SIZE));
+	let currentBatch: string[] = [];
+	let currentTokens = 0;
+
+	for (const rawText of texts) {
+		// Truncate individual inputs that exceed the model's context window
+		const text =
+			rawText.length > OPENAI_MAX_INPUT_CHARS ? rawText.slice(0, OPENAI_MAX_INPUT_CHARS) : rawText;
+		const estimatedTokens = Math.ceil(text.length / 4);
+
+		if (
+			currentBatch.length > 0 &&
+			(currentBatch.length >= OPENAI_MAX_BATCH_SIZE ||
+				currentTokens + estimatedTokens > OPENAI_MAX_BATCH_TOKENS)
+		) {
+			batches.push(currentBatch);
+			currentBatch = [];
+			currentTokens = 0;
+		}
+
+		currentBatch.push(text);
+		currentTokens += estimatedTokens;
+	}
+	if (currentBatch.length > 0) {
+		batches.push(currentBatch);
 	}
 
 	try {
