@@ -2,7 +2,7 @@
  * Textrawl Desktop - Preload Script
  * Exposes safe APIs to the renderer process via contextBridge
  */
-import { contextBridge, ipcRenderer } from 'electron';
+import { clipboard, contextBridge, ipcRenderer } from 'electron';
 import { IPC } from '../shared/ipc-channels.js';
 import type {
 	AppSettings,
@@ -106,6 +106,11 @@ const electronAPI = {
 		};
 		ipcRenderer.on(IPC.ERROR, handler);
 		return () => ipcRenderer.removeListener(IPC.ERROR, handler);
+	},
+
+	// Copy text to clipboard
+	copyToClipboard: (text: string): void => {
+		clipboard.writeText(text);
 	},
 
 	// Remove all listeners

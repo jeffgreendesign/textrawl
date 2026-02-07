@@ -15,6 +15,7 @@ const LEVEL_ICONS: Record<string, string> = {
 
 export function LogViewer({ logs, onClear }: LogViewerProps) {
 	const [expandedIds, setExpandedIds] = useState<Set<string>>(new Set());
+	const [copied, setCopied] = useState(false);
 	const containerRef = useRef<HTMLDivElement>(null);
 
 	// Auto-scroll to bottom when new logs arrive
@@ -37,6 +38,24 @@ export function LogViewer({ logs, onClear }: LogViewerProps) {
 		});
 	};
 
+	const handleCopyLogs = () => {
+		const text = logs
+			.map((log) => {
+				const time = new Date(log.timestamp).toLocaleTimeString('en-US', {
+					hour: '2-digit',
+					minute: '2-digit',
+					second: '2-digit',
+				});
+				const prefix = `[${log.level.toUpperCase()}]`;
+				const details = log.details ? `\n  ${log.details}` : '';
+				return `${time} ${prefix} ${log.message}${details}`;
+			})
+			.join('\n');
+		window.electronAPI.copyToClipboard(text);
+		setCopied(true);
+		setTimeout(() => setCopied(false), 2000);
+	};
+
 	const formatTime = (date: Date) => {
 		const d = new Date(date);
 		return d.toLocaleTimeString('en-US', {
@@ -50,9 +69,14 @@ export function LogViewer({ logs, onClear }: LogViewerProps) {
 		<div class="log-section">
 			<div class="log-header">
 				<span>Log ({logs.length})</span>
-				<button type="button" class="btn-small" onClick={onClear}>
-					Clear
-				</button>
+				<div class="log-actions">
+					<button type="button" class="btn-small" onClick={handleCopyLogs}>
+						{copied ? 'Copied!' : 'Copy'}
+					</button>
+					<button type="button" class="btn-small" onClick={onClear}>
+						Clear
+					</button>
+				</div>
 			</div>
 			<div class="log-container" ref={containerRef}>
 				{logs.map((log) => {

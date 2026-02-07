@@ -211,6 +211,9 @@ export class ConversionManager {
 				const output = data.toString();
 				stderr += output;
 
+				// Mirror converter output to main process stderr for terminal debugging
+				process.stderr.write(output);
+
 				// Parse progress from [PROGRESS] lines - capture percentage and count
 				// Format: [PROGRESS] 45% (690/1548) Message 691
 				const progressMatch = output.match(/\[PROGRESS\]\s*(\d+)%(?:\s*\((\d+)\/(\d+)\))?/);

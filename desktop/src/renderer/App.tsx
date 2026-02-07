@@ -66,6 +66,11 @@ export function App() {
 							'warn',
 							`Conversion completed with ${data.errorCount} error(s). ${data.successCount} file(s) ready to upload.`,
 						);
+					} else {
+						addLog(
+							'info',
+							`Conversion complete. ${data.successCount || 0} file(s) ready to upload.`,
+						);
 					}
 				} else {
 					setState('ready');

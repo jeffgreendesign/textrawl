@@ -173,6 +173,22 @@ export function isRtfdBundle(dirPath: string): boolean {
 }
 
 /**
+ * Check if a directory is a Google Drive export folder
+ * Drive export folders have -info.json companion files alongside documents
+ */
+export function isDriveExportFolder(dirPath: string, dirName: string): boolean {
+	const driveNames = ['Drive', 'Google Drive', 'My Drive'];
+	if (!driveNames.some((n) => dirName.includes(n))) return false;
+
+	try {
+		const entries = readdirSync(dirPath);
+		return entries.some((e) => e.endsWith('-info.json'));
+	} catch {
+		return false;
+	}
+}
+
+/**
  * Get the actual mbox file path from an Apple Mail bundle
  */
 export function getMboxPathFromBundle(bundlePath: string): string {
@@ -282,6 +298,18 @@ export function scanDirectory(dirPath: string): ScannedFile[] {
 						size: stats.size,
 						isDirectory: true,
 					});
+				} else if (isDriveExportFolder(fullPath, entry.name)) {
+					// Google Drive export folder - route to takeout converter
+					const stats = statSync(fullPath);
+					results.push({
+						id: generateFileId(),
+						path: fullPath,
+						name: entry.name,
+						type: 'takeout',
+						converterType: 'takeout',
+						size: stats.size,
+						isDirectory: true,
+					});
 				} else {
 					// Recurse into regular directories
 					const children = scanDirectory(fullPath);
@@ -349,6 +377,17 @@ export async function scanPaths(paths: string[]): Promise<ScannedFile[]> {
 						name: basename(path),
 						type: 'rtfd',
 						converterType: 'processor',
+						size: stats.size,
+						isDirectory: true,
+					});
+				} else if (isDriveExportFolder(path, basename(path))) {
+					console.error(`[file-router] detected Google Drive export folder: "${path}"`);
+					results.push({
+						id: generateFileId(),
+						path,
+						name: basename(path),
+						type: 'takeout',
+						converterType: 'takeout',
 						size: stats.size,
 						isDirectory: true,
 					});

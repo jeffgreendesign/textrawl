@@ -342,6 +342,11 @@ main {
 	font-size: 0.875rem;
 }
 
+.log-actions {
+	display: flex;
+	gap: 0.5rem;
+}
+
 .log-container {
 	background: var(--bg-secondary);
 	border-radius: 8px;
