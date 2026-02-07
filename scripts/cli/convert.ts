@@ -116,15 +116,17 @@ program
 	.option('-v, --verbose', 'Enable verbose logging', false)
 	.option('--dry-run', 'Preview without writing files', false)
 	.option('-t, --tags <tags...>', 'Additional tags', [])
-	.option('--types <types...>', 'Types to process (youtube,calendar,contacts,mail)', [
+	.option('--types <types...>', 'Types to process (youtube,calendar,contacts,mail,drive)', [
 		'youtube',
 		'calendar',
 		'contacts',
+		'drive',
 	])
 	.option('--youtube-history', 'Include YouTube watch history', true)
 	.option('--youtube-likes', 'Include YouTube liked videos', true)
 	.option('--calendar-name <name>', 'Filter by calendar name')
 	.option('--contacts-only-email', 'Only contacts with email', false)
+	.option('--skip-trashed', 'Skip trashed Drive files', true)
 	.option('--preview', 'Analyze and show stats without converting', false)
 	.action((path, opts) => {
 		const args = [path];
@@ -137,6 +139,7 @@ program
 		if (!opts.youtubeLikes) args.push('--no-youtube-likes');
 		if (opts.calendarName) args.push('--calendar-name', opts.calendarName);
 		if (opts.contactsOnlyEmail) args.push('--contacts-only-email');
+		if (!opts.skipTrashed) args.push('--no-skip-trashed');
 		if (opts.preview) args.push('--preview');
 
 		runConverter('takeout', args);
@@ -358,6 +361,10 @@ program
 			// Check for EML files
 			else if (files.some((f) => f.endsWith('.eml'))) {
 				format = 'eml';
+			}
+			// Check for Google Drive Takeout folder (has -info.json companion files)
+			else if (files.some((f) => f.endsWith('-info.json'))) {
+				format = 'takeout';
 			}
 			// Check for Takeout archive
 			else if (files.some((f) => f.includes('Takeout') || f.includes('YouTube'))) {

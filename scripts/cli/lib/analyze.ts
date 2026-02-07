@@ -707,15 +707,40 @@ async function analyzeZip(zipPath: string): Promise<AnalysisResult> {
 
 		// Google Takeout: Takeout/ folder
 		if (files.includes('Takeout')) {
+			const takeoutDir = join(contentRoot, 'Takeout');
+			const takeoutFiles = readdirSync(takeoutDir);
+			const breakdown: Record<string, number> = {};
+
+			// Check for Drive folder
+			const driveNames = ['Drive', 'Google Drive', 'My Drive'];
+			const driveDirName = takeoutFiles.find((f) => driveNames.includes(f));
+			if (driveDirName) {
+				const driveStats = analyzeDriveFolder(join(takeoutDir, driveDirName));
+				breakdown.driveFiles = driveStats.total;
+				for (const [ext, count] of Object.entries(driveStats.byType)) {
+					breakdown[`drive_${ext.replace('.', '')}`] = count;
+				}
+				if (driveStats.trashed > 0) breakdown.driveTrashed = driveStats.trashed;
+				if (driveStats.starred > 0) breakdown.driveStarred = driveStats.starred;
+			}
+
+			// Check for other known Takeout types
+			if (takeoutFiles.some((f) => f.includes('YouTube'))) breakdown.youtube = 1;
+			if (takeoutFiles.some((f) => f.includes('Calendar'))) breakdown.calendar = 1;
+			if (takeoutFiles.some((f) => f.includes('Contacts'))) breakdown.contacts = 1;
+			if (takeoutFiles.some((f) => f.includes('Mail') || f.includes('Gmail'))) breakdown.mail = 1;
+
+			const totalItems = Object.values(breakdown).reduce((a, b) => a + b, 0);
+
 			return {
 				format: 'takeout',
 				filename: zipFilename,
 				fileSizeBytes: zipSize,
 				canPreview: true,
-				totalItems: 0,
-				estimatedOutputFiles: 0,
-				estimatedOutputSizeBytes: 0,
-				breakdown: { note: 'Google Takeout detected' },
+				totalItems,
+				estimatedOutputFiles: breakdown.driveFiles || 0,
+				estimatedOutputSizeBytes: (breakdown.driveFiles || 0) * 3000,
+				breakdown,
 			};
 		}
 
@@ -799,4 +824,130 @@ export async function analyzeExport(path: string): Promise<AnalysisResult> {
 		estimatedOutputFiles: 0,
 		estimatedOutputSizeBytes: 0,
 	};
+}
+
+/**
+ * Analyze a Google Drive export folder by counting files and reading -info.json metadata
+ */
+function analyzeDriveFolder(folderPath: string): {
+	total: number;
+	byType: Record<string, number>;
+	trashed: number;
+	starred: number;
+} {
+	let total = 0;
+	let trashed = 0;
+	let starred = 0;
+	const byType: Record<string, number> = {};
+
+	function walk(dir: string): void {
+		try {
+			const entries = readdirSync(dir);
+			for (const entry of entries) {
+				if (entry.endsWith('-info.json') || entry.startsWith('.')) continue;
+				const fullPath = join(dir, entry);
+				const stat = statSync(fullPath);
+
+				if (stat.isDirectory()) {
+					walk(fullPath);
+				} else {
+					const ext = extname(entry).toLowerCase() || '(none)';
+					total++;
+					byType[ext] = (byType[ext] || 0) + 1;
+
+					// Check companion -info.json
+					const infoPath = `${fullPath}-info.json`;
+					if (existsSync(infoPath)) {
+						try {
+							const info = JSON.parse(readFileSync(infoPath, 'utf-8'));
+							if (info.trashed) trashed++;
+							if (info.starred) starred++;
+						} catch {
+							// Ignore malformed -info.json
+						}
+					}
+				}
+			}
+		} catch {
+			// Ignore permission errors
+		}
+	}
+
+	walk(folderPath);
+	return { total, byType, trashed, starred };
+}
+
+/**
+ * Analyze a Google Takeout archive or directory
+ *
+ * Wraps analyzeExport with Takeout-specific enhancements (Drive file counting)
+ */
+export async function analyzeTakeout(path: string): Promise<AnalysisResult> {
+	const stat = statSync(path);
+
+	// For ZIP files, delegate to analyzeExport which handles extraction
+	if (stat.isFile() && extname(path).toLowerCase() === '.zip') {
+		return analyzeExport(path);
+	}
+
+	// For directories, check if it's a Takeout root or a Drive folder directly
+	if (stat.isDirectory()) {
+		const sanitizedPath = sanitizeFolderPath(path);
+		const files = readdirSync(sanitizedPath);
+
+		// Check if this is a Takeout root with a Drive subfolder
+		const driveNames = ['Drive', 'Google Drive', 'My Drive'];
+		const driveDirName = files.find((f) => driveNames.includes(f));
+		const hasTakeoutFolder = files.includes('Takeout');
+
+		// If it has -info.json files, it's likely a Drive folder itself
+		const hasInfoFiles = files.some((f) => f.endsWith('-info.json'));
+
+		const breakdown: Record<string, number> = {};
+		let totalItems = 0;
+
+		if (driveDirName) {
+			const driveStats = analyzeDriveFolder(join(sanitizedPath, driveDirName));
+			breakdown.driveFiles = driveStats.total;
+			totalItems += driveStats.total;
+			for (const [ext, count] of Object.entries(driveStats.byType)) {
+				breakdown[`drive_${ext.replace('.', '')}`] = count;
+			}
+			if (driveStats.trashed > 0) breakdown.driveTrashed = driveStats.trashed;
+			if (driveStats.starred > 0) breakdown.driveStarred = driveStats.starred;
+		} else if (hasInfoFiles) {
+			// This directory IS a Drive folder
+			const driveStats = analyzeDriveFolder(sanitizedPath);
+			breakdown.driveFiles = driveStats.total;
+			totalItems += driveStats.total;
+			for (const [ext, count] of Object.entries(driveStats.byType)) {
+				breakdown[`drive_${ext.replace('.', '')}`] = count;
+			}
+			if (driveStats.trashed > 0) breakdown.driveTrashed = driveStats.trashed;
+			if (driveStats.starred > 0) breakdown.driveStarred = driveStats.starred;
+		} else if (hasTakeoutFolder) {
+			// Nested Takeout/ folder
+			return analyzeTakeout(join(sanitizedPath, 'Takeout'));
+		}
+
+		// Check for other Takeout types
+		if (files.some((f) => f.includes('YouTube'))) breakdown.youtube = 1;
+		if (files.some((f) => f.includes('Calendar'))) breakdown.calendar = 1;
+		if (files.some((f) => f.includes('Contacts'))) breakdown.contacts = 1;
+		if (files.some((f) => f.includes('Mail') || f.includes('Gmail'))) breakdown.mail = 1;
+
+		return {
+			format: 'takeout',
+			filename: basename(sanitizedPath),
+			fileSizeBytes: stat.size,
+			canPreview: true,
+			totalItems,
+			estimatedOutputFiles: breakdown.driveFiles || 0,
+			estimatedOutputSizeBytes: (breakdown.driveFiles || 0) * 3000,
+			breakdown,
+		};
+	}
+
+	// Fallback
+	return analyzeExport(path);
 }

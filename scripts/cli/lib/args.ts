@@ -102,7 +102,7 @@ export function addHtmlOptions(command: Command): Command {
  * Takeout-specific options
  */
 export interface TakeoutOptions extends CommonOptions {
-	/** Types to process: youtube, calendar, contacts, mail */
+	/** Types to process: youtube, calendar, contacts, mail, drive */
 	types: string[];
 	/** Include YouTube watch history */
 	youtubeHistory: boolean;
@@ -114,6 +114,8 @@ export interface TakeoutOptions extends CommonOptions {
 	calendarName?: string;
 	/** Only contacts with email addresses */
 	contactsOnlyEmail: boolean;
+	/** Skip trashed Drive files */
+	skipTrashed: boolean;
 	/** Analyze and show stats without converting */
 	preview: boolean;
 }
@@ -125,14 +127,15 @@ export function addTakeoutOptions(command: Command): Command {
 	return command
 		.addOption(
 			new Option('--types <types...>', 'Types to process')
-				.choices(['youtube', 'calendar', 'contacts', 'mail'])
-				.default(['youtube', 'calendar', 'contacts']),
+				.choices(['youtube', 'calendar', 'contacts', 'mail', 'drive'])
+				.default(['youtube', 'calendar', 'contacts', 'drive']),
 		)
 		.option('--youtube-history', 'Include YouTube watch history', true)
 		.option('--youtube-likes', 'Include YouTube liked videos', true)
 		.option('--youtube-playlists', 'Include YouTube playlists', false)
 		.option('--calendar-name <name>', 'Filter by calendar name')
 		.option('--contacts-only-email', 'Only contacts with email addresses', false)
+		.option('--skip-trashed', 'Skip trashed Drive files', true)
 		.option('--preview', 'Analyze and show stats without converting', false);
 }
 

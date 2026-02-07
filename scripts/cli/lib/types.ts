@@ -122,6 +122,34 @@ export interface ContactMetadata {
 }
 
 /**
+ * Google Drive file metadata from -info.json companion files
+ */
+export interface DriveFileMetadata {
+	/** Google Drive document ID */
+	doc_id?: string;
+	/** Original file title from Google */
+	original_title?: string;
+	/** File owner email or name */
+	owner?: string;
+	/** Whether the file was starred in Drive */
+	starred?: boolean;
+	/** Whether the file was shared */
+	shared?: boolean;
+	/** Whether the file was in trash */
+	trashed?: boolean;
+	/** Description set in Google Drive */
+	description?: string;
+	/** Original file type/extension */
+	file_type?: string;
+	/** Google Drive folder path */
+	drive_path?: string;
+	/** Created timestamp from -info.json */
+	created?: string;
+	/** Modified timestamp from -info.json */
+	modified?: string;
+}
+
+/**
  * Webpage metadata
  */
 export interface WebpageMetadata {

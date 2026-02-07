@@ -59,6 +59,9 @@ importers:
       pdf-parse:
         specifier: ^1.1.1
         version: 1.1.4
+      xlsx:
+        specifier: ^0.18.5
+        version: 0.18.5
       zod:
         specifier: ^3.23.0
         version: 3.25.76

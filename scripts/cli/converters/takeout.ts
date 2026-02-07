@@ -3,7 +3,7 @@
  * Google Takeout Converter
  *
  * Converts Google Takeout archives to markdown files with YAML front matter
- * Supports: YouTube history, Calendar events, Contacts, Mail (MBOX)
+ * Supports: YouTube history, Calendar events, Contacts, Mail (MBOX), Drive files
  *
  * Usage:
  *   pnpm convert -- takeout <takeout.zip> [options]
@@ -21,12 +21,18 @@ import {
 	statSync,
 	writeFileSync,
 } from 'node:fs';
-import { createReadStream } from 'node:fs';
 import { tmpdir } from 'node:os';
-import { basename, dirname, join, resolve } from 'node:path';
+import { basename, dirname, extname, join, resolve } from 'node:path';
 import { promisify } from 'node:util';
 // @ts-ignore - unzipper types
 import * as unzipper from 'unzipper';
+
+// Catch unhandled promise rejections from libraries like pdf-parse that throw
+// internally without proper error propagation. Log and continue instead of crashing.
+process.on('unhandledRejection', (reason) => {
+	// biome-ignore lint/suspicious/noConsole: stderr logging required for MCP
+	console.error(`[WARN] Unhandled rejection (continuing): ${reason}`);
+});
 
 import { analyzeTakeout } from '../lib/analyze.js';
 import { type TakeoutOptions, addTakeoutOptions, createBaseCommand } from '../lib/args.js';
@@ -38,6 +44,7 @@ import type {
 	CalendarMetadata,
 	ContactMetadata,
 	ConversionResult,
+	DriveFileMetadata,
 	YouTubeMetadata,
 } from '../lib/types.js';
 
@@ -58,6 +65,10 @@ interface YouTubeWatchEntry {
 
 /**
  * Extract ZIP file to temporary directory
+ *
+ * Uses central-directory based extraction (Open.file) instead of streaming
+ * (Extract) to avoid Z_BUF_ERROR on large or complex ZIP files like Google
+ * Takeout archives.
  */
 async function extractZip(zipPath: string): Promise<string> {
 	const tempDir = join(tmpdir(), `takeout-${Date.now()}`);
@@ -65,12 +76,8 @@ async function extractZip(zipPath: string): Promise<string> {
 
 	logger.info(`Extracting to ${tempDir}...`);
 
-	await new Promise<void>((resolve, reject) => {
-		createReadStream(zipPath)
-			.pipe(unzipper.Extract({ path: tempDir }))
-			.on('close', resolve)
-			.on('error', reject);
-	});
+	const directory = await unzipper.Open.file(zipPath);
+	await directory.extract({ path: tempDir, concurrency: 5 });
 
 	return tempDir;
 }
@@ -83,6 +90,7 @@ function findTakeoutDirs(extractedPath: string): {
 	calendar?: string;
 	contacts?: string;
 	mail?: string;
+	drive?: string;
 } {
 	const result: ReturnType<typeof findTakeoutDirs> = {};
 
@@ -92,6 +100,7 @@ function findTakeoutDirs(extractedPath: string): {
 		calendar: ['Calendar', 'Google Calendar'],
 		contacts: ['Contacts', 'Google Contacts'],
 		mail: ['Mail', 'Gmail'],
+		drive: ['Drive', 'Google Drive', 'My Drive'],
 	};
 
 	function searchDir(dir: string): void {
@@ -705,6 +714,322 @@ function parseVcfContacts(vcfContent: string): VcfContact[] {
 	return contacts;
 }
 
+// ─── Google Drive ────────────────────────────────────────────────────────────
+
+/**
+ * Google Drive -info.json companion metadata
+ */
+interface DriveInfoJson {
+	title?: string;
+	description?: string;
+	starred?: boolean;
+	trashed?: boolean;
+	shared?: boolean;
+	doc_id?: string;
+	modified?: string;
+	created?: string;
+	owner?: string;
+	owners?: Array<{ emailAddress?: string; displayName?: string }>;
+}
+
+/**
+ * Extensions that can be text-extracted
+ */
+const DRIVE_SUPPORTED_EXTENSIONS = new Set([
+	'.pdf',
+	'.docx',
+	'.doc',
+	'.xlsx',
+	'.xls',
+	'.xlsb',
+	'.csv',
+	'.txt',
+	'.md',
+	'.text',
+	'.json',
+	'.xml',
+	'.html',
+	'.htm',
+]);
+
+/**
+ * Extensions to skip silently (binary media/archives)
+ */
+const DRIVE_SKIP_EXTENSIONS = new Set([
+	'.jpg',
+	'.jpeg',
+	'.png',
+	'.gif',
+	'.bmp',
+	'.svg',
+	'.webp',
+	'.ico',
+	'.tiff',
+	'.mp4',
+	'.mov',
+	'.avi',
+	'.mkv',
+	'.webm',
+	'.mp3',
+	'.wav',
+	'.flac',
+	'.m4a',
+	'.ogg',
+	'.aac',
+	'.zip',
+	'.tar',
+	'.gz',
+	'.rar',
+	'.7z',
+	'.exe',
+	'.dmg',
+	'.app',
+	'.iso',
+]);
+
+/**
+ * Parse a Google Drive -info.json companion file
+ */
+function parseDriveInfoJson(infoPath: string): DriveInfoJson | null {
+	try {
+		const content = readFileSync(infoPath, 'utf-8');
+		return JSON.parse(content) as DriveInfoJson;
+	} catch {
+		return null;
+	}
+}
+
+/**
+ * Find the -info.json companion for a file
+ * Google Takeout names them: "filename.ext-info.json"
+ */
+function findInfoJson(filePath: string): string | null {
+	const infoPath = `${filePath}-info.json`;
+	if (existsSync(infoPath)) {
+		return infoPath;
+	}
+	return null;
+}
+
+/**
+ * Extract text content from a Drive file based on extension
+ */
+async function extractDriveFileText(filePath: string, ext: string): Promise<string | null> {
+	const buffer = readFileSync(filePath);
+
+	switch (ext) {
+		case '.pdf': {
+			const pdf = await import('pdf-parse');
+			const data = await pdf.default(buffer);
+			return data.text;
+		}
+		case '.docx':
+		case '.doc': {
+			const mammoth = await import('mammoth');
+			const result = await mammoth.extractRawText({ buffer });
+			return result.value;
+		}
+		case '.xlsx':
+		case '.xls':
+		case '.xlsb': {
+			const XLSX = await import('xlsx');
+			const workbook = XLSX.read(buffer, { type: 'buffer' });
+			const sheets: string[] = [];
+			for (const sheetName of workbook.SheetNames) {
+				const sheet = workbook.Sheets[sheetName];
+				const csv = XLSX.utils.sheet_to_csv(sheet);
+				sheets.push(`## ${sheetName}\n\n\`\`\`\n${csv}\n\`\`\``);
+			}
+			return sheets.join('\n\n');
+		}
+		case '.csv':
+		case '.txt':
+		case '.md':
+		case '.text':
+		case '.json':
+		case '.xml':
+		case '.html':
+		case '.htm':
+			return buffer.toString('utf-8');
+		default:
+			return null;
+	}
+}
+
+/**
+ * Convert Google Drive files from Takeout export
+ */
+async function convertDrive(
+	driveDir: string,
+	outputDir: string,
+	options: TakeoutOptions,
+): Promise<{ success: number; error: number; skipped: number }> {
+	let successCount = 0;
+	let errorCount = 0;
+	let skippedCount = 0;
+
+	const driveOutputDir = join(outputDir, 'drive');
+	mkdirSync(driveOutputDir, { recursive: true });
+
+	// Collect all files recursively
+	const filesToProcess: Array<{ path: string; relativePath: string }> = [];
+
+	function walkDriveDir(dir: string, relativeDir: string): void {
+		try {
+			const entries = readdirSync(dir);
+			for (const entry of entries) {
+				const fullPath = join(dir, entry);
+				const stat = statSync(fullPath);
+
+				// Skip -info.json companion files (read alongside their parent)
+				if (entry.endsWith('-info.json')) continue;
+				// Skip hidden files
+				if (entry.startsWith('.')) continue;
+
+				if (stat.isDirectory()) {
+					walkDriveDir(fullPath, join(relativeDir, entry));
+				} else {
+					filesToProcess.push({
+						path: fullPath,
+						relativePath: join(relativeDir, entry),
+					});
+				}
+			}
+		} catch {
+			// Ignore permission errors
+		}
+	}
+
+	walkDriveDir(driveDir, '');
+	logger.info(`Found ${filesToProcess.length} files in Drive export`);
+
+	const progress = new ProgressReporter(filesToProcess.length, {
+		verbose: options.verbose,
+	});
+	progress.start();
+
+	for (const file of filesToProcess) {
+		try {
+			const ext = extname(file.path).toLowerCase();
+
+			// Skip known binary files
+			if (DRIVE_SKIP_EXTENSIONS.has(ext)) {
+				skippedCount++;
+				progress.increment(`Skipped ${basename(file.path)}`);
+				continue;
+			}
+
+			// Skip files we can't extract text from
+			if (!DRIVE_SUPPORTED_EXTENSIONS.has(ext)) {
+				skippedCount++;
+				progress.increment(`Skipped ${basename(file.path)}`);
+				continue;
+			}
+
+			// Read companion -info.json metadata
+			const infoPath = findInfoJson(file.path);
+			const info = infoPath ? parseDriveInfoJson(infoPath) : null;
+
+			// Skip trashed files if option set
+			if (options.skipTrashed && info?.trashed) {
+				skippedCount++;
+				progress.increment(`Skipped (trashed) ${basename(file.path)}`);
+				continue;
+			}
+
+			// Extract text
+			const text = await extractDriveFileText(file.path, ext);
+			if (!text || !text.trim()) {
+				skippedCount++;
+				progress.increment(`Skipped (empty) ${basename(file.path)}`);
+				continue;
+			}
+
+			// Build Drive metadata from -info.json
+			const driveMetadata: DriveFileMetadata = {
+				file_type: ext.replace('.', ''),
+				drive_path: file.relativePath,
+			};
+
+			if (info) {
+				if (info.doc_id) driveMetadata.doc_id = info.doc_id;
+				if (info.owner) {
+					driveMetadata.owner = info.owner;
+				} else if (info.owners?.[0]) {
+					driveMetadata.owner = info.owners[0].displayName || info.owners[0].emailAddress;
+				}
+				if (info.starred !== undefined) driveMetadata.starred = info.starred;
+				if (info.shared !== undefined) driveMetadata.shared = info.shared;
+				if (info.trashed !== undefined) driveMetadata.trashed = info.trashed;
+				if (info.description) driveMetadata.description = info.description;
+				if (info.created) driveMetadata.created = info.created;
+				if (info.modified) driveMetadata.modified = info.modified;
+				if (info.title) driveMetadata.original_title = info.title;
+			}
+
+			// Determine dates
+			const createdAt = info?.created
+				? new Date(info.created)
+				: info?.modified
+					? new Date(info.modified)
+					: undefined;
+
+			// Build title from info.json title or filename
+			const title = info?.title || basename(file.path, ext);
+
+			// Generate source hash
+			const fileBuffer = readFileSync(file.path);
+			const sourceHash = createHash('sha256').update(fileBuffer).digest('hex');
+
+			// Build tags
+			const tags = ['imported', 'drive', ext.replace('.', '')];
+			if (info?.starred) tags.push('starred');
+			if (info?.shared) tags.push('shared');
+
+			// Create frontmatter
+			const frontmatter = createFrontmatter({
+				title,
+				sourceType: 'file',
+				contentType: 'document',
+				sourceFile: file.path,
+				sourceHash: `sha256:${sourceHash}`,
+				createdAt,
+				tags,
+				metadata: driveMetadata as unknown as Record<string, unknown>,
+			});
+
+			// Build markdown content
+			const content = `# ${title}\n\n${text}`;
+
+			// Generate output path preserving folder structure
+			const relativeDir = dirname(file.relativePath);
+			const slug = slugify(title, 60);
+			const outputSubDir = relativeDir === '.' ? driveOutputDir : join(driveOutputDir, relativeDir);
+			mkdirSync(outputSubDir, { recursive: true });
+			const outputPath = join(outputSubDir, `${slug}.md`);
+
+			if (!options.dryRun) {
+				const output = serializeFrontmatter(frontmatter, content);
+				writeFileSync(outputPath, output);
+			}
+
+			successCount++;
+			progress.increment(title);
+		} catch (error) {
+			errorCount++;
+			if (options.verbose) {
+				logger.error(`Failed to convert Drive file ${file.path}: ${error}`);
+			}
+			progress.increment(`Error: ${basename(file.path)}`);
+		}
+	}
+
+	progress.finish(
+		`Drive: ${successCount} converted, ${skippedCount} skipped, ${errorCount} errors`,
+	);
+	return { success: successCount, error: errorCount, skipped: skippedCount };
+}
+
 /**
  * Main conversion function
  */
@@ -781,11 +1106,24 @@ async function convertTakeout(inputPath: string, options: TakeoutOptions): Promi
 
 		logger.info('Found data:', dirs);
 
-		const results = {
+		// Direct Drive folder detection (when user points to Drive/ directly)
+		if (!dirs.drive && options.types.includes('drive')) {
+			try {
+				const entries = readdirSync(extractedPath);
+				if (entries.some((e) => e.endsWith('-info.json'))) {
+					dirs.drive = extractedPath;
+				}
+			} catch {
+				// Ignore
+			}
+		}
+
+		const results: Record<string, { success: number; error: number; skipped?: number }> = {
 			youtube: { success: 0, error: 0 },
 			calendar: { success: 0, error: 0 },
 			contacts: { success: 0, error: 0 },
 			mail: { success: 0, error: 0 },
+			drive: { success: 0, error: 0, skipped: 0 },
 		};
 
 		// Process each type
@@ -814,11 +1152,20 @@ async function convertTakeout(inputPath: string, options: TakeoutOptions): Promi
 			logger.info(`Mail directory: ${dirs.mail}`);
 		}
 
+		if (options.types.includes('drive') && dirs.drive) {
+			logger.info('Processing Drive...');
+			results.drive = await convertDrive(dirs.drive, outputDir, options);
+		}
+
 		// Summary
 		logger.info('\n=== Conversion Summary ===');
 		for (const [type, result] of Object.entries(results)) {
 			if (result.success > 0 || result.error > 0) {
-				logger.info(`${type}: ${result.success} converted, ${result.error} errors`);
+				const parts = [`${result.success} converted`, `${result.error} errors`];
+				if ('skipped' in result && result.skipped && result.skipped > 0) {
+					parts.push(`${result.skipped} skipped`);
+				}
+				logger.info(`${type}: ${parts.join(', ')}`);
 			}
 		}
 
