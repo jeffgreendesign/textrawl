@@ -28,6 +28,7 @@ import { isRetryableError, withRetry } from './lib/retry.js';
 import type { DocumentFrontMatter, UploadResult } from './lib/types.js';
 
 import { type CreateChunkInput, createChunks } from '../../src/db/chunks.js';
+import { getSupabaseClient } from '../../src/db/client.js';
 import { createDocument } from '../../src/db/documents.js';
 // Import existing services from the main project
 // These paths work because tsx resolves them at runtime
@@ -37,6 +38,40 @@ import { config } from '../../src/utils/config.js';
 
 /** Manifest save interval (every N successful uploads) */
 const MANIFEST_SAVE_INTERVAL = 50;
+
+/**
+ * Drop the HNSW index on chunks table to speed up bulk inserts.
+ * Requires the `drop_chunks_hnsw_index` function from setup-db-bulk-helpers.sql.
+ */
+async function dropHnswIndex(): Promise<void> {
+	const client = getSupabaseClient();
+	const start = Date.now();
+	const { error } = await client.rpc('drop_chunks_hnsw_index');
+	if (error) {
+		throw new Error(`Failed to drop HNSW index: ${error.message}`);
+	}
+	logger.info(`HNSW index dropped (${Date.now() - start}ms)`);
+}
+
+/**
+ * Recreate the HNSW index on chunks table after bulk inserts.
+ * Requires the `create_chunks_hnsw_index` function from setup-db-bulk-helpers.sql.
+ */
+async function recreateHnswIndex(): Promise<void> {
+	const client = getSupabaseClient();
+	const start = Date.now();
+	logger.info('Recreating HNSW index (this may take a while for large datasets)...');
+	const { error } = await client.rpc('create_chunks_hnsw_index');
+	if (error) {
+		throw new Error(`Failed to recreate HNSW index: ${error.message}`);
+	}
+	logger.info(`HNSW index recreated (${((Date.now() - start) / 1000).toFixed(1)}s)`);
+}
+
+/** Sleep for a given number of milliseconds */
+function sleep(ms: number): Promise<void> {
+	return new Promise((resolve) => setTimeout(resolve, ms));
+}
 
 /**
  * Parsed and validated file ready for upload
@@ -139,7 +174,7 @@ async function uploadFileSemantic(
 			metadata: { tokenCount: chunk.tokenCount },
 		}));
 
-		await withRetry(() => createChunks(chunkInputs), retryOpts);
+		await withRetry(() => createChunks(chunkInputs, options.chunkBatchSize), retryOpts);
 
 		return {
 			success: true,
@@ -240,11 +275,17 @@ async function uploadBatchedFixed(
 	}
 
 	// Phase 3: Insert documents and chunks concurrently
-	const insertLimit = pLimit(options.concurrency);
+	const insertConcurrency = options.insertConcurrency ?? options.concurrency;
+	const insertLimit = pLimit(insertConcurrency);
 
 	const insertPromises = chunkedFiles.map((cf, fileIndex) =>
 		insertLimit(async () => {
 			progress.update(0, cf.prepared.relativePath);
+
+			// Inter-file delay to reduce DB pressure
+			if (options.delay > 0) {
+				await sleep(options.delay);
+			}
 
 			try {
 				// Create document
@@ -278,7 +319,7 @@ async function uploadBatchedFixed(
 						metadata: { tokenCount: chunk.tokenCount },
 					}));
 
-					await withRetry(() => createChunks(chunkInputs), retryOpts);
+					await withRetry(() => createChunks(chunkInputs, options.chunkBatchSize), retryOpts);
 				}
 
 				counters.success++;
@@ -386,9 +427,28 @@ async function uploadDocuments(directory: string, options: UploadOptions): Promi
 	}
 
 	logger.info(`Uploading ${toUpload.length} file(s)...`);
+	const insertConcurrency = options.insertConcurrency ?? options.concurrency;
 	logger.info(
-		`Chunking mode: ${config.CHUNKING_MODE}, Concurrency: ${options.concurrency}, Max retries: ${options.maxRetries}`,
+		`Chunking mode: ${config.CHUNKING_MODE}, Concurrency: ${options.concurrency}, Insert concurrency: ${insertConcurrency}, Max retries: ${options.maxRetries}`,
 	);
+	if (options.delay > 0) {
+		logger.info(`Inter-batch delay: ${options.delay}ms`);
+	}
+	if (options.chunkBatchSize !== 50) {
+		logger.info(`Chunk insert batch size: ${options.chunkBatchSize}`);
+	}
+
+	// Drop HNSW index before bulk upload if requested
+	if (options.dropIndex) {
+		try {
+			await dropHnswIndex();
+		} catch (error) {
+			logger.error(
+				`Failed to drop HNSW index: ${error instanceof Error ? error.message : String(error)}`,
+			);
+			logger.error('Ensure setup-db-bulk-helpers.sql has been run. Continuing without index drop.');
+		}
+	}
 
 	// Create progress reporter
 	const progress = new ProgressReporter(toUpload.length, { verbose: options.verbose });
@@ -398,8 +458,22 @@ async function uploadDocuments(directory: string, options: UploadOptions): Promi
 
 	if (config.CHUNKING_MODE === 'fixed') {
 		// Two-phase batched pipeline for fixed chunking
-		// Prepare all files first (CPU-only)
-		const prepared: PreparedFile[] = [];
+		// Adaptive batching: cap total chunks per batch to avoid OOM on large files.
+		// Some files produce 800+ chunks each, so a fixed file count is unreliable.
+		const MAX_FILES_PER_BATCH = 50;
+		const MAX_CHUNKS_PER_BATCH = 2000;
+
+		let prepared: PreparedFile[] = [];
+		let estimatedChunks = 0;
+
+		const flushBatch = async () => {
+			if (prepared.length > 0 && !options.dryRun) {
+				await uploadBatchedFixed(prepared, options, manifest, progress, counters);
+			}
+			prepared = [];
+			estimatedChunks = 0;
+		};
+
 		for (const file of toUpload) {
 			if (options.dryRun) {
 				progress.increment(`[DRY RUN] ${relative(resolvedDir, file)}`);
@@ -412,22 +486,26 @@ async function uploadDocuments(directory: string, options: UploadOptions): Promi
 				counters.errors++;
 				progress.logError(`  ✗ ${relative(resolvedDir, file)}: ${result.error}`);
 				progress.increment();
-			} else {
-				prepared.push(result);
+				continue;
+			}
+
+			// Estimate chunk count from content length (~4 chars per token, ~512 tokens per chunk)
+			const estChunks = Math.max(1, Math.ceil(result.bodyContent.length / 2048));
+			prepared.push(result);
+			estimatedChunks += estChunks;
+
+			// Flush when batch limits are reached
+			if (prepared.length >= MAX_FILES_PER_BATCH || estimatedChunks >= MAX_CHUNKS_PER_BATCH) {
+				await flushBatch();
 			}
 		}
 
-		if (prepared.length > 0 && !options.dryRun) {
-			// Process in batches to avoid holding too many embeddings in memory
-			const BATCH_SIZE = 200;
-			for (let i = 0; i < prepared.length; i += BATCH_SIZE) {
-				const batch = prepared.slice(i, i + BATCH_SIZE);
-				await uploadBatchedFixed(batch, options, manifest, progress, counters);
-			}
-		}
+		// Flush remaining files
+		await flushBatch();
 	} else {
 		// Per-file processing for semantic chunking mode
-		const limit = pLimit(options.concurrency);
+		const semanticConcurrency = options.insertConcurrency ?? options.concurrency;
+		const limit = pLimit(semanticConcurrency);
 
 		const uploadPromises = toUpload.map((file, index) =>
 			limit(async () => {
@@ -438,6 +516,11 @@ async function uploadDocuments(directory: string, options: UploadOptions): Promi
 					progress.increment(`[DRY RUN] ${relativePath}`);
 					counters.success++;
 					return;
+				}
+
+				// Inter-file delay to reduce DB pressure
+				if (options.delay > 0) {
+					await sleep(options.delay);
 				}
 
 				const prepResult = prepareFile(file, resolvedDir, options);
@@ -486,10 +569,25 @@ async function uploadDocuments(directory: string, options: UploadOptions): Promi
 		await Promise.all(uploadPromises);
 	}
 
+	// Recreate HNSW index if it was dropped
+	if (options.dropIndex) {
+		progress.finish('Inserts complete. Recreating HNSW index...');
+		try {
+			await recreateHnswIndex();
+		} catch (error) {
+			logger.error(
+				`Failed to recreate HNSW index: ${error instanceof Error ? error.message : String(error)}`,
+			);
+			logger.error(
+				'Run manually: CREATE INDEX chunks_embedding_idx ON chunks USING hnsw (embedding vector_cosine_ops);',
+			);
+		}
+	}
+
 	// Save manifest (final save catches anything since last periodic save)
 	manifest.save();
 
-	// Finish progress
+	// Finish progress (no-op if already called above, but needed for non-drop-index path)
 	progress.finish(`Done: ${counters.success} uploaded, ${counters.errors} failed`);
 
 	// Summary
@@ -518,4 +616,8 @@ program
 		await uploadDocuments(directory, opts);
 	});
 
-program.parse();
+// pnpm passes '--' through to the script, which Commander treats as
+// end-of-options (all subsequent flags become positional args and are ignored).
+// Strip it so flags like --concurrency work when invoked via pnpm.
+const argv = process.argv.filter((arg, i) => !(i === 2 && arg === '--'));
+program.parse(argv);

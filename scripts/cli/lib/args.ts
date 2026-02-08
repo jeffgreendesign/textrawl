@@ -151,10 +151,18 @@ export interface UploadOptions extends CommonOptions {
 	batchSize: number;
 	/** Parallel document processing */
 	concurrency: number;
+	/** Parallel DB insert operations (defaults to concurrency value) */
+	insertConcurrency?: number;
 	/** Glob pattern for files */
 	pattern: string;
 	/** Maximum retries for transient failures */
 	maxRetries: number;
+	/** Drop and recreate HNSW index for bulk uploads */
+	dropIndex: boolean;
+	/** Delay in ms between batch inserts (helps avoid DB overload) */
+	delay: number;
+	/** Chunks per INSERT statement (lower = less HNSW pressure) */
+	chunkBatchSize: number;
 }
 
 /**
@@ -164,15 +172,42 @@ export function addUploadOptions(command: Command): Command {
 	return command
 		.option('-r, --recursive', 'Process subdirectories', true)
 		.option('--force', 'Re-upload even if in manifest', false)
-		.option('--batch-size <n>', 'Embeddings per batch', parseInt, 50)
+		.option('--batch-size <n>', 'Embeddings per batch', (v: string) => parseInt(v, 10), 50)
 		.option(
 			'--concurrency <n>',
-			'Parallel document processing (recommended: 10-20 for OpenAI, 5-10 for Ollama)',
-			parseInt,
-			20,
+			'Parallel document processing (recommended: 5-10 for OpenAI, 3-5 for Ollama)',
+			(v: string) => parseInt(v, 10),
+			5,
+		)
+		.option(
+			'--insert-concurrency <n>',
+			'Parallel DB insert operations (defaults to --concurrency)',
+			(v: string) => parseInt(v, 10),
 		)
 		.option('--pattern <glob>', 'Glob pattern for files', '**/*.md')
-		.option('--max-retries <n>', 'Max retries for transient failures', parseInt, 3);
+		.option(
+			'--max-retries <n>',
+			'Max retries for transient failures',
+			(v: string) => parseInt(v, 10),
+			3,
+		)
+		.option(
+			'--drop-index',
+			'Drop HNSW index before upload and recreate after (faster bulk inserts)',
+			false,
+		)
+		.option(
+			'--delay <ms>',
+			'Delay in ms between batch inserts to reduce DB pressure',
+			(v: string) => parseInt(v, 10),
+			0,
+		)
+		.option(
+			'--chunk-batch-size <n>',
+			'Chunks per INSERT statement (lower = less HNSW pressure, default: 50)',
+			(v: string) => parseInt(v, 10),
+			50,
+		);
 }
 
 /**
