@@ -21,6 +21,10 @@ export function getSupabaseClient(): SupabaseClient {
 				persistSession: false,
 				autoRefreshToken: false,
 			},
+			global: {
+				fetch: (url: URL | RequestInfo, init?: RequestInit) =>
+					fetch(url, { ...init, signal: init?.signal ?? AbortSignal.timeout(30_000) }),
+			},
 		});
 		logger.info('Supabase client initialized');
 	}
