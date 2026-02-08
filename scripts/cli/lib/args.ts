@@ -140,6 +140,107 @@ export function addTakeoutOptions(command: Command): Command {
 }
 
 /**
+ * Scan-specific options
+ */
+export interface ScanOptions extends CommonOptions {
+	/** Process subdirectories */
+	recursive: boolean;
+	/** Glob pattern for files */
+	pattern: string;
+	/** Maximum file size threshold in MB */
+	maxFileSize: number;
+	/** Maximum chunk count threshold */
+	maxChunks: number;
+	/** Show all files, not just problematic ones */
+	all: boolean;
+	/** Output format */
+	format: 'table' | 'json';
+}
+
+/**
+ * Add Scan-specific options to a command
+ */
+export function addScanOptions(command: Command): Command {
+	return command
+		.option('-r, --recursive', 'Process subdirectories', true)
+		.option('--pattern <glob>', 'Glob pattern for files', '**/*.md')
+		.option(
+			'--max-file-size <mb>',
+			'Max file size threshold in MB',
+			(v: string) => parseInt(v, 10),
+			20,
+		)
+		.option('--max-chunks <n>', 'Max chunk count threshold', (v: string) => parseInt(v, 10), 500)
+		.option('--all', 'Show all files, not just problematic ones', false)
+		.option('--format <type>', 'Output format: table or json', 'table');
+}
+
+/**
+ * Split CLI options
+ */
+export interface SplitCliOptions extends CommonOptions {
+	/** Heading level to split at (1-6) */
+	splitLevel: number;
+	/** Target max size per part in MB */
+	targetSize: number;
+	/** Target max chunks per part */
+	targetChunks: number;
+	/** Filename suffix pattern */
+	suffix: string;
+	/** Process directories recursively */
+	recursive: boolean;
+	/** Only split files exceeding upload limits */
+	onlyOversized: boolean;
+	/** Glob pattern for files */
+	pattern: string;
+	/** Max file size in MB (for oversized check) */
+	maxFileSize: number;
+	/** Max chunks per file (for oversized check) */
+	maxChunks: number;
+}
+
+/**
+ * Add Split-specific options to a command
+ */
+export function addSplitOptions(command: Command): Command {
+	return command
+		.option(
+			'--split-level <n>',
+			'Heading level to split at (1-6, default: 2)',
+			(v: string) => parseInt(v, 10),
+			2,
+		)
+		.option(
+			'--target-size <mb>',
+			'Target max size per part in MB',
+			(v: string) => parseInt(v, 10),
+			15,
+		)
+		.option(
+			'--target-chunks <n>',
+			'Target max chunks per part',
+			(v: string) => parseInt(v, 10),
+			400,
+		)
+		.option('--suffix <pattern>', 'Suffix for split files (use {n} for part number)', '-part-{n}')
+		.option('-r, --recursive', 'Process directories recursively', false)
+		.option('--only-oversized', 'Only split files exceeding upload limits', false)
+		.option('--pattern <glob>', 'Glob pattern for files', '**/*.md')
+		.option(
+			'--max-file-size <mb>',
+			'Max file size in MB (for --only-oversized)',
+			(v: string) => parseInt(v, 10),
+			20,
+		)
+		.option(
+			'--max-chunks <n>',
+			'Max chunks per file (for --only-oversized)',
+			(v: string) => parseInt(v, 10),
+			500,
+		);
+}
+
+/**
  * Upload-specific options
  */
 export interface UploadOptions extends CommonOptions {
@@ -169,6 +270,12 @@ export interface UploadOptions extends CommonOptions {
 	skipLarge: boolean;
 	/** Maximum file size in MB */
 	maxFileSize: number;
+	/** Delay in ms between embedding API requests (helps avoid rate limits) */
+	embeddingDelay: number;
+	/** Automatically split files that exceed upload limits */
+	autoSplit: boolean;
+	/** Heading level for auto-split (1-6) */
+	autoSplitLevel: number;
 }
 
 /**
@@ -221,6 +328,19 @@ export function addUploadOptions(command: Command): Command {
 			'Max file size in MB (default: 20)',
 			(v: string) => parseInt(v, 10),
 			20,
+		)
+		.option(
+			'--embedding-delay <ms>',
+			'Delay in ms between embedding API requests (helps avoid rate limits, default: 0)',
+			(v: string) => parseInt(v, 10),
+			0,
+		)
+		.option('--auto-split', 'Automatically split files that exceed upload limits', false)
+		.option(
+			'--auto-split-level <n>',
+			'Heading level for auto-split (1-6, default: 2)',
+			(v: string) => parseInt(v, 10),
+			2,
 		);
 }
 

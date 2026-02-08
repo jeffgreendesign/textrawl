@@ -27,6 +27,8 @@
 		"convert:takeout": "tsx scripts/cli/converters/takeout.ts",
 		"convert:html": "tsx scripts/cli/converters/html.ts",
 		"upload": "tsx scripts/cli/upload.ts",
+		"scan": "tsx scripts/cli/scan.ts",
+		"split": "tsx scripts/cli/split.ts",
 		"ui": "tsx scripts/ui/server.ts",
 		"docs:dev": "pnpm --filter textrawl-website dev",
 		"docs:build": "pnpm --filter textrawl-website build",

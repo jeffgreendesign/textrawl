@@ -166,6 +166,115 @@ export interface WebpageMetadata {
 	raw_meta: Record<string, string>;
 }
 
+// ─── Scan / Split Types ───
+
+/**
+ * A heading found in a markdown document
+ */
+export interface HeadingNode {
+	/** Heading level (1-6) */
+	level: number;
+	/** Heading text */
+	text: string;
+	/** Line number in the body content (1-based) */
+	line: number;
+	/** Character offset in body content */
+	offset: number;
+	/** Character count of section content (until next heading or EOF) */
+	sectionLength: number;
+	/** Estimated chunks for this section */
+	estimatedChunks: number;
+}
+
+/**
+ * A suggested point to split a large file
+ */
+export interface SplitPoint {
+	/** Character offset in body content where the split occurs */
+	offset: number;
+	/** Heading that starts this section */
+	heading?: HeadingNode;
+	/** Estimated size in bytes of the resulting part */
+	estimatedPartSize: number;
+	/** Estimated chunks for the resulting part */
+	estimatedChunks: number;
+}
+
+/**
+ * Result of scanning a single file for upload readiness
+ */
+export interface ScanFileResult {
+	/** Relative path to the file */
+	relativePath: string;
+	/** File size in bytes */
+	fileSizeBytes: number;
+	/** File size in MB */
+	fileSizeMB: number;
+	/** Estimated chunk count */
+	estimatedChunks: number;
+	/** Whether the file exceeds the file size limit */
+	exceedsFileSize: boolean;
+	/** Whether the file exceeds the chunk count limit */
+	exceedsChunkLimit: boolean;
+	/** Whether the file can be uploaded as-is */
+	uploadable: boolean;
+	/** Heading structure */
+	headings: HeadingNode[];
+	/** Suggested split points */
+	suggestedSplitPoints: SplitPoint[];
+	/** Has valid frontmatter */
+	hasValidFrontmatter: boolean;
+	/** Title from frontmatter */
+	title?: string;
+	/** Error if file couldn't be scanned */
+	error?: string;
+}
+
+/**
+ * Summary of a scan across a directory
+ */
+export interface ScanSummary {
+	totalFiles: number;
+	uploadableFiles: number;
+	needsSplitting: number;
+	exceedsSizeLimit: number;
+	exceedsChunkLimit: number;
+	totalEstimatedChunks: number;
+	files: ScanFileResult[];
+}
+
+/**
+ * Metadata added to split file frontmatter for document linking
+ */
+export interface SplitMetadata {
+	/** Group identifier (original file's source_hash) */
+	split_group: string;
+	/** 1-based part number */
+	split_part: number;
+	/** Total parts in the group */
+	split_total: number;
+	/** Title of the original unsplit document */
+	split_source_title: string;
+	/** Heading that starts this part */
+	split_heading?: string;
+}
+
+/**
+ * Result of splitting a single file
+ */
+export interface SplitFileResult {
+	/** Original file path */
+	originalPath: string;
+	/** Whether splitting was performed */
+	wasSplit: boolean;
+	/** Paths of written part files */
+	partPaths: string[];
+	/** Number of parts created */
+	partCount: number;
+	/** Error if splitting failed */
+	error?: string;
+}
+
 /**
  * Log entry for processing feedback
  */
