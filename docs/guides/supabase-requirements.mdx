@@ -54,12 +54,13 @@ Estimated storage per document (assuming OpenAI 1536-dimension embeddings):
 
 ## Compute Tier Recommendations
 
-Supabase Pro plan ($25/mo) does not include a compute upgrade by default. Add a compute add-on based on your usage.
+Supabase Pro plan ($25/mo) includes $10/mo in compute credits, which covers one Micro instance at no extra cost. Upgrade to a larger tier by paying the difference.
 
-### Micro -- $10/mo (Default)
+### Micro -- Included with Pro ($10/mo, covered by credits)
 
 2-core shared ARM, 1 GB RAM, 60 direct connections
 
+- Included at no extra cost on Pro plan via compute credits
 - Suitable for getting started and light personal use
 - Handles up to ~30K vectors comfortably
 - HNSW indexes must stay under ~250 MB total
@@ -207,6 +208,6 @@ If your total HNSW index size approaches `shared_buffers`, it's time to upgrade.
 
 3. **Temporary compute boosts.** For large batch imports, temporarily upgrade your compute tier (billed hourly), build HNSW indexes faster, then scale back down.
 
-4. **Consider pgvectorscale for 100K+ vectors.** DiskANN indexes use SSD instead of RAM, making them much cheaper to scale. Supabase supports this natively via the `pgvectorscale` extension.
+4. **Consider pgvectorscale for 100K+ vectors.** DiskANN indexes use SSD instead of RAM, making them much cheaper to scale. pgvectorscale is not yet a native Supabase extension, but can be used with Supabase via the [pgai Python CLI](https://github.com/timescale/pgai). For self-hosted PostgreSQL, install it directly.
 
 5. **Keep the spend cap on** initially. Textrawl is single-tenant -- you won't get surprise traffic spikes.
