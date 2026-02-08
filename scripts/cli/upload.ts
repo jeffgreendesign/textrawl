@@ -552,14 +552,22 @@ async function uploadDocuments(directory: string, options: UploadOptions): Promi
 				logger.warn(`Large file: ${result.relativePath} (~${estChunks} chunks)`);
 			}
 
-			prepared.push(result);
-			estimatedChunks += estChunks;
-
 			// Dynamically reduce batch limits when files are large
 			const dynamicMaxFiles = estChunks > LARGE_FILE_THRESHOLD ? 5 : MAX_FILES_PER_BATCH;
 			const dynamicMaxChunks = estChunks > LARGE_FILE_THRESHOLD ? 500 : MAX_CHUNKS_PER_BATCH;
 
-			// Flush when batch limits are reached
+			// Flush existing batch first if adding this file would exceed limits
+			if (
+				prepared.length > 0 &&
+				(prepared.length + 1 > dynamicMaxFiles || estimatedChunks + estChunks > dynamicMaxChunks)
+			) {
+				await flushBatch();
+			}
+
+			prepared.push(result);
+			estimatedChunks += estChunks;
+
+			// Also flush if this single file already fills a batch
 			if (prepared.length >= dynamicMaxFiles || estimatedChunks >= dynamicMaxChunks) {
 				await flushBatch();
 			}

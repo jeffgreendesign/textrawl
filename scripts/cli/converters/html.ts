@@ -281,7 +281,7 @@ async function convertHtmlFile(
 		}
 
 		if (fileSizeMB > 2) {
-			console.error(`[html] Warning: Large file (${fileSizeMB.toFixed(1)}MB): ${inputPath}`);
+			logger.warn(`Large file (${fileSizeMB.toFixed(1)}MB): ${inputPath}`);
 		}
 
 		// Read file

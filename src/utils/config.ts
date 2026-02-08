@@ -116,19 +116,19 @@ const envSchema = z.object({
 		.string()
 		.default('20')
 		.transform((val) => parseInt(val, 10))
-		.describe('Maximum single file size for upload (MB)'),
+		.refine((val) => val >= 1, 'Must be at least 1 MB'),
 
 	WARN_FILE_SIZE_MB: z
 		.string()
 		.default('5')
 		.transform((val) => parseInt(val, 10))
-		.describe('File size threshold for warnings (MB)'),
+		.refine((val) => val >= 1, 'Must be at least 1 MB'),
 
 	MAX_CHUNKS_PER_FILE: z
 		.string()
 		.default('500')
 		.transform((val) => parseInt(val, 10))
-		.describe('Maximum chunks per file before rejection'),
+		.refine((val) => val >= 1, 'Must be at least 1'),
 });
 
 export type Config = z.infer<typeof envSchema>;

@@ -108,6 +108,34 @@ const UTI_MAP: Record<string, FileType> = {
 };
 
 /**
+ * Get the actual content size for bundle directories.
+ * statSync on a directory returns the directory entry size, not the content size.
+ * For known bundle types, stat the inner payload file instead.
+ */
+function getBundleContentSize(dirPath: string, type: FileType): number {
+	try {
+		if (type === 'mbox-bundle') {
+			// Apple Mail .mbox bundle: actual data is in the inner "mbox" file
+			const innerPath = join(dirPath, 'mbox');
+			if (existsSync(innerPath)) {
+				return statSync(innerPath).size;
+			}
+		}
+		if (type === 'rtfd') {
+			// macOS RTFD bundle: main content is in TXT.rtf
+			const innerPath = join(dirPath, 'TXT.rtf');
+			if (existsSync(innerPath)) {
+				return statSync(innerPath).size;
+			}
+		}
+	} catch {
+		// Fall through to directory stat
+	}
+	// Fallback: use the directory entry size (inaccurate but safe)
+	return statSync(dirPath).size;
+}
+
+/**
  * Classify file size into tiers with appropriate warning messages
  */
 function classifyFileSize(
@@ -329,30 +357,30 @@ export function scanDirectory(dirPath: string): ScannedFile[] {
 
 				// Check for .mbox bundle
 				if (ext === '.mbox' && isAppleMailBundle(fullPath)) {
-					const stats = statSync(fullPath);
-					const { sizeTier, sizeWarning } = classifyFileSize(stats.size, 'mbox-bundle');
+					const contentSize = getBundleContentSize(fullPath, 'mbox-bundle');
+					const { sizeTier, sizeWarning } = classifyFileSize(contentSize, 'mbox-bundle');
 					results.push({
 						id: generateFileId(),
 						path: fullPath,
 						name: entry.name,
 						type: 'mbox-bundle',
 						converterType: 'mbox',
-						size: stats.size,
+						size: contentSize,
 						isDirectory: true,
 						sizeTier,
 						sizeWarning,
 					});
 				} else if (isRtfdBundle(fullPath)) {
 					// Check for RTFD bundle
-					const stats = statSync(fullPath);
-					const { sizeTier, sizeWarning } = classifyFileSize(stats.size, 'rtfd');
+					const contentSize = getBundleContentSize(fullPath, 'rtfd');
+					const { sizeTier, sizeWarning } = classifyFileSize(contentSize, 'rtfd');
 					results.push({
 						id: generateFileId(),
 						path: fullPath,
 						name: entry.name,
 						type: 'rtfd',
 						converterType: 'processor',
-						size: stats.size,
+						size: contentSize,
 						isDirectory: true,
 						sizeTier,
 						sizeWarning,
@@ -426,27 +454,29 @@ export async function scanPaths(paths: string[]): Promise<ScannedFile[]> {
 
 				// Check for bundle types
 				if (ext === '.mbox' && isAppleMailBundle(path)) {
-					const { sizeTier, sizeWarning } = classifyFileSize(stats.size, 'mbox-bundle');
+					const contentSize = getBundleContentSize(path, 'mbox-bundle');
+					const { sizeTier, sizeWarning } = classifyFileSize(contentSize, 'mbox-bundle');
 					results.push({
 						id: generateFileId(),
 						path,
 						name: basename(path),
 						type: 'mbox-bundle',
 						converterType: 'mbox',
-						size: stats.size,
+						size: contentSize,
 						isDirectory: true,
 						sizeTier,
 						sizeWarning,
 					});
 				} else if (isRtfdBundle(path)) {
-					const { sizeTier, sizeWarning } = classifyFileSize(stats.size, 'rtfd');
+					const contentSize = getBundleContentSize(path, 'rtfd');
+					const { sizeTier, sizeWarning } = classifyFileSize(contentSize, 'rtfd');
 					results.push({
 						id: generateFileId(),
 						path,
 						name: basename(path),
 						type: 'rtfd',
 						converterType: 'processor',
-						size: stats.size,
+						size: contentSize,
 						isDirectory: true,
 						sizeTier,
 						sizeWarning,
