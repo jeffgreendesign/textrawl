@@ -13,16 +13,24 @@ export interface CreateChunkInput {
 	metadata?: Record<string, unknown>;
 }
 
+/** Default max chunks per INSERT to avoid Supabase statement timeouts on large documents */
+const DEFAULT_CHUNK_INSERT_BATCH_SIZE = 50;
+
 /**
  * Create chunks for a document in batch
+ * @param batchSize - Override chunk insert batch size (default: 50). Lower values reduce per-INSERT
+ *   HNSW index maintenance cost, which helps avoid timeouts during bulk uploads.
  */
-export async function createChunks(chunks: CreateChunkInput[]): Promise<Chunk[]> {
+export async function createChunks(
+	chunks: CreateChunkInput[],
+	batchSize = DEFAULT_CHUNK_INSERT_BATCH_SIZE,
+): Promise<void> {
 	if (!isSupabaseConfigured()) {
 		throw new DatabaseError('Supabase not configured');
 	}
 
 	if (chunks.length === 0) {
-		return [];
+		return;
 	}
 
 	const client = getSupabaseClient();
@@ -37,22 +45,23 @@ export async function createChunks(chunks: CreateChunkInput[]): Promise<Chunk[]>
 		metadata: chunk.metadata ?? {},
 	}));
 
-	const { data, error } = await client.from('chunks').insert(records).select();
+	for (let i = 0; i < records.length; i += batchSize) {
+		const batch = records.slice(i, i + batchSize);
+		const { error } = await client.from('chunks').insert(batch);
 
-	if (error) {
-		logger.error('Failed to create chunks', { error: error.message });
-		throw new DatabaseError(`Failed to create chunks: ${error.message}`);
+		if (error) {
+			logger.error('Failed to create chunks', { error: error.message });
+			throw new DatabaseError(`Failed to create chunks: ${error.message}`);
+		}
 	}
 
 	logger.info('Created chunks', {
 		documentId: chunks[0].documentId,
-		count: data.length,
+		count: chunks.length,
 	});
 
 	// Track chunk insertion for proactive insight queue (non-blocking)
-	incrementInsightQueue(data.length).catch(() => {});
-
-	return data as Chunk[];
+	incrementInsightQueue(chunks.length).catch(() => {});
 }
 
 /**
