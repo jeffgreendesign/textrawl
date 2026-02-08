@@ -141,12 +141,17 @@ export function App() {
 			.filter(Boolean);
 
 		try {
-			await window.electronAPI.startConversion(files, {
+			const result = await window.electronAPI.startConversion(files, {
 				outputDir,
 				tags: tagList,
 				dryRun: false,
 				verbose: true,
 			});
+
+			if (result && !result.success) {
+				addLog('error', result.error || 'Conversion failed');
+				setState('ready');
+			}
 		} catch (error) {
 			addLog('error', 'Conversion failed', String(error));
 			setState('ready');
