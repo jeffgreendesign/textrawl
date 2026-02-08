@@ -95,7 +95,7 @@ function prepareFile(
 	try {
 		const stats = statSync(filePath);
 		const sizeMB = stats.size / (1024 * 1024);
-		const maxFileSize = options.maxFileSize ?? 20;
+		const maxFileSize = options.maxFileSize ?? config.MAX_SINGLE_FILE_SIZE;
 
 		// Hard limit for very large files
 		if (sizeMB > maxFileSize) {
@@ -114,8 +114,9 @@ function prepareFile(
 
 		// Estimate chunk count and warn about large files
 		const estimatedChunks = Math.max(1, Math.ceil(bodyContent.length / 2048));
+		const maxChunksPerFile = config.MAX_CHUNKS_PER_FILE;
 
-		if (estimatedChunks > 500) {
+		if (estimatedChunks > maxChunksPerFile) {
 			const relPath = relative(baseDir, filePath);
 			logger.warn(
 				`Large file: ${relPath} (${sizeMB.toFixed(1)}MB, est. ${estimatedChunks} chunks)`,
@@ -134,7 +135,7 @@ function prepareFile(
 
 			if (options.skipLarge) {
 				return {
-					error: `Skipped: file would create ~${estimatedChunks} chunks (>500). Use --allow-large to force.`,
+					error: `Skipped: file would create ~${estimatedChunks} chunks (>${maxChunksPerFile}). Use --allow-large to force.`,
 				};
 			}
 		}
@@ -548,7 +549,7 @@ async function uploadDocuments(directory: string, options: UploadOptions): Promi
 			// Estimate chunk count from content length (~4 chars per token, ~512 tokens per chunk)
 			const estChunks = Math.max(1, Math.ceil(result.bodyContent.length / 2048));
 
-			if (estChunks > 500) {
+			if (estChunks > config.MAX_CHUNKS_PER_FILE) {
 				logger.warn(`Large file: ${result.relativePath} (~${estChunks} chunks)`);
 			}
 
