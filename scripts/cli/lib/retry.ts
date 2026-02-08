@@ -36,7 +36,14 @@ export function isRetryableError(error: unknown): boolean {
 			return true;
 		}
 		// Server errors
-		if (msg.includes('502') || msg.includes('503') || msg.includes('504')) {
+		if (
+			msg.includes('500') ||
+			msg.includes('502') ||
+			msg.includes('503') ||
+			msg.includes('504') ||
+			msg.includes('520') ||
+			msg.includes('522')
+		) {
 			return true;
 		}
 		// Supabase transient
