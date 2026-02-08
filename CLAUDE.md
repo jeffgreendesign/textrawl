@@ -196,6 +196,15 @@ PostgreSQL (Supabase) with:
 - `conversation_turns` - Individual messages with embeddings
 - `conversation_hybrid_search()` / `conversation_semantic_search()` RPCs
 
+### Database Sizing
+
+See `docs/guides/supabase-requirements.mdx` for compute tier recommendations, storage estimates, and diagnostic queries. Key points:
+
+- 6 HNSW indexes across all feature tables must fit in RAM for optimal performance
+- OpenAI 1536d: ~6 KB/vector, ~7 KB/vector index overhead
+- Micro (1 GB RAM) handles up to ~30K vectors; Medium (4 GB) recommended for production
+- General Purpose (gp3) disk is sufficient; 8 GB included free
+
 ### Database Security
 
 Row Level Security (RLS) is enabled with defense-in-depth policies:
