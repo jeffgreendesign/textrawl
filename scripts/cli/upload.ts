@@ -85,7 +85,7 @@ interface PreparedFile {
 }
 
 /**
- * Prepare a file for upload: read, parse, validate frontmatter
+ * Prepare a file for upload: read, parse, validate frontmatter and file size
  */
 function prepareFile(
 	filePath: string,
@@ -93,12 +93,50 @@ function prepareFile(
 	options: UploadOptions,
 ): PreparedFile | { error: string } {
 	try {
+		const stats = statSync(filePath);
+		const sizeMB = stats.size / (1024 * 1024);
+		const maxFileSize = options.maxFileSize ?? 20;
+
+		// Hard limit for very large files
+		if (sizeMB > maxFileSize) {
+			return {
+				error: `File too large (${sizeMB.toFixed(1)}MB). Max ${maxFileSize}MB. Split file before upload.`,
+			};
+		}
+
 		const content = readFileSync(filePath, 'utf-8');
 		const { frontmatter, content: bodyContent } = parseFrontmatter(content);
 		const tags = [...new Set([...(frontmatter.tags || []), ...options.tags])];
 
 		if (!frontmatter.source_hash) {
 			return { error: 'Missing source_hash in front matter' };
+		}
+
+		// Estimate chunk count and warn about large files
+		const estimatedChunks = Math.max(1, Math.ceil(bodyContent.length / 2048));
+
+		if (estimatedChunks > 500) {
+			const relPath = relative(baseDir, filePath);
+			logger.warn(
+				`Large file: ${relPath} (${sizeMB.toFixed(1)}MB, est. ${estimatedChunks} chunks)`,
+			);
+
+			if (config.CHUNKING_MODE === 'semantic' && !options.allowLarge) {
+				if (options.skipLarge) {
+					return {
+						error: `Skipped: too many chunks (${estimatedChunks}) for semantic mode. Use --allow-large to force.`,
+					};
+				}
+				return {
+					error: `Too many chunks (${estimatedChunks}) for semantic mode. Use fixed chunking, --allow-large, or --skip-large.`,
+				};
+			}
+
+			if (options.skipLarge) {
+				return {
+					error: `Skipped: file would create ~${estimatedChunks} chunks (>500). Use --allow-large to force.`,
+				};
+			}
 		}
 
 		return {
@@ -144,11 +182,27 @@ async function uploadFileSemantic(
 			retryOpts,
 		);
 
-		// Chunk the content (semantic mode calls generateEmbeddings internally)
-		const chunks = await withRetry(() => smartChunk(prepared.bodyContent, generateEmbeddings), {
-			...retryOpts,
-			maxRetries: 2,
-		});
+		// Check content size before semantic chunking - fall back to fixed for large files
+		// to prevent memory exhaustion (semantic mode generates embeddings per sentence)
+		const contentSizeMB = prepared.bodyContent.length / (1024 * 1024);
+		let chunks: {
+			content: string;
+			index: number;
+			startOffset: number;
+			endOffset: number;
+			tokenCount: number;
+		}[];
+
+		if (contentSizeMB > 5) {
+			logger.warn(`Large file (${contentSizeMB.toFixed(1)}MB) - falling back to fixed chunking`);
+			chunks = chunkText(prepared.bodyContent);
+		} else {
+			// Chunk the content (semantic mode calls generateEmbeddings internally)
+			chunks = await withRetry(() => smartChunk(prepared.bodyContent, generateEmbeddings), {
+				...retryOpts,
+				maxRetries: 2,
+			});
+		}
 
 		if (chunks.length === 0) {
 			return {
@@ -460,8 +514,10 @@ async function uploadDocuments(directory: string, options: UploadOptions): Promi
 		// Two-phase batched pipeline for fixed chunking
 		// Adaptive batching: cap total chunks per batch to avoid OOM on large files.
 		// Some files produce 800+ chunks each, so a fixed file count is unreliable.
+		// Dynamically reduce batch limits when individual files are large.
 		const MAX_FILES_PER_BATCH = 50;
 		const MAX_CHUNKS_PER_BATCH = 2000;
+		const LARGE_FILE_THRESHOLD = 100; // Chunks per file that triggers dynamic reduction
 
 		let prepared: PreparedFile[] = [];
 		let estimatedChunks = 0;
@@ -491,11 +547,20 @@ async function uploadDocuments(directory: string, options: UploadOptions): Promi
 
 			// Estimate chunk count from content length (~4 chars per token, ~512 tokens per chunk)
 			const estChunks = Math.max(1, Math.ceil(result.bodyContent.length / 2048));
+
+			if (estChunks > 500) {
+				logger.warn(`Large file: ${result.relativePath} (~${estChunks} chunks)`);
+			}
+
 			prepared.push(result);
 			estimatedChunks += estChunks;
 
+			// Dynamically reduce batch limits when files are large
+			const dynamicMaxFiles = estChunks > LARGE_FILE_THRESHOLD ? 5 : MAX_FILES_PER_BATCH;
+			const dynamicMaxChunks = estChunks > LARGE_FILE_THRESHOLD ? 500 : MAX_CHUNKS_PER_BATCH;
+
 			// Flush when batch limits are reached
-			if (prepared.length >= MAX_FILES_PER_BATCH || estimatedChunks >= MAX_CHUNKS_PER_BATCH) {
+			if (prepared.length >= dynamicMaxFiles || estimatedChunks >= dynamicMaxChunks) {
 				await flushBatch();
 			}
 		}

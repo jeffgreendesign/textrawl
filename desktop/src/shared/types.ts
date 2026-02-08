@@ -47,6 +47,9 @@ export type ConverterType =
 	| 'reddit'
 	| 'processor';
 
+// Size tier classification for file size warnings
+export type SizeTier = 'normal' | 'warning' | 'large';
+
 // Scanned file with routing info
 export interface ScannedFile {
 	id: string;
@@ -56,6 +59,8 @@ export interface ScannedFile {
 	converterType: ConverterType | null;
 	size: number;
 	isDirectory: boolean;
+	sizeTier: SizeTier;
+	sizeWarning?: string;
 }
 
 // Conversion options from UI

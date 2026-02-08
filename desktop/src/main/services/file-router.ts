@@ -4,7 +4,7 @@ import { spawnSync } from 'node:child_process';
  */
 import { existsSync, readdirSync, statSync } from 'node:fs';
 import { basename, extname, join } from 'node:path';
-import type { ConverterType, FileType, ScannedFile } from '../../shared/types.js';
+import type { ConverterType, FileType, ScannedFile, SizeTier } from '../../shared/types.js';
 
 // Extension to file type mapping
 const EXTENSION_MAP: Record<string, FileType> = {
@@ -106,6 +106,59 @@ const UTI_MAP: Record<string, FileType> = {
 	'com.apple.mail.mbox': 'mbox',
 	'public.email-message': 'eml',
 };
+
+/**
+ * Classify file size into tiers with appropriate warning messages
+ */
+function classifyFileSize(
+	sizeBytes: number,
+	type: FileType,
+): { sizeTier: SizeTier; sizeWarning?: string } {
+	const sizeMB = sizeBytes / (1024 * 1024);
+
+	if (type === 'mbox' || type === 'mbox-bundle') {
+		if (sizeMB > 10) {
+			return {
+				sizeTier: 'large',
+				sizeWarning: `Large MBOX (${sizeMB.toFixed(1)}MB) - will be split by date during conversion`,
+			};
+		}
+		if (sizeMB > 5) {
+			return {
+				sizeTier: 'warning',
+				sizeWarning: 'Large file - conversion may take several minutes',
+			};
+		}
+	} else if (type === 'html') {
+		if (sizeMB > 5) {
+			return {
+				sizeTier: 'large',
+				sizeWarning: 'Very large HTML file - consider splitting',
+			};
+		}
+		if (sizeMB > 2) {
+			return {
+				sizeTier: 'warning',
+				sizeWarning: 'Large HTML file - conversion may be slow',
+			};
+		}
+	} else {
+		if (sizeMB > 10) {
+			return {
+				sizeTier: 'large',
+				sizeWarning: `Large file (${sizeMB.toFixed(1)}MB) - may fail upload`,
+			};
+		}
+		if (sizeMB > 5) {
+			return {
+				sizeTier: 'warning',
+				sizeWarning: 'Large file detected',
+			};
+		}
+	}
+
+	return { sizeTier: 'normal' };
+}
 
 /**
  * Detect file type via macOS mdls command for extensionless files
@@ -277,6 +330,7 @@ export function scanDirectory(dirPath: string): ScannedFile[] {
 				// Check for .mbox bundle
 				if (ext === '.mbox' && isAppleMailBundle(fullPath)) {
 					const stats = statSync(fullPath);
+					const { sizeTier, sizeWarning } = classifyFileSize(stats.size, 'mbox-bundle');
 					results.push({
 						id: generateFileId(),
 						path: fullPath,
@@ -285,10 +339,13 @@ export function scanDirectory(dirPath: string): ScannedFile[] {
 						converterType: 'mbox',
 						size: stats.size,
 						isDirectory: true,
+						sizeTier,
+						sizeWarning,
 					});
 				} else if (isRtfdBundle(fullPath)) {
 					// Check for RTFD bundle
 					const stats = statSync(fullPath);
+					const { sizeTier, sizeWarning } = classifyFileSize(stats.size, 'rtfd');
 					results.push({
 						id: generateFileId(),
 						path: fullPath,
@@ -297,10 +354,13 @@ export function scanDirectory(dirPath: string): ScannedFile[] {
 						converterType: 'processor',
 						size: stats.size,
 						isDirectory: true,
+						sizeTier,
+						sizeWarning,
 					});
 				} else if (isDriveExportFolder(fullPath, entry.name)) {
 					// Google Drive export folder - route to takeout converter
 					const stats = statSync(fullPath);
+					const { sizeTier, sizeWarning } = classifyFileSize(stats.size, 'takeout');
 					results.push({
 						id: generateFileId(),
 						path: fullPath,
@@ -309,6 +369,8 @@ export function scanDirectory(dirPath: string): ScannedFile[] {
 						converterType: 'takeout',
 						size: stats.size,
 						isDirectory: true,
+						sizeTier,
+						sizeWarning,
 					});
 				} else {
 					// Recurse into regular directories
@@ -319,6 +381,7 @@ export function scanDirectory(dirPath: string): ScannedFile[] {
 				const { type, converterType } = routeFile(fullPath);
 				if (type !== 'unknown' && converterType !== null) {
 					const stats = statSync(fullPath);
+					const { sizeTier, sizeWarning } = classifyFileSize(stats.size, type);
 					results.push({
 						id: generateFileId(),
 						path: fullPath,
@@ -327,6 +390,8 @@ export function scanDirectory(dirPath: string): ScannedFile[] {
 						converterType,
 						size: stats.size,
 						isDirectory: false,
+						sizeTier,
+						sizeWarning,
 					});
 				}
 			}
@@ -361,6 +426,7 @@ export async function scanPaths(paths: string[]): Promise<ScannedFile[]> {
 
 				// Check for bundle types
 				if (ext === '.mbox' && isAppleMailBundle(path)) {
+					const { sizeTier, sizeWarning } = classifyFileSize(stats.size, 'mbox-bundle');
 					results.push({
 						id: generateFileId(),
 						path,
@@ -369,8 +435,11 @@ export async function scanPaths(paths: string[]): Promise<ScannedFile[]> {
 						converterType: 'mbox',
 						size: stats.size,
 						isDirectory: true,
+						sizeTier,
+						sizeWarning,
 					});
 				} else if (isRtfdBundle(path)) {
+					const { sizeTier, sizeWarning } = classifyFileSize(stats.size, 'rtfd');
 					results.push({
 						id: generateFileId(),
 						path,
@@ -379,9 +448,12 @@ export async function scanPaths(paths: string[]): Promise<ScannedFile[]> {
 						converterType: 'processor',
 						size: stats.size,
 						isDirectory: true,
+						sizeTier,
+						sizeWarning,
 					});
 				} else if (isDriveExportFolder(path, basename(path))) {
 					console.error(`[file-router] detected Google Drive export folder: "${path}"`);
+					const { sizeTier, sizeWarning } = classifyFileSize(stats.size, 'takeout');
 					results.push({
 						id: generateFileId(),
 						path,
@@ -390,6 +462,8 @@ export async function scanPaths(paths: string[]): Promise<ScannedFile[]> {
 						converterType: 'takeout',
 						size: stats.size,
 						isDirectory: true,
+						sizeTier,
+						sizeWarning,
 					});
 				} else {
 					// Scan directory contents
@@ -412,6 +486,7 @@ export async function scanPaths(paths: string[]): Promise<ScannedFile[]> {
 
 				if (type !== 'unknown' && converterType !== null) {
 					console.error(`[file-router] adding file: "${path}" type="${type}"`);
+					const { sizeTier, sizeWarning } = classifyFileSize(stats.size, type);
 					results.push({
 						id: generateFileId(),
 						path,
@@ -420,6 +495,8 @@ export async function scanPaths(paths: string[]): Promise<ScannedFile[]> {
 						converterType,
 						size: stats.size,
 						isDirectory: false,
+						sizeTier,
+						sizeWarning,
 					});
 				} else {
 					console.error(`[file-router] SKIPPING file (unknown type or no converter): "${path}"`);
