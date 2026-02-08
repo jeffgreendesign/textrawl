@@ -163,6 +163,12 @@ export interface UploadOptions extends CommonOptions {
 	delay: number;
 	/** Chunks per INSERT statement (lower = less HNSW pressure) */
 	chunkBatchSize: number;
+	/** Allow files that would create >500 chunks (may fail) */
+	allowLarge: boolean;
+	/** Skip files that would create >500 chunks instead of failing */
+	skipLarge: boolean;
+	/** Maximum file size in MB */
+	maxFileSize: number;
 }
 
 /**
@@ -207,6 +213,14 @@ export function addUploadOptions(command: Command): Command {
 			'Chunks per INSERT statement (lower = less HNSW pressure, default: 50)',
 			(v: string) => parseInt(v, 10),
 			50,
+		)
+		.option('--allow-large', 'Allow files >500 chunks (may fail with semantic chunking)', false)
+		.option('--skip-large', 'Skip files >500 estimated chunks instead of failing', false)
+		.option(
+			'--max-file-size <mb>',
+			'Max file size in MB (default: 20)',
+			(v: string) => parseInt(v, 10),
+			20,
 		);
 }
 

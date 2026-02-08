@@ -315,6 +315,22 @@ async function convertMbox(inputPath: string, options: MboxOptions): Promise<voi
 		process.exit(1);
 	}
 
+	// Pre-conversion size check and warnings
+	const inputStats = statSync(resolvedInput);
+	const sizeMB = inputStats.size / (1024 * 1024);
+
+	if (sizeMB > 10) {
+		logger.warn(`\u26a0\ufe0f  Large MBOX file: ${sizeMB.toFixed(1)}MB`);
+		logger.warn(`   Estimated ${Math.round(sizeMB / 0.003).toLocaleString()} emails`);
+		logger.warn('');
+		logger.warn('   Recommendations:');
+		logger.warn('   - Use --max-emails <n> to limit processing');
+		logger.warn('   - Use --date-after/--date-before to filter by date');
+		logger.warn('');
+	} else if (sizeMB > 5) {
+		logger.warn(`Large MBOX file (${sizeMB.toFixed(1)}MB) - conversion may take several minutes`);
+	}
+
 	// Security: validate output directory to prevent path traversal
 	const outputDir = validateOutputPath(options.output);
 

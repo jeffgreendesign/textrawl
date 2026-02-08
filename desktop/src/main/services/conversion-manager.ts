@@ -41,6 +41,17 @@ export class ConversionManager {
 			return { success: false, error: 'Conversion already in progress' };
 		}
 
+		// Validate total batch size to prevent memory exhaustion
+		const totalBytes = files.reduce((sum, f) => sum + f.size, 0);
+		const totalMB = totalBytes / (1024 * 1024);
+
+		if (totalMB > 100) {
+			return {
+				success: false,
+				error: `Total batch size (${totalMB.toFixed(1)}MB) exceeds 100MB limit. Process fewer files at once.`,
+			};
+		}
+
 		this.isRunning = true;
 		this.shouldCancel = false;
 		this.totalFiles = files.length;

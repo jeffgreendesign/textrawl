@@ -101,13 +101,13 @@ function sanitizeUnicode(text: string): string {
 				return match; // Valid pair, keep it
 			}
 		}
-		// Invalid or unpaired surrogate, replace with �
+		// Invalid or unpaired surrogate, replace with \uFFFD
 		return '\uFFFD';
 	});
 }
 
 /**
- * Prepare a file for upload: read, parse, validate frontmatter
+ * Prepare a file for upload: read, parse, validate frontmatter and file size
  */
 function prepareFile(
 	filePath: string,
@@ -115,12 +115,51 @@ function prepareFile(
 	options: UploadOptions,
 ): PreparedFile | { error: string } {
 	try {
+		const stats = statSync(filePath);
+		const sizeMB = stats.size / (1024 * 1024);
+		const maxFileSize = options.maxFileSize ?? config.MAX_SINGLE_FILE_SIZE;
+
+		// Hard limit for very large files
+		if (sizeMB > maxFileSize) {
+			return {
+				error: `File too large (${sizeMB.toFixed(1)}MB). Max ${maxFileSize}MB. Split file before upload.`,
+			};
+		}
+
 		const content = readFileSync(filePath, 'utf-8');
 		const { frontmatter, content: bodyContent } = parseFrontmatter(content);
 		const tags = [...new Set([...(frontmatter.tags || []), ...options.tags])];
 
 		if (!frontmatter.source_hash) {
 			return { error: 'Missing source_hash in front matter' };
+		}
+
+		// Estimate chunk count and warn about large files
+		const estimatedChunks = Math.max(1, Math.ceil(bodyContent.length / 2048));
+		const maxChunksPerFile = config.MAX_CHUNKS_PER_FILE;
+
+		if (estimatedChunks > maxChunksPerFile) {
+			const relPath = relative(baseDir, filePath);
+			logger.warn(
+				`Large file: ${relPath} (${sizeMB.toFixed(1)}MB, est. ${estimatedChunks} chunks)`,
+			);
+
+			if (config.CHUNKING_MODE === 'semantic' && !options.allowLarge) {
+				if (options.skipLarge) {
+					return {
+						error: `Skipped: too many chunks (${estimatedChunks}) for semantic mode. Use --allow-large to force.`,
+					};
+				}
+				return {
+					error: `Too many chunks (${estimatedChunks}) for semantic mode. Use fixed chunking, --allow-large, or --skip-large.`,
+				};
+			}
+
+			if (options.skipLarge) {
+				return {
+					error: `Skipped: file would create ~${estimatedChunks} chunks (>${maxChunksPerFile}). Use --allow-large to force.`,
+				};
+			}
 		}
 
 		// Sanitize body content to remove invalid Unicode
@@ -169,11 +208,28 @@ async function uploadFileSemantic(
 			retryOpts,
 		);
 
-		// Chunk the content (semantic mode calls generateEmbeddings internally)
-		const chunks = await withRetry(() => smartChunk(prepared.bodyContent, generateEmbeddings), {
-			...retryOpts,
-			maxRetries: 2,
-		});
+		// Check content size before semantic chunking - fall back to fixed for large files
+		// to prevent memory exhaustion (semantic mode generates embeddings per sentence)
+		// Use Buffer.byteLength for accurate byte count (string.length counts UTF-16 code units)
+		const contentSizeMB = Buffer.byteLength(prepared.bodyContent, 'utf8') / (1024 * 1024);
+		let chunks: {
+			content: string;
+			index: number;
+			startOffset: number;
+			endOffset: number;
+			tokenCount: number;
+		}[];
+
+		if (contentSizeMB > 5) {
+			logger.warn(`Large file (${contentSizeMB.toFixed(1)}MB) - falling back to fixed chunking`);
+			chunks = chunkText(prepared.bodyContent);
+		} else {
+			// Chunk the content (semantic mode calls generateEmbeddings internally)
+			chunks = await withRetry(() => smartChunk(prepared.bodyContent, generateEmbeddings), {
+				...retryOpts,
+				maxRetries: 2,
+			});
+		}
 
 		if (chunks.length === 0) {
 			return {
@@ -259,7 +315,7 @@ async function uploadBatchedFixed(
 
 	for (const err of chunkErrors) {
 		counters.errors++;
-		progress.logError(`  ✗ ${err.relativePath}: ${err.error}`);
+		progress.logError(`  \u2717 ${err.relativePath}: ${err.error}`);
 		progress.increment();
 	}
 
@@ -293,7 +349,7 @@ async function uploadBatchedFixed(
 		const errMsg = error instanceof Error ? error.message : String(error);
 		for (const cf of chunkedFiles) {
 			counters.errors++;
-			progress.logError(`  ✗ ${cf.prepared.relativePath}: Embedding failed: ${errMsg}`);
+			progress.logError(`  \u2717 ${cf.prepared.relativePath}: Embedding failed: ${errMsg}`);
 			progress.increment();
 		}
 		return;
@@ -372,13 +428,13 @@ async function uploadBatchedFixed(
 
 				if (options.verbose) {
 					progress.log(
-						`  ✓ ${cf.prepared.relativePath} → ${document.id} (${cf.chunks.length} chunks)`,
+						`  \u2713 ${cf.prepared.relativePath} \u2192 ${document.id} (${cf.chunks.length} chunks)`,
 					);
 				}
 			} catch (error) {
 				counters.errors++;
 				progress.logError(
-					`  ✗ ${cf.prepared.relativePath}: ${error instanceof Error ? error.message : String(error)}`,
+					`  \u2717 ${cf.prepared.relativePath}: ${error instanceof Error ? error.message : String(error)}`,
 				);
 			}
 
@@ -492,11 +548,17 @@ async function uploadDocuments(directory: string, options: UploadOptions): Promi
 		// Two-phase batched pipeline for fixed chunking
 		// Adaptive batching: cap total chunks per batch to avoid OOM on large files.
 		// Some files produce 800+ chunks each, so a fixed file count is unreliable.
-		const MAX_FILES_PER_BATCH = 10; // Reduced from 50 to prevent memory exhaustion
-		const MAX_CHUNKS_PER_BATCH = 200; // Reduced from 2000 to prevent memory exhaustion
+		// Dynamically reduce batch limits when individual files are large.
+		// Base limits already conservative (10/200) per main branch hardening.
+		const MAX_FILES_PER_BATCH = 10;
+		const MAX_CHUNKS_PER_BATCH = 200;
+		const LARGE_FILE_THRESHOLD = 100; // Chunks per file that triggers dynamic reduction
 
 		let prepared: PreparedFile[] = [];
 		let estimatedChunks = 0;
+		// Track batch-level limits: once a large file enters a batch, caps stay reduced
+		let batchMaxFiles = MAX_FILES_PER_BATCH;
+		let batchMaxChunks = MAX_CHUNKS_PER_BATCH;
 
 		const flushBatch = async () => {
 			if (prepared.length > 0 && !options.dryRun) {
@@ -506,6 +568,8 @@ async function uploadDocuments(directory: string, options: UploadOptions): Promi
 			prepared.length = 0;
 			prepared = [];
 			estimatedChunks = 0;
+			batchMaxFiles = MAX_FILES_PER_BATCH;
+			batchMaxChunks = MAX_CHUNKS_PER_BATCH;
 			// Suggest GC (non-blocking hint)
 			if (global.gc) {
 				global.gc();
@@ -522,18 +586,39 @@ async function uploadDocuments(directory: string, options: UploadOptions): Promi
 			const result = prepareFile(file, resolvedDir, options);
 			if ('error' in result) {
 				counters.errors++;
-				progress.logError(`  ✗ ${relative(resolvedDir, file)}: ${result.error}`);
+				progress.logError(`  \u2717 ${relative(resolvedDir, file)}: ${result.error}`);
 				progress.increment();
 				continue;
 			}
 
 			// Estimate chunk count from content length (~4 chars per token, ~512 tokens per chunk)
 			const estChunks = Math.max(1, Math.ceil(result.bodyContent.length / 2048));
+
+			if (estChunks > config.MAX_CHUNKS_PER_FILE) {
+				logger.warn(`Large file: ${result.relativePath} (~${estChunks} chunks)`);
+			}
+
+			// Compute per-file limits and tighten batch caps if this file is large
+			const fileMaxFiles = estChunks > LARGE_FILE_THRESHOLD ? 5 : MAX_FILES_PER_BATCH;
+			const fileMaxChunks = estChunks > LARGE_FILE_THRESHOLD ? 100 : MAX_CHUNKS_PER_BATCH;
+
+			// Flush existing batch first if adding this file would exceed limits
+			if (
+				prepared.length > 0 &&
+				(prepared.length + 1 > batchMaxFiles || estimatedChunks + estChunks > batchMaxChunks)
+			) {
+				await flushBatch();
+			}
+
+			// Ratchet down batch limits (sticky: once reduced, stays reduced for this batch)
+			batchMaxFiles = Math.min(batchMaxFiles, fileMaxFiles);
+			batchMaxChunks = Math.min(batchMaxChunks, fileMaxChunks);
+
 			prepared.push(result);
 			estimatedChunks += estChunks;
 
-			// Flush when batch limits are reached
-			if (prepared.length >= MAX_FILES_PER_BATCH || estimatedChunks >= MAX_CHUNKS_PER_BATCH) {
+			// Also flush if this single file already fills a batch
+			if (prepared.length >= batchMaxFiles || estimatedChunks >= batchMaxChunks) {
 				await flushBatch();
 			}
 		}
@@ -564,7 +649,7 @@ async function uploadDocuments(directory: string, options: UploadOptions): Promi
 				const prepResult = prepareFile(file, resolvedDir, options);
 				if ('error' in prepResult) {
 					counters.errors++;
-					progress.logError(`  ✗ ${relativePath}: ${prepResult.error}`);
+					progress.logError(`  \u2717 ${relativePath}: ${prepResult.error}`);
 					progress.increment();
 					return;
 				}
@@ -592,12 +677,12 @@ async function uploadDocuments(directory: string, options: UploadOptions): Promi
 
 					if (options.verbose) {
 						progress.log(
-							`  ✓ ${relativePath} → ${result.documentId} (${result.chunksCreated} chunks)`,
+							`  \u2713 ${relativePath} \u2192 ${result.documentId} (${result.chunksCreated} chunks)`,
 						);
 					}
 				} else {
 					counters.errors++;
-					progress.logError(`  ✗ ${relativePath}: ${result.error}`);
+					progress.logError(`  \u2717 ${relativePath}: ${result.error}`);
 				}
 
 				progress.increment();

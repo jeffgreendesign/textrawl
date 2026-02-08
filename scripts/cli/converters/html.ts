@@ -269,6 +269,21 @@ async function convertHtmlFile(
 	options: HtmlOptions,
 ): Promise<ConversionResult> {
 	try {
+		// Check file size before processing
+		const fileStats = statSync(inputPath);
+		const fileSizeMB = fileStats.size / (1024 * 1024);
+
+		if (fileSizeMB > 5) {
+			return {
+				success: false,
+				error: `File too large (${fileSizeMB.toFixed(1)}MB). Max recommended: 5MB. Consider splitting the file.`,
+			};
+		}
+
+		if (fileSizeMB > 2) {
+			logger.warn(`Large file (${fileSizeMB.toFixed(1)}MB): ${inputPath}`);
+		}
+
 		// Read file
 		const html = readFileSync(inputPath, 'utf-8');
 
