@@ -1,0 +1,204 @@
+---
+title: Supabase Requirements
+description: Recommended compute tiers, storage, and database sizing for textrawl
+---
+
+Choose the right Supabase compute tier and understand your database requirements for textrawl.
+
+## Vector Dimensions by Provider
+
+The embedding model you choose determines your vector dimensions, which directly impacts storage, index size, and RAM requirements.
+
+| Provider | Model | Dimensions | Storage per Vector |
+|----------|-------|-----------|-------------------|
+| OpenAI | text-embedding-3-small | 1536 | ~6 KB |
+| Ollama v1 | nomic-embed-text / mxbai-embed-large | 1024 | ~4 KB |
+| Ollama v2 | nomic-embed-text-v2-moe | 768 | ~3 KB |
+
+Lower dimensions = smaller indexes = better performance at every tier.
+
+## Required Indexes
+
+Textrawl uses up to **6 HNSW vector indexes** (depending on which features are enabled), plus GIN indexes for full-text search and B-tree indexes for lookups.
+
+| Table | Index Type | Purpose |
+|-------|-----------|---------|
+| `chunks` | HNSW | Core semantic search |
+| `memory_entities` | HNSW | Entity semantic search |
+| `memory_observations` | HNSW | Memory semantic search |
+| `conversation_sessions` | HNSW | Conversation semantic search |
+| `conversation_turns` | HNSW | Turn-level semantic search |
+| `proactive_insights` | HNSW | Insight semantic search |
+| `documents` | GIN | Full-text search (tsvector) |
+| `memory_observations` | GIN | Full-text search (tsvector) |
+| `conversation_sessions` | GIN | Full-text search on summaries |
+| `conversation_turns` | GIN | Full-text search on turns |
+
+All HNSW indexes should fit in RAM for optimal query performance. If your HNSW indexes exceed `shared_buffers`, queries will start hitting disk and latency increases significantly.
+
+## Storage Estimates
+
+Estimated storage per document (assuming OpenAI 1536-dimension embeddings):
+
+- 1 document row: ~2 KB
+- ~5 chunks average (512 tokens each): ~62 KB per document (including embeddings)
+- HNSW index overhead: ~7 KB per vector
+
+| Documents | Chunks (est.) | DB Size (est.) | Fits in 8 GB Free Disk? |
+|-----------|---------------|----------------|------------------------|
+| 1,000 | ~5,000 | ~70 MB | Yes |
+| 10,000 | ~50,000 | ~700 MB | Yes |
+| 50,000 | ~250,000 | ~3.5 GB | Yes |
+| 100,000 | ~500,000 | ~7 GB | Yes |
+| 150,000+ | ~750,000+ | ~10 GB+ | No (overage at $0.125/GB) |
+
+## Compute Tier Recommendations
+
+Supabase Pro plan ($25/mo) includes $10/mo in compute credits, which covers one Micro instance at no extra cost. Upgrade to a larger tier by paying the difference.
+
+### Micro -- Included with Pro ($10/mo, covered by credits)
+
+2-core shared ARM, 1 GB RAM, 60 direct connections
+
+- Included at no extra cost on Pro plan via compute credits
+- Suitable for getting started and light personal use
+- Handles up to ~30K vectors comfortably
+- HNSW indexes must stay under ~250 MB total
+
+### Small -- $15/mo
+
+2-core shared ARM, 2 GB RAM, 90 direct connections
+
+- Good for personal knowledge bases under 10K documents (~50K chunks)
+- Room for all 6 HNSW indexes at moderate scale
+
+### Medium -- $60/mo (Recommended)
+
+2-core shared ARM, 4 GB RAM, 120 direct connections
+
+- **Best value for production personal use**
+- Handles 10K-50K documents with all features enabled (memory, conversations, insights)
+- 4 GB gives breathing room for all HNSW + GIN indexes
+
+### Large -- $110/mo
+
+2-core **dedicated** ARM, 8 GB RAM, 160 direct connections
+
+- First tier with dedicated (non-burst) CPU -- consistent performance
+- For heavy use with 50K+ documents or multiple concurrent users
+- 8 GB RAM keeps all indexes comfortably in memory
+
+### XL and Above
+
+For 100K+ documents or multi-tenant deployments. Consider [pgvectorscale](https://github.com/timescale/pgvectorscale) (DiskANN indexes) at this scale to move vector indexes to SSD instead of RAM.
+
+## Disk Type
+
+**General Purpose (gp3)** is recommended for textrawl. Your workload is read-heavy (search queries) with occasional batch writes (uploads). The included 3,000 IOPS baseline handles this well.
+
+- 8 GB included free, then $0.125/GB
+- 3,000 IOPS included, $0.024 per additional IOPS
+
+**High Performance (io2)** is only needed for sustained high-throughput workloads and is not necessary for typical textrawl usage.
+
+## Diagnosing Your Current Setup
+
+Run these queries in the Supabase SQL Editor to understand your current database.
+
+### Database Size
+
+```sql
+SELECT pg_size_pretty(pg_database_size(current_database())) AS total_db_size;
+```
+
+### Table Sizes
+
+```sql
+SELECT
+  schemaname || '.' || tablename AS table,
+  pg_size_pretty(pg_total_relation_size(schemaname || '.' || tablename)) AS total_size,
+  pg_size_pretty(pg_relation_size(schemaname || '.' || tablename)) AS data_size,
+  pg_size_pretty(
+    pg_total_relation_size(schemaname || '.' || tablename)
+    - pg_relation_size(schemaname || '.' || tablename)
+  ) AS index_size
+FROM pg_tables
+WHERE schemaname = 'public'
+  AND tablename IN (
+    'documents', 'chunks',
+    'memory_entities', 'memory_observations', 'memory_relations',
+    'conversation_sessions', 'conversation_turns',
+    'proactive_insights', 'insight_queue'
+  )
+ORDER BY pg_total_relation_size(schemaname || '.' || tablename) DESC;
+```
+
+### Vector Counts
+
+```sql
+SELECT 'chunks' AS table_name, count(*) AS total_rows, count(embedding) AS vectors
+FROM chunks
+UNION ALL
+SELECT 'memory_entities', count(*), count(embedding) FROM memory_entities
+UNION ALL
+SELECT 'memory_observations', count(*), count(embedding) FROM memory_observations
+UNION ALL
+SELECT 'conversation_sessions', count(*), count(summary_embedding) FROM conversation_sessions
+UNION ALL
+SELECT 'conversation_turns', count(*), count(embedding) FROM conversation_turns
+UNION ALL
+SELECT 'proactive_insights', count(*), count(embedding) FROM proactive_insights
+ORDER BY vectors DESC;
+```
+
+### HNSW Index Sizes
+
+```sql
+SELECT
+  indexname,
+  pg_size_pretty(pg_relation_size(indexname::regclass)) AS index_size
+FROM pg_indexes
+WHERE schemaname = 'public'
+  AND indexdef ILIKE '%hnsw%'
+ORDER BY pg_relation_size(indexname::regclass) DESC;
+```
+
+If the `chunks` table is missing an HNSW index, create it:
+
+```sql
+-- Works for all providers (OpenAI 1536d, Ollama v1 1024d, Ollama v2 768d)
+-- PostgreSQL infers the dimension from the column type
+CREATE INDEX IF NOT EXISTS chunks_embedding_idx ON chunks
+USING hnsw (embedding vector_cosine_ops);
+```
+
+### Current Compute Tier
+
+```sql
+SHOW shared_buffers;
+SHOW effective_cache_size;
+SHOW max_connections;
+```
+
+| shared_buffers | max_connections | Likely Tier |
+|---|---|---|
+| ~128 MB | 60 | Nano / Micro |
+| ~256 MB | 60 | Micro |
+| ~512 MB | 90 | Small |
+| ~1 GB | 120 | Medium |
+| ~2 GB | 160 | Large |
+| ~4 GB | 240 | XL |
+
+If your total HNSW index size approaches `shared_buffers`, it's time to upgrade.
+
+## Scaling Tips
+
+1. **Lower dimensions help the most.** Switching from OpenAI 1536d to Ollama v2 768d cuts index size in half. This is the cheapest way to scale.
+
+2. **Index bloat happens.** Run `REINDEX TABLE <table>;` periodically on GIN-indexed tables (`documents`, `memory_observations`, `conversation_sessions`, `conversation_turns`) if indexes grow disproportionately large relative to data size (10:1+ ratio is a sign of bloat).
+
+3. **Temporary compute boosts.** For large batch imports, temporarily upgrade your compute tier (billed hourly), build HNSW indexes faster, then scale back down.
+
+4. **Consider pgvectorscale for 100K+ vectors.** DiskANN indexes use SSD instead of RAM, making them much cheaper to scale. pgvectorscale is not yet a native Supabase extension, but can be used with Supabase via the [pgai Python CLI](https://github.com/timescale/pgai). For self-hosted PostgreSQL, install it directly.
+
+5. **Keep the spend cap on** initially. Textrawl is single-tenant -- you won't get surprise traffic spikes.

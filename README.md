@@ -144,6 +144,7 @@ pnpm upload -- ./converted/
 
 | Guide | Description |
 |-------|-------------|
+| [Supabase Requirements](docs/guides/supabase-requirements.mdx) | Compute tiers, storage estimates, and database sizing |
 | [CLI Tools](docs/cli/) | Batch conversion and upload from command line |
 | [Security](docs/guides/security-hardening.mdx) | Row Level Security and access controls |
 
