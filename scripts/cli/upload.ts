@@ -24,7 +24,8 @@ import { isUploadConfigured, loadCLIConfig } from './lib/config.js';
 import { parseFrontmatter } from './lib/frontmatter.js';
 import { ManifestManager } from './lib/manifest.js';
 import { ProgressReporter, logger } from './lib/progress.js';
-import { isRetryableError, withRetry } from './lib/retry.js';
+import { isRateLimitError, isRetryableError, withRetry } from './lib/retry.js';
+import { splitFile } from './lib/splitter.js';
 import type { DocumentFrontMatter, UploadResult } from './lib/types.js';
 
 import { type CreateChunkInput, createChunks } from '../../src/db/chunks.js';
@@ -85,18 +86,23 @@ interface PreparedFile {
 }
 
 /**
- * Sanitize text to remove invalid Unicode surrogate pairs
- * Fixes "Unicode low surrogate must follow a high surrogate" errors
+ * Sanitize text for PostgreSQL/PostgREST compatibility.
+ * - Strips null bytes (\0) which PostgreSQL text/jsonb columns reject
+ * - Replaces invalid Unicode surrogate pairs with U+FFFD
  */
 function sanitizeUnicode(text: string): string {
-	// Replace invalid surrogate pairs with replacement character
+	// Strip null bytes first — PostgreSQL cannot store \0 in text/jsonb,
+	// and PostgREST rejects the entire request with "Empty or invalid json"
 	// eslint-disable-next-line no-control-regex
-	return text.replace(/[\uD800-\uDFFF]/g, (match) => {
+	let sanitized = text.replace(/\0/g, '');
+
+	// Replace invalid surrogate pairs with replacement character
+	sanitized = sanitized.replace(/[\uD800-\uDFFF]/g, (match) => {
 		// Check if it's a valid surrogate pair
 		const code = match.charCodeAt(0);
 		// High surrogate (0xD800-0xDBFF) must be followed by low surrogate (0xDC00-0xDFFF)
 		if (code >= 0xd800 && code <= 0xdbff) {
-			const next = text.charCodeAt(text.indexOf(match) + 1);
+			const next = sanitized.charCodeAt(sanitized.indexOf(match) + 1);
 			if (next >= 0xdc00 && next <= 0xdfff) {
 				return match; // Valid pair, keep it
 			}
@@ -104,6 +110,66 @@ function sanitizeUnicode(text: string): string {
 		// Invalid or unpaired surrogate, replace with \uFFFD
 		return '\uFFFD';
 	});
+
+	return sanitized;
+}
+
+/**
+ * Sanitize a metadata object for safe JSONB insertion.
+ * - Converts Date objects to ISO strings
+ * - Strips undefined, NaN, Infinity, and functions
+ * - Validates the result is JSON-serializable
+ */
+function sanitizeMetadata(obj: Record<string, unknown>): Record<string, unknown> {
+	function sanitizeValue(value: unknown): unknown {
+		if (value === null || value === undefined) return null;
+		if (value instanceof Date) return value.toISOString();
+		if (typeof value === 'number' && (!Number.isFinite(value) || Number.isNaN(value))) return null;
+		if (typeof value === 'function' || typeof value === 'symbol') return null;
+		if (typeof value === 'bigint') return value.toString();
+		// Strip null bytes from strings (PostgreSQL rejects \0 in jsonb)
+		// eslint-disable-next-line no-control-regex
+		if (typeof value === 'string') return value.replace(/\0/g, '');
+		if (Array.isArray(value)) return value.map(sanitizeValue);
+		if (typeof value === 'object') {
+			const result: Record<string, unknown> = {};
+			for (const [k, v] of Object.entries(value as Record<string, unknown>)) {
+				const sanitized = sanitizeValue(v);
+				if (sanitized !== undefined) {
+					result[k] = sanitized;
+				}
+			}
+			return result;
+		}
+		return value;
+	}
+
+	const sanitized = sanitizeValue(obj) as Record<string, unknown>;
+
+	// Final validation: ensure it round-trips through JSON
+	try {
+		JSON.parse(JSON.stringify(sanitized));
+	} catch {
+		logger.warn('Metadata failed JSON validation, using empty metadata');
+		return {};
+	}
+
+	return sanitized;
+}
+
+/** Maximum safe payload size for Supabase PostgREST (bytes) */
+const MAX_PAYLOAD_SIZE = 5 * 1024 * 1024; // 5MB
+
+/**
+ * Estimate the JSON payload size for a createDocument call
+ */
+function estimatePayloadSize(rawContent: string, metadata: Record<string, unknown>): number {
+	// raw_content dominates the payload; metadata is typically small
+	return (
+		Buffer.byteLength(rawContent, 'utf8') +
+		Buffer.byteLength(JSON.stringify(metadata), 'utf8') +
+		200
+	);
 }
 
 /**
@@ -162,8 +228,9 @@ function prepareFile(
 			}
 		}
 
-		// Sanitize body content to remove invalid Unicode
+		// Sanitize content and title to remove null bytes and invalid Unicode
 		const sanitizedContent = sanitizeUnicode(bodyContent);
+		frontmatter.title = sanitizeUnicode(frontmatter.title);
 
 		return {
 			filePath,
@@ -183,10 +250,56 @@ function prepareFile(
 async function uploadFileSemantic(
 	prepared: PreparedFile,
 	options: UploadOptions,
+	counters: {
+		success: number;
+		errors: number;
+		chunks: number;
+		retries: number;
+		rateLimitRetries: number;
+	},
 ): Promise<UploadResult> {
 	try {
-		const retryOpts = { maxRetries: options.maxRetries, retryableCheck: isRetryableError };
+		// Retry callback to track retry attempts
+		const onRetry = (error: unknown) => {
+			counters.retries++;
+			if (isRateLimitError(error)) {
+				counters.rateLimitRetries++;
+			}
+		};
+
+		const retryOpts = {
+			maxRetries: options.maxRetries,
+			retryableCheck: isRetryableError,
+			onRetry,
+		};
 		const embeddingRetryOpts = { ...retryOpts, baseDelayMs: 2000 };
+
+		// Build and sanitize metadata for JSONB insertion
+		const metadata = sanitizeMetadata({
+			...prepared.frontmatter.metadata,
+			tags: prepared.tags,
+			content_type: prepared.frontmatter.content_type,
+			source_file: prepared.frontmatter.source_file,
+			source_hash: prepared.frontmatter.source_hash,
+			created_at: prepared.frontmatter.created_at,
+			converted_at: prepared.frontmatter.converted_at,
+		});
+
+		// Check payload size before sending to Supabase
+		const payloadSize = estimatePayloadSize(prepared.bodyContent, metadata);
+		if (payloadSize > MAX_PAYLOAD_SIZE) {
+			const sizeMB = (payloadSize / (1024 * 1024)).toFixed(1);
+			return {
+				success: false,
+				error: `Payload too large (${sizeMB}MB). Split file before upload or increase PostgREST body limit.`,
+			};
+		}
+
+		if (options.verbose) {
+			logger.info(
+				`Payload: ${(payloadSize / 1024).toFixed(0)}KB, metadata keys: ${Object.keys(metadata).join(', ')}`,
+			);
+		}
 
 		// Create document in Supabase
 		const document = await withRetry(
@@ -195,15 +308,7 @@ async function uploadFileSemantic(
 					title: prepared.frontmatter.title,
 					sourceType: prepared.frontmatter.source_type,
 					rawContent: prepared.bodyContent,
-					metadata: {
-						...prepared.frontmatter.metadata,
-						tags: prepared.tags,
-						content_type: prepared.frontmatter.content_type,
-						source_file: prepared.frontmatter.source_file,
-						source_hash: prepared.frontmatter.source_hash,
-						created_at: prepared.frontmatter.created_at,
-						converted_at: prepared.frontmatter.converted_at,
-					},
+					metadata,
 				}),
 			retryOpts,
 		);
@@ -244,6 +349,11 @@ async function uploadFileSemantic(
 		const chunkContents = chunks.map((c) => c.content);
 		const embeddings = await withRetry(() => generateEmbeddings(chunkContents), embeddingRetryOpts);
 
+		// Delay after embedding generation to avoid rate limits
+		if (options.embeddingDelay > 0) {
+			await sleep(options.embeddingDelay);
+		}
+
 		// Create chunk records
 		const chunkInputs: CreateChunkInput[] = chunks.map((chunk, i) => ({
 			documentId: document.id,
@@ -281,9 +391,27 @@ async function uploadBatchedFixed(
 	options: UploadOptions,
 	manifest: ManifestManager,
 	progress: ProgressReporter,
-	counters: { success: number; errors: number; chunks: number },
+	counters: {
+		success: number;
+		errors: number;
+		chunks: number;
+		retries: number;
+		rateLimitRetries: number;
+	},
 ): Promise<void> {
-	const retryOpts = { maxRetries: options.maxRetries, retryableCheck: isRetryableError };
+	// Retry callback to track retry attempts
+	const onRetry = (error: unknown) => {
+		counters.retries++;
+		if (isRateLimitError(error)) {
+			counters.rateLimitRetries++;
+		}
+	};
+
+	const retryOpts = {
+		maxRetries: options.maxRetries,
+		retryableCheck: isRetryableError,
+		onRetry,
+	};
 	const embeddingRetryOpts = { ...retryOpts, baseDelayMs: 2000 };
 
 	// Phase 1: Chunk all files locally (no network calls)
@@ -343,6 +471,11 @@ async function uploadBatchedFixed(
 			const batch = allChunkTexts.slice(i, i + EMBEDDING_SUB_BATCH_SIZE);
 			const batchEmbeddings = await withRetry(() => generateEmbeddings(batch), embeddingRetryOpts);
 			allEmbeddings.push(...batchEmbeddings);
+
+			// Delay between embedding requests to avoid rate limits
+			if (options.embeddingDelay > 0 && i + EMBEDDING_SUB_BATCH_SIZE < allChunkTexts.length) {
+				await sleep(options.embeddingDelay);
+			}
 		}
 	} catch (error) {
 		// If batch embedding fails entirely, mark all files as failed
@@ -376,6 +509,32 @@ async function uploadBatchedFixed(
 			}
 
 			try {
+				// Build and sanitize metadata for JSONB insertion
+				const metadata = sanitizeMetadata({
+					...cf.prepared.frontmatter.metadata,
+					tags: cf.prepared.tags,
+					content_type: cf.prepared.frontmatter.content_type,
+					source_file: cf.prepared.frontmatter.source_file,
+					source_hash: cf.prepared.frontmatter.source_hash,
+					created_at: cf.prepared.frontmatter.created_at,
+					converted_at: cf.prepared.frontmatter.converted_at,
+				});
+
+				// Check payload size before sending to Supabase
+				const payloadSize = estimatePayloadSize(cf.prepared.bodyContent, metadata);
+				if (payloadSize > MAX_PAYLOAD_SIZE) {
+					const sizeMB = (payloadSize / (1024 * 1024)).toFixed(1);
+					throw new Error(
+						`Payload too large (${sizeMB}MB). Split file before upload or increase PostgREST body limit.`,
+					);
+				}
+
+				if (options.verbose) {
+					logger.info(
+						`Payload: ${(payloadSize / 1024).toFixed(0)}KB, metadata keys: ${Object.keys(metadata).join(', ')}`,
+					);
+				}
+
 				// Create document
 				const document = await withRetry(
 					() =>
@@ -383,15 +542,7 @@ async function uploadBatchedFixed(
 							title: cf.prepared.frontmatter.title,
 							sourceType: cf.prepared.frontmatter.source_type,
 							rawContent: cf.prepared.bodyContent,
-							metadata: {
-								...cf.prepared.frontmatter.metadata,
-								tags: cf.prepared.tags,
-								content_type: cf.prepared.frontmatter.content_type,
-								source_file: cf.prepared.frontmatter.source_file,
-								source_hash: cf.prepared.frontmatter.source_hash,
-								created_at: cf.prepared.frontmatter.created_at,
-								converted_at: cf.prepared.frontmatter.converted_at,
-							},
+							metadata,
 						}),
 					retryOpts,
 				);
@@ -514,6 +665,50 @@ async function uploadDocuments(directory: string, options: UploadOptions): Promi
 		return;
 	}
 
+	// Auto-split preprocessing: split oversized files before uploading
+	if (options.autoSplit) {
+		const maxFileSize = options.maxFileSize ?? config.MAX_SINGLE_FILE_SIZE;
+		const maxChunks = config.MAX_CHUNKS_PER_FILE;
+		const expanded: string[] = [];
+
+		for (const file of toUpload) {
+			const stats = statSync(file);
+			const sizeMB = stats.size / (1024 * 1024);
+			const content = readFileSync(file, 'utf-8');
+			const estChunks = Math.max(1, Math.ceil(content.length / 2048));
+
+			if (sizeMB > maxFileSize || estChunks > maxChunks) {
+				const relPath = relative(resolvedDir, file);
+				logger.info(`Auto-splitting: ${relPath} (${sizeMB.toFixed(1)}MB, ~${estChunks} chunks)`);
+
+				const result = splitFile(file, {
+					splitLevel: options.autoSplitLevel,
+					targetChunks: Math.min(maxChunks, 400),
+					targetSize: Math.min(maxFileSize, 15),
+					suffix: '-part-{n}',
+					onlyOversized: false,
+					maxFileSize,
+					maxChunks,
+					dryRun: options.dryRun,
+				});
+
+				if (result.wasSplit && result.partPaths.length > 0) {
+					logger.info(`  -> ${result.partCount} parts created`);
+					expanded.push(...result.partPaths);
+				} else if (result.error) {
+					logger.error(`  Auto-split failed: ${result.error}`);
+					expanded.push(file); // Try uploading original
+				} else {
+					expanded.push(file); // Didn't need splitting after all
+				}
+			} else {
+				expanded.push(file);
+			}
+		}
+
+		toUpload = expanded;
+	}
+
 	logger.info(`Uploading ${toUpload.length} file(s)...`);
 	const insertConcurrency = options.insertConcurrency ?? options.concurrency;
 	logger.info(
@@ -542,7 +737,13 @@ async function uploadDocuments(directory: string, options: UploadOptions): Promi
 	const progress = new ProgressReporter(toUpload.length, { verbose: options.verbose });
 	progress.start();
 
-	const counters = { success: 0, errors: 0, chunks: 0 };
+	const counters = {
+		success: 0,
+		errors: 0,
+		chunks: 0,
+		retries: 0,
+		rateLimitRetries: 0,
+	};
 
 	if (config.CHUNKING_MODE === 'fixed') {
 		// Two-phase batched pipeline for fixed chunking
@@ -654,7 +855,7 @@ async function uploadDocuments(directory: string, options: UploadOptions): Promi
 					return;
 				}
 
-				const result = await uploadFileSemantic(prepResult, options);
+				const result = await uploadFileSemantic(prepResult, options, counters);
 
 				if (result.success) {
 					counters.success++;
@@ -718,7 +919,22 @@ async function uploadDocuments(directory: string, options: UploadOptions): Promi
 	logger.info(`Files uploaded: ${counters.success}`);
 	logger.info(`Chunks created: ${counters.chunks}`);
 	logger.info(`Errors: ${counters.errors}`);
+	if (counters.retries > 0) {
+		logger.info(`Retries: ${counters.retries} (${counters.rateLimitRetries} rate limit)`);
+	}
 	logger.info(`Manifest location: ${resolvedDir}/.manifest.json`);
+
+	// Provide suggestions if rate limits were encountered
+	if (counters.rateLimitRetries > 10) {
+		logger.warn('\n⚠️  High rate limit retries detected. To reduce rate limiting:');
+		logger.warn('   • Use --concurrency 2 (or lower) to reduce parallel requests');
+		logger.warn('   • Use --embedding-delay 1000 to add 1s delay between embedding requests');
+		logger.warn('   • Check your OpenAI usage tier: https://platform.openai.com/account/limits');
+	} else if (counters.rateLimitRetries > 0) {
+		logger.info(
+			'\nℹ️  Some rate limits encountered. Consider --embedding-delay or lower --concurrency for smoother uploads.',
+		);
+	}
 
 	if (counters.errors > 0) {
 		process.exit(1);

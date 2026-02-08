@@ -22,8 +22,11 @@
 
 import { spawn } from 'node:child_process';
 import { existsSync, readdirSync, statSync } from 'node:fs';
-import { extname, resolve } from 'node:path';
+import { dirname, extname, resolve } from 'node:path';
+import { fileURLToPath } from 'node:url';
 import { Command } from 'commander';
+
+const __dirname = dirname(fileURLToPath(import.meta.url));
 
 const program = new Command();
 
