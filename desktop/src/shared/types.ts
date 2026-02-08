@@ -74,6 +74,55 @@ export interface ConversionOptions {
 // File processing status
 export type FileStatus = 'pending' | 'processing' | 'complete' | 'error' | 'skipped';
 
+// Pipeline status for directory browser (full lifecycle)
+export type PipelineStatus =
+	| 'pending'
+	| 'converting'
+	| 'converted'
+	| 'uploading'
+	| 'uploaded'
+	| 'error'
+	| 'oversized'
+	| 'unsupported';
+
+// A file node in the directory tree
+export interface TreeFile {
+	relativePath: string; // relative to source dir
+	name: string;
+	isDirectory: boolean;
+	fileType: FileType;
+	converterType: ConverterType | null;
+	size: number;
+	sizeTier: SizeTier;
+	sizeWarning?: string;
+	pipelineStatus: PipelineStatus;
+	convertedPath?: string; // relative path to .md in output dir
+	documentId?: string; // Supabase doc ID from manifest
+	uploadedAt?: string; // ISO timestamp from manifest
+	error?: string; // last error message
+	lastProcessed?: string; // ISO timestamp
+	children?: TreeFile[]; // for directory nodes
+}
+
+// Aggregate counts for a project
+export interface ProjectStats {
+	total: number;
+	pending: number;
+	converted: number;
+	uploaded: number;
+	errors: number;
+	oversized: number;
+	unsupported: number;
+}
+
+// Top-level project state
+export interface ProjectState {
+	sourceDir: string;
+	outputDir: string;
+	lastScanned: string; // ISO timestamp
+	stats: ProjectStats;
+}
+
 // Progress update for a single file
 export interface FileProgress {
 	fileId: string;
