@@ -139,11 +139,11 @@ export async function setInsightQueueProcessing(processing: boolean): Promise<vo
 // ---------------------------------------------------------------------------
 
 /** Create one or more insights */
-export async function createInsights(inputs: CreateInsightInput[]): Promise<ProactiveInsight[]> {
+export async function createInsights(inputs: CreateInsightInput[]): Promise<void> {
 	if (!isSupabaseConfigured()) {
 		throw new DatabaseError('Supabase not configured');
 	}
-	if (inputs.length === 0) return [];
+	if (inputs.length === 0) return;
 
 	const client = getSupabaseClient();
 
@@ -157,7 +157,7 @@ export async function createInsights(inputs: CreateInsightInput[]): Promise<Proa
 		batch_id: input.batchId ?? null,
 	}));
 
-	const { data, error } = await client.from('proactive_insights').insert(records).select();
+	const { error } = await client.from('proactive_insights').insert(records);
 
 	if (error) {
 		logger.error('Failed to create insights', {
@@ -169,8 +169,7 @@ export async function createInsights(inputs: CreateInsightInput[]): Promise<Proa
 		throw new DatabaseError(`Failed to create insights: ${error.message}`);
 	}
 
-	logger.info('Created insights', { count: data.length });
-	return data as ProactiveInsight[];
+	logger.info('Created insights', { count: records.length });
 }
 
 /** Get insights with optional filters */

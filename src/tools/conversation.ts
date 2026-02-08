@@ -158,11 +158,10 @@ export function registerConversationTools(server: McpServer): void {
 						})),
 					);
 
-					const created = await createTurns({
+					savedTurns = await createTurns({
 						sessionId: session.id,
 						turns: turnsWithEmbeddings,
 					});
-					savedTurns = created.length;
 				}
 
 				logger.info('Conversation context saved', {

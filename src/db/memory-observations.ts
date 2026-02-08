@@ -82,15 +82,13 @@ export async function createObservation(input: CreateObservationInput): Promise<
 /**
  * Create multiple observations in batch
  */
-export async function createObservations(
-	input: CreateObservationBatchInput,
-): Promise<MemoryObservation[]> {
+export async function createObservations(input: CreateObservationBatchInput): Promise<void> {
 	if (!isSupabaseConfigured()) {
 		throw new DatabaseError('Supabase not configured');
 	}
 
 	if (input.observations.length === 0) {
-		return [];
+		return;
 	}
 
 	const client = getSupabaseClient();
@@ -105,7 +103,7 @@ export async function createObservations(
 		metadata: obs.metadata || {},
 	}));
 
-	const { data, error } = await client.from('memory_observations').insert(rows).select();
+	const { error } = await client.from('memory_observations').insert(rows);
 
 	if (error) {
 		logger.error('Failed to create observations batch', {
@@ -116,9 +114,8 @@ export async function createObservations(
 
 	logger.info('Created memory observations batch', {
 		entityId: input.entityId,
-		count: data.length,
+		count: rows.length,
 	});
-	return data as MemoryObservation[];
 }
 
 /**

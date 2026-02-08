@@ -94,13 +94,13 @@ export async function createTurn(input: CreateTurnInput): Promise<ConversationTu
 /**
  * Create multiple conversation turns in batch
  */
-export async function createTurns(input: CreateTurnsInput): Promise<ConversationTurn[]> {
+export async function createTurns(input: CreateTurnsInput): Promise<number> {
 	if (!isSupabaseConfigured()) {
 		throw new DatabaseError('Supabase not configured');
 	}
 
 	if (input.turns.length === 0) {
-		return [];
+		return 0;
 	}
 
 	const client = getSupabaseClient();
@@ -132,7 +132,7 @@ export async function createTurns(input: CreateTurnsInput): Promise<Conversation
 		metadata: turn.metadata || {},
 	}));
 
-	const { data, error } = await client.from('conversation_turns').insert(turnRecords).select();
+	const { error } = await client.from('conversation_turns').insert(turnRecords);
 
 	if (error) {
 		logger.error('Failed to create turns', { error: error.message });
@@ -141,9 +141,9 @@ export async function createTurns(input: CreateTurnsInput): Promise<Conversation
 
 	logger.info('Created conversation turns', {
 		sessionId: input.sessionId,
-		count: data.length,
+		count: turnRecords.length,
 	});
-	return data as ConversationTurn[];
+	return turnRecords.length;
 }
 
 /**
