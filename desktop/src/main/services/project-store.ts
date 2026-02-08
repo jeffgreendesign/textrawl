@@ -48,18 +48,25 @@ export class ProjectStore {
 
 	// --- File errors ---
 
+	private isSafeKey(key: string): boolean {
+		return key !== '__proto__' && key !== 'constructor' && key !== 'prototype';
+	}
+
 	getFileError(relativePath: string): FileError | undefined {
+		if (!this.isSafeKey(relativePath)) return undefined;
 		const errors = this.store.get('fileErrors');
 		return errors[relativePath];
 	}
 
 	setFileError(relativePath: string, error: string): void {
+		if (!this.isSafeKey(relativePath)) return;
 		const errors = this.store.get('fileErrors');
 		errors[relativePath] = { error, lastAttempt: new Date().toISOString() };
 		this.store.set('fileErrors', errors);
 	}
 
 	clearFileError(relativePath: string): void {
+		if (!this.isSafeKey(relativePath)) return;
 		const errors = this.store.get('fileErrors');
 		delete errors[relativePath];
 		this.store.set('fileErrors', errors);
