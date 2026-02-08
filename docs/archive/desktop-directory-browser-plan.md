@@ -1,7 +1,26 @@
 # Desktop Directory Browser & Security Hardening Plan
 
 **Date:** February 8, 2026
-**Status:** Planning
+**Status:** In Progress
+
+## Progress
+
+| Phase | Description | Status |
+|-------|-------------|--------|
+| 1 | safeStorage migration | Done |
+| 2 | Data model + types | Done |
+| 3 | ProjectManager service | Not started |
+| 4 | IPC layer | Not started |
+| 5 | Directory tree UI | Not started |
+| 6 | chokidar file watching | Not started |
+| 7 | Pipeline integration | Not started |
+
+### Resolved Open Questions
+
+1. **Tree virtualization** — Always virtualize (no threshold)
+2. **Source-output mapping** — Frontmatter parsing with mtime cache
+3. **Multiple projects** — One project at a time
+4. **Drag-drop into tree** — Deferred
 
 ## Overview
 
@@ -65,9 +84,11 @@ This only tracks conversion progress within a single session. There is no cross-
 
 ---
 
-## Phase 1: Credential Security (safeStorage Migration)
+## Phase 1: Credential Security (safeStorage Migration) — Done
 
 **Priority:** High — Do this first, independent of the directory browser.
+
+**Commit:** `a835173` on `feat/desktop-directory-browser`
 
 ### Problem
 
