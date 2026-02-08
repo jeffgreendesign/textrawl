@@ -166,20 +166,11 @@ ORDER BY pg_relation_size(indexname::regclass) DESC;
 If the `chunks` table is missing an HNSW index, create it:
 
 ```sql
--- OpenAI (1536 dimensions)
-CREATE INDEX IF NOT EXISTS chunks_embedding_idx ON chunks
-USING hnsw (embedding vector_cosine_ops);
-
--- Ollama v1 (1024 dimensions)
-CREATE INDEX IF NOT EXISTS chunks_embedding_idx ON chunks
-USING hnsw (embedding vector_cosine_ops);
-
--- Ollama v2 (768 dimensions)
+-- Works for all providers (OpenAI 1536d, Ollama v1 1024d, Ollama v2 768d)
+-- PostgreSQL infers the dimension from the column type
 CREATE INDEX IF NOT EXISTS chunks_embedding_idx ON chunks
 USING hnsw (embedding vector_cosine_ops);
 ```
-
-The HNSW index definition is the same regardless of dimensions -- PostgreSQL infers the dimension from the column type.
 
 ### Current Compute Tier
 
@@ -204,7 +195,7 @@ If your total HNSW index size approaches `shared_buffers`, it's time to upgrade.
 
 1. **Lower dimensions help the most.** Switching from OpenAI 1536d to Ollama v2 768d cuts index size in half. This is the cheapest way to scale.
 
-2. **Index bloat happens.** Run `REINDEX TABLE documents;` periodically if your GIN index grows disproportionately large relative to data size (10:1+ ratio is a sign of bloat).
+2. **Index bloat happens.** Run `REINDEX TABLE <table>;` periodically on GIN-indexed tables (`documents`, `memory_observations`, `conversation_sessions`, `conversation_turns`) if indexes grow disproportionately large relative to data size (10:1+ ratio is a sign of bloat).
 
 3. **Temporary compute boosts.** For large batch imports, temporarily upgrade your compute tier (billed hourly), build HNSW indexes faster, then scale back down.
 
