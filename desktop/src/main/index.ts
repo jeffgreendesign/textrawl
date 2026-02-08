@@ -5,7 +5,7 @@ import { dirname, join } from 'node:path';
  * Note: ELECTRON_RUN_AS_NODE must be unset for Electron to work properly.
  * The npm scripts in package.json handle this automatically.
  */
-import { BrowserWindow, app, dialog, ipcMain } from 'electron';
+import { BrowserWindow, app, dialog, ipcMain, safeStorage } from 'electron';
 import { IPC } from '../shared/ipc-channels.js';
 import type {
 	AppSettings,
@@ -23,7 +23,8 @@ import { UploadManager } from './services/upload-manager.js';
 let mainWindow: BrowserWindow | null = null;
 let conversionManager: ConversionManager | null = null;
 let uploadManager: UploadManager | null = null;
-const settingsStore = new SettingsStore();
+let settingsStore!: SettingsStore; // Initialized in app.whenReady() before any IPC handlers
+let hasShownKeychainWarning = false;
 
 function createWindow(): void {
 	mainWindow = new BrowserWindow({
@@ -52,6 +53,17 @@ function createWindow(): void {
 	// Initialize managers
 	conversionManager = new ConversionManager(mainWindow);
 	uploadManager = new UploadManager(mainWindow);
+
+	// Show one-time warning if OS keychain is unavailable
+	if (!safeStorage.isEncryptionAvailable() && !hasShownKeychainWarning) {
+		hasShownKeychainWarning = true;
+		dialog.showMessageBox(mainWindow, {
+			type: 'warning',
+			title: 'Security Warning',
+			message: 'No system keychain available. Credentials will be stored without encryption.',
+			detail: 'On Linux, install gnome-keyring or kwallet for secure credential storage.',
+		});
+	}
 
 	mainWindow.on('closed', () => {
 		mainWindow = null;
@@ -121,6 +133,17 @@ function setupIpcHandlers(): void {
 
 // App lifecycle
 app.whenReady().then(() => {
+	// Initialize settings store after app is ready (safeStorage requires it)
+	settingsStore = new SettingsStore();
+	settingsStore.init();
+
+	// Warn if OS keychain is unavailable (rare — mainly headless Linux without a keyring)
+	if (!safeStorage.isEncryptionAvailable()) {
+		console.error(
+			'[main] WARNING: safeStorage not available — credentials stored without encryption',
+		);
+	}
+
 	setupIpcHandlers();
 	createWindow();
 
