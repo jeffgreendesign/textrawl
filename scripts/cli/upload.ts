@@ -85,6 +85,28 @@ interface PreparedFile {
 }
 
 /**
+ * Sanitize text to remove invalid Unicode surrogate pairs
+ * Fixes "Unicode low surrogate must follow a high surrogate" errors
+ */
+function sanitizeUnicode(text: string): string {
+	// Replace invalid surrogate pairs with replacement character
+	// eslint-disable-next-line no-control-regex
+	return text.replace(/[\uD800-\uDFFF]/g, (match) => {
+		// Check if it's a valid surrogate pair
+		const code = match.charCodeAt(0);
+		// High surrogate (0xD800-0xDBFF) must be followed by low surrogate (0xDC00-0xDFFF)
+		if (code >= 0xd800 && code <= 0xdbff) {
+			const next = text.charCodeAt(text.indexOf(match) + 1);
+			if (next >= 0xdc00 && next <= 0xdfff) {
+				return match; // Valid pair, keep it
+			}
+		}
+		// Invalid or unpaired surrogate, replace with �
+		return '\uFFFD';
+	});
+}
+
+/**
  * Prepare a file for upload: read, parse, validate frontmatter
  */
 function prepareFile(
@@ -101,11 +123,14 @@ function prepareFile(
 			return { error: 'Missing source_hash in front matter' };
 		}
 
+		// Sanitize body content to remove invalid Unicode
+		const sanitizedContent = sanitizeUnicode(bodyContent);
+
 		return {
 			filePath,
 			relativePath: relative(baseDir, filePath),
 			frontmatter,
-			bodyContent,
+			bodyContent: sanitizedContent,
 			tags,
 		};
 	} catch (error) {
@@ -253,9 +278,16 @@ async function uploadBatchedFixed(
 		}
 	}
 
-	let allEmbeddings: number[][];
+	// Sub-batch embedding generation to avoid memory exhaustion
+	// Process chunks in groups of 50 to prevent OOM on large batches
+	const EMBEDDING_SUB_BATCH_SIZE = 50;
+	const allEmbeddings: number[][] = [];
 	try {
-		allEmbeddings = await withRetry(() => generateEmbeddings(allChunkTexts), embeddingRetryOpts);
+		for (let i = 0; i < allChunkTexts.length; i += EMBEDDING_SUB_BATCH_SIZE) {
+			const batch = allChunkTexts.slice(i, i + EMBEDDING_SUB_BATCH_SIZE);
+			const batchEmbeddings = await withRetry(() => generateEmbeddings(batch), embeddingRetryOpts);
+			allEmbeddings.push(...batchEmbeddings);
+		}
 	} catch (error) {
 		// If batch embedding fails entirely, mark all files as failed
 		const errMsg = error instanceof Error ? error.message : String(error);
@@ -460,8 +492,8 @@ async function uploadDocuments(directory: string, options: UploadOptions): Promi
 		// Two-phase batched pipeline for fixed chunking
 		// Adaptive batching: cap total chunks per batch to avoid OOM on large files.
 		// Some files produce 800+ chunks each, so a fixed file count is unreliable.
-		const MAX_FILES_PER_BATCH = 50;
-		const MAX_CHUNKS_PER_BATCH = 2000;
+		const MAX_FILES_PER_BATCH = 10; // Reduced from 50 to prevent memory exhaustion
+		const MAX_CHUNKS_PER_BATCH = 200; // Reduced from 2000 to prevent memory exhaustion
 
 		let prepared: PreparedFile[] = [];
 		let estimatedChunks = 0;
@@ -470,8 +502,14 @@ async function uploadDocuments(directory: string, options: UploadOptions): Promi
 			if (prepared.length > 0 && !options.dryRun) {
 				await uploadBatchedFixed(prepared, options, manifest, progress, counters);
 			}
+			// Clear references to help garbage collection
+			prepared.length = 0;
 			prepared = [];
 			estimatedChunks = 0;
+			// Suggest GC (non-blocking hint)
+			if (global.gc) {
+				global.gc();
+			}
 		};
 
 		for (const file of toUpload) {

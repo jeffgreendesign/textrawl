@@ -30,7 +30,6 @@ import * as unzipper from 'unzipper';
 // Catch unhandled promise rejections from libraries like pdf-parse that throw
 // internally without proper error propagation. Log and continue instead of crashing.
 process.on('unhandledRejection', (reason) => {
-	// biome-ignore lint/suspicious/noConsole: stderr logging required for MCP
 	console.error(`[WARN] Unhandled rejection (continuing): ${reason}`);
 });
 
