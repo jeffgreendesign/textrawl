@@ -15,6 +15,14 @@
 | 6 | chokidar file watching | Not started |
 | 7 | Pipeline integration | Not started |
 
+### Post-review Fixes (Phase 3/4)
+
+- `retryErrors()` now accepts `relativePaths: string[]` parameter, wired through IPC
+- Output map keyed by full `source_file` value instead of `basename()` to avoid collisions across directories; lookup uses `findOutputEntry()` with exact-then-basename fallback
+- Removed unnecessary `typeof entry === 'string'` type guard in `buildTree()`
+- Added `console.error` to silent catch in `buildOutputMap()` directory read
+- Added JSDoc to `window` field explaining Phase 6 usage
+
 ### Resolved Open Questions
 
 1. **Tree virtualization** — Always virtualize (no threshold)
