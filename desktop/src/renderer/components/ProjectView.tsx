@@ -1,4 +1,4 @@
-import { useEffect, useState } from 'preact/hooks';
+import { useEffect, useRef, useState } from 'preact/hooks';
 import type {
 	LogEntry,
 	PipelineStatus,
@@ -39,6 +39,12 @@ export function ProjectView({ onBack, addLog }: ProjectViewProps) {
 	const [selectedPaths, setSelectedPaths] = useState<Set<string>>(new Set());
 	const [loading, setLoading] = useState(true);
 
+	// Use refs so the init effect doesn't re-run when callbacks change
+	const onBackRef = useRef(onBack);
+	onBackRef.current = onBack;
+	const addLogRef = useRef(addLog);
+	addLogRef.current = addLog;
+
 	// Prompt for directories and load project on mount
 	useEffect(() => {
 		let cancelled = false;
@@ -47,22 +53,22 @@ export function ProjectView({ onBack, addLog }: ProjectViewProps) {
 			try {
 				const sourceDir = await window.electronAPI.selectFolder();
 				if (!sourceDir || cancelled) {
-					onBack();
+					onBackRef.current();
 					return;
 				}
 
 				const outputDir = await window.electronAPI.selectFolder();
 				if (!outputDir || cancelled) {
-					onBack();
+					onBackRef.current();
 					return;
 				}
 
-				addLog('info', `Loading project: ${basename(sourceDir)}`);
+				addLogRef.current('info', `Loading project: ${basename(sourceDir)}`);
 
 				const state = await window.electronAPI.loadProject(sourceDir, outputDir);
 				if (!state || cancelled) {
-					addLog('error', 'Failed to load project');
-					onBack();
+					addLogRef.current('error', 'Failed to load project');
+					onBackRef.current();
 					return;
 				}
 
@@ -73,15 +79,15 @@ export function ProjectView({ onBack, addLog }: ProjectViewProps) {
 				if (!cancelled) {
 					setTree(projectTree);
 					setLoading(false);
-					addLog(
+					addLogRef.current(
 						'info',
 						`Project loaded: ${state.stats.total} files (${state.stats.pending} pending)`,
 					);
 				}
 			} catch (error) {
 				if (!cancelled) {
-					addLog('error', 'Failed to load project', String(error));
-					onBack();
+					addLogRef.current('error', 'Failed to load project', String(error));
+					onBackRef.current();
 				}
 			}
 		};
@@ -91,7 +97,7 @@ export function ProjectView({ onBack, addLog }: ProjectViewProps) {
 		return () => {
 			cancelled = true;
 		};
-	}, [addLog, onBack]);
+	}, []);
 
 	// Set up IPC event listeners
 	useEffect(() => {

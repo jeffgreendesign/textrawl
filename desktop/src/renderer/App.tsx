@@ -1,4 +1,4 @@
-import { useEffect, useState } from 'preact/hooks';
+import { useCallback, useEffect, useState } from 'preact/hooks';
 import type {
 	AppSettings,
 	FileProgress,
@@ -57,7 +57,10 @@ export function App() {
 		});
 
 		const unsubLog = window.electronAPI.onLog((entry) => {
-			setLogs((prev) => [...prev, entry]);
+			setLogs((prev) => {
+				const next = [...prev, entry];
+				return next.length > 1000 ? next.slice(-1000) : next;
+			});
 		});
 
 		const unsubComplete = window.electronAPI.onComplete((data) => {
@@ -97,7 +100,7 @@ export function App() {
 		};
 	}, []);
 
-	const addLog = (level: LogEntry['level'], message: string, details?: string) => {
+	const addLog = useCallback((level: LogEntry['level'], message: string, details?: string) => {
 		const entry: LogEntry = {
 			id: `log-${Date.now()}-${Math.random().toString(36).slice(2, 9)}`,
 			timestamp: new Date(),
@@ -105,8 +108,11 @@ export function App() {
 			message,
 			details,
 		};
-		setLogs((prev) => [...prev, entry]);
-	};
+		setLogs((prev) => {
+			const next = [...prev, entry];
+			return next.length > 1000 ? next.slice(-1000) : next;
+		});
+	}, []);
 
 	const handleDrop = async (paths: string[]) => {
 		setState('scanning');

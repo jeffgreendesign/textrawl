@@ -158,6 +158,7 @@ export class ConversionManager {
 			outputDir: options.outputDir,
 			tags: options.tags,
 			dryRun: options.dryRun,
+			sourceIdentifier: file.id !== file.path ? file.id : undefined,
 		});
 
 		if (result.success) {

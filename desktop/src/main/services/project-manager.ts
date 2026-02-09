@@ -1,3 +1,4 @@
+import { existsSync, readFileSync, readdirSync, statSync } from 'node:fs';
 /**
  * ProjectManager - Core main-process service for the directory browser.
  *
@@ -5,8 +6,15 @@
  * reconciles each file's PipelineStatus by cross-referencing the output
  * directory (converted .md files) and upload manifest, and exposes
  * methods for refresh/convert/upload/retry.
+ *
+ * Optimised for thousands of files:
+ *  - Async tree building (fs/promises) to avoid blocking the main thread
+ *  - Flat Map<string, TreeFile> index for O(1) node lookups
+ *  - Incremental output-map updates (cached between reconciliations)
+ *  - Dirty-set IPC: only changed nodes sent via PROJECT_FILE_UPDATE;
+ *    full tree sync only for structural changes (add/remove)
  */
-import { existsSync, readFileSync, readdirSync, statSync } from 'node:fs';
+import { readFile, readdir, stat } from 'node:fs/promises';
 import { basename, extname, join, relative, sep } from 'node:path';
 import type { BrowserWindow } from 'electron';
 import matter from 'gray-matter';
@@ -26,7 +34,7 @@ import {
 	isAppleMailBundle,
 	isDriveExportFolder,
 	isRtfdBundle,
-	routeFile,
+	routeFileByExt,
 } from './file-router.js';
 import { ProjectStore } from './project-store.js';
 import type { SettingsStore } from './settings-store.js';
@@ -81,6 +89,13 @@ class ManifestReader implements Manifest {
 	}
 }
 
+/**
+ * Yield to the event loop so long-running async loops don't starve IPC/UI.
+ */
+function yieldToEventLoop(): Promise<void> {
+	return new Promise((resolve) => setImmediate(resolve));
+}
+
 export class ProjectManager {
 	private window: BrowserWindow;
 	private projectStore: ProjectStore;
@@ -90,10 +105,17 @@ export class ProjectManager {
 	private outputMap: Map<string, OutputMapEntry> = new Map();
 	private manifest: Manifest | null = null;
 
+	/** Flat index: relativePath → TreeFile for O(1) lookups. */
+	private nodeIndex: Map<string, TreeFile> = new Map();
+
 	// File watching
 	private watcher: { close(): Promise<void> } | null = null;
 	private paused = false;
 	private pendingFlush = false;
+	/** Whether the pending flush requires a full tree sync (structural change). */
+	private needsFullSync = false;
+	/** Nodes whose status/fields changed since last flush. */
+	private dirtyNodes: Set<string> = new Set();
 	private updateTimer: ReturnType<typeof setTimeout> | null = null;
 
 	constructor(
@@ -113,7 +135,9 @@ export class ProjectManager {
 		this.outputDir = outputDir;
 		this.manifest = existsSync(outputDir) ? new ManifestReader(outputDir) : null;
 
-		this.tree = this.buildTree(sourceDir, sourceDir);
+		this.tree = await this.buildTree(sourceDir, sourceDir);
+		this.rebuildNodeIndex();
+		await this.buildOutputMap();
 		this.reconcileStatus(this.tree);
 
 		const stats = this.computeStats(this.tree);
@@ -140,6 +164,7 @@ export class ProjectManager {
 
 		// Reload manifest in case uploads happened externally
 		this.manifest = existsSync(this.outputDir) ? new ManifestReader(this.outputDir) : null;
+		await this.buildOutputMap();
 
 		this.reconcileStatus(this.tree);
 		const stats = this.computeStats(this.tree);
@@ -158,6 +183,7 @@ export class ProjectManager {
 		this.outputDir = null;
 		this.tree = [];
 		this.outputMap = new Map();
+		this.nodeIndex = new Map();
 		this.manifest = null;
 	}
 
@@ -183,7 +209,7 @@ export class ProjectManager {
 			await this.conversionManager.startConversion(scannedFiles, options);
 
 			// Detect which files failed by checking for output .md files
-			this.buildOutputMap();
+			await this.buildOutputMap();
 			for (const file of convertible) {
 				if (!this.outputMap.has(file.relativePath)) {
 					this.projectStore.setFileError(file.relativePath, 'Conversion failed');
@@ -218,7 +244,6 @@ export class ProjectManager {
 		}
 
 		// Re-reconcile to determine true status after clearing errors
-		this.buildOutputMap();
 		const files = this.findFiles(relativePaths);
 		for (const file of files) {
 			this.reconcileFile(file);
@@ -247,9 +272,39 @@ export class ProjectManager {
 		if (this.outputDir && existsSync(this.outputDir)) {
 			this.manifest = new ManifestReader(this.outputDir);
 		}
-		this.buildOutputMap();
+		// Synchronous rebuild is acceptable here — output dir is typically small
+		// relative to source, and this runs once after an explicit user action.
+		this.buildOutputMapSync();
 		this.reconcileStatus(this.tree);
-		this.scheduleFlush();
+		this.scheduleFlush(true);
+	}
+
+	// ---- Private: node index ----
+
+	private rebuildNodeIndex(): void {
+		this.nodeIndex = new Map();
+		const walk = (nodes: TreeFile[]): void => {
+			for (const node of nodes) {
+				this.nodeIndex.set(node.relativePath, node);
+				if (node.isDirectory && node.children) {
+					walk(node.children);
+				}
+			}
+		};
+		walk(this.tree);
+	}
+
+	private indexNode(node: TreeFile): void {
+		this.nodeIndex.set(node.relativePath, node);
+	}
+
+	private unindexNode(node: TreeFile): void {
+		this.nodeIndex.delete(node.relativePath);
+		if (node.isDirectory && node.children) {
+			for (const child of node.children) {
+				this.unindexNode(child);
+			}
+		}
 	}
 
 	// ---- Private: file watching ----
@@ -288,7 +343,7 @@ export class ProjectManager {
 			.on('unlink', (filePath: string) => this.handleUnlink(filePath))
 			.on('addDir', (filePath: string) => this.handleAddDir(filePath))
 			.on('unlinkDir', (filePath: string) => this.handleUnlinkDir(filePath))
-			.on('error', (err: Error) => {
+			.on('error', (err: unknown) => {
 				console.error('[project-manager] Watcher error:', err);
 			});
 
@@ -301,6 +356,8 @@ export class ProjectManager {
 			this.updateTimer = null;
 		}
 		this.pendingFlush = false;
+		this.dirtyNodes.clear();
+		this.needsFullSync = false;
 
 		try {
 			await this.watcher?.close();
@@ -368,7 +425,7 @@ export class ProjectManager {
 			};
 			this.reconcileFile(node);
 			this.insertIntoTree(relPath, node);
-			this.scheduleFlush();
+			this.scheduleFlush(true);
 			return;
 		}
 
@@ -388,7 +445,7 @@ export class ProjectManager {
 			};
 			this.reconcileFile(node);
 			this.insertIntoTree(relPath, node);
-			this.scheduleFlush();
+			this.scheduleFlush(true);
 			return;
 		}
 
@@ -413,7 +470,7 @@ export class ProjectManager {
 			};
 			this.reconcileFile(node);
 			this.insertIntoTree(relPath, node);
-			this.scheduleFlush();
+			this.scheduleFlush(true);
 			return;
 		}
 
@@ -428,14 +485,14 @@ export class ProjectManager {
 
 		const relPath = relative(this.sourceDir, absolutePath);
 		this.removeFromTree(this.tree, relPath);
-		this.scheduleFlush();
+		this.scheduleFlush(true);
 	}
 
 	private handleSourceAdd(absolutePath: string): void {
 		if (!this.sourceDir) return;
 
 		const relPath = relative(this.sourceDir, absolutePath);
-		const { type, converterType } = routeFile(absolutePath);
+		const { type, converterType } = routeFileByExt(absolutePath);
 
 		let size: number;
 		try {
@@ -460,14 +517,14 @@ export class ProjectManager {
 
 		this.reconcileFile(node);
 		this.insertIntoTree(relPath, node);
-		this.scheduleFlush();
+		this.scheduleFlush(true);
 	}
 
 	private handleSourceChange(absolutePath: string): void {
 		if (!this.sourceDir) return;
 
 		const relPath = relative(this.sourceDir, absolutePath);
-		const node = this.findNode(this.tree, relPath);
+		const node = this.nodeIndex.get(relPath);
 		if (!node || node.isDirectory) return;
 
 		let newSize: number;
@@ -491,6 +548,7 @@ export class ProjectManager {
 		}
 
 		this.reconcileFile(node);
+		this.dirtyNodes.add(relPath);
 		this.scheduleFlush();
 	}
 
@@ -499,7 +557,7 @@ export class ProjectManager {
 
 		const relPath = relative(this.sourceDir, absolutePath);
 		this.removeFromTree(this.tree, relPath);
-		this.scheduleFlush();
+		this.scheduleFlush(true);
 	}
 
 	private handleOutputAdd(absolutePath: string): void {
@@ -517,9 +575,10 @@ export class ProjectManager {
 			if (typeof sourceFile === 'string' && typeof sourceHash === 'string') {
 				this.outputMap.set(sourceFile, { convertedPath: filename, sourceHash });
 
-				const node = this.findNode(this.tree, sourceFile);
+				const node = this.nodeIndex.get(sourceFile);
 				if (node) {
 					this.reconcileFile(node);
+					this.dirtyNodes.add(sourceFile);
 					this.scheduleFlush();
 				}
 			}
@@ -537,7 +596,7 @@ export class ProjectManager {
 			// Manifest updated — reload and re-reconcile all files
 			this.manifest = new ManifestReader(this.outputDir);
 			this.reconcileStatus(this.tree);
-			this.scheduleFlush();
+			this.scheduleFlush(true);
 			return;
 		}
 
@@ -556,9 +615,10 @@ export class ProjectManager {
 		for (const [sourceFile, entry] of this.outputMap.entries()) {
 			if (entry.convertedPath === filename) {
 				this.outputMap.delete(sourceFile);
-				const node = this.findNode(this.tree, sourceFile);
+				const node = this.nodeIndex.get(sourceFile);
 				if (node) {
 					this.reconcileFile(node);
+					this.dirtyNodes.add(sourceFile);
 					this.scheduleFlush();
 				}
 				break;
@@ -568,33 +628,15 @@ export class ProjectManager {
 
 	// ---- Private: tree mutation helpers ----
 
-	private findNode(nodes: TreeFile[], relativePath: string): TreeFile | null {
-		for (const node of nodes) {
-			if (node.relativePath === relativePath) return node;
-			if (node.isDirectory && node.children) {
-				const found = this.findNode(node.children, relativePath);
-				if (found) return found;
-			}
-		}
-		return null;
-	}
-
 	/** Bulk tree lookup — collects non-directory nodes matching any of the given paths. */
 	private findFiles(relativePaths: string[]): TreeFile[] {
-		const pathSet = new Set(relativePaths);
 		const results: TreeFile[] = [];
-
-		const walk = (nodes: TreeFile[]): void => {
-			for (const node of nodes) {
-				if (node.isDirectory && node.children) {
-					walk(node.children);
-				} else if (pathSet.has(node.relativePath)) {
-					results.push(node);
-				}
+		for (const p of relativePaths) {
+			const node = this.nodeIndex.get(p);
+			if (node && !node.isDirectory) {
+				results.push(node);
 			}
-		};
-
-		walk(this.tree);
+		}
 		return results;
 	}
 
@@ -619,10 +661,12 @@ export class ProjectManager {
 		if (segments.length === 1) {
 			const idx = this.tree.findIndex((n) => n.relativePath === relativePath);
 			if (idx >= 0) {
+				this.unindexNode(this.tree[idx]);
 				this.tree[idx] = node;
 			} else {
 				this.tree.push(node);
 			}
+			this.indexNode(node);
 			return;
 		}
 
@@ -645,6 +689,7 @@ export class ProjectManager {
 					children: [],
 				};
 				currentLevel.push(dirNode);
+				this.indexNode(dirNode);
 			}
 
 			if (!dirNode.children) dirNode.children = [];
@@ -653,16 +698,19 @@ export class ProjectManager {
 
 		const idx = currentLevel.findIndex((n) => n.relativePath === relativePath);
 		if (idx >= 0) {
+			this.unindexNode(currentLevel[idx]);
 			currentLevel[idx] = node;
 		} else {
 			currentLevel.push(node);
 		}
+		this.indexNode(node);
 	}
 
 	private removeFromTree(nodes: TreeFile[], targetPath: string): boolean {
 		for (let i = nodes.length - 1; i >= 0; i--) {
 			const node = nodes[i];
 			if (node.relativePath === targetPath) {
+				this.unindexNode(node);
 				nodes.splice(i, 1);
 				return true;
 			}
@@ -671,6 +719,7 @@ export class ProjectManager {
 				if (removed) {
 					// Prune empty directory (matches buildTree behavior)
 					if (node.children.length === 0) {
+						this.unindexNode(node);
 						nodes.splice(i, 1);
 					}
 					return true;
@@ -682,8 +731,9 @@ export class ProjectManager {
 
 	// ---- Private: debouncing + IPC emit ----
 
-	private scheduleFlush(): void {
+	private scheduleFlush(structural = false): void {
 		this.pendingFlush = true;
+		if (structural) this.needsFullSync = true;
 		if (!this.updateTimer) {
 			this.updateTimer = setTimeout(() => this.flushUpdates(), 200);
 		}
@@ -694,8 +744,26 @@ export class ProjectManager {
 		if (!this.pendingFlush) return;
 		this.pendingFlush = false;
 
-		this.emitToRenderer(IPC.PROJECT_TREE_SYNC, this.tree);
-		this.emitToRenderer(IPC.PROJECT_STATS_UPDATE, this.computeStats(this.tree));
+		const stats = this.computeStats(this.tree);
+
+		if (this.needsFullSync) {
+			// Structural change (add/remove) — send full tree
+			this.emitToRenderer(IPC.PROJECT_TREE_SYNC, this.tree);
+			this.needsFullSync = false;
+		} else if (this.dirtyNodes.size > 0) {
+			// Status-only changes — send just the changed nodes
+			const updates: TreeFile[] = [];
+			for (const relPath of this.dirtyNodes) {
+				const node = this.nodeIndex.get(relPath);
+				if (node) updates.push(node);
+			}
+			if (updates.length > 0) {
+				this.emitToRenderer(IPC.PROJECT_FILE_UPDATE, updates);
+			}
+		}
+
+		this.dirtyNodes.clear();
+		this.emitToRenderer(IPC.PROJECT_STATS_UPDATE, stats);
 	}
 
 	private emitToRenderer(channel: string, data: unknown): void {
@@ -704,18 +772,21 @@ export class ProjectManager {
 		}
 	}
 
-	// ---- Private: tree building ----
+	// ---- Private: tree building (async) ----
 
-	private buildTree(dir: string, baseDir: string): TreeFile[] {
+	private async buildTree(dir: string, baseDir: string): Promise<TreeFile[]> {
 		const results: TreeFile[] = [];
 
-		let entries: ReturnType<typeof readdirSync>;
+		let entries: Awaited<ReturnType<typeof readdir>>;
 		try {
-			entries = readdirSync(dir, { withFileTypes: true });
+			entries = await readdir(dir, { withFileTypes: true });
 		} catch (err) {
 			console.error(`[project-manager] Failed to read directory ${dir}:`, err);
 			return results;
 		}
+
+		// Yield periodically to keep the main thread responsive
+		let processed = 0;
 
 		for (const entry of entries) {
 			// Skip dotfiles and node_modules
@@ -784,7 +855,7 @@ export class ProjectManager {
 				}
 
 				// Regular directory — recurse
-				const children = this.buildTree(fullPath, baseDir);
+				const children = await this.buildTree(fullPath, baseDir);
 				if (children.length > 0) {
 					results.push({
 						relativePath: relPath,
@@ -799,10 +870,16 @@ export class ProjectManager {
 					});
 				}
 			} else {
-				// Regular file — include ALL files (even unknown)
-				const { type, converterType } = routeFile(fullPath);
-				const fileStats = statSync(fullPath);
-				const { sizeTier, sizeWarning } = classifyFileSize(fileStats.size, type);
+				// Regular file — route by extension (no extra stat call)
+				const { type, converterType } = routeFileByExt(fullPath);
+				let fileSize: number;
+				try {
+					const fileStat = await stat(fullPath);
+					fileSize = fileStat.size;
+				} catch {
+					continue; // File may have been deleted
+				}
+				const { sizeTier, sizeWarning } = classifyFileSize(fileSize, type);
 
 				results.push({
 					relativePath: relPath,
@@ -810,91 +887,72 @@ export class ProjectManager {
 					isDirectory: false,
 					fileType: type,
 					converterType,
-					size: fileStats.size,
+					size: fileSize,
 					sizeTier,
 					sizeWarning,
 					pipelineStatus: 'pending',
 				});
+			}
+
+			processed++;
+			if (processed % 100 === 0) {
+				await yieldToEventLoop();
 			}
 		}
 
 		return results;
 	}
 
-	// ---- Private: status reconciliation ----
+	// ---- Private: output map (async for initial load, sync for resume) ----
 
-	private reconcileStatus(tree: TreeFile[]): void {
-		this.buildOutputMap();
+	private async buildOutputMap(): Promise<void> {
+		this.outputMap = new Map();
 
-		for (const node of tree) {
-			if (node.isDirectory && node.children) {
-				this.reconcileStatus(node.children);
+		if (!this.outputDir || !existsSync(this.outputDir)) {
+			return;
+		}
+
+		let dirEntries: string[];
+		try {
+			const direntries = await readdir(this.outputDir);
+			dirEntries = direntries as string[];
+		} catch {
+			console.error(`[project-manager] Failed to read output directory: ${this.outputDir}`);
+			return;
+		}
+
+		let processed = 0;
+		for (const filename of dirEntries) {
+			if (extname(filename).toLowerCase() !== '.md') {
 				continue;
 			}
 
-			this.reconcileFile(node);
-		}
-	}
+			const fullPath = join(this.outputDir, filename);
+			try {
+				const raw = await readFile(fullPath, 'utf-8');
+				const { data } = matter(raw);
 
-	private reconcileFile(file: TreeFile): void {
-		// Reset optional fields before reconciling
-		file.convertedPath = undefined;
-		file.documentId = undefined;
-		file.uploadedAt = undefined;
-		file.error = undefined;
-		file.lastProcessed = undefined;
-
-		// 1. Error (highest priority)
-		const fileError = this.projectStore.getFileError(file.relativePath);
-		if (fileError) {
-			file.pipelineStatus = 'error';
-			file.error = fileError.error;
-			file.lastProcessed = fileError.lastAttempt;
-			return;
-		}
-
-		// 2-3. Check output map for converted/uploaded
-		const outputEntry = this.findOutputEntry(file.relativePath);
-		if (outputEntry) {
-			file.convertedPath = outputEntry.convertedPath;
-
-			// 2. Uploaded (check manifest)
-			if (this.manifest) {
-				const manifestEntry = this.manifest.getEntry(outputEntry.sourceHash);
-				if (manifestEntry) {
-					file.pipelineStatus = 'uploaded';
-					file.documentId = manifestEntry.documentId;
-					file.uploadedAt = manifestEntry.uploadedAt;
-					return;
+				const sourceFile = data.source_file;
+				const sourceHash = data.source_hash;
+				if (typeof sourceFile === 'string' && typeof sourceHash === 'string') {
+					this.outputMap.set(sourceFile, {
+						convertedPath: filename,
+						sourceHash,
+					});
 				}
+			} catch {
+				// Skip files that can't be parsed
 			}
 
-			// 3. Converted but not uploaded
-			file.pipelineStatus = 'converted';
-			return;
+			processed++;
+			if (processed % 50 === 0) {
+				await yieldToEventLoop();
+			}
 		}
-
-		// 4. Oversized
-		if (file.sizeTier === 'large') {
-			file.pipelineStatus = 'oversized';
-			return;
-		}
-
-		// 5. Unsupported
-		if (file.converterType === null && file.fileType === 'unknown') {
-			file.pipelineStatus = 'unsupported';
-			return;
-		}
-
-		// 6. Default
-		file.pipelineStatus = 'pending';
 	}
 
-	private findOutputEntry(relativePath: string): OutputMapEntry | undefined {
-		return this.outputMap.get(relativePath);
-	}
-
-	private buildOutputMap(): void {
+	/** Synchronous variant for resumeWatching — output dir is typically small. */
+	private buildOutputMapSync(): void {
 		this.outputMap = new Map();
 
 		if (!this.outputDir || !existsSync(this.outputDir)) {
@@ -931,6 +989,73 @@ export class ProjectManager {
 				// Skip files that can't be parsed
 			}
 		}
+	}
+
+	// ---- Private: status reconciliation ----
+
+	private reconcileStatus(tree: TreeFile[]): void {
+		for (const node of tree) {
+			if (node.isDirectory && node.children) {
+				this.reconcileStatus(node.children);
+				continue;
+			}
+
+			this.reconcileFile(node);
+		}
+	}
+
+	private reconcileFile(file: TreeFile): void {
+		// Reset optional fields before reconciling
+		file.convertedPath = undefined;
+		file.documentId = undefined;
+		file.uploadedAt = undefined;
+		file.error = undefined;
+		file.lastProcessed = undefined;
+
+		// 1. Error (highest priority)
+		const fileError = this.projectStore.getFileError(file.relativePath);
+		if (fileError) {
+			file.pipelineStatus = 'error';
+			file.error = fileError.error;
+			file.lastProcessed = fileError.lastAttempt;
+			return;
+		}
+
+		// 2-3. Check output map for converted/uploaded
+		const outputEntry = this.outputMap.get(file.relativePath);
+		if (outputEntry) {
+			file.convertedPath = outputEntry.convertedPath;
+
+			// 2. Uploaded (check manifest)
+			if (this.manifest) {
+				const manifestEntry = this.manifest.getEntry(outputEntry.sourceHash);
+				if (manifestEntry) {
+					file.pipelineStatus = 'uploaded';
+					file.documentId = manifestEntry.documentId;
+					file.uploadedAt = manifestEntry.uploadedAt;
+					return;
+				}
+			}
+
+			// 3. Converted but not uploaded
+			file.pipelineStatus = 'converted';
+			return;
+		}
+
+		// 4. Oversized
+		if (file.sizeTier === 'large') {
+			file.pipelineStatus = 'oversized';
+			return;
+		}
+
+		// 5. Unsupported
+		if (file.converterType === null && file.fileType === 'unknown') {
+			file.pipelineStatus = 'unsupported';
+			return;
+		}
+
+		// 6. Default
+		file.pipelineStatus = 'pending';
 	}
 
 	// ---- Private: stats ----

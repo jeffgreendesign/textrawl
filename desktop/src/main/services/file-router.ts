@@ -300,6 +300,26 @@ export function getMboxPathFromBundle(bundlePath: string): string {
 }
 
 /**
+ * Route a file by extension alone (no stat call). Use when the caller already
+ * knows the path is a regular file. Falls back to mdls on macOS for
+ * extensionless files.
+ */
+export function routeFileByExt(filePath: string): {
+	type: FileType;
+	converterType: ConverterType | null;
+} {
+	const ext = extname(filePath).toLowerCase();
+	let type = EXTENSION_MAP[ext] || 'unknown';
+
+	if (type === 'unknown' && ext === '' && process.platform === 'darwin') {
+		type = detectTypeViaMdls(filePath);
+	}
+
+	const converterType = CONVERTER_MAP[type];
+	return { type, converterType };
+}
+
+/**
  * Route a single path to its file type
  */
 export function routeFile(filePath: string): {
