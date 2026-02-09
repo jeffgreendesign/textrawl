@@ -128,11 +128,34 @@ export function getBundleContentSize(dirPath: string, type: FileType): number {
 				return statSync(innerPath).size;
 			}
 		}
+		if (type === 'takeout') {
+			// Google Drive export: sum all files recursively
+			return getRecursiveDirectorySize(dirPath);
+		}
 	} catch {
 		// Fall through to directory stat
 	}
 	// Fallback: use the directory entry size (inaccurate but safe)
 	return statSync(dirPath).size;
+}
+
+/**
+ * Recursively compute the total size of all files in a directory.
+ * Skips dotfiles and node_modules, consistent with project conventions.
+ */
+function getRecursiveDirectorySize(dirPath: string): number {
+	let total = 0;
+	const entries = readdirSync(dirPath, { withFileTypes: true });
+	for (const entry of entries) {
+		if (entry.name.startsWith('.') || entry.name === 'node_modules') continue;
+		const fullPath = join(dirPath, entry.name);
+		if (entry.isDirectory()) {
+			total += getRecursiveDirectorySize(fullPath);
+		} else {
+			total += statSync(fullPath).size;
+		}
+	}
+	return total;
 }
 
 /**
@@ -387,15 +410,15 @@ export function scanDirectory(dirPath: string): ScannedFile[] {
 					});
 				} else if (isDriveExportFolder(fullPath, entry.name)) {
 					// Google Drive export folder - route to takeout converter
-					const stats = statSync(fullPath);
-					const { sizeTier, sizeWarning } = classifyFileSize(stats.size, 'takeout');
+					const contentSize = getBundleContentSize(fullPath, 'takeout');
+					const { sizeTier, sizeWarning } = classifyFileSize(contentSize, 'takeout');
 					results.push({
 						id: generateFileId(),
 						path: fullPath,
 						name: entry.name,
 						type: 'takeout',
 						converterType: 'takeout',
-						size: stats.size,
+						size: contentSize,
 						isDirectory: true,
 						sizeTier,
 						sizeWarning,
@@ -483,14 +506,15 @@ export async function scanPaths(paths: string[]): Promise<ScannedFile[]> {
 					});
 				} else if (isDriveExportFolder(path, basename(path))) {
 					console.error(`[file-router] detected Google Drive export folder: "${path}"`);
-					const { sizeTier, sizeWarning } = classifyFileSize(stats.size, 'takeout');
+					const contentSize = getBundleContentSize(path, 'takeout');
+					const { sizeTier, sizeWarning } = classifyFileSize(contentSize, 'takeout');
 					results.push({
 						id: generateFileId(),
 						path,
 						name: basename(path),
 						type: 'takeout',
 						converterType: 'takeout',
-						size: stats.size,
+						size: contentSize,
 						isDirectory: true,
 						sizeTier,
 						sizeWarning,
