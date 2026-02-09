@@ -11,7 +11,15 @@ import { basename, extname, join, relative, sep } from 'node:path';
 import type { BrowserWindow } from 'electron';
 import matter from 'gray-matter';
 import { IPC } from '../../shared/ipc-channels.js';
-import type { ProjectState, ProjectStats, TreeFile } from '../../shared/types.js';
+import type {
+	ConversionOptions,
+	ProjectState,
+	ProjectStats,
+	ScannedFile,
+	TreeFile,
+	UploadOptions,
+} from '../../shared/types.js';
+import type { ConversionManager } from './conversion-manager.js';
 import {
 	classifyFileSize,
 	getBundleContentSize,
@@ -21,6 +29,8 @@ import {
 	routeFile,
 } from './file-router.js';
 import { ProjectStore } from './project-store.js';
+import type { SettingsStore } from './settings-store.js';
+import type { UploadManager } from './upload-manager.js';
 
 interface ManifestEntry {
 	sourceHash: string;
@@ -86,7 +96,12 @@ export class ProjectManager {
 	private pendingFlush = false;
 	private updateTimer: ReturnType<typeof setTimeout> | null = null;
 
-	constructor(window: BrowserWindow) {
+	constructor(
+		window: BrowserWindow,
+		private conversionManager: ConversionManager,
+		private uploadManager: UploadManager,
+		private settingsStore: SettingsStore,
+	) {
 		this.window = window;
 		this.projectStore = new ProjectStore();
 	}
@@ -146,17 +161,79 @@ export class ProjectManager {
 		this.manifest = null;
 	}
 
-	// TODO: Phase 7
 	async convertFiles(relativePaths: string[]): Promise<void> {
-		void relativePaths;
+		if (!this.sourceDir || !this.outputDir) return;
+
+		const files = this.findFiles(relativePaths);
+		const convertible = files.filter(
+			(f) => f.pipelineStatus === 'pending' && f.converterType !== null,
+		);
+		if (convertible.length === 0) return;
+
+		const scannedFiles = convertible.map((f) => this.toScannedFile(f));
+		const options: ConversionOptions = {
+			outputDir: this.outputDir,
+			tags: this.settingsStore.get().defaultTags,
+			dryRun: false,
+			verbose: false,
+		};
+
+		this.pauseWatching();
+		try {
+			await this.conversionManager.startConversion(scannedFiles, options);
+
+			// Detect which files failed by checking for output .md files
+			this.buildOutputMap();
+			for (const file of convertible) {
+				if (!this.outputMap.has(file.relativePath)) {
+					this.projectStore.setFileError(file.relativePath, 'Conversion failed');
+				}
+			}
+		} finally {
+			this.resumeWatching();
+		}
 	}
 
-	// TODO: Phase 7
-	async uploadConverted(): Promise<void> {}
+	async uploadConverted(): Promise<void> {
+		if (!this.outputDir) return;
 
-	// TODO: Phase 7
+		const options: UploadOptions = {
+			directory: this.outputDir,
+			tags: this.settingsStore.get().defaultTags,
+		};
+
+		this.pauseWatching();
+		try {
+			await this.uploadManager.startUpload(options);
+		} finally {
+			this.resumeWatching();
+		}
+	}
+
 	async retryErrors(relativePaths: string[]): Promise<void> {
-		void relativePaths;
+		if (!this.sourceDir || !this.outputDir) return;
+
+		for (const path of relativePaths) {
+			this.projectStore.clearFileError(path);
+		}
+
+		// Re-reconcile to determine true status after clearing errors
+		this.buildOutputMap();
+		const files = this.findFiles(relativePaths);
+		for (const file of files) {
+			this.reconcileFile(file);
+		}
+
+		// Collect files that fell back to pending and need conversion
+		const pendingPaths = files
+			.filter((f) => f.pipelineStatus === 'pending')
+			.map((f) => f.relativePath);
+
+		if (pendingPaths.length > 0) {
+			await this.convertFiles(pendingPaths);
+		} else {
+			this.scheduleFlush();
+		}
 	}
 
 	/** Pause file watching during conversion/upload to avoid reacting to own writes. */
@@ -500,6 +577,40 @@ export class ProjectManager {
 			}
 		}
 		return null;
+	}
+
+	/** Bulk tree lookup — collects non-directory nodes matching any of the given paths. */
+	private findFiles(relativePaths: string[]): TreeFile[] {
+		const pathSet = new Set(relativePaths);
+		const results: TreeFile[] = [];
+
+		const walk = (nodes: TreeFile[]): void => {
+			for (const node of nodes) {
+				if (node.isDirectory && node.children) {
+					walk(node.children);
+				} else if (pathSet.has(node.relativePath)) {
+					results.push(node);
+				}
+			}
+		};
+
+		walk(this.tree);
+		return results;
+	}
+
+	/** Map a TreeFile to a ScannedFile for ConversionManager. */
+	private toScannedFile(file: TreeFile): ScannedFile {
+		return {
+			id: file.relativePath,
+			path: join(this.sourceDir!, file.relativePath),
+			name: file.name,
+			type: file.fileType,
+			converterType: file.converterType,
+			size: file.size,
+			isDirectory: file.isDirectory,
+			sizeTier: file.sizeTier,
+			sizeWarning: file.sizeWarning,
+		};
 	}
 
 	private insertIntoTree(relativePath: string, node: TreeFile): void {

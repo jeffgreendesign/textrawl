@@ -139,7 +139,12 @@ function setupIpcHandlers(): void {
 	// Load a project directory
 	ipcMain.handle(IPC.PROJECT_LOAD, async (_event, sourceDir: string, outputDir: string) => {
 		if (!mainWindow) return null;
-		projectManager = new ProjectManager(mainWindow);
+		projectManager = new ProjectManager(
+			mainWindow,
+			conversionManager!,
+			uploadManager!,
+			settingsStore,
+		);
 		return projectManager.loadProject(sourceDir, outputDir);
 	});
 
