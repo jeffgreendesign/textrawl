@@ -10,6 +10,7 @@ import { DropZone } from './components/DropZone';
 import { FileList } from './components/FileList';
 import { LogViewer } from './components/LogViewer';
 import { ProgressBar } from './components/ProgressBar';
+import { ProjectView } from './components/ProjectView';
 import { SettingsPanel } from './components/SettingsPanel';
 
 // Type for the electron API exposed via preload
@@ -20,8 +21,10 @@ declare global {
 }
 
 type AppState = 'idle' | 'scanning' | 'ready' | 'converting' | 'complete' | 'uploading';
+type AppMode = 'dropzone' | 'project';
 
 export function App() {
+	const [appMode, setAppMode] = useState<AppMode>('dropzone');
 	const [state, setState] = useState<AppState>('idle');
 	const [files, setFiles] = useState<ScannedFile[]>([]);
 	const [fileProgress, setFileProgress] = useState<Map<string, FileProgress>>(new Map());
@@ -204,62 +207,83 @@ export function App() {
 		<div class="app">
 			<header>
 				<h1>Textrawl</h1>
-				<p class="subtitle">Convert files to searchable markdown</p>
+				<div class="mode-toggle">
+					<button
+						type="button"
+						class={`btn-small ${appMode === 'dropzone' ? 'mode-toggle--active' : ''}`}
+						onClick={() => setAppMode('dropzone')}
+					>
+						Drop Zone
+					</button>
+					<button
+						type="button"
+						class={`btn-small ${appMode === 'project' ? 'mode-toggle--active' : ''}`}
+						onClick={() => setAppMode('project')}
+					>
+						Open Project
+					</button>
+				</div>
 			</header>
 
 			<main>
-				{(state === 'idle' ||
-					state === 'scanning' ||
-					(state === 'ready' && files.length === 0)) && (
-					<DropZone onDrop={handleDrop} isScanning={state === 'scanning'} />
-				)}
-
-				{files.length > 0 && (
+				{appMode === 'project' ? (
+					<ProjectView onBack={() => setAppMode('dropzone')} addLog={addLog} />
+				) : (
 					<>
-						<FileList files={files} fileProgress={fileProgress} onClear={handleClearFiles} />
-
-						{overallProgress && (
-							<ProgressBar progress={overallProgress} isConverting={state === 'converting'} />
+						{(state === 'idle' ||
+							state === 'scanning' ||
+							(state === 'ready' && files.length === 0)) && (
+							<DropZone onDrop={handleDrop} isScanning={state === 'scanning'} />
 						)}
 
-						<SettingsPanel
-							outputDir={outputDir}
-							tags={tags}
-							onOutputDirChange={setOutputDir}
-							onTagsChange={setTags}
-							onSelectFolder={handleSelectFolder}
-						/>
+						{files.length > 0 && (
+							<>
+								<FileList files={files} fileProgress={fileProgress} onClear={handleClearFiles} />
 
-						<div class="actions">
-							{state === 'ready' && (
-								<button type="button" class="btn btn-primary" onClick={handleConvert}>
-									Convert {files.length} file(s)
-								</button>
-							)}
+								{overallProgress && (
+									<ProgressBar progress={overallProgress} isConverting={state === 'converting'} />
+								)}
 
-							{state === 'converting' && (
-								<button type="button" class="btn btn-secondary" onClick={handleCancel}>
-									Cancel
-								</button>
-							)}
+								<SettingsPanel
+									outputDir={outputDir}
+									tags={tags}
+									onOutputDirChange={setOutputDir}
+									onTagsChange={setTags}
+									onSelectFolder={handleSelectFolder}
+								/>
 
-							{state === 'complete' && (
-								<>
-									<button type="button" class="btn btn-primary" onClick={handleUpload}>
-										Upload to Supabase
-									</button>
-									<button type="button" class="btn btn-secondary" onClick={handleClearFiles}>
-										Start Over
-									</button>
-								</>
-							)}
+								<div class="actions">
+									{state === 'ready' && (
+										<button type="button" class="btn btn-primary" onClick={handleConvert}>
+											Convert {files.length} file(s)
+										</button>
+									)}
 
-							{state === 'uploading' && (
-								<button type="button" class="btn btn-secondary" disabled>
-									Uploading...
-								</button>
-							)}
-						</div>
+									{state === 'converting' && (
+										<button type="button" class="btn btn-secondary" onClick={handleCancel}>
+											Cancel
+										</button>
+									)}
+
+									{state === 'complete' && (
+										<>
+											<button type="button" class="btn btn-primary" onClick={handleUpload}>
+												Upload to Supabase
+											</button>
+											<button type="button" class="btn btn-secondary" onClick={handleClearFiles}>
+												Start Over
+											</button>
+										</>
+									)}
+
+									{state === 'uploading' && (
+										<button type="button" class="btn btn-secondary" disabled>
+											Uploading...
+										</button>
+									)}
+								</div>
+							</>
+						)}
 					</>
 				)}
 

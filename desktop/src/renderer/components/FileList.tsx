@@ -6,7 +6,7 @@ interface FileListProps {
 	onClear: () => void;
 }
 
-const FILE_ICONS: Record<string, string> = {
+export const FILE_ICONS: Record<string, string> = {
 	mbox: '📧',
 	'mbox-bundle': '📧',
 	eml: '✉️',
