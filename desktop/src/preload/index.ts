@@ -156,6 +156,14 @@ const electronAPI = {
 		return () => ipcRenderer.removeListener(IPC.PROJECT_STATS_UPDATE, handler);
 	},
 
+	onTreeSync: (callback: (tree: TreeFile[]) => void) => {
+		const handler = (_event: Electron.IpcRendererEvent, tree: TreeFile[]) => {
+			callback(tree);
+		};
+		ipcRenderer.on(IPC.PROJECT_TREE_SYNC, handler);
+		return () => ipcRenderer.removeListener(IPC.PROJECT_TREE_SYNC, handler);
+	},
+
 	// Copy text to clipboard
 	copyToClipboard: (text: string): void => {
 		clipboard.writeText(text);
@@ -169,6 +177,7 @@ const electronAPI = {
 		ipcRenderer.removeAllListeners(IPC.ERROR);
 		ipcRenderer.removeAllListeners(IPC.PROJECT_FILE_UPDATE);
 		ipcRenderer.removeAllListeners(IPC.PROJECT_STATS_UPDATE);
+		ipcRenderer.removeAllListeners(IPC.PROJECT_TREE_SYNC);
 	},
 };
 

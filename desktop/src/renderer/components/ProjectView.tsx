@@ -99,12 +99,17 @@ export function ProjectView({ onBack, addLog }: ProjectViewProps) {
 			setTree((prev) => applyFileUpdates(prev, updatedFiles));
 		});
 
+		const unsubTreeSync = window.electronAPI.onTreeSync((newTree) => {
+			setTree(newTree);
+		});
+
 		const unsubStats = window.electronAPI.onStatsUpdate((updatedStats) => {
 			setStats(updatedStats);
 		});
 
 		return () => {
 			unsubFile();
+			unsubTreeSync();
 			unsubStats();
 			window.electronAPI
 				.unloadProject()

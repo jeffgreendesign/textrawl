@@ -68,7 +68,9 @@ function createWindow(): void {
 	}
 
 	mainWindow.on('closed', () => {
-		projectManager?.unloadProject();
+		projectManager?.unloadProject().catch((err) => {
+			console.error('[main] Error unloading project on window close:', err);
+		});
 		projectManager = null;
 		mainWindow = null;
 		conversionManager = null;

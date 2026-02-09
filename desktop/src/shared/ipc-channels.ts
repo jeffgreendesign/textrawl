@@ -30,6 +30,7 @@ export const IPC = {
 	// Project channels (send — main → renderer, event-based)
 	PROJECT_FILE_UPDATE: 'project:fileUpdate',
 	PROJECT_STATS_UPDATE: 'project:statsUpdate',
+	PROJECT_TREE_SYNC: 'project:treeSync',
 } as const;
 
 export type IPCChannel = (typeof IPC)[keyof typeof IPC];
