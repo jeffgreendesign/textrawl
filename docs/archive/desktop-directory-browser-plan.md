@@ -10,7 +10,7 @@
 | 1 | safeStorage migration | Done |
 | 2 | Data model + types | Done |
 | 3 | ProjectManager service | Done |
-| 4 | IPC layer | Not started |
+| 4 | IPC layer | Done |
 | 5 | Directory tree UI | Not started |
 | 6 | chokidar file watching | Not started |
 | 7 | Pipeline integration | Not started |
