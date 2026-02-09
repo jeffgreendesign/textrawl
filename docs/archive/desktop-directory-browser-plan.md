@@ -11,7 +11,7 @@
 | 2 | Data model + types | Done |
 | 3 | ProjectManager service | Done |
 | 4 | IPC layer | Done |
-| 5 | Directory tree UI | Not started |
+| 5 | Directory tree UI | Done |
 | 6 | chokidar file watching | Not started |
 | 7 | Pipeline integration | Not started |
 
