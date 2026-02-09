@@ -112,7 +112,7 @@ const UTI_MAP: Record<string, FileType> = {
  * statSync on a directory returns the directory entry size, not the content size.
  * For known bundle types, stat the inner payload file instead.
  */
-function getBundleContentSize(dirPath: string, type: FileType): number {
+export function getBundleContentSize(dirPath: string, type: FileType): number {
 	try {
 		if (type === 'mbox-bundle') {
 			// Apple Mail .mbox bundle: actual data is in the inner "mbox" file
@@ -138,7 +138,7 @@ function getBundleContentSize(dirPath: string, type: FileType): number {
 /**
  * Classify file size into tiers with appropriate warning messages
  */
-function classifyFileSize(
+export function classifyFileSize(
 	sizeBytes: number,
 	type: FileType,
 ): { sizeTier: SizeTier; sizeWarning?: string } {
