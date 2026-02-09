@@ -106,7 +106,9 @@ export function ProjectView({ onBack, addLog }: ProjectViewProps) {
 		return () => {
 			unsubFile();
 			unsubStats();
-			window.electronAPI.unloadProject().catch(() => {});
+			window.electronAPI
+				.unloadProject()
+				.catch((err) => console.error('unloadProject failed:', err));
 		};
 	}, []);
 
