@@ -15,6 +15,7 @@ import type {
 } from '../shared/types.js';
 import { ConversionManager } from './services/conversion-manager.js';
 import { scanPaths } from './services/file-router.js';
+import { ProjectManager } from './services/project-manager.js';
 import { SettingsStore } from './services/settings-store.js';
 import { UploadManager } from './services/upload-manager.js';
 
@@ -24,6 +25,7 @@ let mainWindow: BrowserWindow | null = null;
 let conversionManager: ConversionManager | null = null;
 let uploadManager: UploadManager | null = null;
 let settingsStore!: SettingsStore; // Initialized in app.whenReady() before any IPC handlers
+let projectManager: ProjectManager | null = null;
 let hasShownKeychainWarning = false;
 
 function createWindow(): void {
@@ -66,6 +68,8 @@ function createWindow(): void {
 	}
 
 	mainWindow.on('closed', () => {
+		projectManager?.unloadProject();
+		projectManager = null;
 		mainWindow = null;
 		conversionManager = null;
 		uploadManager = null;
@@ -128,6 +132,44 @@ function setupIpcHandlers(): void {
 	ipcMain.handle(IPC.SETTINGS_SAVE, async (_event, settings: AppSettings) => {
 		settingsStore.set(settings);
 		return { success: true };
+	});
+
+	// Load a project directory
+	ipcMain.handle(IPC.PROJECT_LOAD, async (_event, sourceDir: string, outputDir: string) => {
+		if (!mainWindow) return null;
+		projectManager = new ProjectManager(mainWindow);
+		return projectManager.loadProject(sourceDir, outputDir);
+	});
+
+	// Unload the current project
+	ipcMain.handle(IPC.PROJECT_UNLOAD, async () => {
+		projectManager?.unloadProject();
+		projectManager = null;
+	});
+
+	// Get the file tree
+	ipcMain.handle(IPC.PROJECT_GET_TREE, async () => {
+		return projectManager?.getTree() ?? [];
+	});
+
+	// Refresh project state
+	ipcMain.handle(IPC.PROJECT_REFRESH, async () => {
+		return projectManager?.refresh() ?? null;
+	});
+
+	// Convert selected files
+	ipcMain.handle(IPC.PROJECT_CONVERT, async (_event, relativePaths: string[]) => {
+		await projectManager?.convertFiles(relativePaths);
+	});
+
+	// Upload converted files
+	ipcMain.handle(IPC.PROJECT_UPLOAD, async () => {
+		await projectManager?.uploadConverted();
+	});
+
+	// Retry errored files
+	ipcMain.handle(IPC.PROJECT_RETRY, async (_event, _relativePaths: string[]) => {
+		await projectManager?.retryErrors();
 	});
 }
 

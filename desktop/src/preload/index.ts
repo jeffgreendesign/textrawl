@@ -9,7 +9,10 @@ import type {
 	ConversionOptions,
 	LogEntry,
 	ProgressUpdate,
+	ProjectState,
+	ProjectStats,
 	ScannedFile,
+	TreeFile,
 	UploadOptions,
 } from '../shared/types.js';
 
@@ -55,6 +58,35 @@ const electronAPI = {
 
 	saveSettings: (settings: AppSettings): Promise<{ success: boolean }> => {
 		return ipcRenderer.invoke(IPC.SETTINGS_SAVE, settings);
+	},
+
+	// Project management
+	loadProject: (sourceDir: string, outputDir: string): Promise<ProjectState | null> => {
+		return ipcRenderer.invoke(IPC.PROJECT_LOAD, sourceDir, outputDir);
+	},
+
+	unloadProject: (): Promise<void> => {
+		return ipcRenderer.invoke(IPC.PROJECT_UNLOAD);
+	},
+
+	getProjectTree: (): Promise<TreeFile[]> => {
+		return ipcRenderer.invoke(IPC.PROJECT_GET_TREE);
+	},
+
+	refreshProject: (): Promise<ProjectState | null> => {
+		return ipcRenderer.invoke(IPC.PROJECT_REFRESH);
+	},
+
+	convertFiles: (paths: string[]): Promise<void> => {
+		return ipcRenderer.invoke(IPC.PROJECT_CONVERT, paths);
+	},
+
+	uploadConverted: (): Promise<void> => {
+		return ipcRenderer.invoke(IPC.PROJECT_UPLOAD);
+	},
+
+	retryFiles: (paths: string[]): Promise<void> => {
+		return ipcRenderer.invoke(IPC.PROJECT_RETRY, paths);
 	},
 
 	// Event listeners (main → renderer)
@@ -108,6 +140,22 @@ const electronAPI = {
 		return () => ipcRenderer.removeListener(IPC.ERROR, handler);
 	},
 
+	onFileUpdate: (callback: (files: TreeFile[]) => void) => {
+		const handler = (_event: Electron.IpcRendererEvent, files: TreeFile[]) => {
+			callback(files);
+		};
+		ipcRenderer.on(IPC.PROJECT_FILE_UPDATE, handler);
+		return () => ipcRenderer.removeListener(IPC.PROJECT_FILE_UPDATE, handler);
+	},
+
+	onStatsUpdate: (callback: (stats: ProjectStats) => void) => {
+		const handler = (_event: Electron.IpcRendererEvent, stats: ProjectStats) => {
+			callback(stats);
+		};
+		ipcRenderer.on(IPC.PROJECT_STATS_UPDATE, handler);
+		return () => ipcRenderer.removeListener(IPC.PROJECT_STATS_UPDATE, handler);
+	},
+
 	// Copy text to clipboard
 	copyToClipboard: (text: string): void => {
 		clipboard.writeText(text);
@@ -119,6 +167,8 @@ const electronAPI = {
 		ipcRenderer.removeAllListeners(IPC.LOG);
 		ipcRenderer.removeAllListeners(IPC.COMPLETE);
 		ipcRenderer.removeAllListeners(IPC.ERROR);
+		ipcRenderer.removeAllListeners(IPC.PROJECT_FILE_UPDATE);
+		ipcRenderer.removeAllListeners(IPC.PROJECT_STATS_UPDATE);
 	},
 };
 
