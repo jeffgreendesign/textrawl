@@ -168,8 +168,8 @@ function setupIpcHandlers(): void {
 	});
 
 	// Retry errored files
-	ipcMain.handle(IPC.PROJECT_RETRY, async (_event, _relativePaths: string[]) => {
-		await projectManager?.retryErrors();
+	ipcMain.handle(IPC.PROJECT_RETRY, async (_event, relativePaths: string[]) => {
+		await projectManager?.retryErrors(relativePaths);
 	});
 }
 

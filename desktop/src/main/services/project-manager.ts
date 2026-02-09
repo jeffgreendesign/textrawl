@@ -51,6 +51,7 @@ function createManifest(outputDir: string): Manifest {
 }
 
 export class ProjectManager {
+	/** Used by Phase 6 (file watching) to emit updates via webContents.send() */
 	private window: BrowserWindow;
 	private projectStore: ProjectStore;
 	private sourceDir: string | null = null;
@@ -123,7 +124,7 @@ export class ProjectManager {
 	async uploadConverted(): Promise<void> {}
 
 	// TODO: Phase 7
-	async retryErrors(): Promise<void> {}
+	async retryErrors(_relativePaths: string[]): Promise<void> {}
 
 	// ---- Private: tree building ----
 
@@ -139,8 +140,6 @@ export class ProjectManager {
 		}
 
 		for (const entry of entries) {
-			if (typeof entry === 'string') continue; // type guard for Dirent
-
 			// Skip dotfiles and node_modules
 			if (entry.name.startsWith('.') || entry.name === 'node_modules') {
 				continue;
@@ -277,7 +276,7 @@ export class ProjectManager {
 		}
 
 		// 2-3. Check output map for converted/uploaded
-		const outputEntry = this.outputMap.get(basename(file.relativePath));
+		const outputEntry = this.findOutputEntry(file.relativePath);
 		if (outputEntry) {
 			file.convertedPath = outputEntry.convertedPath;
 
@@ -313,6 +312,20 @@ export class ProjectManager {
 		file.pipelineStatus = 'pending';
 	}
 
+	private findOutputEntry(relativePath: string): OutputMapEntry | undefined {
+		// Try exact match on relative path
+		const exact = this.outputMap.get(relativePath);
+		if (exact) return exact;
+
+		// Fall back to basename match (converters store varying path formats)
+		const name = basename(relativePath);
+		for (const [key, entry] of this.outputMap) {
+			if (basename(key) === name) return entry;
+		}
+
+		return undefined;
+	}
+
 	private buildOutputMap(): void {
 		this.outputMap = new Map();
 
@@ -324,6 +337,7 @@ export class ProjectManager {
 		try {
 			dirEntries = readdirSync(this.outputDir) as string[];
 		} catch {
+			console.error(`[project-manager] Failed to read output directory: ${this.outputDir}`);
 			return;
 		}
 
@@ -340,7 +354,7 @@ export class ProjectManager {
 				const sourceFile = data.source_file;
 				const sourceHash = data.source_hash;
 				if (typeof sourceFile === 'string' && typeof sourceHash === 'string') {
-					this.outputMap.set(basename(sourceFile), {
+					this.outputMap.set(sourceFile, {
 						convertedPath: filename,
 						sourceHash,
 					});
