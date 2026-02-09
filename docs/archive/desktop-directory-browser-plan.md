@@ -1,3 +1,7 @@
+---
+title: Desktop Directory Browser & Security Hardening Plan
+---
+
 # Desktop Directory Browser & Security Hardening Plan
 
 **Date:** February 8, 2026
