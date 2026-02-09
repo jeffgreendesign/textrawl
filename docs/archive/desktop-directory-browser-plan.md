@@ -14,7 +14,7 @@
 | 5 | Directory tree UI | Done |
 | 5.1 | Post-review fixes | Done |
 | 6 | chokidar file watching | Done |
-| 7 | Pipeline integration | Not started |
+| 7 | Pipeline integration | Done |
 
 ### Post-review Fixes (Phase 3/4)
 
@@ -27,6 +27,15 @@
 ### Post-review Fixes (Phase 5)
 
 - Replaced empty `.catch(() => {})` on `unloadProject()` teardown with error logging via `console.error` in `ProjectView.tsx`
+
+### Phase 7 Implementation Notes
+
+- `ProjectManager` constructor now receives `ConversionManager`, `UploadManager`, and `SettingsStore` as dependencies (injected from `index.ts`)
+- `convertFiles()`: maps `TreeFile[]` → `ScannedFile[]`, pauses watching, delegates to `ConversionManager.startConversion()`, detects failures by diffing the output directory, persists errors via `ProjectStore.setFileError()`, resumes watching
+- `uploadConverted()`: pauses watching, delegates to `UploadManager.startUpload()` with outputDir and tags from `SettingsStore`, resumes watching (reloads manifest + reconciles)
+- `retryErrors()`: clears stored errors, re-reconciles to determine true status, delegates pending files back to `convertFiles()`
+- Added `findFiles()` (bulk tree lookup) and `toScannedFile()` (TreeFile → ScannedFile mapper) private helpers
+- Progress/log/completion events flow through existing IPC channels — no new events or duplication
 
 ### Resolved Open Questions
 
