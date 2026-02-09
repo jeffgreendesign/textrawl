@@ -19,6 +19,7 @@
 import { safeStorage } from 'electron';
 import Store from 'electron-store';
 import type { AppSettings } from '../../shared/types.js';
+import { logger } from '../utils/logger.js';
 
 // Internal store schema — sensitive fields stored as safeStorage-encrypted base64
 interface StoreSchema {
@@ -62,7 +63,7 @@ export class SettingsStore {
 	private encrypt(value: string): string {
 		if (!value) return '';
 		if (!safeStorage.isEncryptionAvailable()) {
-			console.error('[settings] WARNING: safeStorage not available, storing in plaintext');
+			logger.warn('[settings] safeStorage not available, storing in plaintext');
 			return value;
 		}
 		return safeStorage.encryptString(value).toString('base64');
@@ -107,10 +108,10 @@ export class SettingsStore {
 				// Delete legacy fields
 				oldStore.delete('supabaseUrl' as never);
 				oldStore.delete('supabaseKey' as never);
-				console.error('[settings] Migrated credentials to safeStorage');
+				logger.info('[settings] Migrated credentials to safeStorage');
 			}
 		} catch (err) {
-			console.error('[settings] Legacy migration failed (may be clean install):', err);
+			logger.error('[settings] Legacy migration failed (may be clean install):', err);
 		}
 	}
 

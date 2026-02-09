@@ -5,13 +5,13 @@ import type {
 	LogEntry,
 	OverallProgress,
 	ScannedFile,
-} from '../shared/types';
-import { DropZone } from './components/DropZone';
-import { FileList } from './components/FileList';
-import { LogViewer } from './components/LogViewer';
-import { ProgressBar } from './components/ProgressBar';
-import { ProjectView } from './components/ProjectView';
-import { SettingsPanel } from './components/SettingsPanel';
+} from '../shared/types.js';
+import { DropZone } from './components/DropZone.js';
+import { FileList } from './components/FileList.js';
+import { LogViewer } from './components/LogViewer.js';
+import { ProgressBar } from './components/ProgressBar.js';
+import { ProjectView } from './components/ProjectView.js';
+import { SettingsPanel } from './components/SettingsPanel.js';
 
 // Type for the electron API exposed via preload
 declare global {

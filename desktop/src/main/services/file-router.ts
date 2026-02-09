@@ -149,10 +149,14 @@ function getRecursiveDirectorySize(dirPath: string): number {
 	for (const entry of entries) {
 		if (entry.name.startsWith('.') || entry.name === 'node_modules') continue;
 		const fullPath = join(dirPath, entry.name);
-		if (entry.isDirectory()) {
-			total += getRecursiveDirectorySize(fullPath);
-		} else {
-			total += statSync(fullPath).size;
+		try {
+			if (entry.isDirectory()) {
+				total += getRecursiveDirectorySize(fullPath);
+			} else {
+				total += statSync(fullPath).size;
+			}
+		} catch {
+			// Skip unreadable entries (permission denied, broken symlink, etc.)
 		}
 	}
 	return total;

@@ -1,5 +1,5 @@
 import { useCallback, useEffect, useMemo, useRef, useState } from 'preact/hooks';
-import type { PipelineStatus, TreeFile } from '../../shared/types';
+import type { PipelineStatus, TreeFile } from '../../shared/types.js';
 import { FILE_ICONS } from './FileList.js';
 
 interface DirectoryTreeProps {

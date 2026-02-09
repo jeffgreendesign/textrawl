@@ -27,6 +27,7 @@ import type {
 	TreeFile,
 	UploadOptions,
 } from '../../shared/types.js';
+import { logger } from '../utils/logger.js';
 import type { ConversionManager } from './conversion-manager.js';
 import {
 	classifyFileSize,
@@ -159,7 +160,9 @@ export class ProjectManager {
 
 	async refresh(): Promise<ProjectState> {
 		if (!this.sourceDir || !this.outputDir) {
-			throw new Error('No project loaded');
+			const err = new Error('No project loaded');
+			err.name = 'NotFoundError';
+			throw err;
 		}
 
 		// Reload manifest in case uploads happened externally
@@ -344,7 +347,7 @@ export class ProjectManager {
 			.on('addDir', (filePath: string) => this.handleAddDir(filePath))
 			.on('unlinkDir', (filePath: string) => this.handleUnlinkDir(filePath))
 			.on('error', (err: unknown) => {
-				console.error('[project-manager] Watcher error:', err);
+				logger.error('[project-manager] Watcher error:', err);
 			});
 
 		this.watcher = watcher;
@@ -362,7 +365,7 @@ export class ProjectManager {
 		try {
 			await this.watcher?.close();
 		} catch (err) {
-			console.error('[project-manager] Error closing watcher:', err);
+			logger.error('[project-manager] Error closing watcher:', err);
 		}
 		this.watcher = null;
 	}
@@ -539,13 +542,14 @@ export class ProjectManager {
 		node.sizeTier = sizeTier;
 		node.sizeWarning = sizeWarning;
 
-		// Source content changed — conversion output is stale
-		if (node.pipelineStatus === 'converted' || node.pipelineStatus === 'uploaded') {
-			node.pipelineStatus = 'pending';
-			node.convertedPath = undefined;
-			node.documentId = undefined;
-			node.uploadedAt = undefined;
-		}
+		// Source content changed — conversion output is stale.
+		// Invalidate the outputMap entry BEFORE reconcileFile so it can't
+		// flip the status back to converted/uploaded from the stale mapping.
+		this.outputMap.delete(relPath);
+		node.pipelineStatus = 'pending';
+		node.convertedPath = undefined;
+		node.documentId = undefined;
+		node.uploadedAt = undefined;
 
 		this.reconcileFile(node);
 		this.dirtyNodes.add(relPath);
@@ -781,7 +785,7 @@ export class ProjectManager {
 		try {
 			entries = await readdir(dir, { withFileTypes: true });
 		} catch (err) {
-			console.error(`[project-manager] Failed to read directory ${dir}:`, err);
+			logger.error(`[project-manager] Failed to read directory ${dir}:`, err);
 			return results;
 		}
 
@@ -917,7 +921,7 @@ export class ProjectManager {
 			const direntries = await readdir(this.outputDir);
 			dirEntries = direntries as string[];
 		} catch {
-			console.error(`[project-manager] Failed to read output directory: ${this.outputDir}`);
+			logger.error(`[project-manager] Failed to read output directory: ${this.outputDir}`);
 			return;
 		}
 
@@ -963,7 +967,7 @@ export class ProjectManager {
 		try {
 			dirEntries = readdirSync(this.outputDir) as string[];
 		} catch {
-			console.error(`[project-manager] Failed to read output directory: ${this.outputDir}`);
+			logger.error(`[project-manager] Failed to read output directory: ${this.outputDir}`);
 			return;
 		}
 

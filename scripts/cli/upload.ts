@@ -96,13 +96,14 @@ function sanitizeUnicode(text: string): string {
 	// eslint-disable-next-line no-control-regex
 	let sanitized = text.replace(/\0/g, '');
 
-	// Replace invalid surrogate pairs with replacement character
-	sanitized = sanitized.replace(/[\uD800-\uDFFF]/g, (match) => {
-		// Check if it's a valid surrogate pair
+	// Replace invalid surrogate pairs with replacement character.
+	// The replace callback receives the match offset directly — using
+	// indexOf(match) would return the wrong position for repeated characters.
+	sanitized = sanitized.replace(/[\uD800-\uDFFF]/g, (match, offset: number) => {
 		const code = match.charCodeAt(0);
 		// High surrogate (0xD800-0xDBFF) must be followed by low surrogate (0xDC00-0xDFFF)
 		if (code >= 0xd800 && code <= 0xdbff) {
-			const next = sanitized.charCodeAt(sanitized.indexOf(match) + 1);
+			const next = sanitized.charCodeAt(offset + 1);
 			if (next >= 0xdc00 && next <= 0xdfff) {
 				return match; // Valid pair, keep it
 			}

@@ -1,4 +1,4 @@
-import type { ProjectStats as ProjectStatsType } from '../../shared/types';
+import type { ProjectStats as ProjectStatsType } from '../../shared/types.js';
 
 interface ProjectStatsProps {
 	stats: ProjectStatsType;

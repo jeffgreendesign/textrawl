@@ -18,6 +18,7 @@ import { scanPaths } from './services/file-router.js';
 import { ProjectManager } from './services/project-manager.js';
 import { SettingsStore } from './services/settings-store.js';
 import { UploadManager } from './services/upload-manager.js';
+import { logger } from './utils/logger.js';
 
 // __dirname is available in CJS bundle
 
@@ -69,7 +70,7 @@ function createWindow(): void {
 
 	mainWindow.on('closed', () => {
 		projectManager?.unloadProject().catch((err) => {
-			console.error('[main] Error unloading project on window close:', err);
+			logger.error('[main] Error unloading project on window close:', err);
 		});
 		projectManager = null;
 		mainWindow = null;
@@ -139,6 +140,11 @@ function setupIpcHandlers(): void {
 	// Load a project directory
 	ipcMain.handle(IPC.PROJECT_LOAD, async (_event, sourceDir: string, outputDir: string) => {
 		if (!mainWindow) return null;
+		// Tear down any existing project to prevent orphaned watchers
+		if (projectManager) {
+			await projectManager.unloadProject();
+			projectManager = null;
+		}
 		projectManager = new ProjectManager(
 			mainWindow,
 			conversionManager!,
@@ -150,7 +156,7 @@ function setupIpcHandlers(): void {
 
 	// Unload the current project
 	ipcMain.handle(IPC.PROJECT_UNLOAD, async () => {
-		projectManager?.unloadProject();
+		await projectManager?.unloadProject();
 		projectManager = null;
 	});
 
@@ -188,9 +194,7 @@ app.whenReady().then(() => {
 
 	// Warn if OS keychain is unavailable (rare — mainly headless Linux without a keyring)
 	if (!safeStorage.isEncryptionAvailable()) {
-		console.error(
-			'[main] WARNING: safeStorage not available — credentials stored without encryption',
-		);
+		logger.warn('[main] safeStorage not available — credentials stored without encryption');
 	}
 
 	setupIpcHandlers();

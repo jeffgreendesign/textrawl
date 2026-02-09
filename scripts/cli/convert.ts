@@ -46,6 +46,11 @@ function runConverter(script: string, args: string[]): void {
 		cwd: process.cwd(),
 	});
 
+	child.on('error', (err) => {
+		console.error(`Failed to spawn converter "${script}": ${err.message}`);
+		process.exit(1);
+	});
+
 	child.on('exit', (code) => {
 		process.exit(code || 0);
 	});

@@ -5,7 +5,7 @@ import type {
 	ProjectState,
 	ProjectStats,
 	TreeFile,
-} from '../../shared/types';
+} from '../../shared/types.js';
 import { DirectoryTree } from './DirectoryTree.js';
 import { ProjectActions } from './ProjectActions.js';
 import { ProjectStats as ProjectStatsBar } from './ProjectStats.js';

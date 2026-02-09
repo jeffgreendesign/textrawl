@@ -56,7 +56,7 @@ Add a persistent directory browser to the desktop app that shows pipeline status
 
 1. **Directory tree view** — Load a source directory, see all files in a hierarchical tree with per-file pipeline status
 2. **Status reconciliation** — Cross-reference source files, output `.md` files, and `.manifest.json` to determine each file's status
-3. **File watching** — Detect new/changed/deleted files in real time
+3. **File watching** — Detect new/changed/deleted files in real-time
 4. **Credential security** — Migrate Supabase service key from obfuscated plaintext to OS keychain encryption
 5. **Preserve existing workflow** — The drop zone and flat file list remain available; the directory browser is an additional view
 
@@ -928,7 +928,7 @@ Phase 6: chokidar file watching         (real-time updates)
 Phase 7: Pipeline integration           (connect to convert/upload)
 ```
 
-Phases 2-4 can be developed together. Phase 5 can start in parallel with Phase 3 using mock data. Phase 6 can be added after the basic tree works. Phase 7 ties everything together.
+Phases 2-4 can be developed together. The tree UI (5) can start in parallel with the service layer (3) using mock data. File watching (6) layers on after the basic tree works, and pipeline integration (7) ties everything together.
 
 ## Dependencies to Add
 
