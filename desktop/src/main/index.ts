@@ -159,7 +159,7 @@ function setupIpcHandlers(): void {
 
 	// Convert selected files
 	ipcMain.handle(IPC.PROJECT_CONVERT, async (_event, relativePaths: string[]) => {
-		await projectManager?.convertFiles(relativePaths);
+		return projectManager?.convertFiles(relativePaths);
 	});
 
 	// Upload converted files
@@ -169,7 +169,7 @@ function setupIpcHandlers(): void {
 
 	// Retry errored files
 	ipcMain.handle(IPC.PROJECT_RETRY, async (_event, relativePaths: string[]) => {
-		await projectManager?.retryErrors(relativePaths);
+		return projectManager?.retryErrors(relativePaths);
 	});
 }
 

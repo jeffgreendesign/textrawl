@@ -7,7 +7,7 @@
  * methods for refresh/convert/upload/retry.
  */
 import { existsSync, readFileSync, readdirSync, statSync } from 'node:fs';
-import { basename, extname, join, relative } from 'node:path';
+import { extname, join, relative } from 'node:path';
 import type { BrowserWindow } from 'electron';
 import matter from 'gray-matter';
 import type { ProjectState, ProjectStats, TreeFile } from '../../shared/types.js';
@@ -21,13 +21,18 @@ import {
 } from './file-router.js';
 import { ProjectStore } from './project-store.js';
 
-// Minimal interface for ManifestManager (loaded dynamically from scripts/cli/lib)
 interface ManifestEntry {
 	sourceHash: string;
 	documentId: string;
 	uploadedAt: string;
 	markdownPath: string;
 	chunksCreated?: number;
+}
+
+interface ManifestData {
+	version: number;
+	entries: Record<string, ManifestEntry>;
+	updatedAt: string;
 }
 
 interface Manifest {
@@ -40,14 +45,29 @@ interface OutputMapEntry {
 }
 
 /**
- * Dynamically load ManifestManager from the CLI lib.
- * esbuild bundles the require() at build time; this avoids
- * a static import that breaks tsc rootDir checks.
+ * Lightweight read-only manifest reader.
+ * Reads .manifest.json from the output directory and provides
+ * entry lookups by source hash — no dependency on the CLI lib.
  */
-function createManifest(outputDir: string): Manifest {
-	// eslint-disable-next-line @typescript-eslint/no-require-imports
-	const { ManifestManager } = require('../../../../scripts/cli/lib/manifest.js');
-	return new ManifestManager(outputDir) as Manifest;
+class ManifestReader implements Manifest {
+	private entries: Record<string, ManifestEntry> = {};
+
+	constructor(outputDir: string) {
+		const manifestPath = join(outputDir, '.manifest.json');
+		try {
+			const raw = readFileSync(manifestPath, 'utf-8');
+			const data = JSON.parse(raw) as ManifestData;
+			if (data.version === 1 && data.entries) {
+				this.entries = data.entries;
+			}
+		} catch {
+			// Missing or corrupt manifest — treat as empty
+		}
+	}
+
+	getEntry(sourceHash: string): ManifestEntry | undefined {
+		return this.entries[sourceHash];
+	}
 }
 
 export class ProjectManager {
@@ -70,7 +90,7 @@ export class ProjectManager {
 	async loadProject(sourceDir: string, outputDir: string): Promise<ProjectState> {
 		this.sourceDir = sourceDir;
 		this.outputDir = outputDir;
-		this.manifest = existsSync(outputDir) ? createManifest(outputDir) : null;
+		this.manifest = existsSync(outputDir) ? new ManifestReader(outputDir) : null;
 
 		this.tree = this.buildTree(sourceDir, sourceDir);
 		this.reconcileStatus(this.tree);
@@ -96,7 +116,7 @@ export class ProjectManager {
 		}
 
 		// Reload manifest in case uploads happened externally
-		this.manifest = existsSync(this.outputDir) ? createManifest(this.outputDir) : null;
+		this.manifest = existsSync(this.outputDir) ? new ManifestReader(this.outputDir) : null;
 
 		this.reconcileStatus(this.tree);
 		const stats = this.computeStats(this.tree);
@@ -118,13 +138,17 @@ export class ProjectManager {
 	}
 
 	// TODO: Phase 7
-	async convertFiles(_relativePaths: string[]): Promise<void> {}
+	async convertFiles(relativePaths: string[]): Promise<void> {
+		void relativePaths;
+	}
 
 	// TODO: Phase 7
 	async uploadConverted(): Promise<void> {}
 
 	// TODO: Phase 7
-	async retryErrors(_relativePaths: string[]): Promise<void> {}
+	async retryErrors(relativePaths: string[]): Promise<void> {
+		void relativePaths;
+	}
 
 	// ---- Private: tree building ----
 
@@ -313,17 +337,7 @@ export class ProjectManager {
 	}
 
 	private findOutputEntry(relativePath: string): OutputMapEntry | undefined {
-		// Try exact match on relative path
-		const exact = this.outputMap.get(relativePath);
-		if (exact) return exact;
-
-		// Fall back to basename match (converters store varying path formats)
-		const name = basename(relativePath);
-		for (const [key, entry] of this.outputMap) {
-			if (basename(key) === name) return entry;
-		}
-
-		return undefined;
+		return this.outputMap.get(relativePath);
 	}
 
 	private buildOutputMap(): void {
