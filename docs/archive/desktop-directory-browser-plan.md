@@ -12,7 +12,8 @@
 | 3 | ProjectManager service | Done |
 | 4 | IPC layer | Done |
 | 5 | Directory tree UI | Done |
-| 6 | chokidar file watching | Not started |
+| 5.1 | Post-review fixes | Done |
+| 6 | chokidar file watching | Done |
 | 7 | Pipeline integration | Not started |
 
 ### Post-review Fixes (Phase 3/4)
@@ -22,6 +23,10 @@
 - Removed unnecessary `typeof entry === 'string'` type guard in `buildTree()`
 - Added `console.error` to silent catch in `buildOutputMap()` directory read
 - Added JSDoc to `window` field explaining Phase 6 usage
+
+### Post-review Fixes (Phase 5)
+
+- Replaced empty `.catch(() => {})` on `unloadProject()` teardown with error logging via `console.error` in `ProjectView.tsx`
 
 ### Resolved Open Questions
 
