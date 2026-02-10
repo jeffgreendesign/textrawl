@@ -40,6 +40,7 @@ const defaults: StoreSchema = {
 
 export class SettingsStore {
 	private store: Store<StoreSchema>;
+	private hasWarnedPlaintext = false;
 
 	constructor() {
 		this.store = new Store<StoreSchema>({
@@ -63,7 +64,10 @@ export class SettingsStore {
 	private encrypt(value: string): string {
 		if (!value) return '';
 		if (!safeStorage.isEncryptionAvailable()) {
-			logger.error('[settings] safeStorage not available, storing in plaintext');
+			if (!this.hasWarnedPlaintext) {
+				this.hasWarnedPlaintext = true;
+				logger.error('[settings] safeStorage not available, storing in plaintext');
+			}
 			return value;
 		}
 		return safeStorage.encryptString(value).toString('base64');
@@ -81,8 +85,9 @@ export class SettingsStore {
 		}
 		try {
 			return safeStorage.decryptString(Buffer.from(stored, 'base64'));
-		} catch {
+		} catch (err) {
 			// Might be plaintext from pre-migration — return as-is
+			logger.debug('[settings] Decryption failed, returning raw value:', err);
 			return stored;
 		}
 	}

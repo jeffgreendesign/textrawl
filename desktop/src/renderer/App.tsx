@@ -23,6 +23,14 @@ declare global {
 type AppState = 'idle' | 'scanning' | 'ready' | 'converting' | 'complete' | 'uploading';
 type AppMode = 'dropzone' | 'project';
 
+const MAX_LOG_ENTRIES = 1000;
+
+/** Append an entry and cap the array at MAX_LOG_ENTRIES. */
+function appendLog(prev: LogEntry[], entry: LogEntry): LogEntry[] {
+	const next = [...prev, entry];
+	return next.length > MAX_LOG_ENTRIES ? next.slice(-MAX_LOG_ENTRIES) : next;
+}
+
 export function App() {
 	const [appMode, setAppMode] = useState<AppMode>('dropzone');
 	const [state, setState] = useState<AppState>('idle');
@@ -57,10 +65,7 @@ export function App() {
 		});
 
 		const unsubLog = window.electronAPI.onLog((entry) => {
-			setLogs((prev) => {
-				const next = [...prev, entry];
-				return next.length > 1000 ? next.slice(-1000) : next;
-			});
+			setLogs((prev) => appendLog(prev, entry));
 		});
 
 		const unsubComplete = window.electronAPI.onComplete((data) => {
@@ -108,10 +113,7 @@ export function App() {
 			message,
 			details,
 		};
-		setLogs((prev) => {
-			const next = [...prev, entry];
-			return next.length > 1000 ? next.slice(-1000) : next;
-		});
+		setLogs((prev) => appendLog(prev, entry));
 	}, []);
 
 	const handleDrop = async (paths: string[]) => {

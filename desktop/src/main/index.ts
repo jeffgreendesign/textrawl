@@ -139,7 +139,7 @@ function setupIpcHandlers(): void {
 
 	// Load a project directory
 	ipcMain.handle(IPC.PROJECT_LOAD, async (_event, sourceDir: string, outputDir: string) => {
-		if (!mainWindow) return null;
+		if (!mainWindow || !conversionManager || !uploadManager) return null;
 		// Tear down any existing project to prevent orphaned watchers
 		if (projectManager) {
 			await projectManager.unloadProject();
@@ -147,8 +147,8 @@ function setupIpcHandlers(): void {
 		}
 		projectManager = new ProjectManager(
 			mainWindow,
-			conversionManager!,
-			uploadManager!,
+			conversionManager,
+			uploadManager,
 			settingsStore,
 		);
 		return projectManager.loadProject(sourceDir, outputDir);
@@ -172,17 +172,20 @@ function setupIpcHandlers(): void {
 
 	// Convert selected files
 	ipcMain.handle(IPC.PROJECT_CONVERT, async (_event, relativePaths: string[]) => {
-		return projectManager?.convertFiles(relativePaths);
+		if (!projectManager) return { success: false, error: 'No project loaded' };
+		return projectManager.convertFiles(relativePaths);
 	});
 
 	// Upload converted files
 	ipcMain.handle(IPC.PROJECT_UPLOAD, async () => {
-		await projectManager?.uploadConverted();
+		if (!projectManager) return { success: false, error: 'No project loaded' };
+		await projectManager.uploadConverted();
 	});
 
 	// Retry errored files
 	ipcMain.handle(IPC.PROJECT_RETRY, async (_event, relativePaths: string[]) => {
-		return projectManager?.retryErrors(relativePaths);
+		if (!projectManager) return { success: false, error: 'No project loaded' };
+		return projectManager.retryErrors(relativePaths);
 	});
 }
 
