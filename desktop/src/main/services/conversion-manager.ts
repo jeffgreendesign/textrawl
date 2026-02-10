@@ -41,14 +41,16 @@ export class ConversionManager {
 			return { success: false, error: 'Conversion already in progress' };
 		}
 
-		// Validate total batch size to prevent memory exhaustion
-		const totalBytes = files.reduce((sum, f) => sum + f.size, 0);
-		const totalMB = totalBytes / (1024 * 1024);
+		// Validate batch size for in-process files to prevent memory exhaustion
+		// CLI converter types (mbox, takeout, etc.) spawn subprocesses and don't load into memory
+		const inProcessFiles = files.filter((f) => f.converterType === 'processor');
+		const inProcessBytes = inProcessFiles.reduce((sum, f) => sum + f.size, 0);
+		const inProcessMB = inProcessBytes / (1024 * 1024);
 
-		if (totalMB > 100) {
+		if (inProcessMB > 100) {
 			return {
 				success: false,
-				error: `Total batch size (${totalMB.toFixed(1)}MB) exceeds 100MB limit. Process fewer files at once.`,
+				error: `In-process files total ${inProcessMB.toFixed(1)}MB (exceeds 100MB limit). Process fewer document files at once.`,
 			};
 		}
 
@@ -156,6 +158,7 @@ export class ConversionManager {
 			outputDir: options.outputDir,
 			tags: options.tags,
 			dryRun: options.dryRun,
+			sourceIdentifier: file.id !== file.path ? file.id : undefined,
 		});
 
 		if (result.success) {

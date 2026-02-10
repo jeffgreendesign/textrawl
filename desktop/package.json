@@ -10,7 +10,7 @@
 		"dev": "pnpm run build && env -u ELECTRON_RUN_AS_NODE electron .",
 		"dev:vite": "vite",
 		"build": "pnpm run build:main && pnpm run build:preload && pnpm run build:renderer",
-		"build:main": "esbuild src/main/index.ts --bundle --platform=node --target=node20 --outfile=dist/main/index.js --format=cjs --external:electron --external:electron-store --external:pdf-parse --external:mammoth --external:xlsx --external:csv-parse --external:rtf-parser --external:unzipper --external:gray-matter --external:fast-xml-parser",
+		"build:main": "esbuild src/main/index.ts --bundle --platform=node --target=node20 --outfile=dist/main/index.js --format=cjs --external:electron --external:electron-store --external:pdf-parse --external:mammoth --external:xlsx --external:csv-parse --external:rtf-parser --external:unzipper --external:gray-matter --external:fast-xml-parser --external:chokidar",
 		"build:preload": "esbuild src/preload/index.ts --bundle --platform=node --target=node20 --outfile=dist/preload/index.js --format=cjs --packages=external",
 		"build:renderer": "vite build",
 		"start": "env -u ELECTRON_RUN_AS_NODE electron .",
@@ -21,7 +21,6 @@
 	},
 	"dependencies": {
 		"csv-parse": "^5.5.6",
-		"electron": "^35.7.5",
 		"electron-store": "^8.2.0",
 		"fast-xml-parser": "^5.3.4",
 		"gray-matter": "^4.0.3",
@@ -30,9 +29,11 @@
 		"pdf-parse": "^1.1.1",
 		"rtf-parser": "^1.3.3",
 		"unzipper": "^0.12.3",
+		"chokidar": "^5.0.0",
 		"xlsx": "^0.18.5"
 	},
 	"devDependencies": {
+		"electron": "^35.7.5",
 		"@preact/preset-vite": "^2.9.3",
 		"@types/node": "^22.10.2",
 		"@types/unzipper": "^0.10.11",

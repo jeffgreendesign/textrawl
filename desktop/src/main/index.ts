@@ -5,7 +5,7 @@ import { dirname, join } from 'node:path';
  * Note: ELECTRON_RUN_AS_NODE must be unset for Electron to work properly.
  * The npm scripts in package.json handle this automatically.
  */
-import { BrowserWindow, app, dialog, ipcMain } from 'electron';
+import { BrowserWindow, app, dialog, ipcMain, safeStorage } from 'electron';
 import { IPC } from '../shared/ipc-channels.js';
 import type {
 	AppSettings,
@@ -15,15 +15,19 @@ import type {
 } from '../shared/types.js';
 import { ConversionManager } from './services/conversion-manager.js';
 import { scanPaths } from './services/file-router.js';
+import { ProjectManager } from './services/project-manager.js';
 import { SettingsStore } from './services/settings-store.js';
 import { UploadManager } from './services/upload-manager.js';
+import { logger } from './utils/logger.js';
 
 // __dirname is available in CJS bundle
 
 let mainWindow: BrowserWindow | null = null;
 let conversionManager: ConversionManager | null = null;
 let uploadManager: UploadManager | null = null;
-const settingsStore = new SettingsStore();
+let settingsStore!: SettingsStore; // Initialized in app.whenReady() before any IPC handlers
+let projectManager: ProjectManager | null = null;
+let hasShownKeychainWarning = false;
 
 function createWindow(): void {
 	mainWindow = new BrowserWindow({
@@ -53,7 +57,22 @@ function createWindow(): void {
 	conversionManager = new ConversionManager(mainWindow);
 	uploadManager = new UploadManager(mainWindow);
 
+	// Show one-time warning if OS keychain is unavailable
+	if (!safeStorage.isEncryptionAvailable() && !hasShownKeychainWarning) {
+		hasShownKeychainWarning = true;
+		dialog.showMessageBox(mainWindow, {
+			type: 'warning',
+			title: 'Security Warning',
+			message: 'No system keychain available. Credentials will be stored without encryption.',
+			detail: 'On Linux, install gnome-keyring or kwallet for secure credential storage.',
+		});
+	}
+
 	mainWindow.on('closed', () => {
+		projectManager?.unloadProject().catch((err) => {
+			logger.error('[main] Error unloading project on window close:', err);
+		});
+		projectManager = null;
 		mainWindow = null;
 		conversionManager = null;
 		uploadManager = null;
@@ -117,10 +136,70 @@ function setupIpcHandlers(): void {
 		settingsStore.set(settings);
 		return { success: true };
 	});
+
+	// Load a project directory
+	ipcMain.handle(IPC.PROJECT_LOAD, async (_event, sourceDir: string, outputDir: string) => {
+		if (!mainWindow || !conversionManager || !uploadManager) return null;
+		// Tear down any existing project to prevent orphaned watchers
+		if (projectManager) {
+			await projectManager.unloadProject();
+			projectManager = null;
+		}
+		projectManager = new ProjectManager(
+			mainWindow,
+			conversionManager,
+			uploadManager,
+			settingsStore,
+		);
+		return projectManager.loadProject(sourceDir, outputDir);
+	});
+
+	// Unload the current project
+	ipcMain.handle(IPC.PROJECT_UNLOAD, async () => {
+		await projectManager?.unloadProject();
+		projectManager = null;
+	});
+
+	// Get the file tree
+	ipcMain.handle(IPC.PROJECT_GET_TREE, async () => {
+		return projectManager?.getTree() ?? [];
+	});
+
+	// Refresh project state
+	ipcMain.handle(IPC.PROJECT_REFRESH, async () => {
+		return projectManager?.refresh() ?? null;
+	});
+
+	// Convert selected files
+	ipcMain.handle(IPC.PROJECT_CONVERT, async (_event, relativePaths: string[]) => {
+		if (!projectManager) return { success: false, error: 'No project loaded' };
+		return projectManager.convertFiles(relativePaths);
+	});
+
+	// Upload converted files
+	ipcMain.handle(IPC.PROJECT_UPLOAD, async () => {
+		if (!projectManager) return { success: false, error: 'No project loaded' };
+		await projectManager.uploadConverted();
+	});
+
+	// Retry errored files
+	ipcMain.handle(IPC.PROJECT_RETRY, async (_event, relativePaths: string[]) => {
+		if (!projectManager) return { success: false, error: 'No project loaded' };
+		return projectManager.retryErrors(relativePaths);
+	});
 }
 
 // App lifecycle
 app.whenReady().then(() => {
+	// Initialize settings store after app is ready (safeStorage requires it)
+	settingsStore = new SettingsStore();
+	settingsStore.init();
+
+	// Warn if OS keychain is unavailable (rare — mainly headless Linux without a keyring)
+	if (!safeStorage.isEncryptionAvailable()) {
+		logger.error('[main] safeStorage not available — credentials stored without encryption');
+	}
+
 	setupIpcHandlers();
 	createWindow();
 

@@ -22,8 +22,11 @@
 
 import { spawn } from 'node:child_process';
 import { existsSync, readdirSync, statSync } from 'node:fs';
-import { extname, resolve } from 'node:path';
+import { dirname, extname, resolve } from 'node:path';
+import { fileURLToPath } from 'node:url';
 import { Command } from 'commander';
+
+const __dirname = dirname(fileURLToPath(import.meta.url));
 
 const program = new Command();
 
@@ -41,6 +44,11 @@ function runConverter(script: string, args: string[]): void {
 	const child = spawn('npx', ['tsx', scriptPath, ...args], {
 		stdio: 'inherit',
 		cwd: process.cwd(),
+	});
+
+	child.on('error', (err) => {
+		console.error(`Failed to spawn converter "${script}": ${err.message}`);
+		process.exit(1);
 	});
 
 	child.on('exit', (code) => {
@@ -381,7 +389,7 @@ program
 			process.exit(1);
 		}
 
-		console.log(`Detected format: ${format}`);
+		console.error(`Detected format: ${format}`);
 
 		const args = [targetPath];
 		if (opts.output) args.push('-o', `${opts.output}/${format}`);

@@ -10,6 +10,8 @@ interface ProcessorOptions {
 	outputDir: string;
 	tags: string[];
 	dryRun?: boolean;
+	/** When set, used as source_file in frontmatter instead of the absolute path. */
+	sourceIdentifier?: string;
 }
 
 interface DocumentFrontMatter {
@@ -363,6 +365,7 @@ export async function processDocument(
 		const buffer = readFileSync(filePath);
 		const sourceHash = `sha256:${createHash('sha256').update(buffer).digest('hex')}`;
 		const title = basename(filePath, extname(filePath));
+		const sourceFile = options.sourceIdentifier ?? filePath;
 
 		let text: string;
 		let skipFrontmatter = false;
@@ -409,7 +412,7 @@ export async function processDocument(
 				text = buffer.toString('utf-8');
 				break;
 			case 'md': {
-				const mdResult = await processMarkdown(buffer, filePath, options);
+				const mdResult = await processMarkdown(buffer, sourceFile, options);
 				if (mdResult.hasFrontmatter) {
 					// Already has frontmatter, just copy
 					text = mdResult.content;
@@ -441,7 +444,7 @@ export async function processDocument(
 			const frontmatter = createFrontmatter({
 				title,
 				contentType: getContentType(fileType),
-				sourceFile: filePath,
+				sourceFile,
 				sourceHash,
 				tags: ['imported', fileType, ...options.tags],
 			});

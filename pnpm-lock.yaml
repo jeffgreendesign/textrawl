@@ -158,12 +158,12 @@ importers:
 
   desktop:
     dependencies:
+      chokidar:
+        specifier: ^5.0.0
+        version: 5.0.0
       csv-parse:
         specifier: ^5.5.6
         version: 5.6.0
-      electron:
-        specifier: ^35.7.5
-        version: 35.7.5
       electron-store:
         specifier: ^8.2.0
         version: 8.2.0
@@ -201,6 +201,9 @@ importers:
       '@types/unzipper':
         specifier: ^0.10.11
         version: 0.10.11
+      electron:
+        specifier: ^35.7.5
+        version: 35.7.5
       electron-builder:
         specifier: ^25.1.8
         version: 25.1.8(electron-builder-squirrel-windows@25.1.8)

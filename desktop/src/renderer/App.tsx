@@ -1,16 +1,17 @@
-import { useEffect, useState } from 'preact/hooks';
+import { useCallback, useEffect, useState } from 'preact/hooks';
 import type {
 	AppSettings,
 	FileProgress,
 	LogEntry,
 	OverallProgress,
 	ScannedFile,
-} from '../shared/types';
-import { DropZone } from './components/DropZone';
-import { FileList } from './components/FileList';
-import { LogViewer } from './components/LogViewer';
-import { ProgressBar } from './components/ProgressBar';
-import { SettingsPanel } from './components/SettingsPanel';
+} from '../shared/types.js';
+import { DropZone } from './components/DropZone.js';
+import { FileList } from './components/FileList.js';
+import { LogViewer } from './components/LogViewer.js';
+import { ProgressBar } from './components/ProgressBar.js';
+import { ProjectView } from './components/ProjectView.js';
+import { SettingsPanel } from './components/SettingsPanel.js';
 
 // Type for the electron API exposed via preload
 declare global {
@@ -20,8 +21,18 @@ declare global {
 }
 
 type AppState = 'idle' | 'scanning' | 'ready' | 'converting' | 'complete' | 'uploading';
+type AppMode = 'dropzone' | 'project';
+
+const MAX_LOG_ENTRIES = 1000;
+
+/** Append an entry and cap the array at MAX_LOG_ENTRIES. */
+function appendLog(prev: LogEntry[], entry: LogEntry): LogEntry[] {
+	const next = [...prev, entry];
+	return next.length > MAX_LOG_ENTRIES ? next.slice(-MAX_LOG_ENTRIES) : next;
+}
 
 export function App() {
+	const [appMode, setAppMode] = useState<AppMode>('dropzone');
 	const [state, setState] = useState<AppState>('idle');
 	const [files, setFiles] = useState<ScannedFile[]>([]);
 	const [fileProgress, setFileProgress] = useState<Map<string, FileProgress>>(new Map());
@@ -54,7 +65,7 @@ export function App() {
 		});
 
 		const unsubLog = window.electronAPI.onLog((entry) => {
-			setLogs((prev) => [...prev, entry]);
+			setLogs((prev) => appendLog(prev, entry));
 		});
 
 		const unsubComplete = window.electronAPI.onComplete((data) => {
@@ -94,7 +105,7 @@ export function App() {
 		};
 	}, []);
 
-	const addLog = (level: LogEntry['level'], message: string, details?: string) => {
+	const addLog = useCallback((level: LogEntry['level'], message: string, details?: string) => {
 		const entry: LogEntry = {
 			id: `log-${Date.now()}-${Math.random().toString(36).slice(2, 9)}`,
 			timestamp: new Date(),
@@ -102,8 +113,8 @@ export function App() {
 			message,
 			details,
 		};
-		setLogs((prev) => [...prev, entry]);
-	};
+		setLogs((prev) => appendLog(prev, entry));
+	}, []);
 
 	const handleDrop = async (paths: string[]) => {
 		setState('scanning');
@@ -141,12 +152,17 @@ export function App() {
 			.filter(Boolean);
 
 		try {
-			await window.electronAPI.startConversion(files, {
+			const result = await window.electronAPI.startConversion(files, {
 				outputDir,
 				tags: tagList,
 				dryRun: false,
 				verbose: true,
 			});
+
+			if (result && !result.success) {
+				addLog('error', result.error || 'Conversion failed');
+				setState('ready');
+			}
 		} catch (error) {
 			addLog('error', 'Conversion failed', String(error));
 			setState('ready');
@@ -199,62 +215,83 @@ export function App() {
 		<div class="app">
 			<header>
 				<h1>Textrawl</h1>
-				<p class="subtitle">Convert files to searchable markdown</p>
+				<div class="mode-toggle">
+					<button
+						type="button"
+						class={`btn-small ${appMode === 'dropzone' ? 'mode-toggle--active' : ''}`}
+						onClick={() => setAppMode('dropzone')}
+					>
+						Drop Zone
+					</button>
+					<button
+						type="button"
+						class={`btn-small ${appMode === 'project' ? 'mode-toggle--active' : ''}`}
+						onClick={() => setAppMode('project')}
+					>
+						Open Project
+					</button>
+				</div>
 			</header>
 
 			<main>
-				{(state === 'idle' ||
-					state === 'scanning' ||
-					(state === 'ready' && files.length === 0)) && (
-					<DropZone onDrop={handleDrop} isScanning={state === 'scanning'} />
-				)}
-
-				{files.length > 0 && (
+				{appMode === 'project' ? (
+					<ProjectView onBack={() => setAppMode('dropzone')} addLog={addLog} />
+				) : (
 					<>
-						<FileList files={files} fileProgress={fileProgress} onClear={handleClearFiles} />
-
-						{overallProgress && (
-							<ProgressBar progress={overallProgress} isConverting={state === 'converting'} />
+						{(state === 'idle' ||
+							state === 'scanning' ||
+							(state === 'ready' && files.length === 0)) && (
+							<DropZone onDrop={handleDrop} isScanning={state === 'scanning'} />
 						)}
 
-						<SettingsPanel
-							outputDir={outputDir}
-							tags={tags}
-							onOutputDirChange={setOutputDir}
-							onTagsChange={setTags}
-							onSelectFolder={handleSelectFolder}
-						/>
+						{files.length > 0 && (
+							<>
+								<FileList files={files} fileProgress={fileProgress} onClear={handleClearFiles} />
 
-						<div class="actions">
-							{state === 'ready' && (
-								<button type="button" class="btn btn-primary" onClick={handleConvert}>
-									Convert {files.length} file(s)
-								</button>
-							)}
+								{overallProgress && (
+									<ProgressBar progress={overallProgress} isConverting={state === 'converting'} />
+								)}
 
-							{state === 'converting' && (
-								<button type="button" class="btn btn-secondary" onClick={handleCancel}>
-									Cancel
-								</button>
-							)}
+								<SettingsPanel
+									outputDir={outputDir}
+									tags={tags}
+									onOutputDirChange={setOutputDir}
+									onTagsChange={setTags}
+									onSelectFolder={handleSelectFolder}
+								/>
 
-							{state === 'complete' && (
-								<>
-									<button type="button" class="btn btn-primary" onClick={handleUpload}>
-										Upload to Supabase
-									</button>
-									<button type="button" class="btn btn-secondary" onClick={handleClearFiles}>
-										Start Over
-									</button>
-								</>
-							)}
+								<div class="actions">
+									{state === 'ready' && (
+										<button type="button" class="btn btn-primary" onClick={handleConvert}>
+											Convert {files.length} file(s)
+										</button>
+									)}
 
-							{state === 'uploading' && (
-								<button type="button" class="btn btn-secondary" disabled>
-									Uploading...
-								</button>
-							)}
-						</div>
+									{state === 'converting' && (
+										<button type="button" class="btn btn-secondary" onClick={handleCancel}>
+											Cancel
+										</button>
+									)}
+
+									{state === 'complete' && (
+										<>
+											<button type="button" class="btn btn-primary" onClick={handleUpload}>
+												Upload to Supabase
+											</button>
+											<button type="button" class="btn btn-secondary" onClick={handleClearFiles}>
+												Start Over
+											</button>
+										</>
+									)}
+
+									{state === 'uploading' && (
+										<button type="button" class="btn btn-secondary" disabled>
+											Uploading...
+										</button>
+									)}
+								</div>
+							</>
+						)}
 					</>
 				)}
 

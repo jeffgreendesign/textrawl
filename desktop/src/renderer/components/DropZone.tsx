@@ -1,14 +1,5 @@
 import { useCallback, useState } from 'preact/hooks';
 
-declare global {
-	interface Window {
-		electronAPI: {
-			selectFiles: () => Promise<string[]>;
-			getPathForFile: (file: File) => string;
-		};
-	}
-}
-
 interface DropZoneProps {
 	onDrop: (paths: string[]) => void;
 	isScanning?: boolean;
