@@ -2,7 +2,7 @@
  * Textrawl Desktop - Preload Script
  * Exposes safe APIs to the renderer process via contextBridge
  */
-import { clipboard, contextBridge, ipcRenderer } from 'electron';
+import { clipboard, contextBridge, ipcRenderer, webUtils } from 'electron';
 import { IPC } from '../shared/ipc-channels.js';
 import type {
 	AppSettings,
@@ -111,6 +111,11 @@ const electronAPI = {
 	// Copy text to clipboard
 	copyToClipboard: (text: string): void => {
 		clipboard.writeText(text);
+	},
+
+	// Get native file path from a File object (Electron 32+ replacement for File.path)
+	getPathForFile: (file: File): string => {
+		return webUtils.getPathForFile(file);
 	},
 
 	// Remove all listeners
