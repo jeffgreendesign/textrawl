@@ -16,7 +16,9 @@
  * });
  * ```
  */
-import { safeStorage } from 'electron';
+import { unlinkSync } from 'node:fs';
+import { join } from 'node:path';
+import { app, safeStorage } from 'electron';
 import Store from 'electron-store';
 import type { AppSettings } from '../../shared/types.js';
 import { logger } from '../utils/logger.js';
@@ -43,10 +45,26 @@ export class SettingsStore {
 	private hasWarnedPlaintext = false;
 
 	constructor() {
-		this.store = new Store<StoreSchema>({
-			name: 'textrawl-settings',
-			defaults,
-		});
+		try {
+			this.store = new Store<StoreSchema>({
+				name: 'textrawl-settings',
+				defaults,
+			});
+		} catch {
+			// Config file corrupted (e.g. leftover encrypted data from legacy format)
+			// Delete it and retry with fresh defaults
+			const configPath = join(app.getPath('userData'), 'textrawl-settings.json');
+			logger.error(`[settings] Config corrupted, resetting: ${configPath}`);
+			try {
+				unlinkSync(configPath);
+			} catch {
+				// file may already be gone
+			}
+			this.store = new Store<StoreSchema>({
+				name: 'textrawl-settings',
+				defaults,
+			});
+		}
 	}
 
 	/**
