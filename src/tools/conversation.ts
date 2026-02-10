@@ -42,6 +42,16 @@ function formatId(uuid: string): string {
 }
 
 /**
+ * Helper: return an MCP tool error with isError: true to prevent LLM retry spirals.
+ */
+function convToolError(message: string) {
+	return {
+		content: [{ type: 'text' as const, text: toJSON({ error: message }) }],
+		isError: true,
+	};
+}
+
+/**
  * Register all conversation-related MCP tools
  */
 export function registerConversationTools(server: McpServer): void {
@@ -199,17 +209,9 @@ export function registerConversationTools(server: McpServer): void {
 					error: error instanceof Error ? error.message : String(error),
 				});
 
-				return {
-					content: [
-						{
-							type: 'text' as const,
-							text: toJSON({
-								ok: false,
-								error: error instanceof Error ? error.message : 'Unknown error',
-							}),
-						},
-					],
-				};
+				return convToolError(
+					`Failed to save conversation: ${error instanceof Error ? error.message : 'Unknown error'}`,
+				);
 			}
 		},
 	);
@@ -418,17 +420,9 @@ export function registerConversationTools(server: McpServer): void {
 					error: error instanceof Error ? error.message : String(error),
 				});
 
-				return {
-					content: [
-						{
-							type: 'text' as const,
-							text: toJSON({
-								ok: false,
-								error: error instanceof Error ? error.message : 'Unknown error',
-							}),
-						},
-					],
-				};
+				return convToolError(
+					`Conversation search failed: ${error instanceof Error ? error.message : 'Unknown error'}`,
+				);
 			}
 		},
 	);
@@ -505,17 +499,9 @@ export function registerConversationTools(server: McpServer): void {
 					error: error instanceof Error ? error.message : String(error),
 				});
 
-				return {
-					content: [
-						{
-							type: 'text' as const,
-							text: toJSON({
-								ok: false,
-								error: error instanceof Error ? error.message : 'Unknown error',
-							}),
-						},
-					],
-				};
+				return convToolError(
+					`Failed to list conversations: ${error instanceof Error ? error.message : 'Unknown error'}`,
+				);
 			}
 		},
 	);
@@ -654,17 +640,9 @@ export function registerConversationTools(server: McpServer): void {
 					error: error instanceof Error ? error.message : String(error),
 				});
 
-				return {
-					content: [
-						{
-							type: 'text' as const,
-							text: toJSON({
-								ok: false,
-								error: error instanceof Error ? error.message : 'Unknown error',
-							}),
-						},
-					],
-				};
+				return convToolError(
+					`Failed to get conversation: ${error instanceof Error ? error.message : 'Unknown error'}`,
+				);
 			}
 		},
 	);
@@ -771,17 +749,9 @@ export function registerConversationTools(server: McpServer): void {
 					error: error instanceof Error ? error.message : String(error),
 				});
 
-				return {
-					content: [
-						{
-							type: 'text' as const,
-							text: toJSON({
-								ok: false,
-								error: error instanceof Error ? error.message : 'Unknown error',
-							}),
-						},
-					],
-				};
+				return convToolError(
+					`Failed to delete conversation: ${error instanceof Error ? error.message : 'Unknown error'}`,
+				);
 			}
 		},
 	);
@@ -835,17 +805,9 @@ export function registerConversationTools(server: McpServer): void {
 				error: error instanceof Error ? error.message : String(error),
 			});
 
-			return {
-				content: [
-					{
-						type: 'text' as const,
-						text: toJSON({
-							ok: false,
-							error: error instanceof Error ? error.message : 'Unknown error',
-						}),
-					},
-				],
-			};
+			return convToolError(
+				`Failed to get conversation stats: ${error instanceof Error ? error.message : 'Unknown error'}`,
+			);
 		}
 	});
 
