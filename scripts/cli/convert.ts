@@ -389,7 +389,7 @@ program
 			process.exit(1);
 		}
 
-		console.log(`Detected format: ${format}`);
+		console.error(`Detected format: ${format}`);
 
 		const args = [targetPath];
 		if (opts.output) args.push('-o', `${opts.output}/${format}`);

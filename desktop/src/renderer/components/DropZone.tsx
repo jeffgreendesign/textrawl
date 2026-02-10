@@ -5,11 +5,6 @@ interface DropZoneProps {
 	isScanning?: boolean;
 }
 
-// Electron extends File with a path property
-interface ElectronFile extends File {
-	path?: string;
-}
-
 export function DropZone({ onDrop, isScanning = false }: DropZoneProps) {
 	const [isDragOver, setIsDragOver] = useState(false);
 
@@ -42,13 +37,12 @@ export function DropZone({ onDrop, isScanning = false }: DropZoneProps) {
 			const files = e.dataTransfer?.files;
 			if (!files || files.length === 0) return;
 
-			// Extract file paths
+			// Extract file paths using webUtils.getPathForFile (Electron 32+)
 			const paths: string[] = [];
 			for (let i = 0; i < files.length; i++) {
-				const file = files[i] as ElectronFile;
-				// Electron provides the path property on File objects
-				if (file.path) {
-					paths.push(file.path);
+				const filePath = window.electronAPI.getPathForFile(files[i]);
+				if (filePath) {
+					paths.push(filePath);
 				}
 			}
 
