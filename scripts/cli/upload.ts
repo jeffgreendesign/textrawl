@@ -101,11 +101,18 @@ function sanitizeUnicode(text: string): string {
 	// indexOf(match) would return the wrong position for repeated characters.
 	sanitized = sanitized.replace(/[\uD800-\uDFFF]/g, (match, offset: number) => {
 		const code = match.charCodeAt(0);
-		// High surrogate (0xD800-0xDBFF) must be followed by low surrogate (0xDC00-0xDFFF)
+		// High surrogate (0xD800-0xDBFF) followed by low surrogate = valid pair
 		if (code >= 0xd800 && code <= 0xdbff) {
 			const next = sanitized.charCodeAt(offset + 1);
 			if (next >= 0xdc00 && next <= 0xdfff) {
-				return match; // Valid pair, keep it
+				return match; // Valid high surrogate, keep it
+			}
+		}
+		// Low surrogate (0xDC00-0xDFFF) preceded by high surrogate = valid pair
+		if (code >= 0xdc00 && code <= 0xdfff) {
+			const prev = sanitized.charCodeAt(offset - 1);
+			if (prev >= 0xd800 && prev <= 0xdbff) {
+				return match; // Valid low surrogate, keep it
 			}
 		}
 		// Invalid or unpaired surrogate, replace with \uFFFD
@@ -128,9 +135,8 @@ function sanitizeMetadata(obj: Record<string, unknown>): Record<string, unknown>
 		if (typeof value === 'number' && (!Number.isFinite(value) || Number.isNaN(value))) return null;
 		if (typeof value === 'function' || typeof value === 'symbol') return null;
 		if (typeof value === 'bigint') return value.toString();
-		// Strip null bytes from strings (PostgreSQL rejects \0 in jsonb)
-		// eslint-disable-next-line no-control-regex
-		if (typeof value === 'string') return value.replace(/\0/g, '');
+		// Sanitize strings: strip null bytes and fix invalid surrogates
+		if (typeof value === 'string') return sanitizeUnicode(value);
 		if (Array.isArray(value)) return value.map(sanitizeValue);
 		if (typeof value === 'object') {
 			const result: Record<string, unknown> = {};

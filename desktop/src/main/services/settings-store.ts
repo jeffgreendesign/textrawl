@@ -63,7 +63,7 @@ export class SettingsStore {
 	private encrypt(value: string): string {
 		if (!value) return '';
 		if (!safeStorage.isEncryptionAvailable()) {
-			logger.warn('[settings] safeStorage not available, storing in plaintext');
+			logger.error('[settings] safeStorage not available, storing in plaintext');
 			return value;
 		}
 		return safeStorage.encryptString(value).toString('base64');

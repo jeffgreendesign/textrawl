@@ -194,7 +194,7 @@ app.whenReady().then(() => {
 
 	// Warn if OS keychain is unavailable (rare — mainly headless Linux without a keyring)
 	if (!safeStorage.isEncryptionAvailable()) {
-		logger.warn('[main] safeStorage not available — credentials stored without encryption');
+		logger.error('[main] safeStorage not available — credentials stored without encryption');
 	}
 
 	setupIpcHandlers();
