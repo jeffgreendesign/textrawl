@@ -54,6 +54,11 @@ export function registerInsightTools(server: McpServer): void {
 		{
 			description:
 				"Get proactive insights discovered from your knowledge base. Shows cross-source connections, recurring themes, entity bridges, and outliers that were automatically found. Use this to discover things you didn't know to ask about.",
+			annotations: {
+				readOnlyHint: false,
+				destructiveHint: false,
+				openWorldHint: false,
+			},
 			inputSchema: {
 				status: z
 					.enum(['new', 'seen', 'dismissed'])
@@ -194,6 +199,7 @@ export function registerInsightTools(server: McpServer): void {
 							}),
 						},
 					],
+					isError: true,
 				};
 			}
 		},
@@ -209,6 +215,11 @@ export function registerInsightTools(server: McpServer): void {
 		{
 			description:
 				"Trigger an insight scan to discover connections, patterns, and outliers in your knowledge base. Use after bulk imports (email, Facebook, Google Takeout) to find what's interesting. The scan compares recent content against everything in the database.",
+			annotations: {
+				readOnlyHint: false,
+				destructiveHint: false,
+				openWorldHint: false,
+			},
 			inputSchema: {
 				fullScan: z
 					.boolean()
@@ -317,6 +328,7 @@ export function registerInsightTools(server: McpServer): void {
 							}),
 						},
 					],
+					isError: true,
 				};
 			}
 		},
@@ -331,6 +343,12 @@ export function registerInsightTools(server: McpServer): void {
 		'dismiss_insight',
 		{
 			description: 'Dismiss an insight so it no longer appears in new/seen results',
+			annotations: {
+				readOnlyHint: false,
+				destructiveHint: false,
+				idempotentHint: true,
+				openWorldHint: false,
+			},
 			inputSchema: {
 				insightId: z.string().describe('The insight ID to dismiss'),
 			},
@@ -387,6 +405,7 @@ export function registerInsightTools(server: McpServer): void {
 							}),
 						},
 					],
+					isError: true,
 				};
 			}
 		},
@@ -402,6 +421,11 @@ export function registerInsightTools(server: McpServer): void {
 		{
 			description:
 				'Get statistics about proactive insights and the insight queue (pending chunks, processing state)',
+			annotations: {
+				readOnlyHint: true,
+				destructiveHint: false,
+				openWorldHint: false,
+			},
 			inputSchema: {},
 		},
 		async () => {
@@ -497,6 +521,7 @@ export function registerInsightTools(server: McpServer): void {
 							}),
 						},
 					],
+					isError: true,
 				};
 			}
 		},

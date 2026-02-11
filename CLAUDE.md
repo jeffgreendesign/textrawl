@@ -265,7 +265,25 @@ import { logger } from '../utils/logger';     // Wrong
 
 ### MCP Tool Pattern
 
-Tools are registered using `server.tool()` with inline Zod schemas and return `{ content: [{ type: 'text', text: JSON.stringify(...) }] }`:
+**Preferred:** Use `server.registerTool()` (SDK v1.26.0+) with `title`, `description`, `inputSchema`, and `annotations`:
+
+```typescript
+server.registerTool('tool_name', {
+  title: 'Tool Name',
+  description: 'What this tool does',
+  inputSchema: {
+    param: z.string().describe('Description'),
+  },
+  annotations: {
+    readOnlyHint: true,
+    destructiveHint: false,
+  },
+}, async ({ param }) => {
+  return { content: [{ type: 'text', text: JSON.stringify(result, null, 2) }] };
+});
+```
+
+**Legacy:** `server.tool()` with inline Zod schemas is still supported. Use for simple tools:
 
 ```typescript
 server.tool('tool_name', {
@@ -274,6 +292,8 @@ server.tool('tool_name', {
   return { content: [{ type: 'text', text: JSON.stringify(result, null, 2) }] };
 });
 ```
+
+**Error responses** MUST include `isError: true` to prevent LLM retry spirals. Use the shared `toolError()` and `configError()` helpers from `src/utils/compact.ts`.
 
 ### Text Chunking
 

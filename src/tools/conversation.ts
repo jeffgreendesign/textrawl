@@ -19,27 +19,8 @@ import {
 } from '../db/conversation-sessions.js';
 import { createTurns, getRecentTurns, getSessionTurns } from '../db/conversation-turns.js';
 import { generateEmbedding, isOpenAIConfigured } from '../services/embeddings.js';
-import { config } from '../utils/config.js';
+import { formatId, isCompact, toJSON, toolError } from '../utils/compact.js';
 import { logger } from '../utils/logger.js';
-
-/**
- * Check if compact response mode is enabled
- */
-const isCompact = () => config.COMPACT_RESPONSES;
-
-/**
- * JSON serialization - compact (no whitespace) or pretty-printed
- */
-function toJSON(obj: unknown): string {
-	return isCompact() ? JSON.stringify(obj) : JSON.stringify(obj, null, 2);
-}
-
-/**
- * Format UUID - truncated (8 chars) in compact mode, full in verbose mode
- */
-function formatId(uuid: string): string {
-	return isCompact() ? uuid.slice(0, 8) : uuid;
-}
 
 /**
  * Register all conversation-related MCP tools
@@ -75,6 +56,12 @@ export function registerConversationTools(server: McpServer): void {
 				.describe(
 					'Generate embeddings for individual turns (slower but enables turn-level search)',
 				),
+		},
+		{
+			readOnlyHint: false,
+			destructiveHint: false,
+			idempotentHint: true,
+			openWorldHint: false,
 		},
 		async ({ sessionKey, title, summary, recentTurns, embedTurns }) => {
 			logger.info('save_conversation_context called', {
@@ -199,17 +186,9 @@ export function registerConversationTools(server: McpServer): void {
 					error: error instanceof Error ? error.message : String(error),
 				});
 
-				return {
-					content: [
-						{
-							type: 'text' as const,
-							text: toJSON({
-								ok: false,
-								error: error instanceof Error ? error.message : 'Unknown error',
-							}),
-						},
-					],
-				};
+				return toolError(
+					`Failed to save conversation: ${error instanceof Error ? error.message : 'Unknown error'}`,
+				);
 			}
 		},
 	);
@@ -245,6 +224,11 @@ export function registerConversationTools(server: McpServer): void {
 				.max(50)
 				.default(10)
 				.describe('Max turns to include per conversation if includeTranscript is true'),
+		},
+		{
+			readOnlyHint: true,
+			destructiveHint: false,
+			openWorldHint: false,
 		},
 		async ({ query, limit, searchMode, includeTranscript, maxTurnsPerConversation }) => {
 			logger.info('recall_conversation called', {
@@ -418,17 +402,9 @@ export function registerConversationTools(server: McpServer): void {
 					error: error instanceof Error ? error.message : String(error),
 				});
 
-				return {
-					content: [
-						{
-							type: 'text' as const,
-							text: toJSON({
-								ok: false,
-								error: error instanceof Error ? error.message : 'Unknown error',
-							}),
-						},
-					],
-				};
+				return toolError(
+					`Conversation search failed: ${error instanceof Error ? error.message : 'Unknown error'}`,
+				);
 			}
 		},
 	);
@@ -449,6 +425,11 @@ export function registerConversationTools(server: McpServer): void {
 				.default(20)
 				.describe('Maximum number of conversations to return'),
 			offset: z.number().int().min(0).default(0).describe('Pagination offset'),
+		},
+		{
+			readOnlyHint: true,
+			destructiveHint: false,
+			openWorldHint: false,
 		},
 		async ({ limit, offset }) => {
 			logger.info('list_conversations called', { limit, offset });
@@ -505,17 +486,9 @@ export function registerConversationTools(server: McpServer): void {
 					error: error instanceof Error ? error.message : String(error),
 				});
 
-				return {
-					content: [
-						{
-							type: 'text' as const,
-							text: toJSON({
-								ok: false,
-								error: error instanceof Error ? error.message : 'Unknown error',
-							}),
-						},
-					],
-				};
+				return toolError(
+					`Failed to list conversations: ${error instanceof Error ? error.message : 'Unknown error'}`,
+				);
 			}
 		},
 	);
@@ -531,6 +504,11 @@ export function registerConversationTools(server: McpServer): void {
 			sessionId: z.string().optional().describe('Session ID to retrieve'),
 			sessionKey: z.string().optional().describe('Session key to retrieve'),
 			maxTurns: z.number().int().min(1).max(200).default(50).describe('Maximum turns to include'),
+		},
+		{
+			readOnlyHint: true,
+			destructiveHint: false,
+			openWorldHint: false,
 		},
 		async ({ sessionId, sessionKey, maxTurns }) => {
 			logger.info('get_conversation called', { sessionId, sessionKey, maxTurns });
@@ -654,17 +632,9 @@ export function registerConversationTools(server: McpServer): void {
 					error: error instanceof Error ? error.message : String(error),
 				});
 
-				return {
-					content: [
-						{
-							type: 'text' as const,
-							text: toJSON({
-								ok: false,
-								error: error instanceof Error ? error.message : 'Unknown error',
-							}),
-						},
-					],
-				};
+				return toolError(
+					`Failed to get conversation: ${error instanceof Error ? error.message : 'Unknown error'}`,
+				);
 			}
 		},
 	);
@@ -680,6 +650,11 @@ export function registerConversationTools(server: McpServer): void {
 			sessionId: z.string().optional().describe('Session ID to delete'),
 			sessionKey: z.string().optional().describe('Session key to delete'),
 			confirm: z.boolean().describe('Must be true to confirm deletion'),
+		},
+		{
+			readOnlyHint: false,
+			destructiveHint: true,
+			openWorldHint: false,
 		},
 		async ({ sessionId, sessionKey, confirm }) => {
 			logger.info('delete_conversation called', { sessionId, sessionKey, confirm });
@@ -771,17 +746,9 @@ export function registerConversationTools(server: McpServer): void {
 					error: error instanceof Error ? error.message : String(error),
 				});
 
-				return {
-					content: [
-						{
-							type: 'text' as const,
-							text: toJSON({
-								ok: false,
-								error: error instanceof Error ? error.message : 'Unknown error',
-							}),
-						},
-					],
-				};
+				return toolError(
+					`Failed to delete conversation: ${error instanceof Error ? error.message : 'Unknown error'}`,
+				);
 			}
 		},
 	);
@@ -791,63 +758,64 @@ export function registerConversationTools(server: McpServer): void {
 	// ============================================
 	// Tool: conversation_stats
 	// ============================================
-	server.tool('conversation_stats', {}, async () => {
-		logger.info('conversation_stats called');
+	server.tool(
+		'conversation_stats',
+		{},
+		{
+			readOnlyHint: true,
+			destructiveHint: false,
+			openWorldHint: false,
+		},
+		async () => {
+			logger.info('conversation_stats called');
 
-		if (!isSupabaseConfigured()) {
-			return {
-				content: [
-					{
-						type: 'text' as const,
-						text: toJSON({ error: 'Database not configured' }),
-					},
-				],
-			};
-		}
+			if (!isSupabaseConfigured()) {
+				return {
+					content: [
+						{
+							type: 'text' as const,
+							text: toJSON({ error: 'Database not configured' }),
+						},
+					],
+				};
+			}
 
-		try {
-			const stats = await getConversationSearchStats();
+			try {
+				const stats = await getConversationSearchStats();
 
-			const response = isCompact()
-				? {
-						sess: stats.totalSessions,
-						indexed: stats.sessionsWithSummary,
-						turns: stats.totalTurns,
-						turnIdx: stats.turnsWithEmbedding,
-					}
-				: {
-						totalSessions: stats.totalSessions,
-						sessionsWithSearchableIndex: stats.sessionsWithSummary,
-						totalTurns: stats.totalTurns,
-						turnsWithSearchableIndex: stats.turnsWithEmbedding,
-					};
+				const response = isCompact()
+					? {
+							sess: stats.totalSessions,
+							indexed: stats.sessionsWithSummary,
+							turns: stats.totalTurns,
+							turnIdx: stats.turnsWithEmbedding,
+						}
+					: {
+							totalSessions: stats.totalSessions,
+							sessionsWithSearchableIndex: stats.sessionsWithSummary,
+							totalTurns: stats.totalTurns,
+							turnsWithSearchableIndex: stats.turnsWithEmbedding,
+						};
 
-			return {
-				content: [
-					{
-						type: 'text' as const,
-						text: toJSON(response),
-					},
-				],
-			};
-		} catch (error) {
-			logger.error('conversation_stats failed', {
-				error: error instanceof Error ? error.message : String(error),
-			});
+				return {
+					content: [
+						{
+							type: 'text' as const,
+							text: toJSON(response),
+						},
+					],
+				};
+			} catch (error) {
+				logger.error('conversation_stats failed', {
+					error: error instanceof Error ? error.message : String(error),
+				});
 
-			return {
-				content: [
-					{
-						type: 'text' as const,
-						text: toJSON({
-							ok: false,
-							error: error instanceof Error ? error.message : 'Unknown error',
-						}),
-					},
-				],
-			};
-		}
-	});
+				return toolError(
+					`Failed to get conversation stats: ${error instanceof Error ? error.message : 'Unknown error'}`,
+				);
+			}
+		},
+	);
 
 	logger.debug('Registered tool: conversation_stats');
 }

@@ -545,6 +545,41 @@ Get insight queue and processing statistics.
 
 **Parameters:** None
 
+## Tool Interaction Guide
+
+### Memory Data Model
+
+Textrawl's memory system has three concepts:
+
+- **Entities** — Named items (people, projects, concepts, etc.). Uniqueness is per `(name, entity_type)` — case-insensitive lookup.
+- **Observations** — Atomic facts attached to an entity. Each has a semantic embedding for search.
+- **Relations** — Directed links between two entities (e.g., "Jeff `works_at` Acme Corp").
+
+### When to Use Each Memory Tool
+
+| Goal | Tool | Notes |
+|------|------|-------|
+| Store a fact about something | `remember_fact` | Creates entity if needed. One fact per call. |
+| Connect two things | `relate_entities` | Creates both entities if needed. Entity types are optional and auto-detected. |
+| Find stored facts | `recall_memories` | Semantic search across all observations. |
+| See everything about one entity | `get_entity_context` | Returns observations + all relations. |
+| Bulk-extract from text | `extract_memories` | Requires `ENABLE_MEMORY_EXTRACTION=true`. |
+
+### Critical Behavior Notes
+
+1. **Entity auto-creation**: Both `remember_fact` and `relate_entities` auto-create entities. You do NOT need to call `remember_fact` before `relate_entities`.
+2. **Entity type params are optional in `relate_entities`**: If the entity already exists, its type is looked up automatically. Only provide `fromEntityType`/`toEntityType` when creating brand-new entities. **If unsure, just omit them.**
+3. **Relation types are free-form**: Use snake_case strings. Common types: `works_at`, `knows`, `prefers`, `created`, `part_of`, `interested_in`. Custom types are accepted.
+4. **Idempotent operations**: `remember_fact` detects duplicate observations. `relate_entities` upserts — creating the same relation twice is a no-op.
+5. **Error responses include `isError: true`**: When a tool returns an error, the response includes `isError: true` per the MCP spec. Do NOT retry the same call blindly — read the error message for guidance.
+6. **Configuration errors are permanent**: Errors like "Database not configured" or "Embedding not configured" are server-side issues. Retrying will not help.
+
+### Avoiding Common Pitfalls
+
+- **MUST NOT pass `null` for optional parameters** — simply omit them entirely.
+- **SHOULD NOT retry the same failing call** — read the error message and adjust parameters or try a different tool.
+- If `relate_entities` fails, the most common cause is passing an invalid entity type. You SHOULD omit `fromEntityType` and `toEntityType`.
+
 ## Common Agent Patterns
 
 ### Pattern 1: Search and Retrieve
