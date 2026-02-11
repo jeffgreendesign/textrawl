@@ -576,9 +576,9 @@ Textrawl's memory system has three concepts:
 
 ### Avoiding Common Pitfalls
 
-- **Do NOT pass `null` for optional parameters** — simply omit them entirely.
-- **Do NOT retry the same failing call** — read the error message and adjust parameters or try a different tool.
-- **When `relate_entities` fails**, the most common cause is passing an invalid entity type. Just omit `fromEntityType` and `toEntityType`.
+- **MUST NOT pass `null` for optional parameters** — simply omit them entirely.
+- **SHOULD NOT retry the same failing call** — read the error message and adjust parameters or try a different tool.
+- If `relate_entities` fails, the most common cause is passing an invalid entity type. You SHOULD omit `fromEntityType` and `toEntityType`.
 
 ## Common Agent Patterns
 
