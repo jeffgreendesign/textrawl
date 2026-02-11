@@ -22,7 +22,7 @@ import {
 	extractMemoriesFromText,
 	isExtractionConfigured,
 } from '../services/memory-extraction.js';
-import { config } from '../utils/config.js';
+import { configError, formatId, isCompact, toJSON, toolError } from '../utils/compact.js';
 import { logger } from '../utils/logger.js';
 
 const EntityTypeSchema = z.enum([
@@ -34,57 +34,6 @@ const EntityTypeSchema = z.enum([
 	'location',
 	'organization',
 ]);
-
-/**
- * Check if compact response mode is enabled
- * Compact mode saves 40-60% tokens by using short keys and no pretty-printing
- * Set COMPACT_RESPONSES=false for human-readable verbose responses
- */
-const isCompact = () => config.COMPACT_RESPONSES;
-
-/**
- * JSON serialization - compact (no whitespace) or pretty-printed
- */
-function toJSON(obj: unknown): string {
-	return isCompact() ? JSON.stringify(obj) : JSON.stringify(obj, null, 2);
-}
-
-/**
- * Format UUID - truncated (8 chars) in compact mode, full in verbose mode
- */
-function formatId(uuid: string): string {
-	return isCompact() ? uuid.slice(0, 8) : uuid;
-}
-
-/**
- * Helper: return an MCP tool error response with isError: true.
- * Per MCP spec, isError signals to the client that the response is an error
- * and the LLM should NOT blindly retry the same call.
- */
-function toolError(message: string) {
-	return {
-		content: [{ type: 'text' as const, text: toJSON({ error: message }) }],
-		isError: true,
-	};
-}
-
-/**
- * Helper: return a configuration error (permanent failure - do not retry).
- */
-function configError(what: string, fix: string) {
-	return {
-		content: [
-			{
-				type: 'text' as const,
-				text: toJSON({
-					error: `${what} not configured`,
-					message: `${fix}. This is a server configuration issue — do not retry.`,
-				}),
-			},
-		],
-		isError: true,
-	};
-}
 
 /**
  * Sanitize an optional EntityType parameter.

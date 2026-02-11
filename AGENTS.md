@@ -568,7 +568,7 @@ Textrawl's memory system has three concepts:
 ### Critical Behavior Notes
 
 1. **Entity auto-creation**: Both `remember_fact` and `relate_entities` auto-create entities. You do NOT need to call `remember_fact` before `relate_entities`.
-2. **Entity type params are optional in `relate_entities`**: If the entity already exists, its type is looked up automatically. Only provide `fromEntityType`/`toEntityType` when creating brand new entities. **If unsure, just omit them.**
+2. **Entity type params are optional in `relate_entities`**: If the entity already exists, its type is looked up automatically. Only provide `fromEntityType`/`toEntityType` when creating brand-new entities. **If unsure, just omit them.**
 3. **Relation types are free-form**: Use snake_case strings. Common types: `works_at`, `knows`, `prefers`, `created`, `part_of`, `interested_in`. Custom types are accepted.
 4. **Idempotent operations**: `remember_fact` detects duplicate observations. `relate_entities` upserts — creating the same relation twice is a no-op.
 5. **Error responses include `isError: true`**: When a tool returns an error, the response includes `isError: true` per the MCP spec. Do NOT retry the same call blindly — read the error message for guidance.
