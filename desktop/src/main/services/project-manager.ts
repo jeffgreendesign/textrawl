@@ -21,9 +21,14 @@ import matter from 'gray-matter';
 import { IPC } from '../../shared/ipc-channels.js';
 import type {
 	ConversionOptions,
+	ConvertSelectedResult,
+	DirectoryStats,
+	PipelineStatus,
 	ProjectState,
 	ProjectStats,
 	ScannedFile,
+	StatusReport,
+	StatusReportGroup,
 	TreeFile,
 	UploadOptions,
 } from '../../shared/types.js';
@@ -37,7 +42,7 @@ import {
 	isRtfdBundle,
 	routeFileByExt,
 } from './file-router.js';
-import { ProjectStore } from './project-store.js';
+import { MAX_RETRIES, ProjectStore } from './project-store.js';
 import type { SettingsStore } from './settings-store.js';
 import type { UploadManager } from './upload-manager.js';
 
@@ -132,16 +137,20 @@ export class ProjectManager {
 	// ---- Public API ----
 
 	async loadProject(sourceDir: string, outputDir: string): Promise<ProjectState> {
+		logger.debug(`[project-manager] Loading project: source=${sourceDir} output=${outputDir}`);
 		this.sourceDir = sourceDir;
 		this.outputDir = outputDir;
 		this.manifest = existsSync(outputDir) ? new ManifestReader(outputDir) : null;
 
 		this.tree = await this.buildTree(sourceDir, sourceDir);
 		this.rebuildNodeIndex();
+		logger.debug(`[project-manager] Tree built: ${this.nodeIndex.size} nodes`);
 		await this.buildOutputMap();
+		logger.debug(`[project-manager] Output map: ${this.outputMap.size} converted files`);
 		this.reconcileStatus(this.tree);
 
 		const stats = this.computeStats(this.tree);
+		logger.debug(`[project-manager] Stats: ${JSON.stringify(stats)}`);
 		this.projectStore.setLastProject(sourceDir, outputDir);
 
 		await this.startWatching();
@@ -190,36 +199,61 @@ export class ProjectManager {
 		this.manifest = null;
 	}
 
-	async convertFiles(relativePaths: string[]): Promise<void> {
+	async convertFiles(relativePaths: string[], skipPauseResume = false): Promise<void> {
 		if (!this.sourceDir || !this.outputDir) return;
 
 		const files = this.findFiles(relativePaths);
 		const convertible = files.filter(
 			(f) => f.pipelineStatus === 'pending' && f.converterType !== null,
 		);
-		if (convertible.length === 0) return;
+		if (convertible.length === 0) {
+			const skipped = files.filter((f) => f.converterType === null);
+			if (skipped.length > 0) {
+				logger.error(
+					`[project-manager] ${skipped.length} file(s) skipped (no converter): ${skipped.map((f) => `${f.name} (${f.fileType})`).join(', ')}`,
+				);
+			}
+			return;
+		}
 
 		const scannedFiles = convertible.map((f) => this.toScannedFile(f));
 		const options: ConversionOptions = {
 			outputDir: this.outputDir,
 			tags: this.settingsStore.get().defaultTags,
 			dryRun: false,
-			verbose: false,
+			verbose: this.settingsStore.get().verboseLogging ?? false,
 		};
 
-		this.pauseWatching();
+		// Show converting spinners immediately
+		for (const file of convertible) {
+			file.pipelineStatus = 'converting';
+			this.dirtyNodes.add(file.relativePath);
+		}
+		this.flushNow();
+
+		// Close the watcher entirely (not just pause) to release file descriptors
+		// before spawning converter child processes — avoids EBADF on large projects.
+		if (!skipPauseResume) await this.stopWatching();
 		try {
-			await this.conversionManager.startConversion(scannedFiles, options);
+			const result = await this.conversionManager.startConversion(scannedFiles, options);
 
 			// Detect which files failed by checking for output .md files
 			await this.buildOutputMap();
 			for (const file of convertible) {
 				if (!this.outputMap.has(file.relativePath)) {
-					this.projectStore.setFileError(file.relativePath, 'Conversion failed');
+					// Use actual error from converter if available, otherwise generic
+					const realError = result.fileErrors?.get(file.relativePath);
+					this.projectStore.setFileError(
+						file.relativePath,
+						realError || 'Conversion failed — no output file produced',
+					);
 				}
 			}
 		} finally {
-			this.resumeWatching();
+			if (!skipPauseResume) {
+				this.resumeWatching();
+				await this.startWatching();
+			}
 		}
 	}
 
@@ -231,23 +265,89 @@ export class ProjectManager {
 			tags: this.settingsStore.get().defaultTags,
 		};
 
-		this.pauseWatching();
+		// Show uploading spinners on converted files
+		this.markFilesByStatus('converted', 'uploading');
+		this.flushNow();
+
+		// Close the watcher entirely (not just pause) to release file descriptors
+		// before spawning the upload child process — avoids EBADF on large projects.
+		await this.stopWatching();
 		try {
-			await this.uploadManager.startUpload(options);
+			const result = await this.uploadManager.startUpload(options);
+			if (!result.success) {
+				throw new Error(result.error || 'Upload failed');
+			}
 		} finally {
 			this.resumeWatching();
+			await this.startWatching();
 		}
 	}
 
-	async retryErrors(relativePaths: string[]): Promise<void> {
+	/**
+	 * Dismiss errors — clears stored errors so files reconcile to their true status
+	 * (pending, oversized, unsupported, etc.) without retrying conversion.
+	 */
+	dismissErrors(): { dismissed: number } {
+		const allErrors = this.projectStore.getAllErrors();
+		const count = Object.keys(allErrors).length;
+		this.projectStore.clearAllErrors();
+
+		// Re-reconcile all errored files to their true underlying status
+		for (const relativePath of Object.keys(allErrors)) {
+			const node = this.nodeIndex.get(relativePath);
+			if (node && !node.isDirectory) {
+				this.reconcileFile(node);
+				this.dirtyNodes.add(relativePath);
+			}
+		}
+		this.scheduleFlush(true);
+
+		return { dismissed: count };
+	}
+
+	async retryErrors(relativePaths: string[], skipPauseResume = false): Promise<void> {
 		if (!this.sourceDir || !this.outputDir) return;
 
+		const retryable: string[] = [];
+		const exhausted: string[] = [];
+
+		// Check attempt counts BEFORE clearing errors
+		const priorAttempts = new Map<string, number>();
 		for (const path of relativePaths) {
+			const attempts = this.projectStore.getFileAttempts(path);
+			priorAttempts.set(path, attempts);
+			if (attempts >= MAX_RETRIES) {
+				exhausted.push(path);
+			} else {
+				retryable.push(path);
+			}
+		}
+
+		if (exhausted.length > 0) {
+			logger.info(
+				`[project-manager] ${exhausted.length} file(s) skipped — max retries (${MAX_RETRIES}) reached`,
+			);
+			for (const path of exhausted) {
+				const node = this.nodeIndex.get(path);
+				if (node?.error && !node.error.includes('(max retries reached)')) {
+					node.error = `${node.error} (max retries reached)`;
+					this.dirtyNodes.add(path);
+				}
+			}
+		}
+
+		if (retryable.length === 0) {
+			if (exhausted.length > 0) this.scheduleFlush();
+			return;
+		}
+
+		// Clear errors so reconcileFile() can set them back to pending
+		for (const path of retryable) {
 			this.projectStore.clearFileError(path);
 		}
 
 		// Re-reconcile to determine true status after clearing errors
-		const files = this.findFiles(relativePaths);
+		const files = this.findFiles(retryable);
 		for (const file of files) {
 			this.reconcileFile(file);
 		}
@@ -258,7 +358,26 @@ export class ProjectManager {
 			.map((f) => f.relativePath);
 
 		if (pendingPaths.length > 0) {
-			await this.convertFiles(pendingPaths);
+			await this.convertFiles(pendingPaths, skipPauseResume);
+
+			// Restore cumulative attempt counts for files that failed again
+			for (const path of pendingPaths) {
+				const currentError = this.projectStore.getFileError(path);
+				if (currentError) {
+					const prior = priorAttempts.get(path) ?? 0;
+					this.projectStore.setFileErrorWithAttempts(path, currentError.error, prior + 1);
+				}
+			}
+
+			// Re-reconcile to update retryCount on TreeFile nodes
+			for (const path of pendingPaths) {
+				const node = this.nodeIndex.get(path);
+				if (node) {
+					this.reconcileFile(node);
+					this.dirtyNodes.add(path);
+				}
+			}
+			this.scheduleFlush();
 		} else {
 			this.scheduleFlush();
 		}
@@ -314,6 +433,7 @@ export class ProjectManager {
 
 	private async startWatching(): Promise<void> {
 		if (!this.sourceDir || !this.outputDir) return;
+		logger.debug(`[project-manager] Starting file watcher for ${this.sourceDir}`);
 
 		const chokidar = await import('chokidar');
 		const sourceDir = this.sourceDir;
@@ -644,6 +764,21 @@ export class ProjectManager {
 		return results;
 	}
 
+	/** Walk tree and set a transient pipelineStatus on files matching fromStatus. */
+	private markFilesByStatus(fromStatus: PipelineStatus, toStatus: PipelineStatus): void {
+		const walk = (nodes: TreeFile[]): void => {
+			for (const node of nodes) {
+				if (node.isDirectory && node.children) {
+					walk(node.children);
+				} else if (node.pipelineStatus === fromStatus) {
+					node.pipelineStatus = toStatus;
+					this.dirtyNodes.add(node.relativePath);
+				}
+			}
+		};
+		walk(this.tree);
+	}
+
 	/** Map a TreeFile to a ScannedFile for ConversionManager. */
 	private toScannedFile(file: TreeFile): ScannedFile {
 		return {
@@ -741,6 +876,16 @@ export class ProjectManager {
 		if (!this.updateTimer) {
 			this.updateTimer = setTimeout(() => this.flushUpdates(), 200);
 		}
+	}
+
+	/** Bypass debounce and flush immediately (e.g. before pausing watcher). */
+	private flushNow(): void {
+		if (this.updateTimer) {
+			clearTimeout(this.updateTimer);
+			this.updateTimer = null;
+		}
+		this.pendingFlush = true;
+		this.flushUpdates();
 	}
 
 	private flushUpdates(): void {
@@ -1014,6 +1159,7 @@ export class ProjectManager {
 		file.documentId = undefined;
 		file.uploadedAt = undefined;
 		file.error = undefined;
+		file.retryCount = undefined;
 		file.lastProcessed = undefined;
 
 		// 1. Error (highest priority)
@@ -1021,6 +1167,7 @@ export class ProjectManager {
 		if (fileError) {
 			file.pipelineStatus = 'error';
 			file.error = fileError.error;
+			file.retryCount = fileError.attempts;
 			file.lastProcessed = fileError.lastAttempt;
 			return;
 		}
@@ -1046,15 +1193,16 @@ export class ProjectManager {
 			return;
 		}
 
-		// 4. Oversized
-		if (file.sizeTier === 'large') {
-			file.pipelineStatus = 'oversized';
+		// 4. Unsupported (no converter available — check before oversized so
+		//    large unsupported files don't get stuck in the oversized bucket)
+		if (file.converterType === null) {
+			file.pipelineStatus = 'unsupported';
 			return;
 		}
 
-		// 5. Unsupported
-		if (file.converterType === null && file.fileType === 'unknown') {
-			file.pipelineStatus = 'unsupported';
+		// 5. Oversized (has a converter but is very large)
+		if (file.sizeTier === 'large') {
+			file.pipelineStatus = 'oversized';
 			return;
 		}
 
@@ -1065,7 +1213,7 @@ export class ProjectManager {
 	// ---- Private: stats ----
 
 	private computeStats(tree: TreeFile[]): ProjectStats {
-		const stats: ProjectStats = {
+		const global: DirectoryStats = {
 			total: 0,
 			pending: 0,
 			converted: 0,
@@ -1075,42 +1223,272 @@ export class ProjectManager {
 			unsupported: 0,
 		};
 
-		this.accumulateStats(tree, stats);
+		for (const node of tree) {
+			const sub = this.computeNodeStats(node);
+			global.total += sub.total;
+			global.pending += sub.pending;
+			global.converted += sub.converted;
+			global.uploaded += sub.uploaded;
+			global.errors += sub.errors;
+			global.oversized += sub.oversized;
+			global.unsupported += sub.unsupported;
+		}
+
+		return global;
+	}
+
+	/**
+	 * Recursively compute stats for a node. For directories, caches the
+	 * result on node.recursiveStats. For files, returns a single-file stat.
+	 */
+	private computeNodeStats(node: TreeFile): DirectoryStats {
+		if (!node.isDirectory || !node.children) {
+			return this.fileToDirectoryStats(node);
+		}
+
+		const stats: DirectoryStats = {
+			total: 0,
+			pending: 0,
+			converted: 0,
+			uploaded: 0,
+			errors: 0,
+			oversized: 0,
+			unsupported: 0,
+		};
+		for (const child of node.children) {
+			const sub = this.computeNodeStats(child);
+			stats.total += sub.total;
+			stats.pending += sub.pending;
+			stats.converted += sub.converted;
+			stats.uploaded += sub.uploaded;
+			stats.errors += sub.errors;
+			stats.oversized += sub.oversized;
+			stats.unsupported += sub.unsupported;
+		}
+
+		node.recursiveStats = stats;
 		return stats;
 	}
 
-	private accumulateStats(tree: TreeFile[], stats: ProjectStats): void {
-		for (const node of tree) {
+	private fileToDirectoryStats(node: TreeFile): DirectoryStats {
+		const stats: DirectoryStats = {
+			total: 1,
+			pending: 0,
+			converted: 0,
+			uploaded: 0,
+			errors: 0,
+			oversized: 0,
+			unsupported: 0,
+		};
+		switch (node.pipelineStatus) {
+			case 'pending':
+			case 'converting': // transient — count as pending
+				stats.pending = 1;
+				break;
+			case 'converted':
+			case 'uploading': // transient — count as converted
+				stats.converted = 1;
+				break;
+			case 'uploaded':
+				stats.uploaded = 1;
+				break;
+			case 'error':
+				stats.errors = 1;
+				break;
+			case 'oversized':
+				stats.oversized = 1;
+				break;
+			case 'unsupported':
+				stats.unsupported = 1;
+				break;
+		}
+		return stats;
+	}
+
+	// ---- Convert oversized ----
+
+	async convertOversized(relativePaths: string[], skipPauseResume = false): Promise<void> {
+		if (!this.sourceDir || !this.outputDir) return;
+
+		const files = this.findFiles(relativePaths);
+		const convertible = files.filter(
+			(f) => f.pipelineStatus === 'oversized' && f.converterType !== null,
+		);
+		if (convertible.length === 0) return;
+
+		const scannedFiles = convertible.map((f) => this.toScannedFile(f));
+		const options: ConversionOptions = {
+			outputDir: this.outputDir,
+			tags: this.settingsStore.get().defaultTags,
+			dryRun: false,
+			verbose: this.settingsStore.get().verboseLogging ?? false,
+		};
+
+		// Show converting spinners immediately
+		for (const file of convertible) {
+			file.pipelineStatus = 'converting';
+			this.dirtyNodes.add(file.relativePath);
+		}
+		this.flushNow();
+
+		if (!skipPauseResume) await this.stopWatching();
+		try {
+			const result = await this.conversionManager.startConversion(scannedFiles, options);
+
+			await this.buildOutputMap();
+			for (const file of convertible) {
+				if (!this.outputMap.has(file.relativePath)) {
+					const realError = result.fileErrors?.get(file.relativePath);
+					this.projectStore.setFileError(
+						file.relativePath,
+						realError || 'Conversion failed — no output file produced',
+					);
+				}
+			}
+		} finally {
+			if (!skipPauseResume) {
+				this.resumeWatching();
+				await this.startWatching();
+			}
+		}
+	}
+
+	// ---- Convert selected (status-aware routing) ----
+
+	async convertSelected(relativePaths: string[]): Promise<ConvertSelectedResult> {
+		const empty: ConvertSelectedResult = {
+			pending: 0,
+			retried: 0,
+			oversized: 0,
+			skipped: 0,
+			total: 0,
+		};
+		if (!this.sourceDir || !this.outputDir) return empty;
+
+		const files = this.findFiles(relativePaths);
+		logger.debug(
+			`[project-manager] convertSelected: ${relativePaths.length} paths requested, ${files.length} found`,
+		);
+		if (files.length === 0) return empty;
+
+		const errorPaths: string[] = [];
+		const pendingPaths: string[] = [];
+		const oversizedPaths: string[] = [];
+		let skipped = 0;
+
+		for (const f of files) {
+			switch (f.pipelineStatus) {
+				case 'error': {
+					const attempts = this.projectStore.getFileAttempts(f.relativePath);
+					if (attempts >= MAX_RETRIES) {
+						skipped++;
+					} else {
+						errorPaths.push(f.relativePath);
+					}
+					break;
+				}
+				case 'pending':
+					if (f.converterType !== null) {
+						pendingPaths.push(f.relativePath);
+					} else {
+						skipped++;
+					}
+					break;
+				case 'oversized':
+					if (f.converterType !== null) {
+						oversizedPaths.push(f.relativePath);
+					} else {
+						skipped++;
+					}
+					break;
+				default:
+					skipped++;
+					break;
+			}
+		}
+
+		logger.debug(
+			`[project-manager] convertSelected: ${pendingPaths.length} pending, ${errorPaths.length} errors, ${oversizedPaths.length} oversized, ${skipped} skipped`,
+		);
+
+		// Close the watcher entirely (not just pause) to release file descriptors
+		// before spawning converter child processes — avoids EBADF on large projects.
+		await this.stopWatching();
+		try {
+			if (errorPaths.length > 0) await this.retryErrors(errorPaths, true);
+			if (pendingPaths.length > 0) await this.convertFiles(pendingPaths, true);
+			if (oversizedPaths.length > 0) await this.convertOversized(oversizedPaths, true);
+		} finally {
+			this.resumeWatching();
+			await this.startWatching();
+		}
+
+		const result: ConvertSelectedResult = {
+			pending: pendingPaths.length,
+			retried: errorPaths.length,
+			oversized: oversizedPaths.length,
+			skipped,
+			total: files.length,
+		};
+		logger.debug(`[project-manager] convertSelected done: ${JSON.stringify(result)}`);
+		return result;
+	}
+
+	// ---- Generate report ----
+
+	generateReport(): StatusReport {
+		const oversizedMap = new Map<string, StatusReportGroup>();
+		const unsupportedMap = new Map<string, StatusReportGroup>();
+
+		this.collectReportData(this.tree, oversizedMap, unsupportedMap);
+
+		const sortByCount = (a: StatusReportGroup, b: StatusReportGroup) => b.count - a.count;
+
+		return {
+			oversized: [...oversizedMap.values()].sort(sortByCount),
+			unsupported: [...unsupportedMap.values()].sort(sortByCount),
+			totalOversized: [...oversizedMap.values()].reduce((s, g) => s + g.count, 0),
+			totalUnsupported: [...unsupportedMap.values()].reduce((s, g) => s + g.count, 0),
+		};
+	}
+
+	private collectReportData(
+		nodes: TreeFile[],
+		oversizedMap: Map<string, StatusReportGroup>,
+		unsupportedMap: Map<string, StatusReportGroup>,
+	): void {
+		for (const node of nodes) {
 			if (node.isDirectory && node.children) {
-				this.accumulateStats(node.children, stats);
+				this.collectReportData(node.children, oversizedMap, unsupportedMap);
 				continue;
 			}
 
-			stats.total++;
+			const ext = extname(node.name).toLowerCase() || '(no extension)';
 
-			switch (node.pipelineStatus) {
-				case 'pending':
-				case 'converting': // transient — count as pending
-					stats.pending++;
-					break;
-				case 'converted':
-					stats.converted++;
-					break;
-				case 'uploading': // transient — count as converted
-					stats.converted++;
-					break;
-				case 'uploaded':
-					stats.uploaded++;
-					break;
-				case 'error':
-					stats.errors++;
-					break;
-				case 'oversized':
-					stats.oversized++;
-					break;
-				case 'unsupported':
-					stats.unsupported++;
-					break;
+			if (node.pipelineStatus === 'oversized') {
+				const group = oversizedMap.get(ext) ?? {
+					extension: ext,
+					count: 0,
+					totalSizeMB: 0,
+					examples: [],
+				};
+				group.count++;
+				group.totalSizeMB += node.size / (1024 * 1024);
+				if (group.examples.length < 3) group.examples.push(node.name);
+				oversizedMap.set(ext, group);
+			}
+
+			if (node.pipelineStatus === 'unsupported') {
+				const group = unsupportedMap.get(ext) ?? {
+					extension: ext,
+					count: 0,
+					totalSizeMB: 0,
+					examples: [],
+				};
+				group.count++;
+				group.totalSizeMB += node.size / (1024 * 1024);
+				if (group.examples.length < 3) group.examples.push(node.name);
+				unsupportedMap.set(ext, group);
 			}
 		}
 	}
