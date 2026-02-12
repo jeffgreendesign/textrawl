@@ -277,7 +277,7 @@ export function registerSearchTool(server: McpServer): void {
 				const allResults: Array<{
 					type: 'document' | 'memory' | 'conversation';
 					score: number;
-					data: unknown;
+					data: Record<string, unknown>;
 				}> = [];
 
 				for (const doc of docResults) {
@@ -356,7 +356,7 @@ export function registerSearchTool(server: McpServer): void {
 					results: limitedResults.map((r) => ({
 						type: r.type,
 						score: r.score,
-						...(r.data as Record<string, unknown>),
+						...r.data,
 					})),
 				};
 
@@ -371,7 +371,7 @@ export function registerSearchTool(server: McpServer): void {
 									r: limitedResults.map((r) => ({
 										src: r.type[0],
 										s: Math.round(r.score * 1000) / 1000,
-										...(r.data as Record<string, unknown>),
+										...r.data,
 									})),
 								}),
 							},

@@ -534,10 +534,10 @@ Unified statistics tool. Consolidates `knowledge_stats`, `memory_stats`, `conver
 
 ```json
 {
-  "knowledge": { "totalDocuments": 100, "totalChunks": 500, "storageBytes": 1048576 },
-  "memory": { "totalEntities": 25, "totalObservations": 150, "totalRelations": 30 },
-  "conversations": { "totalSessions": 10, "totalTurns": 200 },
-  "insights": { "totalInsights": 15, "newInsights": 5 }
+  "knowledge": { "total": 100, "bySourceType": { "note": 60, "file": 40 }, "byContentType": { "document": 100 }, "topTags": [{ "tag": "work", "count": 30 }], "dateRange": { "oldest": "2024-01-01T00:00:00Z", "newest": "2026-01-05T00:00:00Z" } },
+  "memory": { "totalEntities": 25, "totalObservations": 150, "totalRelations": 30, "entityTypeCounts": { "person": 10, "project": 8 } },
+  "conversations": { "totalSessions": 10, "sessionsWithSummary": 8, "totalTurns": 200, "turnsWithEmbedding": 150 },
+  "insights": { "total": 15, "new": 5, "seen": 8, "dismissed": 2, "byType": { "cross_reference": 10 }, "queueState": null }
 }
 ```
 

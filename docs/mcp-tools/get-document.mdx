@@ -25,23 +25,26 @@ Retrieve the complete content of a document, optionally including its chunks.
 
 ```json
 {
-  "id": "550e8400-e29b-41d4-a716-446655440000",
-  "title": "Q4 Planning Notes",
-  "content": "Full document content...",
-  "sourceType": "note",
-  "tags": ["work", "planning", "q4"],
-  "createdAt": "2024-10-15T14:30:00Z",
-  "updatedAt": "2024-10-15T14:30:00Z",
+  "document": {
+    "id": "550e8400-e29b-41d4-a716-446655440000",
+    "title": "Q4 Planning Notes",
+    "sourceType": "note",
+    "sourceUrl": null,
+    "content": "Full document content...",
+    "metadata": { "tags": ["work", "planning", "q4"] },
+    "createdAt": "2024-10-15T14:30:00Z",
+    "updatedAt": "2024-10-15T14:30:00Z"
+  },
   "chunks": [
     {
       "id": "7c9e6679-7425-40de-944b-e07fc1f90ae7",
-      "content": "First chunk content...",
-      "chunkIndex": 0
+      "index": 0,
+      "content": "First chunk content..."
     },
     {
       "id": "f47ac10b-58cc-4372-a567-0e02b2c3d479",
-      "content": "Second chunk content...",
-      "chunkIndex": 1
+      "index": 1,
+      "content": "Second chunk content..."
     }
   ]
 }
@@ -76,7 +79,7 @@ This tool returns `structuredContent` alongside the text response. The `structur
 After searching, get the complete document for context:
 
 ```text
-1. search_knowledge returns chunk with documentId
+1. search returns chunk with documentId
 2. get_document(documentId) returns full content
 3. Use full content for comprehensive answers
 ```

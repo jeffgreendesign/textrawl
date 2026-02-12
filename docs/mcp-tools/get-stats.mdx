@@ -36,9 +36,11 @@ Returns only memory stats. Returns an error if the feature is disabled.
 ```json
 {
   "knowledge": {
-    "totalDocuments": 150,
-    "totalChunks": 1200,
-    "totalTags": 45
+    "total": 150,
+    "bySourceType": { "note": 80, "file": 65, "url": 5 },
+    "byContentType": { "email": 30, "document": 120 },
+    "topTags": [{ "tag": "work", "count": 45 }, { "tag": "planning", "count": 20 }],
+    "dateRange": { "oldest": "2024-01-15T10:00:00Z", "newest": "2026-01-05T14:30:00Z" }
   },
   "memory": {
     "totalEntities": 25,
@@ -65,11 +67,11 @@ Returns only memory stats. Returns an error if the feature is disabled.
 
 ### Compact Mode
 
-When `COMPACT_RESPONSES=true`, stats use abbreviated keys:
+When `COMPACT_RESPONSES=true`, stats use abbreviated keys. Knowledge stats pass through unchanged; memory, conversations, and insights use compact keys:
 
 ```json
 {
-  "knowledge": { "totalDocuments": 150, "totalChunks": 1200, "totalTags": 45 },
+  "knowledge": { "total": 150, "bySourceType": { "note": 80 }, "topTags": [{ "tag": "work", "count": 45 }], "dateRange": { "oldest": "...", "newest": "..." } },
   "memory": { "ent": 25, "obs": 150, "rel": 30, "byType": { "person": 10 } },
   "conversations": { "sess": 15, "indexed": 12, "turns": 340, "turnIdx": 280 },
   "insights": { "n": 8, "new": 3, "seen": 4, "dis": 1, "types": {}, "q": { "p": 0, "proc": false, "last": "..." } }
@@ -104,7 +106,10 @@ This tool returns `structuredContent` alongside the text response. The `structur
 | `insights.seen` | integer | Seen insights |
 | `insights.dismissed` | integer | Dismissed insights |
 | `insights.byType` | object | Count by insight type |
-| `insights.queueState` | object? | Processing queue state |
+| `insights.queueState` | object? | Processing queue state (null if unavailable) |
+| `insights.queueState.chunks_pending` | integer | Chunks awaiting processing |
+| `insights.queueState.is_processing` | boolean | Whether a scan is in progress |
+| `insights.queueState.last_scan_at` | string? | ISO timestamp of last scan |
 
 ## Scope Behavior
 
