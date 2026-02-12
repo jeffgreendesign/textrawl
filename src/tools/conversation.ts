@@ -2,7 +2,6 @@ import type { McpServer } from '@modelcontextprotocol/sdk/server/mcp.js';
 import { z } from 'zod';
 import { isSupabaseConfigured } from '../db/client.js';
 import {
-	getConversationSearchStats,
 	getConversationWithTurns,
 	hybridConversationSearch,
 	searchConversationTurns,
@@ -17,7 +16,7 @@ import {
 	listSessions,
 	updateSession,
 } from '../db/conversation-sessions.js';
-import { createTurns, getRecentTurns, getSessionTurns } from '../db/conversation-turns.js';
+import { createTurns, getRecentTurns } from '../db/conversation-turns.js';
 import { generateEmbedding, isOpenAIConfigured } from '../services/embeddings.js';
 import { configError, formatId, isCompact, toJSON, toolError } from '../utils/compact.js';
 import { logger } from '../utils/logger.js';
@@ -185,231 +184,53 @@ export function registerConversationTools(server: McpServer): void {
 	logger.debug('Registered tool: save_conversation_context');
 
 	// ============================================
-	// Tool: recall_conversation
+	// Tool: query_conversations
+	// Consolidated: replaces recall_conversation, list_conversations, get_conversation
 	// ============================================
 	server.registerTool(
-		'recall_conversation',
+		'query_conversations',
 		{
-			title: 'Recall Conversation',
+			title: 'Query Conversations',
 			description:
-				'Search past conversations by semantic similarity. Can search summaries, individual turns, or both. Optionally includes the transcript of matching conversations.',
+				'Query past conversations. mode="search": semantic search across summaries/turns. mode="get": retrieve a specific conversation by ID or key. mode="list": list recent conversations with pagination.',
 			inputSchema: {
-				query: z.string().min(1).max(1000).describe('What to search for in past conversations'),
-				limit: z
-					.number()
-					.int()
+				mode: z
+					.enum(['search', 'get', 'list'])
+					.describe(
+						'Query mode. "search": search conversations by query. "get": retrieve a specific conversation. "list": list recent conversations.',
+					),
+				query: z
+					.string()
 					.min(1)
-					.max(20)
-					.default(5)
-					.describe('Maximum number of conversations to return'),
+					.max(1000)
+					.optional()
+					.describe('Search query (required for mode="search")'),
 				searchMode: z
 					.enum(['summary', 'turns', 'both'])
 					.default('summary')
-					.describe('Search summaries only, individual turns, or both'),
+					.describe('Search summaries, individual turns, or both (for mode="search")'),
 				includeTranscript: z
 					.boolean()
 					.default(false)
-					.describe('Include recent turns from matching conversations'),
+					.describe('Include recent turns from matching conversations (for mode="search")'),
 				maxTurnsPerConversation: z
 					.number()
 					.int()
 					.min(1)
 					.max(50)
 					.default(10)
-					.describe('Max turns to include per conversation if includeTranscript is true'),
-			},
-			annotations: {
-				readOnlyHint: true,
-				destructiveHint: false,
-				openWorldHint: false,
-			},
-		},
-		async ({ query, limit, searchMode, includeTranscript, maxTurnsPerConversation }) => {
-			logger.info('recall_conversation called', {
-				query,
-				limit,
-				searchMode,
-				includeTranscript,
-			});
-
-			if (!isSupabaseConfigured()) {
-				return configError('Database', 'Set SUPABASE_URL and SUPABASE_SERVICE_KEY');
-			}
-
-			if (!isOpenAIConfigured()) {
-				return configError('Embeddings', 'Set OPENAI_API_KEY or configure Ollama');
-			}
-
-			try {
-				// Generate embedding for the query
-				const embedStart = Date.now();
-				const queryEmbedding = await generateEmbedding(query);
-				logger.debug('Query embedding generated', {
-					latencyMs: Date.now() - embedStart,
-				});
-
-				const results: Array<{
-					session_id: string;
-					session_key: string | null;
-					title: string | null;
-					summary: string | null;
-					score: number;
-					turns?: Array<{ role: string; content: string; turn_index: number }>;
-					matchedTurns?: Array<{ content: string; role: string; score: number }>;
-				}> = [];
-
-				// Search summaries
-				if (searchMode === 'summary' || searchMode === 'both') {
-					const summaryResults = await hybridConversationSearch(query, queryEmbedding, {
-						limit,
-					});
-
-					for (const result of summaryResults) {
-						results.push({
-							session_id: result.session_id,
-							session_key: result.session_key,
-							title: result.title,
-							summary: result.summary,
-							score: result.score,
-						});
-					}
-				}
-
-				// Search individual turns
-				if (searchMode === 'turns' || searchMode === 'both') {
-					const turnResults = await searchConversationTurns(query, queryEmbedding, {
-						limit: limit * 3, // Get more to dedupe by session
-					});
-
-					// Group by session and add to results
-					const sessionTurns = new Map<
-						string,
-						Array<{ content: string; role: string; score: number }>
-					>();
-					for (const turn of turnResults) {
-						if (!sessionTurns.has(turn.session_id)) {
-							sessionTurns.set(turn.session_id, []);
-						}
-						sessionTurns.get(turn.session_id)?.push({
-							content: turn.content,
-							role: turn.role,
-							score: turn.score,
-						});
-					}
-
-					// Merge with existing results or add new
-					for (const [sessionId, turns] of sessionTurns) {
-						const existing = results.find((r) => r.session_id === sessionId);
-						if (existing) {
-							existing.matchedTurns = turns;
-							// Boost score if turns also matched
-							existing.score = existing.score * 1.2;
-						} else {
-							// Need to fetch session info
-							const session = await getSession(sessionId);
-							results.push({
-								session_id: sessionId,
-								session_key: session.session_key,
-								title: session.title,
-								summary: session.summary,
-								score: Math.max(...turns.map((t) => t.score)),
-								matchedTurns: turns,
-							});
-						}
-					}
-				}
-
-				// Sort by score and limit
-				results.sort((a, b) => b.score - a.score);
-				const limitedResults = results.slice(0, limit);
-
-				// Include transcript if requested
-				if (includeTranscript) {
-					for (const result of limitedResults) {
-						const turns = await getRecentTurns(result.session_id, maxTurnsPerConversation);
-						result.turns = turns.map((t) => ({
-							role: t.role,
-							content: t.content,
-							turn_index: t.turn_index,
-						}));
-					}
-				}
-
-				logger.info('recall_conversation completed', {
-					resultCount: limitedResults.length,
-				});
-
-				// Format response
-				const response = isCompact()
-					? {
-							n: limitedResults.length,
-							c: limitedResults.map((r) => ({
-								id: formatId(r.session_id),
-								k: r.session_key,
-								t: r.title,
-								s: Math.round(r.score * 100) / 100,
-								sum: r.summary?.slice(0, 200),
-								turns: r.turns?.map((t) => ({ r: t.role[0], c: t.content })),
-								matched: r.matchedTurns?.slice(0, 3).map((t) => ({
-									r: t.role[0],
-									c: t.content.slice(0, 100),
-								})),
-							})),
-						}
-					: {
-							query,
-							totalResults: limitedResults.length,
-							conversations: limitedResults.map((r) => ({
-								sessionId: formatId(r.session_id),
-								sessionKey: r.session_key,
-								title: r.title,
-								summary: r.summary,
-								score: Math.round(r.score * 100) / 100,
-								turns: r.turns,
-								matchedTurns: r.matchedTurns,
-							})),
-						};
-
-				return {
-					content: [
-						{
-							type: 'text' as const,
-							text: toJSON(response),
-						},
-					],
-				};
-			} catch (error) {
-				logger.error('recall_conversation failed', {
-					error: error instanceof Error ? error.message : String(error),
-				});
-
-				return toolError(
-					`Conversation search failed: ${error instanceof Error ? error.message : 'Unknown error'}`,
-				);
-			}
-		},
-	);
-
-	logger.debug('Registered tool: recall_conversation');
-
-	// ============================================
-	// Tool: list_conversations
-	// ============================================
-	server.registerTool(
-		'list_conversations',
-		{
-			title: 'List Conversations',
-			description:
-				'List recent conversation sessions with pagination. Returns session metadata, turn counts, and last activity timestamps.',
-			inputSchema: {
-				limit: z
+					.describe('Max turns per conversation if includeTranscript=true'),
+				sessionId: z.string().optional().describe('Session ID to retrieve (for mode="get")'),
+				sessionKey: z.string().optional().describe('Session key to retrieve (for mode="get")'),
+				maxTurns: z
 					.number()
 					.int()
 					.min(1)
-					.max(50)
-					.default(20)
-					.describe('Maximum number of conversations to return'),
-				offset: z.number().int().min(0).default(0).describe('Pagination offset'),
+					.max(200)
+					.default(50)
+					.describe('Maximum turns to include (for mode="get")'),
+				limit: z.number().int().min(1).max(50).default(20).describe('Maximum results to return'),
+				offset: z.number().int().min(0).default(0).describe('Pagination offset (for mode="list")'),
 			},
 			annotations: {
 				readOnlyHint: true,
@@ -417,195 +238,294 @@ export function registerConversationTools(server: McpServer): void {
 				openWorldHint: false,
 			},
 		},
-		async ({ limit, offset }) => {
-			logger.info('list_conversations called', { limit, offset });
+		async ({
+			mode,
+			query,
+			searchMode,
+			includeTranscript,
+			maxTurnsPerConversation,
+			sessionId,
+			sessionKey,
+			maxTurns,
+			limit,
+			offset,
+		}) => {
+			logger.info('query_conversations called', { mode, query, sessionId, sessionKey, limit });
 
 			if (!isSupabaseConfigured()) {
 				return configError('Database', 'Set SUPABASE_URL and SUPABASE_SERVICE_KEY');
 			}
 
 			try {
-				const { sessions, total } = await listSessions({ limit, offset });
-
-				const response = isCompact()
-					? {
-							n: total,
-							c: sessions.map((s) => ({
-								id: formatId(s.id),
-								k: s.session_key,
-								t: s.title,
-								turns: s.turn_count,
-								last: s.last_activity,
-							})),
+				switch (mode) {
+					// --- Search mode (replaces recall_conversation) ---
+					case 'search': {
+						if (!query) {
+							return toolError('query is required for mode="search"');
 						}
-					: {
-							total,
-							returned: sessions.length,
-							offset,
-							conversations: sessions.map((s) => ({
-								sessionId: formatId(s.id),
-								sessionKey: s.session_key,
-								title: s.title,
-								turnCount: s.turn_count,
-								lastActivity: s.last_activity,
-								createdAt: s.created_at,
-							})),
-						};
+						if (!isOpenAIConfigured()) {
+							return configError('Embeddings', 'Set OPENAI_API_KEY or configure Ollama');
+						}
 
-				return {
-					content: [
-						{
-							type: 'text' as const,
-							text: toJSON(response),
-						},
-					],
-				};
-			} catch (error) {
-				logger.error('list_conversations failed', {
-					error: error instanceof Error ? error.message : String(error),
-				});
+						const queryEmbedding = await generateEmbedding(query);
 
-				return toolError(
-					`Failed to list conversations: ${error instanceof Error ? error.message : 'Unknown error'}`,
-				);
-			}
-		},
-	);
+						const results: Array<{
+							session_id: string;
+							session_key: string | null;
+							title: string | null;
+							summary: string | null;
+							score: number;
+							turns?: Array<{ role: string; content: string; turn_index: number }>;
+							matchedTurns?: Array<{ content: string; role: string; score: number }>;
+						}> = [];
 
-	logger.debug('Registered tool: list_conversations');
+						// Search summaries
+						if (searchMode === 'summary' || searchMode === 'both') {
+							const summaryResults = await hybridConversationSearch(query, queryEmbedding, {
+								limit,
+							});
+							for (const result of summaryResults) {
+								results.push({
+									session_id: result.session_id,
+									session_key: result.session_key,
+									title: result.title,
+									summary: result.summary,
+									score: result.score,
+								});
+							}
+						}
 
-	// ============================================
-	// Tool: get_conversation
-	// ============================================
-	server.registerTool(
-		'get_conversation',
-		{
-			title: 'Get Conversation',
-			description:
-				'Retrieve a full conversation by session ID or session key. Returns the session metadata and all turns up to the specified limit.',
-			inputSchema: {
-				sessionId: z.string().optional().describe('Session ID to retrieve'),
-				sessionKey: z.string().optional().describe('Session key to retrieve'),
-				maxTurns: z.number().int().min(1).max(200).default(50).describe('Maximum turns to include'),
-			},
-			annotations: {
-				readOnlyHint: true,
-				destructiveHint: false,
-				openWorldHint: false,
-			},
-		},
-		async ({ sessionId, sessionKey, maxTurns }) => {
-			logger.info('get_conversation called', { sessionId, sessionKey, maxTurns });
+						// Search individual turns
+						if (searchMode === 'turns' || searchMode === 'both') {
+							const turnResults = await searchConversationTurns(query, queryEmbedding, {
+								limit: limit * 3,
+							});
 
-			if (!sessionId && !sessionKey) {
-				return toolError('Either sessionId or sessionKey is required');
-			}
+							const sessionTurns = new Map<
+								string,
+								Array<{ content: string; role: string; score: number }>
+							>();
+							for (const turn of turnResults) {
+								if (!sessionTurns.has(turn.session_id)) {
+									sessionTurns.set(turn.session_id, []);
+								}
+								sessionTurns.get(turn.session_id)?.push({
+									content: turn.content,
+									role: turn.role,
+									score: turn.score,
+								});
+							}
 
-			if (!isSupabaseConfigured()) {
-				return configError('Database', 'Set SUPABASE_URL and SUPABASE_SERVICE_KEY');
-			}
+							for (const [sid, turns] of sessionTurns) {
+								const existing = results.find((r) => r.session_id === sid);
+								if (existing) {
+									existing.matchedTurns = turns;
+									existing.score = existing.score * 1.2;
+								} else {
+									const session = await getSession(sid);
+									results.push({
+										session_id: sid,
+										session_key: session.session_key,
+										title: session.title,
+										summary: session.summary,
+										score: Math.max(...turns.map((t) => t.score)),
+										matchedTurns: turns,
+									});
+								}
+							}
+						}
 
-			try {
-				// Resolve session ID from key if needed
-				let resolvedSessionId = sessionId;
-				if (!resolvedSessionId && sessionKey) {
-					const session = await findSessionByKey(sessionKey);
-					if (!session) {
+						results.sort((a, b) => b.score - a.score);
+						const limitedResults = results.slice(0, limit);
+
+						if (includeTranscript) {
+							for (const result of limitedResults) {
+								const turns = await getRecentTurns(result.session_id, maxTurnsPerConversation);
+								result.turns = turns.map((t) => ({
+									role: t.role,
+									content: t.content,
+									turn_index: t.turn_index,
+								}));
+							}
+						}
+
+						const response = isCompact()
+							? {
+									n: limitedResults.length,
+									c: limitedResults.map((r) => ({
+										id: formatId(r.session_id),
+										k: r.session_key,
+										t: r.title,
+										s: Math.round(r.score * 100) / 100,
+										sum: r.summary?.slice(0, 200),
+										turns: r.turns?.map((t) => ({
+											r: t.role[0],
+											c: t.content,
+										})),
+										matched: r.matchedTurns?.slice(0, 3).map((t) => ({
+											r: t.role[0],
+											c: t.content.slice(0, 100),
+										})),
+									})),
+								}
+							: {
+									query,
+									totalResults: limitedResults.length,
+									conversations: limitedResults.map((r) => ({
+										sessionId: formatId(r.session_id),
+										sessionKey: r.session_key,
+										title: r.title,
+										summary: r.summary,
+										score: Math.round(r.score * 100) / 100,
+										turns: r.turns,
+										matchedTurns: r.matchedTurns,
+									})),
+								};
+
 						return {
-							content: [
-								{
-									type: 'text' as const,
-									text: toJSON(
-										isCompact()
-											? { found: false }
-											: {
-													found: false,
-													message: `No conversation found with key: ${sessionKey}`,
-												},
-									),
-								},
-							],
+							content: [{ type: 'text' as const, text: toJSON(response) }],
 						};
 					}
-					resolvedSessionId = session.id;
-				}
 
-				if (!resolvedSessionId) {
-					return toolError('No session ID resolved');
-				}
-
-				const result = await getConversationWithTurns(resolvedSessionId, { maxTurns });
-
-				if (!result) {
-					return {
-						content: [
-							{
-								type: 'text' as const,
-								text: toJSON(
-									isCompact()
-										? { found: false }
-										: {
-												found: false,
-												message: `No conversation found with ID: ${resolvedSessionId}`,
-											},
-								),
-							},
-						],
-					};
-				}
-
-				const response = isCompact()
-					? {
-							id: formatId(result.session.id),
-							k: result.session.session_key,
-							t: result.session.title,
-							sum: result.session.summary,
-							n: result.session.turn_count,
-							turns: result.turns.map((t) => ({
-								r: t.role[0],
-								c: t.content,
-							})),
+					// --- Get mode (replaces get_conversation) ---
+					case 'get': {
+						if (!sessionId && !sessionKey) {
+							return toolError('Either sessionId or sessionKey is required for mode="get"');
 						}
-					: {
-							found: true,
-							session: {
-								id: formatId(result.session.id),
-								sessionKey: result.session.session_key,
-								title: result.session.title,
-								summary: result.session.summary,
-								turnCount: result.session.turn_count,
-								lastActivity: result.session.last_activity,
-								createdAt: result.session.created_at,
-							},
-							turns: result.turns.map((t) => ({
-								role: t.role,
-								content: t.content,
-								turnIndex: t.turn_index,
-								createdAt: t.created_at,
-							})),
-						};
 
-				return {
-					content: [
-						{
-							type: 'text' as const,
-							text: toJSON(response),
-						},
-					],
-				};
+						let resolvedSessionId = sessionId;
+						if (!resolvedSessionId && sessionKey) {
+							const session = await findSessionByKey(sessionKey);
+							if (!session) {
+								return {
+									content: [
+										{
+											type: 'text' as const,
+											text: toJSON(
+												isCompact()
+													? { found: false }
+													: {
+															found: false,
+															message: `No conversation found with key: ${sessionKey}`,
+														},
+											),
+										},
+									],
+								};
+							}
+							resolvedSessionId = session.id;
+						}
+
+						if (!resolvedSessionId) {
+							return toolError('No session ID resolved');
+						}
+
+						const result = await getConversationWithTurns(resolvedSessionId, {
+							maxTurns,
+						});
+
+						if (!result) {
+							return {
+								content: [
+									{
+										type: 'text' as const,
+										text: toJSON(
+											isCompact()
+												? { found: false }
+												: {
+														found: false,
+														message: `No conversation found with ID: ${resolvedSessionId}`,
+													},
+										),
+									},
+								],
+							};
+						}
+
+						const response = isCompact()
+							? {
+									id: formatId(result.session.id),
+									k: result.session.session_key,
+									t: result.session.title,
+									sum: result.session.summary,
+									n: result.session.turn_count,
+									turns: result.turns.map((t) => ({
+										r: t.role[0],
+										c: t.content,
+									})),
+								}
+							: {
+									found: true,
+									session: {
+										id: formatId(result.session.id),
+										sessionKey: result.session.session_key,
+										title: result.session.title,
+										summary: result.session.summary,
+										turnCount: result.session.turn_count,
+										lastActivity: result.session.last_activity,
+										createdAt: result.session.created_at,
+									},
+									turns: result.turns.map((t) => ({
+										role: t.role,
+										content: t.content,
+										turnIndex: t.turn_index,
+										createdAt: t.created_at,
+									})),
+								};
+
+						return {
+							content: [{ type: 'text' as const, text: toJSON(response) }],
+						};
+					}
+
+					// --- List mode (replaces list_conversations) ---
+					case 'list': {
+						const { sessions, total } = await listSessions({ limit, offset });
+
+						const response = isCompact()
+							? {
+									n: total,
+									c: sessions.map((s) => ({
+										id: formatId(s.id),
+										k: s.session_key,
+										t: s.title,
+										turns: s.turn_count,
+										last: s.last_activity,
+									})),
+								}
+							: {
+									total,
+									returned: sessions.length,
+									offset,
+									conversations: sessions.map((s) => ({
+										sessionId: formatId(s.id),
+										sessionKey: s.session_key,
+										title: s.title,
+										turnCount: s.turn_count,
+										lastActivity: s.last_activity,
+										createdAt: s.created_at,
+									})),
+								};
+
+						return {
+							content: [{ type: 'text' as const, text: toJSON(response) }],
+						};
+					}
+				}
 			} catch (error) {
-				logger.error('get_conversation failed', {
+				logger.error('query_conversations failed', {
+					mode,
 					error: error instanceof Error ? error.message : String(error),
 				});
 
 				return toolError(
-					`Failed to get conversation: ${error instanceof Error ? error.message : 'Unknown error'}`,
+					`Conversation query failed: ${error instanceof Error ? error.message : 'Unknown error'}`,
 				);
 			}
 		},
 	);
 
-	logger.debug('Registered tool: get_conversation');
+	logger.debug('Registered tool: query_conversations');
 
 	// ============================================
 	// Tool: delete_conversation
@@ -690,66 +610,4 @@ export function registerConversationTools(server: McpServer): void {
 	);
 
 	logger.debug('Registered tool: delete_conversation');
-
-	// ============================================
-	// Tool: conversation_stats
-	// ============================================
-	server.registerTool(
-		'conversation_stats',
-		{
-			title: 'Conversation Stats',
-			description:
-				'Get conversation storage statistics including session count, turn count, and search index coverage.',
-			inputSchema: {},
-			annotations: {
-				readOnlyHint: true,
-				destructiveHint: false,
-				openWorldHint: false,
-			},
-		},
-		async () => {
-			logger.info('conversation_stats called');
-
-			if (!isSupabaseConfigured()) {
-				return configError('Database', 'Set SUPABASE_URL and SUPABASE_SERVICE_KEY');
-			}
-
-			try {
-				const stats = await getConversationSearchStats();
-
-				const response = isCompact()
-					? {
-							sess: stats.totalSessions,
-							indexed: stats.sessionsWithSummary,
-							turns: stats.totalTurns,
-							turnIdx: stats.turnsWithEmbedding,
-						}
-					: {
-							totalSessions: stats.totalSessions,
-							sessionsWithSearchableIndex: stats.sessionsWithSummary,
-							totalTurns: stats.totalTurns,
-							turnsWithSearchableIndex: stats.turnsWithEmbedding,
-						};
-
-				return {
-					content: [
-						{
-							type: 'text' as const,
-							text: toJSON(response),
-						},
-					],
-				};
-			} catch (error) {
-				logger.error('conversation_stats failed', {
-					error: error instanceof Error ? error.message : String(error),
-				});
-
-				return toolError(
-					`Failed to get conversation stats: ${error instanceof Error ? error.message : 'Unknown error'}`,
-				);
-			}
-		},
-	);
-
-	logger.debug('Registered tool: conversation_stats');
 }
