@@ -88,6 +88,34 @@ When `includeMemories` or `includeConversations` is true, results are fused by s
 }
 ```
 
+## Output Schema
+
+This tool MUST return `structuredContent` alongside the text response. The `structuredContent` object MUST use canonical verbose keys regardless of the `COMPACT_RESPONSES` setting.
+
+| Field | Type | Description |
+|-------|------|-------------|
+| `query` | string | The search query |
+| `totalResults` | integer | Number of results returned |
+| `results` | array | Array of result objects |
+| `results[].type` | enum | `document`, `memory`, or `conversation` |
+| `results[].score` | number | Relevance score |
+| `results[].documentId` | string | Document UUID (document results) |
+| `results[].documentTitle` | string | Document title (document results) |
+| `results[].sourceType` | string | Source type (document results) |
+| `results[].tags` | string[] | Document tags (document results) |
+| `results[].chunkId` | string | Chunk UUID (document results) |
+| `results[].content` | string | Content snippet (truncated to 500 chars) |
+| `results[].entityName` | string | Entity name (memory results) |
+| `results[].entityType` | string | Entity type (memory results) |
+| `results[].sessionId` | string | Session ID (conversation results) |
+| `results[].sessionKey` | string? | Session key (conversation results) |
+| `results[].title` | string? | Session title (conversation results) |
+| `results[].summary` | string? | Session summary (conversation results) |
+| `counts` | object | Source counts (cross-source only) |
+| `counts.documents` | integer | Number of document results |
+| `counts.memories` | integer | Number of memory results |
+| `counts.conversations` | integer | Number of conversation results |
+
 ## How It Works
 
 ### Reciprocal Rank Fusion (RRF)

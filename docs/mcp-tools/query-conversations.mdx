@@ -161,6 +161,61 @@ Browse conversation sessions with pagination. Replaces the former `list_conversa
 }
 ```
 
+## Output Schema
+
+This tool MUST return `structuredContent` alongside the text response. The `structuredContent` object MUST use canonical verbose keys regardless of the `COMPACT_RESPONSES` setting. Fields vary by mode:
+
+### Search Mode
+
+| Field | Type | Description |
+|-------|------|-------------|
+| `mode` | `"search"` | Query mode |
+| `totalResults` | integer | Number of matching conversations |
+| `conversations` | array | Matching conversations |
+| `conversations[].sessionId` | string | Session UUID |
+| `conversations[].sessionKey` | string? | Session key |
+| `conversations[].title` | string? | Session title |
+| `conversations[].summary` | string? | Session summary |
+| `conversations[].score` | number | Relevance score |
+| `conversations[].turns` | array | Recent turns (when `includeTranscript=true`) |
+| `conversations[].matchedTurns` | array | Matched turns (when `searchMode=turns` or `both`) |
+
+### Get Mode
+
+| Field | Type | Description |
+|-------|------|-------------|
+| `mode` | `"get"` | Query mode |
+| `found` | boolean | Whether the session was found |
+| `session` | object | Session details |
+| `session.id` | string | Session UUID |
+| `session.sessionKey` | string? | Session key |
+| `session.title` | string? | Session title |
+| `session.summary` | string? | Session summary |
+| `session.turnCount` | integer | Total turn count |
+| `session.lastActivity` | string? | Last activity timestamp |
+| `session.createdAt` | string | ISO creation timestamp |
+| `turns` | array | Conversation turns |
+| `turns[].role` | string | Turn role (`user`, `assistant`, `system`) |
+| `turns[].content` | string | Turn content |
+| `turns[].turnIndex` | integer | Turn index |
+| `turns[].createdAt` | string | ISO timestamp |
+
+### List Mode
+
+| Field | Type | Description |
+|-------|------|-------------|
+| `mode` | `"list"` | Query mode |
+| `total` | integer | Total session count |
+| `returned` | integer | Sessions in this page |
+| `offset` | integer | Current offset |
+| `conversations` | array | Session summaries |
+| `conversations[].sessionId` | string | Session UUID |
+| `conversations[].sessionKey` | string? | Session key |
+| `conversations[].title` | string? | Session title |
+| `conversations[].turnCount` | integer | Number of turns |
+| `conversations[].lastActivity` | string? | Last activity timestamp |
+| `conversations[].createdAt` | string | ISO creation timestamp |
+
 ## Errors
 
 | Error | Cause | Fix |

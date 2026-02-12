@@ -54,6 +54,19 @@ Memory tools return token-efficient responses by default (40-60% smaller). Set `
 }
 ```
 
+## Structured Output (outputSchema)
+
+Six read-only tools MUST return `structuredContent` alongside the text `content` response. The `structuredContent` object MUST use full canonical keys (verbose format) regardless of the `COMPACT_RESPONSES` setting, making it suitable for programmatic consumption.
+
+**Tools with `outputSchema`:** `search`, `get_document`, `list_documents`, `query_memory`, `query_conversations`, `get_stats`
+
+Clients that support `outputSchema` (MCP SDK v1.26.0+) MUST receive both:
+
+- `content` — text payload (compact or verbose depending on `COMPACT_RESPONSES`)
+- `structuredContent` — canonical JSON matching the declared `outputSchema`
+
+Clients that do not support `outputSchema` SHOULD continue to receive only the `content` text response with no change in behavior.
+
 ## Tool Selection Guide
 
 ### Search (18 tools total)
@@ -125,7 +138,7 @@ Enable with `ENABLE_INSIGHTS=true` (default).
 
 ### search
 
-Hybrid semantic + full-text search using Reciprocal Rank Fusion. Consolidates `search_knowledge` and `search_with_context` into a single tool. By default searches documents only; set `includeMemories` and/or `includeConversations` to search across all sources.
+Hybrid semantic + full-text search using Reciprocal Rank Fusion. Consolidates `search_knowledge` and `search_with_context` into a single tool. By default searches documents only; set `includeMemories` and/or `includeConversations` to search across all sources. Returns `structuredContent` with `outputSchema`.
 
 **Parameters:**
 
@@ -139,7 +152,7 @@ Hybrid semantic + full-text search using Reciprocal Rank Fusion. Consolidates `s
 - `includeMemories` (boolean, OPTIONAL): Also search memories, default false
 - `includeConversations` (boolean, OPTIONAL): Also search conversations, default false
 
-**Response:**
+**Response** (also returned as `structuredContent`):
 
 ```json
 {
@@ -162,14 +175,15 @@ Hybrid semantic + full-text search using Reciprocal Rank Fusion. Consolidates `s
 
 ### get_document
 
-Retrieve full document content by ID.
+Retrieve full document content by ID. Returns `structuredContent` with `outputSchema`.
 
 **Parameters:**
 
 - `documentId` (UUID, REQUIRED): The document UUID
 - `includeChunks` (boolean, OPTIONAL): Include chunks in response, default false
+- `maxContentLength` (number, OPTIONAL): Max content characters (0 = full), default 4000
 
-**Response:**
+**Response** (also returned as `structuredContent`):
 
 ```json
 {
@@ -189,7 +203,7 @@ Retrieve full document content by ID.
 
 ### list_documents
 
-List documents with pagination and filtering.
+List documents with pagination and filtering. Returns `structuredContent` with `outputSchema`.
 
 **Parameters:**
 
@@ -198,7 +212,7 @@ List documents with pagination and filtering.
 - `sourceType` (enum, OPTIONAL): `'note' | 'file' | 'url'`
 - `tags` (string[], OPTIONAL): Filter to docs with ALL specified tags
 
-**Response:**
+**Response** (also returned as `structuredContent`):
 
 ```json
 {
@@ -321,7 +335,7 @@ Store multiple facts and relations in a single call. Prefer this over separate `
 
 ### query_memory
 
-Unified memory query tool. Consolidates `recall_memories`, `get_entity_context`, and `list_entities` into a single tool with a `mode` parameter.
+Unified memory query tool. Consolidates `recall_memories`, `get_entity_context`, and `list_entities` into a single tool with a `mode` parameter. Returns `structuredContent` with `outputSchema`.
 
 **Parameters (all modes):**
 
@@ -336,7 +350,7 @@ Semantic search across stored memories using hybrid (keyword + semantic) or sema
 - `limit` (number, OPTIONAL): Max results 1-50, default 10
 - `searchMode` (enum, OPTIONAL): `'hybrid' | 'semantic'`, default 'hybrid'
 
-**Response (mode: 'search'):**
+**Response (mode: 'search')** (also returned as `structuredContent`):
 
 ```json
 {
@@ -361,7 +375,7 @@ Retrieve all information about an entity including observations and relations.
 - `entityName` (string, REQUIRED): Name of entity to look up
 - `includeRelated` (boolean, OPTIONAL): Include relations, default true
 
-**Response (mode: 'entity'):**
+**Response (mode: 'entity')** (also returned as `structuredContent`):
 
 ```json
 {
@@ -385,7 +399,7 @@ List all known entities with pagination.
 - `limit` (number, OPTIONAL): 1-100, default 50
 - `offset` (number, OPTIONAL): Pagination offset, default 0
 
-**Response (mode: 'list'):**
+**Response (mode: 'list')** (also returned as `structuredContent`):
 
 ```json
 {
@@ -465,7 +479,7 @@ Save conversation summary and turns for later recall.
 
 ### query_conversations
 
-Unified conversation query tool. Consolidates `recall_conversation`, `get_conversation`, and `list_conversations` into a single tool with a `mode` parameter.
+Unified conversation query tool. Consolidates `recall_conversation`, `get_conversation`, and `list_conversations` into a single tool with a `mode` parameter. Returns `structuredContent` with `outputSchema`.
 
 **Parameters (all modes):**
 
@@ -510,20 +524,20 @@ Delete a conversation session.
 
 ### get_stats
 
-Unified statistics tool. Consolidates `knowledge_stats`, `memory_stats`, `conversation_stats`, and `insight_stats` into a single tool.
+Unified statistics tool. Consolidates `knowledge_stats`, `memory_stats`, `conversation_stats`, and `insight_stats` into a single tool. Returns `structuredContent` with `outputSchema`.
 
 **Parameters:**
 
 - `scope` (enum, REQUIRED): `'all' | 'knowledge' | 'memory' | 'conversations' | 'insights'`
 
-**Response (scope: 'all'):**
+**Response (scope: 'all')** (also returned as `structuredContent`):
 
 ```json
 {
-  "knowledge": { "totalDocuments": 100, "totalChunks": 500, "storageBytes": 1048576 },
-  "memory": { "totalEntities": 25, "totalObservations": 150, "totalRelations": 30 },
-  "conversations": { "totalSessions": 10, "totalTurns": 200 },
-  "insights": { "totalInsights": 15, "newInsights": 5 }
+  "knowledge": { "total": 100, "bySourceType": { "note": 60, "file": 40 }, "byContentType": { "document": 100 }, "topTags": [{ "tag": "work", "count": 30 }], "dateRange": { "oldest": "2024-01-01T00:00:00Z", "newest": "2026-01-05T00:00:00Z" } },
+  "memory": { "totalEntities": 25, "totalObservations": 150, "totalRelations": 30, "entityTypeCounts": { "person": 10, "project": 8 } },
+  "conversations": { "totalSessions": 10, "sessionsWithSummary": 8, "totalTurns": 200, "turnsWithEmbedding": 150 },
+  "insights": { "total": 15, "new": 5, "seen": 8, "dismissed": 2, "byType": { "cross_reference": 10 }, "queueState": null }
 }
 ```
 

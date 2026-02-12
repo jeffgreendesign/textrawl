@@ -9,6 +9,55 @@ import { configError, isCompact, toJSON, toolError } from '../utils/compact.js';
 import { config } from '../utils/config.js';
 import { logger } from '../utils/logger.js';
 
+// --- Output Schema ---
+
+const GetStatsOutputSchema = {
+	knowledge: z
+		.object({
+			total: z.number(),
+			bySourceType: z.record(z.string(), z.number()),
+			byContentType: z.record(z.string(), z.number()),
+			topTags: z.array(z.object({ tag: z.string(), count: z.number() })),
+			dateRange: z.object({
+				oldest: z.string().nullable(),
+				newest: z.string().nullable(),
+			}),
+		})
+		.optional(),
+	memory: z
+		.object({
+			totalEntities: z.number(),
+			totalObservations: z.number(),
+			totalRelations: z.number(),
+			entityTypeCounts: z.record(z.string(), z.number()),
+		})
+		.optional(),
+	conversations: z
+		.object({
+			totalSessions: z.number(),
+			sessionsWithSummary: z.number(),
+			totalTurns: z.number(),
+			turnsWithEmbedding: z.number(),
+		})
+		.optional(),
+	insights: z
+		.object({
+			total: z.number(),
+			new: z.number(),
+			seen: z.number(),
+			dismissed: z.number(),
+			byType: z.record(z.string(), z.number()),
+			queueState: z
+				.object({
+					chunks_pending: z.number(),
+					is_processing: z.boolean(),
+					last_scan_at: z.string().nullable(),
+				})
+				.nullable(),
+		})
+		.optional(),
+};
+
 /** Cache insight schema validation for 60s */
 let insightSchemaCache: { valid: boolean; hint: string; checkedAt: number } | null = null;
 const SCHEMA_CACHE_TTL = 60_000;
@@ -48,6 +97,7 @@ export function registerStatsTools(server: McpServer): void {
 						'Which stats to return. "all" returns every enabled scope. Individual scopes: knowledge, memory, conversations, insights.',
 					),
 			},
+			outputSchema: GetStatsOutputSchema,
 			annotations: {
 				readOnlyHint: true,
 				destructiveHint: false,
@@ -187,6 +237,7 @@ export function registerStatsTools(server: McpServer): void {
 								text: JSON.stringify(compact),
 							},
 						],
+						structuredContent: result,
 					};
 				}
 
@@ -197,6 +248,7 @@ export function registerStatsTools(server: McpServer): void {
 							text: toJSON(result),
 						},
 					],
+					structuredContent: result,
 				};
 			} catch (error) {
 				logger.error('get_stats failed', {

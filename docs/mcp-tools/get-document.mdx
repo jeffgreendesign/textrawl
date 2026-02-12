@@ -23,29 +23,60 @@ Retrieve the complete content of a document, optionally including its chunks.
 
 ## Response
 
+The MCP response contains both `content` (text for LLM consumption) and `structuredContent` (canonical JSON):
+
 ```json
 {
-  "id": "550e8400-e29b-41d4-a716-446655440000",
-  "title": "Q4 Planning Notes",
-  "content": "Full document content...",
-  "sourceType": "note",
-  "tags": ["work", "planning", "q4"],
-  "createdAt": "2024-10-15T14:30:00Z",
-  "updatedAt": "2024-10-15T14:30:00Z",
-  "chunks": [
-    {
-      "id": "7c9e6679-7425-40de-944b-e07fc1f90ae7",
-      "content": "First chunk content...",
-      "chunkIndex": 0
+  "content": [{ "type": "text", "text": "{...}" }],
+  "structuredContent": {
+    "document": {
+      "id": "550e8400-e29b-41d4-a716-446655440000",
+      "title": "Q4 Planning Notes",
+      "sourceType": "note",
+      "sourceUrl": null,
+      "content": "Full document content...",
+      "metadata": { "tags": ["work", "planning", "q4"] },
+      "createdAt": "2024-10-15T14:30:00Z",
+      "updatedAt": "2024-10-15T14:30:00Z"
     },
-    {
-      "id": "f47ac10b-58cc-4372-a567-0e02b2c3d479",
-      "content": "Second chunk content...",
-      "chunkIndex": 1
-    }
-  ]
+    "chunks": [
+      {
+        "id": "7c9e6679-7425-40de-944b-e07fc1f90ae7",
+        "index": 0,
+        "content": "First chunk content..."
+      },
+      {
+        "id": "f47ac10b-58cc-4372-a567-0e02b2c3d479",
+        "index": 1,
+        "content": "Second chunk content..."
+      }
+    ]
+  }
 }
 ```
+
+## Output Schema
+
+This tool MUST return `structuredContent` alongside the text response. The `structuredContent` object MUST use canonical verbose keys regardless of the `COMPACT_RESPONSES` setting.
+
+| Field | Type | Description |
+|-------|------|-------------|
+| `document` | object | The document |
+| `document.id` | string | Document UUID |
+| `document.title` | string | Document title |
+| `document.sourceType` | string | Source type (`note`, `file`, `url`) |
+| `document.sourceUrl` | string? | Source URL (null if not applicable) |
+| `document.content` | string | Document content (may be truncated) |
+| `document.truncated` | boolean | Whether content was truncated |
+| `document.fullLength` | integer | Full content length (when truncated) |
+| `document.metadata` | object? | Document metadata |
+| `document.metadata.tags` | string[] | Document tags (within metadata) |
+| `document.createdAt` | string | ISO creation timestamp |
+| `document.updatedAt` | string | ISO update timestamp |
+| `chunks` | array | Document chunks (when `includeChunks=true`) |
+| `chunks[].id` | string | Chunk UUID |
+| `chunks[].index` | integer | Chunk index |
+| `chunks[].content` | string | Chunk content |
 
 ## Use Cases
 
@@ -54,7 +85,7 @@ Retrieve the complete content of a document, optionally including its chunks.
 After searching, get the complete document for context:
 
 ```text
-1. search_knowledge returns chunk with documentId
+1. search returns chunk with documentId
 2. get_document(documentId) returns full content
 3. Use full content for comprehensive answers
 ```

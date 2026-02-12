@@ -174,6 +174,8 @@ pnpm upload -- ./converted/
 
 ## MCP Tools (18 tools)
 
+Read-only tools (`search`, `get_document`, `list_documents`, `query_memory`, `query_conversations`, `get_stats`) include `outputSchema` and return `structuredContent` for programmatic consumption alongside the text `content` response.
+
 ### Document Tools
 
 | Tool | Description |

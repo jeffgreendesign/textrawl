@@ -50,6 +50,25 @@ Browse all documents in your knowledge base with pagination and filtering option
 }
 ```
 
+## Output Schema
+
+This tool MUST return `structuredContent` alongside the text response. The `structuredContent` object MUST use canonical verbose keys regardless of the `COMPACT_RESPONSES` setting.
+
+| Field | Type | Description |
+|-------|------|-------------|
+| `documents` | array | Array of document objects |
+| `documents[].id` | string | Document UUID |
+| `documents[].title` | string | Document title |
+| `documents[].sourceType` | string | Source type (`note`, `file`, `url`) |
+| `documents[].tags` | string[] | Document tags |
+| `documents[].createdAt` | string | ISO creation timestamp |
+| `documents[].updatedAt` | string | ISO update timestamp |
+| `pagination` | object | Pagination metadata |
+| `pagination.limit` | integer | Page size |
+| `pagination.offset` | integer | Current offset |
+| `pagination.total` | integer | Total document count |
+| `pagination.hasMore` | boolean | Whether more pages exist |
+
 ## Pagination
 
 Use `limit` and `offset` for pagination:

@@ -7,8 +7,53 @@ import {
 	listDocuments as listDocumentsFromDb,
 	updateDocument as updateDocumentInDb,
 } from '../db/documents.js';
-import { configError, formatId, isCompact, toolError } from '../utils/compact.js';
+import { configError, formatId, isCompact, toJSON, toolError } from '../utils/compact.js';
 import { logger } from '../utils/logger.js';
+
+// --- Output Schemas ---
+
+const GetDocumentOutputSchema = {
+	document: z.object({
+		id: z.string(),
+		title: z.string(),
+		sourceType: z.string(),
+		sourceUrl: z.string().nullable(),
+		content: z.string(),
+		truncated: z.boolean().optional(),
+		fullLength: z.number().optional(),
+		metadata: z.record(z.string(), z.unknown()).nullable(),
+		createdAt: z.string(),
+		updatedAt: z.string(),
+	}),
+	chunks: z
+		.array(
+			z.object({
+				id: z.string(),
+				index: z.number(),
+				content: z.string(),
+			}),
+		)
+		.optional(),
+};
+
+const ListDocumentsOutputSchema = {
+	documents: z.array(
+		z.object({
+			id: z.string(),
+			title: z.string(),
+			sourceType: z.string(),
+			tags: z.array(z.string()),
+			createdAt: z.string(),
+			updatedAt: z.string(),
+		}),
+	),
+	pagination: z.object({
+		limit: z.number(),
+		offset: z.number(),
+		total: z.number(),
+		hasMore: z.boolean(),
+	}),
+};
 
 /**
  * Register document-related tools: get_document, list_documents, update_document
@@ -33,6 +78,7 @@ export function registerDocumentTools(server: McpServer): void {
 					.default(4000)
 					.describe('Maximum content characters to return (0 = full content)'),
 			},
+			outputSchema: GetDocumentOutputSchema,
 			annotations: {
 				readOnlyHint: true,
 				destructiveHint: false,
@@ -51,8 +97,33 @@ export function registerDocumentTools(server: McpServer): void {
 				const truncateContent = maxContentLength > 0 && rawContent.length > maxContentLength;
 				const content = truncateContent ? rawContent.slice(0, maxContentLength) : rawContent;
 
+				// Build structuredContent (always verbose, canonical keys)
+				const structuredContent: Record<string, unknown> = {
+					document: {
+						id: document.id,
+						title: document.title,
+						sourceType: document.source_type,
+						sourceUrl: document.source_url ?? null,
+						content,
+						...(truncateContent ? { truncated: true, fullLength: rawContent.length } : {}),
+						metadata: document.metadata ?? null,
+						createdAt: document.created_at,
+						updatedAt: document.updated_at,
+					},
+				};
+
+				if (includeChunks) {
+					const chunks = await getChunksForDocument(documentId);
+					structuredContent.chunks = chunks.map((c) => ({
+						id: c.id,
+						index: c.chunk_index,
+						content: c.content,
+					}));
+				}
+
+				// Build content text (compact or verbose)
 				if (isCompact()) {
-					const result: Record<string, unknown> = {
+					const compact: Record<string, unknown> = {
 						id: formatId(document.id),
 						t: document.title,
 						src: document.source_type,
@@ -61,48 +132,31 @@ export function registerDocumentTools(server: McpServer): void {
 					};
 
 					if (includeChunks) {
-						const chunks = await getChunksForDocument(documentId);
-						result.ch = chunks.map((c) => ({
-							i: c.chunk_index,
+						const chunks = structuredContent.chunks as Array<{
+							id: string;
+							index: number;
+							content: string;
+						}>;
+						compact.ch = chunks.map((c) => ({
+							i: c.index,
 							c: c.content.slice(0, 300),
 						}));
 					}
 
 					return {
-						content: [{ type: 'text' as const, text: JSON.stringify(result) }],
+						content: [{ type: 'text' as const, text: JSON.stringify(compact) }],
+						structuredContent,
 					};
-				}
-
-				const result: Record<string, unknown> = {
-					document: {
-						id: document.id,
-						title: document.title,
-						sourceType: document.source_type,
-						sourceUrl: document.source_url,
-						content,
-						...(truncateContent ? { truncated: true, fullLength: rawContent.length } : {}),
-						metadata: document.metadata,
-						createdAt: document.created_at,
-						updatedAt: document.updated_at,
-					},
-				};
-
-				if (includeChunks) {
-					const chunks = await getChunksForDocument(documentId);
-					result.chunks = chunks.map((c) => ({
-						id: c.id,
-						index: c.chunk_index,
-						content: c.content,
-					}));
 				}
 
 				return {
 					content: [
 						{
 							type: 'text' as const,
-							text: JSON.stringify(result, null, 2),
+							text: JSON.stringify(structuredContent, null, 2),
 						},
 					],
+					structuredContent,
 				};
 			} catch (error) {
 				logger.error('get_document failed', {
@@ -149,6 +203,7 @@ export function registerDocumentTools(server: McpServer): void {
 					.default('desc')
 					.describe('Sort order (asc for oldest first, desc for newest first)'),
 			},
+			outputSchema: ListDocumentsOutputSchema,
 			annotations: {
 				readOnlyHint: true,
 				destructiveHint: false,
@@ -180,6 +235,30 @@ export function registerDocumentTools(server: McpServer): void {
 					sortOrder,
 				});
 
+				// Build structuredContent (always verbose, canonical keys)
+				const formattedDocuments = documents.map((d) => {
+					const metadata = d.metadata as Record<string, unknown> | null;
+					return {
+						id: d.id,
+						title: d.title,
+						sourceType: d.source_type,
+						tags: (metadata?.tags as string[]) || [],
+						createdAt: d.created_at,
+						updatedAt: d.updated_at,
+					};
+				});
+
+				const structuredContent = {
+					documents: formattedDocuments,
+					pagination: {
+						limit,
+						offset,
+						total,
+						hasMore: offset + documents.length < total,
+					},
+				};
+
+				// Build content text (compact or verbose)
 				if (isCompact()) {
 					return {
 						content: [
@@ -197,40 +276,18 @@ export function registerDocumentTools(server: McpServer): void {
 								}),
 							},
 						],
+						structuredContent,
 					};
 				}
-
-				const formattedDocuments = documents.map((d) => {
-					const metadata = d.metadata as Record<string, unknown> | null;
-					return {
-						id: d.id,
-						title: d.title,
-						sourceType: d.source_type,
-						tags: (metadata?.tags as string[]) || [],
-						createdAt: d.created_at,
-						updatedAt: d.updated_at,
-					};
-				});
 
 				return {
 					content: [
 						{
 							type: 'text' as const,
-							text: JSON.stringify(
-								{
-									documents: formattedDocuments,
-									pagination: {
-										limit,
-										offset,
-										total,
-										hasMore: offset + documents.length < total,
-									},
-								},
-								null,
-								2,
-							),
+							text: JSON.stringify(structuredContent, null, 2),
 						},
 					],
+					structuredContent,
 				};
 			} catch (error) {
 				logger.error('list_documents failed', {

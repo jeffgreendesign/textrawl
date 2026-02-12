@@ -11,7 +11,7 @@
 - [x] Audit all `server.tool()` calls across codebase
 - [x] Migrate each to `server.registerTool()` with `title` and `description` fields
 - [x] Add explicit `title` metadata to every tool (user-facing display name)
-- [ ] Verify all tools still pass manual testing via MCP Inspector
+- [x] Verify all tools still pass manual testing via MCP Inspector
 - [x] Commit and open PR
 
 ## PR 2: Merge memory write tools into `build_knowledge`
@@ -23,8 +23,8 @@
 - [x] Fix the bug where `relate_entities` rejects optional entityType as null (make truly optional)
 - [x] Update tool descriptions to guide agents toward `build_knowledge`
 - [x] Update all 8 documentation files
-- [ ] Test: single call creating 5 entities + 3 relations
-- [~] Commit and open PR
+- [x] Test: single call creating 5 entities + 3 relations
+- [x] Commit and open PR
 
 ## PR 3: Consolidate read/query tools to reduce tool count
 
@@ -84,17 +84,18 @@
   git history and can be restored by re-adding the individual `registerTool()` calls from
   the pre-consolidation source files.
 
-- [~] Commit and open PR
+- [x] Commit and open PR
 
 ## PR 4: Add `outputSchema` to search and retrieval tools
 
-- [ ] Add `outputSchema` + `structuredContent` to `search`
-- [ ] Add to `query_memory`
-- [ ] Add to `get_document`, `list_documents`
-- [ ] Add to `query_conversations`
-- [ ] Add to `get_stats`
+- [x] Add `outputSchema` + `structuredContent` to `search`
+- [x] Add to `query_memory`
+- [x] Add to `get_document`, `list_documents`
+- [x] Add to `query_conversations`
+- [x] Add to `get_stats`
+- [x] Update all documentation files (CLAUDE.md, README.md, AGENTS.md, llms.txt, llms-full.txt, .well-known/mcp.json, docs/mcp-tools/*.mdx)
 - [ ] Test with MCP Inspector that both structured and unstructured content are returned
-- [ ] Commit and open PR
+- [~] Commit and open PR
 
 ## PR 5: Redis-backed rate limiting (optional)
 

@@ -9,6 +9,43 @@ import { configError, formatId, isCompact, toJSON, toolError } from '../utils/co
 import { config } from '../utils/config.js';
 import { logger } from '../utils/logger.js';
 
+// --- Output Schema ---
+
+const SearchResultItemSchema = z.object({
+	type: z.enum(['document', 'memory', 'conversation']),
+	score: z.number(),
+	// Document fields
+	documentId: z.string().optional(),
+	documentTitle: z.string().optional(),
+	sourceType: z.string().optional(),
+	tags: z.array(z.string()).optional(),
+	chunkId: z.string().optional(),
+	// Memory fields
+	entityId: z.string().optional(),
+	entityName: z.string().optional(),
+	entityType: z.string().optional(),
+	// Conversation fields
+	sessionId: z.string().optional(),
+	sessionKey: z.string().nullable().optional(),
+	title: z.string().nullable().optional(),
+	summary: z.string().nullable().optional(),
+	// Shared
+	content: z.string().optional(),
+});
+
+const SearchOutputSchema = {
+	query: z.string(),
+	totalResults: z.number(),
+	results: z.array(SearchResultItemSchema),
+	counts: z
+		.object({
+			documents: z.number(),
+			memories: z.number(),
+			conversations: z.number(),
+		})
+		.optional(),
+};
+
 /**
  * Register the unified search tool
  *
@@ -92,6 +129,7 @@ export function registerSearchTool(server: McpServer): void {
 					.default(0.5)
 					.describe('Weight for conversation results when includeConversations=true (0-2)'),
 			},
+			outputSchema: SearchOutputSchema,
 			_meta: {
 				ui: {
 					resourceUri: 'ui://textrawl/search-results',
@@ -176,6 +214,26 @@ export function registerSearchTool(server: McpServer): void {
 				const crossSource = includeMemories || includeConversations;
 
 				if (!crossSource) {
+					// Build structuredContent (always verbose, canonical keys)
+					const structuredContent = {
+						query,
+						totalResults: docResults.length,
+						results: docResults.map((r) => {
+							const docTags = (r.document_metadata?.tags as string[]) || [];
+							return {
+								type: 'document' as const,
+								score: r.score,
+								documentId: r.document_id,
+								documentTitle: r.document_title,
+								sourceType: r.source_type,
+								tags: docTags,
+								chunkId: r.chunk_id,
+								content: r.content.slice(0, 500),
+							};
+						}),
+					};
+
+					// Build content text (compact or verbose)
 					if (isCompact()) {
 						return {
 							content: [
@@ -192,33 +250,18 @@ export function registerSearchTool(server: McpServer): void {
 									}),
 								},
 							],
+							structuredContent,
 						};
 					}
-
-					const formattedResults = docResults.map((r) => {
-						const docTags = (r.document_metadata?.tags as string[]) || [];
-						return {
-							documentId: r.document_id,
-							documentTitle: r.document_title,
-							sourceType: r.source_type,
-							tags: docTags,
-							chunkId: r.chunk_id,
-							content: r.content.slice(0, 500),
-							score: r.score,
-						};
-					});
 
 					return {
 						content: [
 							{
 								type: 'text' as const,
-								text: toJSON({
-									query,
-									totalResults: formattedResults.length,
-									results: formattedResults,
-								}),
+								text: JSON.stringify(structuredContent, null, 2),
 							},
 						],
+						structuredContent,
 					};
 				}
 
@@ -234,7 +277,7 @@ export function registerSearchTool(server: McpServer): void {
 				const allResults: Array<{
 					type: 'document' | 'memory' | 'conversation';
 					score: number;
-					data: unknown;
+					data: Record<string, unknown>;
 				}> = [];
 
 				for (const doc of docResults) {
@@ -242,8 +285,8 @@ export function registerSearchTool(server: McpServer): void {
 						type: 'document',
 						score: doc.score,
 						data: {
-							id: doc.document_id,
-							title: doc.document_title,
+							documentId: doc.document_id,
+							documentTitle: doc.document_title,
 							content: doc.content.slice(0, 500),
 							sourceType: doc.source_type,
 						},
@@ -301,6 +344,23 @@ export function registerSearchTool(server: McpServer): void {
 					totalFused: limitedResults.length,
 				});
 
+				// Build structuredContent (always verbose, canonical keys)
+				const structuredContent = {
+					query,
+					totalResults: limitedResults.length,
+					counts: {
+						documents: docCount,
+						memories: memCount,
+						conversations: convCount,
+					},
+					results: limitedResults.map((r) => ({
+						type: r.type,
+						score: r.score,
+						...r.data,
+					})),
+				};
+
+				// Build content text (compact or verbose)
 				if (isCompact()) {
 					return {
 						content: [
@@ -311,11 +371,12 @@ export function registerSearchTool(server: McpServer): void {
 									r: limitedResults.map((r) => ({
 										src: r.type[0],
 										s: Math.round(r.score * 1000) / 1000,
-										...(r.data as Record<string, unknown>),
+										...r.data,
 									})),
 								}),
 							},
 						],
+						structuredContent,
 					};
 				}
 
@@ -323,17 +384,10 @@ export function registerSearchTool(server: McpServer): void {
 					content: [
 						{
 							type: 'text' as const,
-							text: toJSON({
-								query,
-								counts: {
-									documents: docCount,
-									memories: memCount,
-									conversations: convCount,
-								},
-								results: limitedResults,
-							}),
+							text: JSON.stringify(structuredContent, null, 2),
 						},
 					],
+					structuredContent,
 				};
 			} catch (error) {
 				logger.error('search failed', {
