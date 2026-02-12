@@ -85,6 +85,17 @@ export type PipelineStatus =
 	| 'oversized'
 	| 'unsupported';
 
+// Per-directory recursive stats
+export interface DirectoryStats {
+	total: number;
+	pending: number;
+	converted: number;
+	uploaded: number;
+	errors: number;
+	oversized: number;
+	unsupported: number;
+}
+
 // A file node in the directory tree
 export interface TreeFile {
 	relativePath: string; // relative to source dir
@@ -100,8 +111,10 @@ export interface TreeFile {
 	documentId?: string; // Supabase doc ID from manifest
 	uploadedAt?: string; // ISO timestamp from manifest
 	error?: string; // last error message
+	retryCount?: number; // number of conversion attempts (shown in UI for error files)
 	lastProcessed?: string; // ISO timestamp
 	children?: TreeFile[]; // for directory nodes
+	recursiveStats?: DirectoryStats; // for directory nodes only
 }
 
 // Aggregate counts for a project
@@ -142,6 +155,8 @@ export interface OverallProgress {
 	skippedCount: number;
 	percentComplete: number;
 	currentFile?: string;
+	startedAt?: number;
+	elapsedMs?: number;
 }
 
 // Combined progress update
@@ -173,6 +188,29 @@ export interface AppSettings {
 	autoUpload: boolean;
 	supabaseUrl?: string;
 	supabaseKey?: string;
+	verboseLogging?: boolean;
+}
+
+// Status report for oversized/unsupported file breakdown
+export interface StatusReportGroup {
+	extension: string;
+	count: number;
+	totalSizeMB: number;
+	examples: string[];
+}
+
+export interface StatusReport {
+	oversized: StatusReportGroup[];
+	unsupported: StatusReportGroup[];
+	totalOversized: number;
+	totalUnsupported: number;
+}
+
+// Recent project entry for quick-open
+export interface RecentProject {
+	sourceDir: string;
+	outputDir: string;
+	lastOpened: string; // ISO timestamp
 }
 
 // Conversion result from CLI
@@ -186,4 +224,13 @@ export interface ConversionResult {
 		normalizedChars: number;
 		metadataFields: number;
 	};
+}
+
+/** Result from convertSelected — breakdown of what was processed */
+export interface ConvertSelectedResult {
+	pending: number;
+	retried: number;
+	oversized: number;
+	skipped: number;
+	total: number;
 }

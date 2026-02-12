@@ -13,13 +13,19 @@ export const IPC = {
 	SETTINGS_SAVE: 'settings:save',
 
 	// Project channels (invoke — renderer → main, returns promise)
+	PROJECT_GET_RECENT: 'project:getRecent',
+	PROJECT_REMOVE_RECENT: 'project:removeRecent',
 	PROJECT_LOAD: 'project:load',
 	PROJECT_UNLOAD: 'project:unload',
 	PROJECT_REFRESH: 'project:refresh',
 	PROJECT_GET_TREE: 'project:getTree',
 	PROJECT_CONVERT: 'project:convert',
+	PROJECT_CONVERT_SELECTED: 'project:convertSelected',
+	PROJECT_CONVERT_OVERSIZED: 'project:convertOversized',
 	PROJECT_UPLOAD: 'project:upload',
 	PROJECT_RETRY: 'project:retry',
+	PROJECT_DISMISS_ERRORS: 'project:dismissErrors',
+	PROJECT_GENERATE_REPORT: 'project:generateReport',
 
 	// Send channels (main → renderer, event-based)
 	PROGRESS: 'progress',
