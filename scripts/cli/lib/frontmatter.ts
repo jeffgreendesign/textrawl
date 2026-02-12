@@ -4,6 +4,7 @@
  * Uses gray-matter for consistent front matter handling
  */
 
+import { closeSync, openSync, readSync } from 'node:fs';
 import matter from 'gray-matter';
 import { logger } from './progress.js';
 import type { ContentType, DocumentFrontMatter, SourceType } from './types.js';
@@ -136,6 +137,58 @@ export function mergeFrontmatterMetadata(
 			...metadata,
 		},
 	};
+}
+
+/**
+ * Read only the source_hash from a file's YAML frontmatter without loading
+ * the entire file into memory. Reads at most 8KB via a fixed buffer.
+ *
+ * Used by the upload skip-filter to check 15K+ files against the manifest
+ * without triggering OOM from full-file reads + gray-matter string ops.
+ */
+export function readFrontmatterHash(filePath: string): string | null {
+	let fd: number;
+	try {
+		fd = openSync(filePath, 'r');
+	} catch {
+		return null;
+	}
+
+	try {
+		// Try 4KB first (covers most frontmatter blocks)
+		const buf = Buffer.alloc(4096);
+		const bytesRead = readSync(fd, buf, 0, 4096, 0);
+		if (bytesRead < 8) return null; // Too small for valid frontmatter
+
+		let header = buf.toString('utf-8', 0, bytesRead);
+
+		// Must start with ---
+		if (!header.startsWith('---')) return null;
+
+		// Find closing --- delimiter
+		let closeIdx = header.indexOf('\n---', 3);
+
+		// Fallback: read 8KB if closing delimiter not found in first 4KB
+		if (closeIdx === -1 && bytesRead === 4096) {
+			const buf2 = Buffer.alloc(8192);
+			const bytesRead2 = readSync(fd, buf2, 0, 8192, 0);
+			header = buf2.toString('utf-8', 0, bytesRead2);
+			closeIdx = header.indexOf('\n---', 3);
+		}
+
+		if (closeIdx === -1) return null;
+
+		// Extract YAML block between delimiters
+		const yaml = header.slice(4, closeIdx);
+
+		// Extract source_hash with regex (always a sha256: prefixed hex string)
+		const match = yaml.match(/^source_hash:\s*['"]?(\S+?)['"]?\s*$/m);
+		return match ? match[1] : null;
+	} catch {
+		return null;
+	} finally {
+		closeSync(fd);
+	}
 }
 
 /**

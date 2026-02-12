@@ -21,7 +21,7 @@ import pLimit from 'p-limit';
 
 import { type UploadOptions, addUploadOptions, createBaseCommand } from './lib/args.js';
 import { isUploadConfigured, loadCLIConfig } from './lib/config.js';
-import { parseFrontmatter } from './lib/frontmatter.js';
+import { parseFrontmatter, readFrontmatterHash } from './lib/frontmatter.js';
 import { ManifestManager } from './lib/manifest.js';
 import { ProgressReporter, logger } from './lib/progress.js';
 import { isRateLimitError, isRetryableError, withRetry } from './lib/retry.js';
@@ -389,9 +389,12 @@ async function uploadFileSemantic(
 }
 
 /**
- * Two-phase batched upload for fixed chunking mode.
- * Phase 1: Prepare and chunk all files (CPU-only, no API calls)
- * Phase 2: Batch embed all chunks across files, then insert
+ * Streaming batched upload for fixed chunking mode.
+ * Phase 1: Chunk all files locally (CPU-only, no API calls)
+ * Phase 2+3: Per-file streaming embed + insert in sub-batches of 50
+ *
+ * Only one sub-batch of embeddings is in memory at a time, preventing
+ * OOM on files that produce thousands of chunks.
  */
 async function uploadBatchedFixed(
 	preparedFiles: PreparedFile[],
@@ -458,149 +461,131 @@ async function uploadBatchedFixed(
 		return;
 	}
 
-	// Phase 2: Batch embed all chunks across all files
-	const allChunkTexts: string[] = [];
-	const chunkFileMap: { fileIndex: number; chunkIndex: number }[] = [];
-
-	for (let fi = 0; fi < chunkedFiles.length; fi++) {
-		for (let ci = 0; ci < chunkedFiles[fi].chunks.length; ci++) {
-			allChunkTexts.push(chunkedFiles[fi].chunks[ci].content);
-			chunkFileMap.push({ fileIndex: fi, chunkIndex: ci });
-		}
-	}
-
-	// Sub-batch embedding generation to avoid memory exhaustion
-	// Process chunks in groups of 50 to prevent OOM on large batches
+	// Phase 2+3: Per-file streaming embed + insert
+	// Embeds and inserts chunks in sub-batches of 50 so that only one
+	// sub-batch of embeddings is in memory at a time. This prevents OOM
+	// on files that produce thousands of chunks (e.g. 8MB -> 4000+ chunks).
 	const EMBEDDING_SUB_BATCH_SIZE = 50;
-	const allEmbeddings: number[][] = [];
-	try {
-		for (let i = 0; i < allChunkTexts.length; i += EMBEDDING_SUB_BATCH_SIZE) {
-			const batch = allChunkTexts.slice(i, i + EMBEDDING_SUB_BATCH_SIZE);
-			const batchEmbeddings = await withRetry(() => generateEmbeddings(batch), embeddingRetryOpts);
-			allEmbeddings.push(...batchEmbeddings);
 
-			// Delay between embedding requests to avoid rate limits
-			if (options.embeddingDelay > 0 && i + EMBEDDING_SUB_BATCH_SIZE < allChunkTexts.length) {
-				await sleep(options.embeddingDelay);
-			}
+	for (const cf of chunkedFiles) {
+		// Inter-file delay to reduce DB pressure
+		if (options.delay > 0) {
+			await sleep(options.delay);
 		}
-	} catch (error) {
-		// If batch embedding fails entirely, mark all files as failed
-		const errMsg = error instanceof Error ? error.message : String(error);
-		for (const cf of chunkedFiles) {
-			counters.errors++;
-			progress.logError(`  \u2717 ${cf.prepared.relativePath}: Embedding failed: ${errMsg}`);
-			progress.increment();
-		}
-		return;
-	}
 
-	// Distribute embeddings back to files
-	const fileEmbeddings: number[][][] = chunkedFiles.map(() => []);
-	for (let i = 0; i < chunkFileMap.length; i++) {
-		const { fileIndex, chunkIndex } = chunkFileMap[i];
-		fileEmbeddings[fileIndex][chunkIndex] = allEmbeddings[i];
-	}
+		try {
+			// Build and sanitize metadata for JSONB insertion
+			const metadata = sanitizeMetadata({
+				...cf.prepared.frontmatter.metadata,
+				tags: cf.prepared.tags,
+				content_type: cf.prepared.frontmatter.content_type,
+				source_file: cf.prepared.frontmatter.source_file,
+				source_hash: cf.prepared.frontmatter.source_hash,
+				created_at: cf.prepared.frontmatter.created_at,
+				converted_at: cf.prepared.frontmatter.converted_at,
+			});
 
-	// Phase 3: Insert documents and chunks concurrently
-	const insertConcurrency = options.insertConcurrency ?? options.concurrency;
-	const insertLimit = pLimit(insertConcurrency);
-
-	const insertPromises = chunkedFiles.map((cf, fileIndex) =>
-		insertLimit(async () => {
-			progress.update(0, cf.prepared.relativePath);
-
-			// Inter-file delay to reduce DB pressure
-			if (options.delay > 0) {
-				await sleep(options.delay);
-			}
-
-			try {
-				// Build and sanitize metadata for JSONB insertion
-				const metadata = sanitizeMetadata({
-					...cf.prepared.frontmatter.metadata,
-					tags: cf.prepared.tags,
-					content_type: cf.prepared.frontmatter.content_type,
-					source_file: cf.prepared.frontmatter.source_file,
-					source_hash: cf.prepared.frontmatter.source_hash,
-					created_at: cf.prepared.frontmatter.created_at,
-					converted_at: cf.prepared.frontmatter.converted_at,
-				});
-
-				// Check payload size before sending to Supabase
-				const payloadSize = estimatePayloadSize(cf.prepared.bodyContent, metadata);
-				if (payloadSize > MAX_PAYLOAD_SIZE) {
-					const sizeMB = (payloadSize / (1024 * 1024)).toFixed(1);
-					throw new Error(
-						`Payload too large (${sizeMB}MB). Split file before upload or increase PostgREST body limit.`,
-					);
-				}
-
-				if (options.verbose) {
-					logger.info(
-						`Payload: ${(payloadSize / 1024).toFixed(0)}KB, metadata keys: ${Object.keys(metadata).join(', ')}`,
-					);
-				}
-
-				// Create document
-				const document = await withRetry(
-					() =>
-						createDocument({
-							title: cf.prepared.frontmatter.title,
-							sourceType: cf.prepared.frontmatter.source_type,
-							rawContent: cf.prepared.bodyContent,
-							metadata,
-						}),
-					retryOpts,
+			// Check payload size before sending to Supabase
+			const payloadSize = estimatePayloadSize(cf.prepared.bodyContent, metadata);
+			if (payloadSize > MAX_PAYLOAD_SIZE) {
+				const sizeMB = (payloadSize / (1024 * 1024)).toFixed(1);
+				throw new Error(
+					`Payload too large (${sizeMB}MB). Split file before upload or increase PostgREST body limit.`,
 				);
+			}
 
-				if (cf.chunks.length > 0) {
-					const chunkInputs: CreateChunkInput[] = cf.chunks.map((chunk, ci) => ({
+			if (options.verbose) {
+				logger.info(
+					`Payload: ${(payloadSize / 1024).toFixed(0)}KB, metadata keys: ${Object.keys(metadata).join(', ')}`,
+				);
+			}
+
+			// Create document
+			const document = await withRetry(
+				() =>
+					createDocument({
+						title: cf.prepared.frontmatter.title,
+						sourceType: cf.prepared.frontmatter.source_type,
+						rawContent: cf.prepared.bodyContent,
+						metadata,
+					}),
+				retryOpts,
+			);
+
+			// Release the large rawContent string now that the document is created
+			cf.prepared.bodyContent = '';
+
+			// Stream embed + insert in sub-batches
+			if (cf.chunks.length > 0) {
+				for (let i = 0; i < cf.chunks.length; i += EMBEDDING_SUB_BATCH_SIZE) {
+					const subBatchChunks = cf.chunks.slice(i, i + EMBEDDING_SUB_BATCH_SIZE);
+					const subBatchTexts = subBatchChunks.map((c) => c.content);
+
+					const subBatchEmbeddings = await withRetry(
+						() => generateEmbeddings(subBatchTexts),
+						embeddingRetryOpts,
+					);
+
+					// Delay between embedding requests to avoid rate limits
+					if (options.embeddingDelay > 0 && i + EMBEDDING_SUB_BATCH_SIZE < cf.chunks.length) {
+						await sleep(options.embeddingDelay);
+					}
+
+					const chunkInputs: CreateChunkInput[] = subBatchChunks.map((chunk, ci) => ({
 						documentId: document.id,
 						content: chunk.content,
 						chunkIndex: chunk.index,
 						startOffset: chunk.startOffset,
 						endOffset: chunk.endOffset,
-						embedding: fileEmbeddings[fileIndex][ci],
+						embedding: subBatchEmbeddings[ci],
 						metadata: { tokenCount: chunk.tokenCount },
 					}));
 
 					await withRetry(() => createChunks(chunkInputs, options.chunkBatchSize), retryOpts);
+
+					// Release chunk content strings to break V8 SlicedString
+					// references back to the large parent string
+					for (const chunk of subBatchChunks) {
+						(chunk as { content: string }).content = '';
+					}
+
+					// Help V8 reclaim sub-batch memory for large files
+					if (cf.chunks.length > 200 && global.gc) {
+						global.gc();
+					}
 				}
-
-				counters.success++;
-				counters.chunks += cf.chunks.length;
-
-				// Record in manifest
-				manifest.recordUpload({
-					sourceHash: cf.prepared.frontmatter.source_hash,
-					documentId: document.id,
-					uploadedAt: new Date().toISOString(),
-					markdownPath: cf.prepared.relativePath,
-					chunksCreated: cf.chunks.length,
-				});
-
-				if (counters.success % MANIFEST_SAVE_INTERVAL === 0) {
-					manifest.save();
-				}
-
-				if (options.verbose) {
-					progress.log(
-						`  \u2713 ${cf.prepared.relativePath} \u2192 ${document.id} (${cf.chunks.length} chunks)`,
-					);
-				}
-			} catch (error) {
-				counters.errors++;
-				progress.logError(
-					`  \u2717 ${cf.prepared.relativePath}: ${error instanceof Error ? error.message : String(error)}`,
-				);
 			}
 
-			progress.increment();
-		}),
-	);
+			counters.success++;
+			counters.chunks += cf.chunks.length;
 
-	await Promise.all(insertPromises);
+			// Record in manifest
+			manifest.recordUpload({
+				sourceHash: cf.prepared.frontmatter.source_hash,
+				documentId: document.id,
+				uploadedAt: new Date().toISOString(),
+				markdownPath: cf.prepared.relativePath,
+				chunksCreated: cf.chunks.length,
+			});
+
+			if (counters.success % MANIFEST_SAVE_INTERVAL === 0) {
+				manifest.save();
+			}
+
+			if (options.verbose) {
+				progress.log(
+					`  \u2713 ${cf.prepared.relativePath} \u2192 ${document.id} (${cf.chunks.length} chunks)`,
+				);
+			}
+		} catch (error) {
+			counters.errors++;
+			progress.logError(
+				`  \u2717 ${cf.prepared.relativePath}: ${error instanceof Error ? error.message : String(error)}`,
+			);
+		}
+
+		progress.increment();
+	}
 }
 
 /**
@@ -653,11 +638,13 @@ async function uploadDocuments(directory: string, options: UploadOptions): Promi
 	if (!options.force) {
 		toUpload = files.filter((file) => {
 			try {
-				const content = readFileSync(file, 'utf-8');
-				const { frontmatter } = parseFrontmatter(content);
-				return !manifest.isUploaded(frontmatter.source_hash);
+				// Read only the first few KB to extract source_hash — avoids
+				// loading entire files (some 8MB+) just for the manifest check.
+				const hash = readFrontmatterHash(file);
+				if (hash === null) return true; // Can't parse, try uploading
+				return !manifest.isUploaded(hash);
 			} catch {
-				return true; // Try to upload if we can't parse
+				return true; // Try to upload if we can't read
 			}
 		});
 
