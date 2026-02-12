@@ -28,6 +28,7 @@ interface StoreSchema {
 	outputDir: string;
 	defaultTags: string[];
 	autoUpload: boolean;
+	verboseLogging: boolean;
 	_supabaseUrl: string; // safeStorage-encrypted base64
 	_supabaseKey: string; // safeStorage-encrypted base64
 }
@@ -36,6 +37,7 @@ const defaults: StoreSchema = {
 	outputDir: '',
 	defaultTags: [],
 	autoUpload: false,
+	verboseLogging: false,
 	_supabaseUrl: '',
 	_supabaseKey: '',
 };
@@ -142,6 +144,7 @@ export class SettingsStore {
 	 * Get all settings. Sensitive fields are decrypted transparently.
 	 */
 	get(): AppSettings {
+		logger.debug('[settings] Loading settings');
 		const supabaseUrl = this.decrypt(this.store.get('_supabaseUrl'));
 		const supabaseKey = this.decrypt(this.store.get('_supabaseKey'));
 
@@ -149,6 +152,7 @@ export class SettingsStore {
 			outputDir: this.store.get('outputDir'),
 			defaultTags: this.store.get('defaultTags'),
 			autoUpload: this.store.get('autoUpload'),
+			verboseLogging: this.store.get('verboseLogging'),
 			supabaseUrl: supabaseUrl || undefined,
 			supabaseKey: supabaseKey || undefined,
 		};
@@ -158,6 +162,7 @@ export class SettingsStore {
 	 * Set settings. Sensitive fields are encrypted before storage.
 	 */
 	set(settings: Partial<AppSettings>): void {
+		logger.debug(`[settings] Saving settings: ${Object.keys(settings).join(', ')}`);
 		if (settings.outputDir !== undefined) {
 			this.store.set('outputDir', settings.outputDir);
 		}
@@ -166,6 +171,9 @@ export class SettingsStore {
 		}
 		if (settings.autoUpload !== undefined) {
 			this.store.set('autoUpload', settings.autoUpload);
+		}
+		if (settings.verboseLogging !== undefined) {
+			this.store.set('verboseLogging', settings.verboseLogging);
 		}
 		if (settings.supabaseUrl !== undefined) {
 			this.store.set('_supabaseUrl', this.encrypt(settings.supabaseUrl));
