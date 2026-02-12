@@ -15,6 +15,8 @@ Textrawl provides hybrid semantic + full-text search over documents via the Mode
 
 ## Tools
 
+Tools with `outputSchema` return `structuredContent` alongside text content: `search`, `get_document`, `list_documents`, `query_memory`, `query_conversations`, `get_stats`.
+
 ### search
 
 Hybrid semantic + full-text search with optional cross-source memory and conversation results.

@@ -57,19 +57,21 @@
 						"type": "number",
 						"minimum": 0,
 						"maximum": 2,
-						"default": 1.0,
+						"default": 1,
 						"description": "Weight for keyword matching (0-2)"
 					},
 					"semanticWeight": {
 						"type": "number",
 						"minimum": 0,
 						"maximum": 2,
-						"default": 1.0,
+						"default": 1,
 						"description": "Weight for semantic similarity (0-2)"
 					},
 					"tags": {
 						"type": "array",
-						"items": { "type": "string" },
+						"items": {
+							"type": "string"
+						},
 						"description": "Filter results to documents with ALL specified tags"
 					},
 					"sourceType": {
@@ -102,7 +104,7 @@
 						"type": "number",
 						"minimum": 0,
 						"maximum": 2,
-						"default": 1.0,
+						"default": 1,
 						"description": "Weight for memory results (0-2)"
 					},
 					"conversationWeight": {
@@ -111,6 +113,90 @@
 						"maximum": 2,
 						"default": 0.5,
 						"description": "Weight for conversation results (0-2)"
+					}
+				}
+			},
+			"outputSchema": {
+				"type": "object",
+				"required": ["query", "totalResults", "results"],
+				"properties": {
+					"query": {
+						"type": "string"
+					},
+					"totalResults": {
+						"type": "integer"
+					},
+					"results": {
+						"type": "array",
+						"items": {
+							"type": "object",
+							"required": ["type", "score"],
+							"properties": {
+								"type": {
+									"type": "string",
+									"enum": ["document", "memory", "conversation"]
+								},
+								"score": {
+									"type": "number"
+								},
+								"documentId": {
+									"type": "string"
+								},
+								"documentTitle": {
+									"type": "string"
+								},
+								"sourceType": {
+									"type": "string"
+								},
+								"tags": {
+									"type": "array",
+									"items": {
+										"type": "string"
+									}
+								},
+								"chunkId": {
+									"type": "string"
+								},
+								"content": {
+									"type": "string"
+								},
+								"entityId": {
+									"type": "string"
+								},
+								"entityName": {
+									"type": "string"
+								},
+								"entityType": {
+									"type": "string"
+								},
+								"sessionId": {
+									"type": "string"
+								},
+								"sessionKey": {
+									"type": ["string", "null"]
+								},
+								"title": {
+									"type": ["string", "null"]
+								},
+								"summary": {
+									"type": ["string", "null"]
+								}
+							}
+						}
+					},
+					"counts": {
+						"type": "object",
+						"properties": {
+							"documents": {
+								"type": "integer"
+							},
+							"memories": {
+								"type": "integer"
+							},
+							"conversations": {
+								"type": "integer"
+							}
+						}
 					}
 				}
 			}
@@ -131,6 +217,65 @@
 						"type": "boolean",
 						"default": false,
 						"description": "Include document chunks in response"
+					}
+				}
+			},
+			"outputSchema": {
+				"type": "object",
+				"required": ["document"],
+				"properties": {
+					"document": {
+						"type": "object",
+						"required": ["id", "title", "sourceType", "content", "createdAt", "updatedAt"],
+						"properties": {
+							"id": {
+								"type": "string"
+							},
+							"title": {
+								"type": "string"
+							},
+							"sourceType": {
+								"type": "string"
+							},
+							"sourceUrl": {
+								"type": ["string", "null"]
+							},
+							"content": {
+								"type": "string"
+							},
+							"truncated": {
+								"type": "boolean"
+							},
+							"fullLength": {
+								"type": "integer"
+							},
+							"metadata": {
+								"type": ["object", "null"]
+							},
+							"createdAt": {
+								"type": "string"
+							},
+							"updatedAt": {
+								"type": "string"
+							}
+						}
+					},
+					"chunks": {
+						"type": "array",
+						"items": {
+							"type": "object",
+							"properties": {
+								"id": {
+									"type": "string"
+								},
+								"index": {
+									"type": "integer"
+								},
+								"content": {
+									"type": "string"
+								}
+							}
+						}
 					}
 				}
 			}
@@ -161,8 +306,62 @@
 					},
 					"tags": {
 						"type": "array",
-						"items": { "type": "string" },
+						"items": {
+							"type": "string"
+						},
 						"description": "Filter to documents containing ALL specified tags"
+					}
+				}
+			},
+			"outputSchema": {
+				"type": "object",
+				"required": ["documents", "pagination"],
+				"properties": {
+					"documents": {
+						"type": "array",
+						"items": {
+							"type": "object",
+							"properties": {
+								"id": {
+									"type": "string"
+								},
+								"title": {
+									"type": "string"
+								},
+								"sourceType": {
+									"type": "string"
+								},
+								"tags": {
+									"type": "array",
+									"items": {
+										"type": "string"
+									}
+								},
+								"createdAt": {
+									"type": "string"
+								},
+								"updatedAt": {
+									"type": "string"
+								}
+							}
+						}
+					},
+					"pagination": {
+						"type": "object",
+						"properties": {
+							"limit": {
+								"type": "integer"
+							},
+							"offset": {
+								"type": "integer"
+							},
+							"total": {
+								"type": "integer"
+							},
+							"hasMore": {
+								"type": "boolean"
+							}
+						}
 					}
 				}
 			}
@@ -186,7 +385,9 @@
 					},
 					"tags": {
 						"type": "array",
-						"items": { "type": "string" },
+						"items": {
+							"type": "string"
+						},
 						"description": "New tags for the document (replaces existing tags)"
 					}
 				}
@@ -213,7 +414,9 @@
 					},
 					"tags": {
 						"type": "array",
-						"items": { "type": "string" },
+						"items": {
+							"type": "string"
+						},
 						"description": "Optional tags for organization"
 					}
 				}
@@ -442,6 +645,164 @@
 						"description": "Pagination offset (for mode=list)"
 					}
 				}
+			},
+			"outputSchema": {
+				"type": "object",
+				"required": ["mode"],
+				"properties": {
+					"mode": {
+						"type": "string",
+						"enum": ["search", "entity", "list"]
+					},
+					"totalMemories": {
+						"type": "integer"
+					},
+					"entities": {
+						"type": "array",
+						"items": {
+							"type": "object",
+							"properties": {
+								"entityName": {
+									"type": "string"
+								},
+								"entityType": {
+									"type": "string"
+								},
+								"memories": {
+									"type": "array",
+									"items": {
+										"type": "object",
+										"properties": {
+											"content": {
+												"type": "string"
+											},
+											"source": {
+												"type": "string"
+											},
+											"score": {
+												"type": "number"
+											}
+										}
+									}
+								}
+							}
+						}
+					},
+					"found": {
+						"type": "boolean"
+					},
+					"entity": {
+						"type": "object",
+						"properties": {
+							"id": {
+								"type": "string"
+							},
+							"name": {
+								"type": "string"
+							},
+							"type": {
+								"type": "string"
+							},
+							"description": {
+								"type": ["string", "null"]
+							}
+						}
+					},
+					"observations": {
+						"type": "array",
+						"items": {
+							"type": "object",
+							"properties": {
+								"id": {
+									"type": "string"
+								},
+								"content": {
+									"type": "string"
+								},
+								"source": {
+									"type": "string"
+								},
+								"created_at": {
+									"type": "string"
+								}
+							}
+						}
+					},
+					"relations": {
+						"type": "object",
+						"properties": {
+							"outgoing": {
+								"type": "array",
+								"items": {
+									"type": "object",
+									"properties": {
+										"relation_type": {
+											"type": "string"
+										},
+										"to_entity": {
+											"type": "string"
+										}
+									}
+								}
+							},
+							"incoming": {
+								"type": "array",
+								"items": {
+									"type": "object",
+									"properties": {
+										"from_entity": {
+											"type": "string"
+										},
+										"relation_type": {
+											"type": "string"
+										}
+									}
+								}
+							}
+						}
+					},
+					"hasMore": {
+						"type": "boolean"
+					},
+					"totalObservations": {
+						"type": "integer"
+					},
+					"message": {
+						"type": "string"
+					},
+					"total": {
+						"type": "integer"
+					},
+					"returned": {
+						"type": "integer"
+					},
+					"offset": {
+						"type": "integer"
+					},
+					"entityList": {
+						"type": "array",
+						"items": {
+							"type": "object",
+							"properties": {
+								"id": {
+									"type": "string"
+								},
+								"name": {
+									"type": "string"
+								},
+								"type": {
+									"type": "string"
+								},
+								"description": {
+									"type": ["string", "null"]
+								},
+								"updatedAt": {
+									"type": "string"
+								}
+							}
+						}
+					}
+				}
 			}
 		},
 		{
@@ -579,8 +940,14 @@
 						"items": {
 							"type": "object",
 							"properties": {
-								"role": { "type": "string", "enum": ["user", "assistant", "system"] },
-								"content": { "type": "string", "maxLength": 50000 }
+								"role": {
+									"type": "string",
+									"enum": ["user", "assistant", "system"]
+								},
+								"content": {
+									"type": "string",
+									"maxLength": 50000
+								}
 							}
 						},
 						"description": "Recent conversation turns to save"
@@ -657,6 +1024,146 @@
 						"description": "Pagination offset (for mode=list)"
 					}
 				}
+			},
+			"outputSchema": {
+				"type": "object",
+				"required": ["mode"],
+				"properties": {
+					"mode": {
+						"type": "string",
+						"enum": ["search", "get", "list"]
+					},
+					"totalResults": {
+						"type": "integer"
+					},
+					"conversations": {
+						"type": "array",
+						"items": {
+							"type": "object",
+							"properties": {
+								"sessionId": {
+									"type": "string"
+								},
+								"sessionKey": {
+									"type": ["string", "null"]
+								},
+								"title": {
+									"type": ["string", "null"]
+								},
+								"summary": {
+									"type": ["string", "null"]
+								},
+								"score": {
+									"type": "number"
+								},
+								"turns": {
+									"type": "array",
+									"items": {
+										"type": "object",
+										"properties": {
+											"role": {
+												"type": "string"
+											},
+											"content": {
+												"type": "string"
+											},
+											"turnIndex": {
+												"type": "integer"
+											}
+										}
+									}
+								},
+								"matchedTurns": {
+									"type": "array",
+									"items": {
+										"type": "object",
+										"properties": {
+											"role": {
+												"type": "string"
+											},
+											"content": {
+												"type": "string"
+											},
+											"score": {
+												"type": "number"
+											}
+										}
+									}
+								},
+								"turnCount": {
+									"type": "integer"
+								},
+								"lastActivity": {
+									"type": ["string", "null"]
+								},
+								"createdAt": {
+									"type": "string"
+								}
+							}
+						}
+					},
+					"found": {
+						"type": "boolean"
+					},
+					"session": {
+						"type": "object",
+						"properties": {
+							"id": {
+								"type": "string"
+							},
+							"sessionKey": {
+								"type": ["string", "null"]
+							},
+							"title": {
+								"type": ["string", "null"]
+							},
+							"summary": {
+								"type": ["string", "null"]
+							},
+							"turnCount": {
+								"type": "integer"
+							},
+							"lastActivity": {
+								"type": ["string", "null"]
+							},
+							"createdAt": {
+								"type": "string"
+							}
+						}
+					},
+					"turns": {
+						"type": "array",
+						"items": {
+							"type": "object",
+							"properties": {
+								"role": {
+									"type": "string"
+								},
+								"content": {
+									"type": "string"
+								},
+								"turnIndex": {
+									"type": "integer"
+								},
+								"createdAt": {
+									"type": "string"
+								}
+							}
+						}
+					},
+					"message": {
+						"type": "string"
+					},
+					"total": {
+						"type": "integer"
+					},
+					"returned": {
+						"type": "integer"
+					},
+					"offset": {
+						"type": "integer"
+					}
+				}
 			}
 		},
 		{
@@ -693,6 +1200,130 @@
 						"enum": ["all", "knowledge", "memory", "conversations", "insights"],
 						"default": "all",
 						"description": "Which stats to retrieve"
+					}
+				}
+			},
+			"outputSchema": {
+				"type": "object",
+				"properties": {
+					"knowledge": {
+						"type": "object",
+						"properties": {
+							"total": {
+								"type": "integer"
+							},
+							"bySourceType": {
+								"type": "object",
+								"additionalProperties": {
+									"type": "integer"
+								}
+							},
+							"byContentType": {
+								"type": "object",
+								"additionalProperties": {
+									"type": "integer"
+								}
+							},
+							"topTags": {
+								"type": "array",
+								"items": {
+									"type": "object",
+									"properties": {
+										"tag": {
+											"type": "string"
+										},
+										"count": {
+											"type": "integer"
+										}
+									}
+								}
+							},
+							"dateRange": {
+								"type": "object",
+								"properties": {
+									"oldest": {
+										"type": ["string", "null"]
+									},
+									"newest": {
+										"type": ["string", "null"]
+									}
+								}
+							}
+						}
+					},
+					"memory": {
+						"type": "object",
+						"properties": {
+							"totalEntities": {
+								"type": "integer"
+							},
+							"totalObservations": {
+								"type": "integer"
+							},
+							"totalRelations": {
+								"type": "integer"
+							},
+							"entityTypeCounts": {
+								"type": "object",
+								"additionalProperties": {
+									"type": "integer"
+								}
+							}
+						}
+					},
+					"conversations": {
+						"type": "object",
+						"properties": {
+							"totalSessions": {
+								"type": "integer"
+							},
+							"sessionsWithSummary": {
+								"type": "integer"
+							},
+							"totalTurns": {
+								"type": "integer"
+							},
+							"turnsWithEmbedding": {
+								"type": "integer"
+							}
+						}
+					},
+					"insights": {
+						"type": "object",
+						"properties": {
+							"total": {
+								"type": "integer"
+							},
+							"new": {
+								"type": "integer"
+							},
+							"seen": {
+								"type": "integer"
+							},
+							"dismissed": {
+								"type": "integer"
+							},
+							"byType": {
+								"type": "object",
+								"additionalProperties": {
+									"type": "integer"
+								}
+							},
+							"queueState": {
+								"type": ["object", "null"],
+								"properties": {
+									"chunks_pending": {
+										"type": "integer"
+									},
+									"is_processing": {
+										"type": "boolean"
+									},
+									"last_scan_at": {
+										"type": ["string", "null"]
+									}
+								}
+							}
+						}
 					}
 				}
 			}
@@ -826,6 +1457,17 @@
 				"entity_bridge",
 				"temporal_pattern",
 				"outlier"
+			]
+		},
+		"outputSchema": {
+			"supported": true,
+			"tools": [
+				"search",
+				"get_document",
+				"list_documents",
+				"query_memory",
+				"query_conversations",
+				"get_stats"
 			]
 		}
 	},

@@ -258,7 +258,7 @@ import { logger } from '../utils/logger';     // Wrong
 
 ### MCP Tool Pattern
 
-**Preferred:** Use `server.registerTool()` (SDK v1.26.0+) with `title`, `description`, `inputSchema`, and `annotations`:
+**Preferred:** Use `server.registerTool()` (SDK v1.26.0+) with `title`, `description`, `inputSchema`, `outputSchema`, and `annotations`:
 
 ```typescript
 server.registerTool('tool_name', {
@@ -267,14 +267,24 @@ server.registerTool('tool_name', {
   inputSchema: {
     param: z.string().describe('Description'),
   },
+  outputSchema: {
+    result: z.string(),
+    count: z.number(),
+  },
   annotations: {
     readOnlyHint: true,
     destructiveHint: false,
   },
 }, async ({ param }) => {
-  return { content: [{ type: 'text', text: JSON.stringify(result, null, 2) }] };
+  const structured = { result: 'value', count: 42 };
+  return {
+    content: [{ type: 'text', text: JSON.stringify(structured, null, 2) }],
+    structuredContent: structured,
+  };
 });
 ```
+
+**Structured output:** Read-only tools (`search`, `get_document`, `list_documents`, `query_memory`, `query_conversations`, `get_stats`) define `outputSchema` and return both `content` (text for LLM consumption, compact or verbose) and `structuredContent` (canonical verbose JSON matching the schema). The `structuredContent` object always uses full canonical keys regardless of `COMPACT_RESPONSES`.
 
 **Legacy:** `server.tool()` with inline Zod schemas is still supported. Use for simple tools:
 

@@ -162,6 +162,55 @@ List all entities with optional type filtering and pagination. Replaces the form
 }
 ```
 
+## Output Schema
+
+This tool returns `structuredContent` alongside the text response. The `structuredContent` object uses canonical verbose keys regardless of the `COMPACT_RESPONSES` setting. Fields vary by mode:
+
+### Search Mode
+
+| Field | Type | Description |
+|-------|------|-------------|
+| `mode` | `"search"` | Query mode |
+| `totalMemories` | integer | Number of matching memories |
+| `entities` | array | Results grouped by entity |
+| `entities[].entityName` | string | Entity name |
+| `entities[].entityType` | string | Entity type |
+| `entities[].memories` | array | Matching memories |
+| `entities[].memories[].content` | string | Memory content |
+| `entities[].memories[].source` | string | Memory source |
+| `entities[].memories[].score` | number | Relevance score |
+
+### Entity Mode
+
+| Field | Type | Description |
+|-------|------|-------------|
+| `mode` | `"entity"` | Query mode |
+| `found` | boolean | Whether the entity was found |
+| `entity` | object | Entity details |
+| `entity.id` | string | Entity UUID |
+| `entity.name` | string | Entity name |
+| `entity.type` | string | Entity type |
+| `entity.description` | string? | Entity description |
+| `observations` | array | Entity observations |
+| `relations` | object | Entity relations (`outgoing`, `incoming`) |
+| `hasMore` | boolean | Whether more observations exist |
+| `totalObservations` | integer | Total observation count |
+
+### List Mode
+
+| Field | Type | Description |
+|-------|------|-------------|
+| `mode` | `"list"` | Query mode |
+| `total` | integer | Total entity count |
+| `returned` | integer | Entities in this page |
+| `offset` | integer | Current offset |
+| `entityList` | array | Array of entities |
+| `entityList[].id` | string | Entity UUID |
+| `entityList[].name` | string | Entity name |
+| `entityList[].type` | string | Entity type |
+| `entityList[].description` | string? | Entity description |
+| `entityList[].updatedAt` | string | ISO update timestamp |
+
 ## Entity Types
 
 Valid types: `person`, `concept`, `project`, `preference`, `fact`, `location`, `organization`

@@ -57,6 +57,10 @@ Memory tools return token-efficient responses by default, reducing context usage
 
 ## MCP Tools Reference
 
+### Structured Output
+
+Six read-only tools define `outputSchema` and return `structuredContent` alongside the text `content` response. The `structuredContent` object always uses canonical verbose keys regardless of `COMPACT_RESPONSES`. Tools with `outputSchema`: `search`, `get_document`, `list_documents`, `query_memory`, `query_conversations`, `get_stats`.
+
 ### search
 
 Hybrid semantic + full-text search with optional cross-source memory and conversation results. Replaces the previous `search_knowledge` and `search_with_context` tools.

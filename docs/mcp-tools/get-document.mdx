@@ -47,6 +47,28 @@ Retrieve the complete content of a document, optionally including its chunks.
 }
 ```
 
+## Output Schema
+
+This tool returns `structuredContent` alongside the text response. The `structuredContent` object uses canonical verbose keys regardless of the `COMPACT_RESPONSES` setting.
+
+| Field | Type | Description |
+|-------|------|-------------|
+| `document` | object | The document |
+| `document.id` | string | Document UUID |
+| `document.title` | string | Document title |
+| `document.sourceType` | string | Source type (`note`, `file`, `url`) |
+| `document.sourceUrl` | string? | Source URL (null if not applicable) |
+| `document.content` | string | Document content (may be truncated) |
+| `document.truncated` | boolean | Whether content was truncated |
+| `document.fullLength` | integer | Full content length (when truncated) |
+| `document.metadata` | object? | Document metadata |
+| `document.createdAt` | string | ISO creation timestamp |
+| `document.updatedAt` | string | ISO update timestamp |
+| `chunks` | array | Document chunks (when `includeChunks=true`) |
+| `chunks[].id` | string | Chunk UUID |
+| `chunks[].index` | integer | Chunk index |
+| `chunks[].content` | string | Chunk content |
+
 ## Use Cases
 
 ### Full Context Retrieval

@@ -76,6 +76,36 @@ When `COMPACT_RESPONSES=true`, stats use abbreviated keys:
 }
 ```
 
+## Output Schema
+
+This tool returns `structuredContent` alongside the text response. The `structuredContent` object uses canonical verbose keys regardless of the `COMPACT_RESPONSES` setting.
+
+| Field | Type | Description |
+|-------|------|-------------|
+| `knowledge` | object | Knowledge base stats (when scope includes knowledge) |
+| `knowledge.total` | integer | Total documents |
+| `knowledge.bySourceType` | object | Count by source type |
+| `knowledge.byContentType` | object | Count by content type |
+| `knowledge.topTags` | array | Top tags with counts |
+| `knowledge.dateRange` | object | Oldest/newest document dates |
+| `memory` | object | Memory stats (when scope includes memory) |
+| `memory.totalEntities` | integer | Total entities |
+| `memory.totalObservations` | integer | Total observations |
+| `memory.totalRelations` | integer | Total relations |
+| `memory.entityTypeCounts` | object | Count by entity type |
+| `conversations` | object | Conversation stats (when scope includes conversations) |
+| `conversations.totalSessions` | integer | Total sessions |
+| `conversations.sessionsWithSummary` | integer | Sessions with summaries |
+| `conversations.totalTurns` | integer | Total turns |
+| `conversations.turnsWithEmbedding` | integer | Turns with embeddings |
+| `insights` | object | Insight stats (when scope includes insights) |
+| `insights.total` | integer | Total insights |
+| `insights.new` | integer | New insights |
+| `insights.seen` | integer | Seen insights |
+| `insights.dismissed` | integer | Dismissed insights |
+| `insights.byType` | object | Count by insight type |
+| `insights.queueState` | object? | Processing queue state |
+
 ## Scope Behavior
 
 | Scope | Feature Flag | Behavior |
