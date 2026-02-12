@@ -28,16 +28,63 @@
 
 ## PR 3: Consolidate read/query tools to reduce tool count
 
-- [ ] Merge `search_knowledge` + `search_with_context` into `search`
-- [ ] Merge `list_entities` + `get_entity_context` + `recall_memories` into `query_memory`
-- [ ] Merge stats tools into `get_stats` with `scope` param
-- [ ] Merge `list_conversations` + `recall_conversation` + `get_conversation` into `query_conversations`
-- [ ] Remove `insight_stats` (moved into `get_stats`)
-- [ ] Update `src/server.ts` registration
-- [ ] Clean break: remove old tool names entirely
-- [ ] Target: reduce from ~26 tools to ~16
-- [ ] Update all documentation files
-- [ ] Commit and open PR
+- [x] Merge `search_knowledge` + `search_with_context` into `search`
+- [x] Merge `list_entities` + `get_entity_context` + `recall_memories` into `query_memory`
+- [x] Merge stats tools into `get_stats` with `scope` param
+- [x] Merge `list_conversations` + `recall_conversation` + `get_conversation` into `query_conversations`
+- [x] Remove `insight_stats` (moved into `get_stats`)
+- [x] Update `src/server.ts` registration
+- [x] Clean break: remove old tool names entirely
+- [x] Target: reduce from 26 tools to 18
+- [x] Update all documentation files
+- [x] Document migration mapping for breaking changes:
+
+| Deprecated Tool | Replacement | Parameters |
+|----------------|-------------|------------|
+| `search_knowledge` | `search` | Same params |
+| `search_with_context` | `search` | `includeMemories`/`includeConversations` |
+| `recall_memories` | `query_memory` | `mode="search"` |
+| `get_entity_context` | `query_memory` | `mode="entity"` |
+| `list_entities` | `query_memory` | `mode="list"` |
+| `recall_conversation` | `query_conversations` | `mode="search"` |
+| `get_conversation` | `query_conversations` | `mode="get"` |
+| `list_conversations` | `query_conversations` | `mode="list"` |
+| `knowledge_stats` | `get_stats` | `scope="knowledge"` |
+| `memory_stats` | `get_stats` | `scope="memory"` |
+| `conversation_stats` | `get_stats` | `scope="conversations"` |
+| `insight_stats` | `get_stats` | `scope="insights"` |
+
+  **Versioning:** This is a clean break in v0.2.0. Per semver, breaking changes are
+  expected during `0.x` development. No version headers or feature flags are required —
+  the old tool names are simply removed and replaced by the consolidated tools above.
+
+  **Deprecation timeline:** Old tool names were removed immediately in v0.2.0 with no
+  coexistence window. The project is pre-1.0, single-tenant, and self-hosted, so a
+  gradual sunset cycle is unnecessary. Clients should update to the new tool names now.
+
+  **Transition support:** If a client depends on old tool names, register thin aliases
+  that forward to the new tools. Example adapter for `search_with_context`:
+
+  ```typescript
+  server.registerTool('search_with_context', {
+    title: 'Search with Context (deprecated)',
+    description: 'DEPRECATED: Use search with includeMemories/includeConversations instead.',
+    inputSchema: { query: z.string(), /* ... */ },
+  }, async (params) => {
+    return searchHandler({ ...params, includeMemories: true, includeConversations: true });
+  });
+  ```
+
+  The same pattern applies to all deprecated tools — map old parameters to the new
+  `mode` or `scope` parameters on the consolidated tool. `AGENTS.md` and `llms.txt`
+  already document the new tool names for agent discovery.
+
+  **Rollback:** To revert, check out the commit before consolidation (`git log --oneline`
+  to find it) or pin to the previous release tag. Old tool registrations are preserved in
+  git history and can be restored by re-adding the individual `registerTool()` calls from
+  the pre-consolidation source files.
+
+- [~] Commit and open PR
 
 ## PR 4: Add `outputSchema` to search and retrieval tools
 
