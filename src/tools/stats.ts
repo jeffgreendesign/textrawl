@@ -15,6 +15,11 @@ export function registerStatsTools(server: McpServer): void {
 		{
 			description: 'Get statistics about the knowledge base contents',
 			inputSchema: z.object({}),
+			annotations: {
+				readOnlyHint: true,
+				destructiveHint: false,
+				openWorldHint: false,
+			},
 			_meta: {
 				ui: {
 					resourceUri: 'ui://textrawl/knowledge-stats',
@@ -72,6 +77,7 @@ export function registerStatsTools(server: McpServer): void {
 							),
 						},
 					],
+					isError: true,
 				};
 			}
 		},

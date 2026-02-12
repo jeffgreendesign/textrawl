@@ -19,6 +19,11 @@ export function registerSearchTool(server: McpServer): void {
 		'search_knowledge',
 		{
 			description: 'Search the knowledge base using hybrid semantic + full-text search',
+			annotations: {
+				readOnlyHint: true,
+				destructiveHint: false,
+				openWorldHint: false,
+			},
 			inputSchema: {
 				query: z
 					.string()
@@ -230,6 +235,7 @@ export function registerSearchTool(server: McpServer): void {
 							),
 						},
 					],
+					isError: true,
 				};
 			}
 		},
@@ -245,6 +251,11 @@ export function registerSearchTool(server: McpServer): void {
 		'search_with_context',
 		{
 			description: 'Unified search across documents, memories, and conversations',
+			annotations: {
+				readOnlyHint: true,
+				destructiveHint: false,
+				openWorldHint: false,
+			},
 			inputSchema: {
 				query: z.string().min(1).max(10000).describe('Natural language search query'),
 				limit: z.number().int().min(1).max(30).default(5).describe('Maximum results per source'),
@@ -521,6 +532,7 @@ export function registerSearchTool(server: McpServer): void {
 							),
 						},
 					],
+					isError: true,
 				};
 			}
 		},

@@ -8,16 +8,11 @@ import {
 	getOrCreateEntity,
 	listEntities,
 } from '../db/memory-entities.js';
-import {
-	createObservation,
-	deleteObservation,
-	findSimilarObservation,
-} from '../db/memory-observations.js';
+import { createObservation, findSimilarObservation } from '../db/memory-observations.js';
 import { RELATION_TYPES, getOrCreateRelation } from '../db/memory-relations.js';
 import {
 	getEntityContext,
 	getMemoryStats,
-	getRecentMemories,
 	hybridMemorySearch,
 	semanticMemorySearch,
 } from '../db/memory-search.js';
@@ -27,7 +22,7 @@ import {
 	extractMemoriesFromText,
 	isExtractionConfigured,
 } from '../services/memory-extraction.js';
-import { config } from '../utils/config.js';
+import { configError, formatId, isCompact, toJSON, toolError } from '../utils/compact.js';
 import { logger } from '../utils/logger.js';
 
 const EntityTypeSchema = z.enum([
@@ -41,24 +36,29 @@ const EntityTypeSchema = z.enum([
 ]);
 
 /**
- * Check if compact response mode is enabled
- * Compact mode saves 40-60% tokens by using short keys and no pretty-printing
- * Set COMPACT_RESPONSES=false for human-readable verbose responses
+ * Sanitize an optional EntityType parameter.
+ * LLMs sometimes pass null, "null", undefined, or empty string for optional enum params.
+ * This normalizes those to undefined so the fallback logic kicks in correctly.
  */
-const isCompact = () => config.COMPACT_RESPONSES;
-
-/**
- * JSON serialization - compact (no whitespace) or pretty-printed
- */
-function toJSON(obj: unknown): string {
-	return isCompact() ? JSON.stringify(obj) : JSON.stringify(obj, null, 2);
-}
-
-/**
- * Format UUID - truncated (8 chars) in compact mode, full in verbose mode
- */
-function formatId(uuid: string): string {
-	return isCompact() ? uuid.slice(0, 8) : uuid;
+function sanitizeEntityType(value: unknown): EntityType | undefined {
+	if (value === null || value === undefined || value === '' || value === 'null') {
+		return undefined;
+	}
+	// Validate against known types
+	const validTypes: EntityType[] = [
+		'person',
+		'concept',
+		'project',
+		'preference',
+		'fact',
+		'location',
+		'organization',
+	];
+	if (typeof value === 'string' && validTypes.includes(value as EntityType)) {
+		return value as EntityType;
+	}
+	// Unknown type — return undefined so we fall back to auto-detection
+	return undefined;
 }
 
 /**
@@ -68,37 +68,48 @@ export function registerMemoryTools(server: McpServer): void {
 	// ============================================
 	// Tool: remember_fact
 	// ============================================
-	server.tool(
+	server.registerTool(
 		'remember_fact',
 		{
-			entityName: z
-				.string()
-				.min(1)
-				.max(200)
-				.describe(
-					'Name of the entity to remember about (e.g., "Jeff", "Project Alpha", "TypeScript")',
+			title: 'Remember Fact',
+			description:
+				'Store a single atomic fact about an entity (person, project, concept, etc.) with automatic semantic embedding. Creates the entity if it does not exist. Idempotent: duplicate facts are detected and skipped.',
+			inputSchema: {
+				entityName: z
+					.string()
+					.min(1)
+					.max(200)
+					.describe(
+						'Name of the entity to remember about (e.g., "Jeff", "Project Alpha", "TypeScript")',
+					),
+				entityType: EntityTypeSchema.describe(
+					'Type of entity: person, concept, project, preference, fact, location, organization',
 				),
-			entityType: EntityTypeSchema.describe(
-				'Type of entity: person, concept, project, preference, fact, location, organization',
-			),
-			observation: z
-				.string()
-				.min(1)
-				.max(2000)
-				.describe(
-					'The fact or observation to remember about this entity. Should be a single, atomic fact.',
-				),
-			source: z
-				.enum(['conversation', 'note', 'document', 'manual'])
-				.optional()
-				.default('conversation')
-				.describe('Source of this memory'),
-			validUntil: z
-				.string()
-				.optional()
-				.describe(
-					'ISO date string if this fact expires (e.g., "2026-12-31"). Leave empty for permanent facts.',
-				),
+				observation: z
+					.string()
+					.min(1)
+					.max(2000)
+					.describe(
+						'The fact or observation to remember about this entity. Should be a single, atomic fact.',
+					),
+				source: z
+					.enum(['conversation', 'note', 'document', 'manual'])
+					.optional()
+					.default('conversation')
+					.describe('Source of this memory (default: conversation)'),
+				validUntil: z
+					.string()
+					.optional()
+					.describe(
+						'ISO date string if this fact expires (e.g., "2026-12-31"). Omit for permanent facts.',
+					),
+			},
+			annotations: {
+				readOnlyHint: false,
+				destructiveHint: false,
+				idempotentHint: true,
+				openWorldHint: false,
+			},
 		},
 		async ({ entityName, entityType, observation, source, validUntil }) => {
 			logger.info('remember_fact called', {
@@ -108,31 +119,11 @@ export function registerMemoryTools(server: McpServer): void {
 			});
 
 			if (!isSupabaseConfigured()) {
-				return {
-					content: [
-						{
-							type: 'text' as const,
-							text: toJSON({
-								error: 'Database not configured',
-								message: 'Set SUPABASE_URL and SUPABASE_SERVICE_KEY',
-							}),
-						},
-					],
-				};
+				return configError('Database', 'Set SUPABASE_URL and SUPABASE_SERVICE_KEY');
 			}
 
 			if (!isOpenAIConfigured()) {
-				return {
-					content: [
-						{
-							type: 'text' as const,
-							text: toJSON({
-								error: 'Embedding not configured',
-								message: 'Set OPENAI_API_KEY or configure Ollama',
-							}),
-						},
-					],
-				};
+				return configError('Embedding provider', 'Set OPENAI_API_KEY or configure Ollama');
 			}
 
 			try {
@@ -216,17 +207,9 @@ export function registerMemoryTools(server: McpServer): void {
 					error: error instanceof Error ? error.message : String(error),
 				});
 
-				return {
-					content: [
-						{
-							type: 'text' as const,
-							text: toJSON({
-								ok: false,
-								error: error instanceof Error ? error.message : 'Unknown error',
-							}),
-						},
-					],
-				};
+				return toolError(
+					`Failed to remember fact about "${entityName}": ${error instanceof Error ? error.message : 'Unknown error'}`,
+				);
 			}
 		},
 	);
@@ -236,29 +219,39 @@ export function registerMemoryTools(server: McpServer): void {
 	// ============================================
 	// Tool: recall_memories
 	// ============================================
-	server.tool(
+	server.registerTool(
 		'recall_memories',
 		{
-			query: z
-				.string()
-				.min(1)
-				.max(1000)
-				.describe('What to search for in memories. Can be a question or topic.'),
-			entityTypes: z
-				.array(EntityTypeSchema)
-				.optional()
-				.describe('Filter by entity types (e.g., ["person", "project"])'),
-			limit: z
-				.number()
-				.int()
-				.min(1)
-				.max(50)
-				.default(10)
-				.describe('Maximum number of memories to return'),
-			searchMode: z
-				.enum(['hybrid', 'semantic'])
-				.default('hybrid')
-				.describe('Search mode: hybrid (keyword + semantic) or semantic only'),
+			title: 'Recall Memories',
+			description:
+				'Search stored memories using hybrid (keyword + semantic) or semantic-only search. Returns memories grouped by entity. Use this to find previously stored facts.',
+			inputSchema: {
+				query: z
+					.string()
+					.min(1)
+					.max(1000)
+					.describe('What to search for in memories. Can be a question or topic.'),
+				entityTypes: z
+					.array(EntityTypeSchema)
+					.optional()
+					.describe('Filter by entity types (e.g., ["person", "project"]). Omit to search all.'),
+				limit: z
+					.number()
+					.int()
+					.min(1)
+					.max(50)
+					.default(10)
+					.describe('Maximum number of memories to return'),
+				searchMode: z
+					.enum(['hybrid', 'semantic'])
+					.default('hybrid')
+					.describe('Search mode: hybrid (keyword + semantic) or semantic only'),
+			},
+			annotations: {
+				readOnlyHint: true,
+				destructiveHint: false,
+				openWorldHint: false,
+			},
 		},
 		async ({ query, entityTypes, limit, searchMode }) => {
 			logger.info('recall_memories called', {
@@ -269,25 +262,11 @@ export function registerMemoryTools(server: McpServer): void {
 			});
 
 			if (!isSupabaseConfigured()) {
-				return {
-					content: [
-						{
-							type: 'text' as const,
-							text: toJSON({ error: 'Database not configured' }),
-						},
-					],
-				};
+				return configError('Database', 'Set SUPABASE_URL and SUPABASE_SERVICE_KEY');
 			}
 
 			if (!isOpenAIConfigured()) {
-				return {
-					content: [
-						{
-							type: 'text' as const,
-							text: toJSON({ error: 'Embedding not configured' }),
-						},
-					],
-				};
+				return configError('Embedding provider', 'Set OPENAI_API_KEY or configure Ollama');
 			}
 
 			try {
@@ -377,17 +356,9 @@ export function registerMemoryTools(server: McpServer): void {
 					error: error instanceof Error ? error.message : String(error),
 				});
 
-				return {
-					content: [
-						{
-							type: 'text' as const,
-							text: toJSON({
-								ok: false,
-								error: error instanceof Error ? error.message : 'Unknown error',
-							}),
-						},
-					],
-				};
+				return toolError(
+					`Memory search failed: ${error instanceof Error ? error.message : 'Unknown error'}`,
+				);
 			}
 		},
 	);
@@ -397,59 +368,71 @@ export function registerMemoryTools(server: McpServer): void {
 	// ============================================
 	// Tool: relate_entities
 	// ============================================
-	server.tool(
+	server.registerTool(
 		'relate_entities',
 		{
-			fromEntity: z.string().min(1).max(200).describe('The source entity name'),
-			relation: z
-				.string()
-				.min(1)
-				.max(100)
-				.describe(
-					`Relation type in active voice (e.g., "${RELATION_TYPES.WORKS_AT}", "${RELATION_TYPES.PREFERS}", "${RELATION_TYPES.KNOWS}")`,
+			title: 'Relate Entities',
+			description: [
+				'Create a directed relationship between two entities.',
+				'Both entities are auto-created if they do not already exist.',
+				'If entities already exist, their type is looked up automatically — you can omit fromEntityType/toEntityType.',
+				'Idempotent: creating the same relation twice is a no-op.',
+				`Common relation types: ${Object.values(RELATION_TYPES).join(', ')}.`,
+				'Custom relation types are also accepted (use snake_case).',
+			].join(' '),
+			inputSchema: {
+				fromEntity: z.string().min(1).max(200).describe('The source entity name'),
+				relation: z
+					.string()
+					.min(1)
+					.max(100)
+					.describe(
+						'Relation type in snake_case active voice (e.g., "works_at", "prefers", "knows", "created", "part_of"). Free-form — any string accepted.',
+					),
+				toEntity: z.string().min(1).max(200).describe('The target entity name'),
+				fromEntityType: EntityTypeSchema.optional().describe(
+					'Type of source entity. Omit if entity already exists — type is auto-detected. Only needed when creating a new entity.',
 				),
-			toEntity: z.string().min(1).max(200).describe('The target entity name'),
-			fromEntityType: EntityTypeSchema.optional().describe(
-				'Type of the source entity (will be inferred if entity exists)',
-			),
-			toEntityType: EntityTypeSchema.optional().describe(
-				'Type of the target entity (will be inferred if entity exists)',
-			),
+				toEntityType: EntityTypeSchema.optional().describe(
+					'Type of target entity. Omit if entity already exists — type is auto-detected. Only needed when creating a new entity.',
+				),
+			},
+			annotations: {
+				readOnlyHint: false,
+				destructiveHint: false,
+				idempotentHint: true,
+				openWorldHint: false,
+			},
 		},
 		async ({ fromEntity, relation, toEntity, fromEntityType, toEntityType }) => {
 			logger.info('relate_entities called', {
 				fromEntity,
 				relation,
 				toEntity,
+				fromEntityType,
+				toEntityType,
 			});
 
 			if (!isSupabaseConfigured()) {
-				return {
-					content: [
-						{
-							type: 'text' as const,
-							text: toJSON({ error: 'Database not configured' }),
-						},
-					],
-				};
+				return configError('Database', 'Set SUPABASE_URL and SUPABASE_SERVICE_KEY');
 			}
 
 			try {
-				// Get or create entities
+				// Sanitize optional entity types:
+				// LLMs sometimes pass null, "null", or undefined for optional params.
+				const cleanFromType = sanitizeEntityType(fromEntityType);
+				const cleanToType = sanitizeEntityType(toEntityType);
+
+				// Get or create entities (with type inference from existing entities)
 				const fromEntityObj = await getOrCreateEntity({
 					name: fromEntity,
 					entityType:
-						(fromEntityType as EntityType) ||
-						(await findEntityByName(fromEntity))?.entity_type ||
-						'concept',
+						cleanFromType || (await findEntityByName(fromEntity))?.entity_type || 'concept',
 				});
 
 				const toEntityObj = await getOrCreateEntity({
 					name: toEntity,
-					entityType:
-						(toEntityType as EntityType) ||
-						(await findEntityByName(toEntity))?.entity_type ||
-						'concept',
+					entityType: cleanToType || (await findEntityByName(toEntity))?.entity_type || 'concept',
 				});
 
 				// Create the relation
@@ -497,17 +480,9 @@ export function registerMemoryTools(server: McpServer): void {
 					error: error instanceof Error ? error.message : String(error),
 				});
 
-				return {
-					content: [
-						{
-							type: 'text' as const,
-							text: toJSON({
-								ok: false,
-								error: error instanceof Error ? error.message : 'Unknown error',
-							}),
-						},
-					],
-				};
+				return toolError(
+					`Failed to relate "${fromEntity}" → "${toEntity}": ${error instanceof Error ? error.message : 'Unknown error'}. Tip: entity type params are optional — omit them if unsure.`,
+				);
 			}
 		},
 	);
@@ -517,34 +492,37 @@ export function registerMemoryTools(server: McpServer): void {
 	// ============================================
 	// Tool: get_entity_context
 	// ============================================
-	server.tool(
+	server.registerTool(
 		'get_entity_context',
 		{
-			entityName: z.string().min(1).max(200).describe('Name of the entity to get context for'),
-			includeRelated: z
-				.boolean()
-				.default(true)
-				.describe('Include related entities and their relations'),
-			maxObs: z
-				.number()
-				.int()
-				.min(1)
-				.max(100)
-				.default(20)
-				.describe('Max observations to return (default 20, for token efficiency)'),
+			title: 'Get Entity Context',
+			description:
+				'Retrieve all stored information about an entity: observations (facts), outgoing relations, and incoming relations. Use this to see everything known about a specific entity.',
+			inputSchema: {
+				entityName: z.string().min(1).max(200).describe('Name of the entity to get context for'),
+				includeRelated: z
+					.boolean()
+					.default(true)
+					.describe('Include related entities and their relations'),
+				maxObs: z
+					.number()
+					.int()
+					.min(1)
+					.max(100)
+					.default(20)
+					.describe('Max observations to return (default 20, for token efficiency)'),
+			},
+			annotations: {
+				readOnlyHint: true,
+				destructiveHint: false,
+				openWorldHint: false,
+			},
 		},
 		async ({ entityName, includeRelated, maxObs }) => {
 			logger.info('get_entity_context called', { entityName, includeRelated });
 
 			if (!isSupabaseConfigured()) {
-				return {
-					content: [
-						{
-							type: 'text' as const,
-							text: toJSON({ error: 'Database not configured' }),
-						},
-					],
-				};
+				return configError('Database', 'Set SUPABASE_URL and SUPABASE_SERVICE_KEY');
 			}
 
 			try {
@@ -558,7 +536,10 @@ export function registerMemoryTools(server: McpServer): void {
 								text: toJSON(
 									isCompact()
 										? { found: false }
-										: { found: false, message: `No entity found with name: ${entityName}` },
+										: {
+												found: false,
+												message: `No entity found with name "${entityName}". Use list_entities to see available entities, or remember_fact to create one.`,
+											},
 								),
 							},
 						],
@@ -621,17 +602,9 @@ export function registerMemoryTools(server: McpServer): void {
 					error: error instanceof Error ? error.message : String(error),
 				});
 
-				return {
-					content: [
-						{
-							type: 'text' as const,
-							text: toJSON({
-								ok: false,
-								error: error instanceof Error ? error.message : 'Unknown error',
-							}),
-						},
-					],
-				};
+				return toolError(
+					`Failed to get context for "${entityName}": ${error instanceof Error ? error.message : 'Unknown error'}`,
+				);
 			}
 		},
 	);
@@ -641,31 +614,37 @@ export function registerMemoryTools(server: McpServer): void {
 	// ============================================
 	// Tool: list_entities
 	// ============================================
-	server.tool(
+	server.registerTool(
 		'list_entities',
 		{
-			entityTypes: z.array(EntityTypeSchema).optional().describe('Filter by entity types'),
-			limit: z
-				.number()
-				.int()
-				.min(1)
-				.max(100)
-				.default(50)
-				.describe('Maximum number of entities to return'),
-			offset: z.number().int().min(0).default(0).describe('Pagination offset'),
+			title: 'List Entities',
+			description:
+				'List all known entities in the memory graph with optional type filtering and pagination.',
+			inputSchema: {
+				entityTypes: z
+					.array(EntityTypeSchema)
+					.optional()
+					.describe('Filter by entity types. Omit to list all.'),
+				limit: z
+					.number()
+					.int()
+					.min(1)
+					.max(100)
+					.default(50)
+					.describe('Maximum number of entities to return'),
+				offset: z.number().int().min(0).default(0).describe('Pagination offset'),
+			},
+			annotations: {
+				readOnlyHint: true,
+				destructiveHint: false,
+				openWorldHint: false,
+			},
 		},
 		async ({ entityTypes, limit, offset }) => {
 			logger.info('list_entities called', { entityTypes, limit, offset });
 
 			if (!isSupabaseConfigured()) {
-				return {
-					content: [
-						{
-							type: 'text' as const,
-							text: toJSON({ error: 'Database not configured' }),
-						},
-					],
-				};
+				return configError('Database', 'Set SUPABASE_URL and SUPABASE_SERVICE_KEY');
 			}
 
 			try {
@@ -706,17 +685,9 @@ export function registerMemoryTools(server: McpServer): void {
 					error: error instanceof Error ? error.message : String(error),
 				});
 
-				return {
-					content: [
-						{
-							type: 'text' as const,
-							text: toJSON({
-								ok: false,
-								error: error instanceof Error ? error.message : 'Unknown error',
-							}),
-						},
-					],
-				};
+				return toolError(
+					`Failed to list entities: ${error instanceof Error ? error.message : 'Unknown error'}`,
+				);
 			}
 		},
 	);
@@ -726,49 +697,43 @@ export function registerMemoryTools(server: McpServer): void {
 	// ============================================
 	// Tool: forget_entity
 	// ============================================
-	server.tool(
+	server.registerTool(
 		'forget_entity',
 		{
-			entityName: z.string().min(1).max(200).describe('Name of the entity to forget'),
-			confirm: z.boolean().describe('Must be true to confirm deletion'),
+			title: 'Forget Entity',
+			description:
+				'Permanently delete an entity and all its associated observations and relations. Requires confirm=true. This action cannot be undone.',
+			inputSchema: {
+				entityName: z.string().min(1).max(200).describe('Name of the entity to forget'),
+				confirm: z.boolean().describe('Must be true to confirm deletion'),
+			},
+			annotations: {
+				readOnlyHint: false,
+				destructiveHint: true,
+				idempotentHint: false,
+				openWorldHint: false,
+			},
 		},
 		async ({ entityName, confirm }) => {
 			logger.info('forget_entity called', { entityName, confirm });
 
 			if (!confirm) {
-				return {
-					content: [
-						{
-							type: 'text' as const,
-							text: toJSON({ error: 'Set confirm=true to delete' }),
-						},
-					],
-				};
+				return toolError(
+					'Deletion not confirmed. Set confirm=true to delete. This action is irreversible.',
+				);
 			}
 
 			if (!isSupabaseConfigured()) {
-				return {
-					content: [
-						{
-							type: 'text' as const,
-							text: toJSON({ error: 'Database not configured' }),
-						},
-					],
-				};
+				return configError('Database', 'Set SUPABASE_URL and SUPABASE_SERVICE_KEY');
 			}
 
 			try {
 				const entity = await findEntityByName(entityName);
 
 				if (!entity) {
-					return {
-						content: [
-							{
-								type: 'text' as const,
-								text: toJSON({ ok: false, error: 'Entity not found' }),
-							},
-						],
-					};
+					return toolError(
+						`Entity "${entityName}" not found. Use list_entities to see available entities.`,
+					);
 				}
 
 				await deleteEntity(entity.id);
@@ -796,17 +761,9 @@ export function registerMemoryTools(server: McpServer): void {
 					error: error instanceof Error ? error.message : String(error),
 				});
 
-				return {
-					content: [
-						{
-							type: 'text' as const,
-							text: toJSON({
-								ok: false,
-								error: error instanceof Error ? error.message : 'Unknown error',
-							}),
-						},
-					],
-				};
+				return toolError(
+					`Failed to forget "${entityName}": ${error instanceof Error ? error.message : 'Unknown error'}`,
+				);
 			}
 		},
 	);
@@ -816,81 +773,91 @@ export function registerMemoryTools(server: McpServer): void {
 	// ============================================
 	// Tool: memory_stats
 	// ============================================
-	server.tool('memory_stats', {}, async () => {
-		logger.info('memory_stats called');
+	server.registerTool(
+		'memory_stats',
+		{
+			title: 'Memory Stats',
+			description:
+				'Get statistics about stored memories: entity counts, observation counts, relation counts, and breakdown by entity type.',
+			inputSchema: {},
+			annotations: {
+				readOnlyHint: true,
+				destructiveHint: false,
+				openWorldHint: false,
+			},
+		},
+		async () => {
+			logger.info('memory_stats called');
 
-		if (!isSupabaseConfigured()) {
-			return {
-				content: [
-					{
-						type: 'text' as const,
-						text: toJSON({ error: 'Database not configured' }),
-					},
-				],
-			};
-		}
+			if (!isSupabaseConfigured()) {
+				return configError('Database', 'Set SUPABASE_URL and SUPABASE_SERVICE_KEY');
+			}
 
-		try {
-			const stats = await getMemoryStats();
+			try {
+				const stats = await getMemoryStats();
 
-			const response = isCompact()
-				? {
-						ent: stats.totalEntities,
-						obs: stats.totalObservations,
-						rel: stats.totalRelations,
-						byType: stats.entityTypeCounts,
-					}
-				: {
-						totalEntities: stats.totalEntities,
-						totalObservations: stats.totalObservations,
-						totalRelations: stats.totalRelations,
-						entitiesByType: stats.entityTypeCounts,
-					};
+				const response = isCompact()
+					? {
+							ent: stats.totalEntities,
+							obs: stats.totalObservations,
+							rel: stats.totalRelations,
+							byType: stats.entityTypeCounts,
+						}
+					: {
+							totalEntities: stats.totalEntities,
+							totalObservations: stats.totalObservations,
+							totalRelations: stats.totalRelations,
+							entitiesByType: stats.entityTypeCounts,
+						};
 
-			return {
-				content: [
-					{
-						type: 'text' as const,
-						text: toJSON(response),
-					},
-				],
-			};
-		} catch (error) {
-			logger.error('memory_stats failed', {
-				error: error instanceof Error ? error.message : String(error),
-			});
+				return {
+					content: [
+						{
+							type: 'text' as const,
+							text: toJSON(response),
+						},
+					],
+				};
+			} catch (error) {
+				logger.error('memory_stats failed', {
+					error: error instanceof Error ? error.message : String(error),
+				});
 
-			return {
-				content: [
-					{
-						type: 'text' as const,
-						text: toJSON({
-							ok: false,
-							error: error instanceof Error ? error.message : 'Unknown error',
-						}),
-					},
-				],
-			};
-		}
-	});
+				return toolError(
+					`Failed to get memory stats: ${error instanceof Error ? error.message : 'Unknown error'}`,
+				);
+			}
+		},
+	);
 
 	logger.debug('Registered tool: memory_stats');
 
 	// ============================================
 	// Tool: extract_memories
 	// ============================================
-	server.tool(
+	server.registerTool(
 		'extract_memories',
 		{
-			text: z.string().min(10).max(100000).describe('Text to extract entities and facts from'),
-			source: z
-				.enum(['conversation', 'note', 'document', 'manual'])
-				.default('manual')
-				.describe('Source of this text for attribution'),
-			storeResults: z
-				.boolean()
-				.default(true)
-				.describe('Store extracted memories in database (false for preview only)'),
+			title: 'Extract Memories',
+			description:
+				'Extract entities and facts from text using LLM analysis. Requires ENABLE_MEMORY_EXTRACTION=true and ANTHROPIC_API_KEY. Set storeResults=false to preview without saving.',
+			inputSchema: {
+				text: z.string().min(10).max(100000).describe('Text to extract entities and facts from'),
+				source: z
+					.enum(['conversation', 'note', 'document', 'manual'])
+					.default('manual')
+					.describe('Source of this text for attribution'),
+				storeResults: z
+					.boolean()
+					.default(true)
+					.describe('Store extracted memories in database (false for preview only)'),
+			},
+			annotations: {
+				readOnlyHint: false,
+				destructiveHint: false,
+				idempotentHint: true,
+				openWorldHint: true,
+			},
 		},
 		async ({ text, source, storeResults }) => {
 			logger.info('extract_memories called', {
@@ -900,30 +867,15 @@ export function registerMemoryTools(server: McpServer): void {
 			});
 
 			if (!isExtractionConfigured()) {
-				return {
-					content: [
-						{
-							type: 'text' as const,
-							text: toJSON({
-								error: 'Memory extraction not configured',
-								message:
-									'Set ENABLE_MEMORY_EXTRACTION=true and ANTHROPIC_API_KEY to enable extraction',
-							}),
-						},
-					],
-				};
+				return configError(
+					'Memory extraction',
+					'Set ENABLE_MEMORY_EXTRACTION=true and ANTHROPIC_API_KEY to enable extraction',
+				);
 			}
 
 			// Only require Supabase if we're storing results
 			if (storeResults && !isSupabaseConfigured()) {
-				return {
-					content: [
-						{
-							type: 'text' as const,
-							text: toJSON({ error: 'Database not configured' }),
-						},
-					],
-				};
+				return configError('Database', 'Set SUPABASE_URL and SUPABASE_SERVICE_KEY');
 			}
 
 			try {
@@ -948,7 +900,7 @@ export function registerMemoryTools(server: McpServer): void {
 						: {
 								success: true,
 								preview: true,
-								message: 'Preview only - no memories were stored',
+								message: 'Preview only — no memories were stored',
 								extraction: {
 									entities: extraction.entities,
 									relations: extraction.relations,
@@ -1014,17 +966,9 @@ export function registerMemoryTools(server: McpServer): void {
 					error: error instanceof Error ? error.message : String(error),
 				});
 
-				return {
-					content: [
-						{
-							type: 'text' as const,
-							text: toJSON({
-								ok: false,
-								error: error instanceof Error ? error.message : 'Unknown error',
-							}),
-						},
-					],
-				};
+				return toolError(
+					`Memory extraction failed: ${error instanceof Error ? error.message : 'Unknown error'}`,
+				);
 			}
 		},
 	);
