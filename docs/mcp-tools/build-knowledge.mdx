@@ -1,0 +1,174 @@
+---
+title: build_knowledge
+description: Store multiple facts and relations in a single batch call
+---
+
+Store multiple entity facts and relations in a single call, reducing round-trips compared to separate `remember_fact` and `relate_entities` calls. Facts are processed first (creating entities as needed), then relations are created between them.
+
+## Parameters
+
+| Parameter | Type | Required | Default | Description |
+|-----------|------|----------|---------|-------------|
+| `facts` | array | OPTIONAL | `[]` | Facts to store (max 50) |
+| `facts[].entityName` | string | REQUIRED | - | Entity name (1-200 chars) |
+| `facts[].entityType` | enum | REQUIRED | - | Type: person, concept, project, preference, fact, location, organization |
+| `facts[].observation` | string | REQUIRED | - | Fact to remember (1-2000 chars) |
+| `facts[].source` | enum | OPTIONAL | `conversation` | Source: conversation, note, document, manual |
+| `relations` | array | OPTIONAL | `[]` | Relations to create (max 50) |
+| `relations[].fromEntity` | string | REQUIRED | - | Source entity name |
+| `relations[].relation` | string | REQUIRED | - | Relationship type (1-100 chars) |
+| `relations[].toEntity` | string | REQUIRED | - | Target entity name |
+| `relations[].fromEntityType` | enum | OPTIONAL | - | Type of source entity |
+| `relations[].toEntityType` | enum | OPTIONAL | - | Type of target entity |
+
+## Example Request
+
+```json
+{
+  "facts": [
+    {
+      "entityName": "Jeff",
+      "entityType": "person",
+      "observation": "leads the backend team"
+    },
+    {
+      "entityName": "Project Alpha",
+      "entityType": "project",
+      "observation": "uses PostgreSQL for the database layer"
+    },
+    {
+      "entityName": "Sarah",
+      "entityType": "person",
+      "observation": "frontend lead, specializes in React"
+    }
+  ],
+  "relations": [
+    {
+      "fromEntity": "Jeff",
+      "relation": "works on",
+      "toEntity": "Project Alpha"
+    },
+    {
+      "fromEntity": "Sarah",
+      "relation": "works on",
+      "toEntity": "Project Alpha"
+    }
+  ]
+}
+```
+
+## Response
+
+### Compact Mode (Default)
+
+When `COMPACT_RESPONSES=true` (default):
+
+```json
+{"ok":true,"facts":{"new":3,"dup":0},"rel":2}
+```
+
+### Verbose Mode
+
+When `COMPACT_RESPONSES=false`:
+
+```json
+{
+  "success": true,
+  "factsCreated": 3,
+  "factsDuplicate": 0,
+  "relationsCreated": 2
+}
+```
+
+## Use Cases
+
+### Building a project knowledge graph
+
+```json
+{
+  "facts": [
+    {
+      "entityName": "Textrawl",
+      "entityType": "project",
+      "observation": "personal knowledge base MCP server"
+    },
+    {
+      "entityName": "Supabase",
+      "entityType": "organization",
+      "observation": "provides PostgreSQL hosting with pgvector support"
+    }
+  ],
+  "relations": [
+    {
+      "fromEntity": "Textrawl",
+      "relation": "hosted on",
+      "toEntity": "Supabase"
+    }
+  ]
+}
+```
+
+### Recording meeting notes
+
+```json
+{
+  "facts": [
+    {
+      "entityName": "Sprint 46",
+      "entityType": "project",
+      "observation": "focus is on performance optimization",
+      "source": "note"
+    },
+    {
+      "entityName": "Jeff",
+      "entityType": "person",
+      "observation": "assigned to database query optimization",
+      "source": "note"
+    }
+  ],
+  "relations": [
+    {
+      "fromEntity": "Jeff",
+      "relation": "assigned to",
+      "toEntity": "Sprint 46"
+    }
+  ]
+}
+```
+
+### Relations only
+
+```json
+{
+  "relations": [
+    {
+      "fromEntity": "Jeff",
+      "relation": "manages",
+      "toEntity": "Sarah",
+      "fromEntityType": "person",
+      "toEntityType": "person"
+    }
+  ]
+}
+```
+
+## Duplicate Detection
+
+Facts that are semantically similar to existing observations on the same entity are detected as duplicates and not stored again. The response includes a count of duplicates.
+
+## Errors
+
+| Error | Cause | Fix |
+|-------|-------|-----|
+| No facts or relations provided | Both arrays empty or missing | Provide at least one fact or relation |
+| Embedding service not configured | Missing `OPENAI_API_KEY` or Ollama config | Set `OPENAI_API_KEY` or configure `OLLAMA_BASE_URL` |
+| Database not configured | Missing Supabase credentials | Set `SUPABASE_URL` and `SUPABASE_SERVICE_KEY` |
+| Memory not enabled | `ENABLE_MEMORY` feature flag is false | Set `ENABLE_MEMORY=true` |
+| Array exceeds max size | More than 50 facts or 50 relations | Split into multiple calls |
+
+## Related Tools
+
+- [`remember_fact`](/docs/mcp-tools/remember-fact) - Store a single fact (use `build_knowledge` for batch operations)
+- [`relate_entities`](/docs/mcp-tools/relate-entities) - Create a single relation (use `build_knowledge` for batch operations)
+- [`recall_memories`](/docs/mcp-tools/recall-memories) - Search across stored memories
+- [`get_entity_context`](/docs/mcp-tools/get-entity-context) - Get all memories and relations for an entity

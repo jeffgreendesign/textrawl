@@ -172,13 +172,13 @@ pnpm upload -- ./converted/
 | `EXTRACTION_MODEL` | No | Model for extraction (default: claude-3-haiku-20240307) |
 | `COMPACT_RESPONSES` | No | Token-efficient responses (default: true) |
 
-## MCP Tools
+## MCP Tools (18 tools)
 
 ### Document Tools
 
 | Tool | Description |
 |------|-------------|
-| `search_knowledge` | Hybrid semantic + full-text search |
+| `search` | Hybrid semantic + full-text search. Set `includeMemories`/`includeConversations` for cross-source fusion. |
 | `get_document` | Retrieve document by ID |
 | `list_documents` | List with pagination and filtering |
 | `update_document` | Update title and/or tags |
@@ -191,12 +191,10 @@ Enable with `ENABLE_MEMORY=true` (default). Requires `scripts/setup-db-memory.sq
 | Tool | Description |
 |------|-------------|
 | `remember_fact` | Store facts about entities (people, projects, concepts) |
-| `recall_memories` | Semantic search across stored memories |
+| `build_knowledge` | Store multiple facts and relations in a single batch call |
+| `query_memory` | Query the memory graph (`mode: 'search' \| 'entity' \| 'list'`) |
 | `relate_entities` | Create relationships between entities |
-| `get_entity_context` | Get all memories and relations for an entity |
-| `list_entities` | List all known entities |
 | `forget_entity` | Delete an entity and all its memories |
-| `memory_stats` | Get memory statistics |
 | `extract_memories` | Extract entities and facts from text using LLM |
 
 ### Conversation Tools (Conversation Memory)
@@ -210,18 +208,8 @@ Enable with `ENABLE_CONVERSATIONS=true` (default). Requires running one of the c
 | Tool | Description |
 |------|-------------|
 | `save_conversation_context` | Save conversation summary and turns for recall |
-| `recall_conversation` | Semantic search across past conversations |
-| `list_conversations` | List recent conversation sessions |
-| `get_conversation` | Get full conversation by session ID or key |
+| `query_conversations` | Query past conversations (`mode: 'search' \| 'get' \| 'list'`) |
 | `delete_conversation` | Delete a conversation session |
-| `conversation_stats` | Get conversation storage statistics |
-
-### Unified Search
-
-| Tool | Description |
-|------|-------------|
-| `search_with_context` | Search across documents, memories, and conversations simultaneously |
-| `knowledge_stats` | Get statistics about the knowledge base |
 
 ### Insight Tools (Proactive Discovery)
 
@@ -232,7 +220,12 @@ Enable with `ENABLE_INSIGHTS=true` (default).
 | `get_insights` | View discovered cross-source connections and patterns |
 | `discover_connections` | Trigger an insight scan across the knowledge base |
 | `dismiss_insight` | Dismiss an insight from the queue |
-| `insight_stats` | Get insight queue and processing statistics |
+
+### Stats
+
+| Tool | Description |
+|------|-------------|
+| `get_stats` | Statistics across all features (`scope: 'all' \| 'knowledge' \| 'memory' \| 'conversations' \| 'insights'`) |
 
 ### Search Parameters
 

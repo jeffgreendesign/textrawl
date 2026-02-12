@@ -15,9 +15,9 @@ Textrawl provides hybrid semantic + full-text search over documents via the Mode
 
 ## Tools
 
-### search_knowledge
+### search
 
-Hybrid semantic + full-text search using Reciprocal Rank Fusion.
+Hybrid semantic + full-text search with optional cross-source memory and conversation results.
 
 - query (string, REQUIRED): Natural language search query
 - limit (number): Max results 1-50, default 10
@@ -25,7 +25,12 @@ Hybrid semantic + full-text search using Reciprocal Rank Fusion.
 - semanticWeight (number): Semantic weight 0-2, default 1.0
 - tags (string[]): Filter to docs with ALL tags
 - sourceType (enum): 'note' | 'file' | 'url'
+- contentType (enum): Content type filter
 - minScore (number): Minimum relevance 0-1
+- includeMemories (boolean): Include memory results, default false
+- includeConversations (boolean): Include conversation results, default false
+- memoryWeight (number): Weight for memory results 0-2
+- conversationWeight (number): Weight for conversation results 0-2
 
 ### get_document
 
@@ -75,14 +80,26 @@ Store facts about entities with semantic embeddings.
 - source (enum): conversation | note | document | manual
 - validUntil (string): ISO date for expiring facts
 
-### recall_memories
+### build_knowledge
 
-Search stored memories with hybrid or semantic search.
+Store multiple facts and relations in a single batch call.
 
-- query (string, REQUIRED): Search query (max 1000 chars)
-- entityTypes (enum[]): Filter by entity types
-- limit (number): Max results 1-50, default 10
-- searchMode (enum): hybrid | semantic, default hybrid
+- facts (array): Facts to store, max 50. Each: entityName, entityType, observation, source?
+- relations (array): Relations to create, max 50. Each: fromEntity, relation, toEntity, fromEntityType?, toEntityType?
+
+### query_memory
+
+Unified memory query tool. Dispatches based on mode.
+
+- mode (enum, REQUIRED): 'search' | 'entity' | 'list'
+- query (string): Search query, required when mode is 'search' (max 1000 chars)
+- entityTypes (enum[]): Filter by entity types (search and list modes)
+- searchMode (enum): hybrid | semantic, default hybrid (search mode)
+- entityName (string): Entity to look up, required when mode is 'entity'
+- includeRelated (boolean): Include relations in entity mode, default true
+- maxObs (number): Max observations per entity
+- limit (number): Max results (search: 1-50, default 10; list: 1-100, default 50)
+- offset (number): Pagination offset (list mode)
 
 ### relate_entities
 
@@ -92,31 +109,12 @@ Create relationships between entities.
 - relation (string, REQUIRED): Relation type (works_at, knows, prefers, etc.)
 - toEntity (string, REQUIRED): Target entity name
 
-### get_entity_context
-
-Get all information about an entity.
-
-- entityName (string, REQUIRED): Entity to look up
-- includeRelated (boolean): Include relations, default true
-
-### list_entities
-
-List known entities with pagination.
-
-- entityTypes (enum[]): Filter by types
-- limit (number): 1-100, default 50
-- offset (number): Pagination offset
-
 ### forget_entity
 
 Delete entity and all associated memories.
 
 - entityName (string, REQUIRED): Entity to delete
 - confirm (boolean, REQUIRED): Must be true
-
-### memory_stats
-
-Get memory statistics. No parameters.
 
 ### extract_memories
 
@@ -140,29 +138,20 @@ Save conversation summary and turns for later recall.
 - recentTurns (array): Turns with role and content (max 50)
 - embedTurns (boolean): Generate turn embeddings, default false
 
-### recall_conversation
+### query_conversations
 
-Search past conversations.
+Unified conversation query tool. Dispatches based on mode.
 
-- query (string, REQUIRED): Search query (max 1000 chars)
-- limit (number): Max results 1-20, default 5
-- searchMode (enum): summary | turns | both, default summary
-- includeTranscript (boolean): Include turns, default false
-
-### list_conversations
-
-List conversation sessions.
-
-- limit (number): 1-50, default 20
-- offset (number): Pagination offset
-
-### get_conversation
-
-Get full conversation by ID or key.
-
-- sessionId (string): Session ID
-- sessionKey (string): Session key
-- maxTurns (number): Max turns, default 50
+- mode (enum, REQUIRED): 'search' | 'get' | 'list'
+- query (string): Search query, required when mode is 'search' (max 1000 chars)
+- searchMode (enum): summary | turns | both, default summary (search mode)
+- includeTranscript (boolean): Include turns in results, default false (search mode)
+- maxTurnsPerConversation (number): Max turns per conversation (search mode), default 10
+- sessionId (string): Session ID, for get mode
+- sessionKey (string): Session key, for get mode
+- maxTurns (number): Max turns to include (get mode), default 50
+- limit (number): Max results (search: 1-20, default 5; list: 1-50, default 20)
+- offset (number): Pagination offset (list mode)
 
 ### delete_conversation
 
@@ -172,28 +161,13 @@ Delete a conversation session.
 - sessionKey (string): Session key
 - confirm (boolean, REQUIRED): Must be true
 
-### conversation_stats
+## Stats
 
-Get conversation storage statistics. No parameters.
+### get_stats
 
-## Unified Search & Stats
+Get statistics across the knowledge base. Dispatches based on scope.
 
-### search_with_context
-
-Search across documents, memories, and conversations simultaneously.
-
-- query (string, REQUIRED): Search query (1-10000 chars)
-- limit (number): Max results per source 1-30, default 5
-- includeDocuments (boolean): Search documents, default true
-- includeMemories (boolean): Search memories, default true
-- includeConversations (boolean): Search conversations, default false
-- documentWeight (number): Document weight 0-2, default 1.0
-- memoryWeight (number): Memory weight 0-2, default 1.0
-- conversationWeight (number): Conversation weight 0-2, default 0.5
-
-### knowledge_stats
-
-Get knowledge base statistics. No parameters.
+- scope (enum): 'all' | 'knowledge' | 'memory' | 'conversations' | 'insights', default 'all'
 
 ## Insight Tools (Proactive Discovery)
 
@@ -221,10 +195,6 @@ Dismiss an insight.
 
 - insightId (string, REQUIRED): Insight ID to dismiss
 
-### insight_stats
-
-Get insight queue and processing statistics. No parameters.
-
 ## Documentation
 
 - /AGENTS.md - Agent conventions and tool selection guide
@@ -235,7 +205,7 @@ Get insight queue and processing statistics. No parameters.
 
 ## Quick Facts
 
-- 22 MCP tools available (6 document/search + 8 memory + 6 conversation + 4 insight)
+- 18 MCP tools available (5 document/search + 5 memory + 3 conversation + 1 stats + 4 insight)
 - Embedding: OpenAI (1536 dim) or Ollama (1024 dim)
 - Database: Supabase PostgreSQL with pgvector
 - Chunking: 512 tokens, 50 token overlap, paragraph-aware

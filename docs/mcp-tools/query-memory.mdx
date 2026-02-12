@@ -1,0 +1,184 @@
+---
+title: query_memory
+description: Query the memory graph by search, entity lookup, or listing
+---
+
+Query stored memories using three modes: semantic search, entity context lookup, or paginated listing.
+
+## Parameters
+
+| Parameter | Type | Required | Default | Description |
+|-----------|------|----------|---------|-------------|
+| `mode` | enum | Yes | - | Query mode: `search`, `entity`, or `list` |
+| `query` | string | mode=search | - | Search query (1-1000 chars) |
+| `entityTypes` | enum[] | No | all | Filter by entity types |
+| `searchMode` | enum | No | `hybrid` | Search mode: `hybrid` or `semantic` (mode=search only) |
+| `entityName` | string | mode=entity | - | Entity name to look up (1-200 chars) |
+| `includeRelated` | boolean | No | true | Include relations (mode=entity only) |
+| `maxObs` | number | No | 20 | Max observations per entity (mode=entity only) |
+| `limit` | number | No | 10 | Max results (1-50 for search, 1-100 for list) |
+| `offset` | number | No | 0 | Pagination offset (mode=list only) |
+
+## Mode: search
+
+Semantic search across stored memories. Replaces the former `recall_memories` tool.
+
+### Example
+
+```json
+{
+  "mode": "search",
+  "query": "user preferences for development tools",
+  "entityTypes": ["person", "preference"],
+  "limit": 10,
+  "searchMode": "hybrid"
+}
+```
+
+### Search Modes
+
+| Mode | Description |
+|------|-------------|
+| `hybrid` | Combines keyword matching with semantic similarity (recommended) |
+| `semantic` | Pure semantic similarity search |
+
+### Response (Compact)
+
+```json
+{"n":3,"e":[{"n":"Jeff","t":"person","m":[{"c":"prefers TypeScript over JavaScript","s":0.92},{"c":"uses VS Code as primary editor","s":0.85}]},{"n":"Development Setup","t":"preference","m":[{"c":"dark mode enabled by default","s":0.78}]}]}
+```
+
+**Key mapping:** `n`=count/name, `e`=entities, `t`=type, `m`=memories, `c`=content, `s`=score
+
+### Response (Verbose)
+
+```json
+{
+  "query": "user preferences for development tools",
+  "totalMemories": 3,
+  "entities": [
+    {
+      "entityName": "Jeff",
+      "entityType": "person",
+      "memories": [
+        { "content": "prefers TypeScript over JavaScript", "source": "conversation", "score": 0.92 },
+        { "content": "uses VS Code as primary editor", "source": "conversation", "score": 0.85 }
+      ]
+    }
+  ]
+}
+```
+
+### Score Interpretation
+
+| Score Range | Meaning |
+|-------------|---------|
+| 0.9 - 1.0 | Highly relevant match |
+| 0.7 - 0.9 | Good match |
+| 0.5 - 0.7 | Moderate relevance |
+| < 0.5 | Weak match |
+
+## Mode: entity
+
+Get all information about a specific entity including observations and relations. Replaces the former `get_entity_context` tool.
+
+### Example
+
+```json
+{
+  "mode": "entity",
+  "entityName": "Jeff",
+  "includeRelated": true
+}
+```
+
+### Response (Compact)
+
+```json
+{"t":"person","o":["prefers dark mode in IDEs","uses TypeScript for most projects"],"r":{"out":["works_at→Acme Corp"],"in":["Sarah→manages"]},"more":5}
+```
+
+**Key mapping:** `t`=type, `o`=observations (content strings), `r`=relations (string format), `more`=remaining observations beyond maxObs
+
+### Response (Verbose)
+
+```json
+{
+  "found": true,
+  "entity": {
+    "id": "550e8400-e29b-41d4-a716-446655440000",
+    "name": "Jeff",
+    "type": "person"
+  },
+  "observations": [
+    { "id": "...", "content": "prefers dark mode in IDEs", "source": "conversation", "confidence": 1.0 },
+    { "id": "...", "content": "uses TypeScript for most projects", "source": "conversation", "confidence": 1.0 }
+  ],
+  "relations": {
+    "outgoing": [{ "relation_type": "works_at", "to_entity": "Acme Corp", "to_entity_type": "organization" }],
+    "incoming": [{ "relation_type": "manages", "from_entity": "Sarah", "from_entity_type": "person" }]
+  }
+}
+```
+
+### Entity Not Found
+
+```json
+{"found":false}
+```
+
+## Mode: list
+
+List all entities with optional type filtering and pagination. Replaces the former `list_entities` tool.
+
+### Example
+
+```json
+{
+  "mode": "list",
+  "entityTypes": ["person", "organization"],
+  "limit": 20,
+  "offset": 0
+}
+```
+
+### Response (Compact)
+
+```json
+{"n":45,"e":[{"n":"Jeff","t":"person"},{"n":"Acme Corp","t":"organization"}]}
+```
+
+### Response (Verbose)
+
+```json
+{
+  "total": 45,
+  "returned": 20,
+  "offset": 0,
+  "entities": [
+    { "id": "550e8400-...", "name": "Jeff", "type": "person", "updatedAt": "2026-01-05T10:00:00Z" },
+    { "id": "550e8401-...", "name": "Acme Corp", "type": "organization", "updatedAt": "2026-01-04T15:30:00Z" }
+  ]
+}
+```
+
+## Entity Types
+
+Valid types: `person`, `concept`, `project`, `preference`, `fact`, `location`, `organization`
+
+## Errors
+
+| Error | Cause | Fix |
+|-------|-------|-----|
+| Memory not enabled | `ENABLE_MEMORY` feature flag is false | Set `ENABLE_MEMORY=true` |
+| Missing query | mode=search without `query` | Provide `query` parameter |
+| Missing entityName | mode=entity without `entityName` | Provide `entityName` parameter |
+| Embedding service not configured | Missing API key | Set `OPENAI_API_KEY` or configure Ollama |
+| Invalid entity type | Unknown entity type in filter | Use valid types listed above |
+
+## Related Tools
+
+- `remember_fact` - Store new facts about entities
+- `build_knowledge` - Store multiple facts and relations in a batch
+- `relate_entities` - Create relationships between entities
+- `forget_entity` - Delete an entity and all its memories

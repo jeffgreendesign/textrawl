@@ -10,12 +10,7 @@ import {
 } from '../db/memory-entities.js';
 import { createObservation, findSimilarObservation } from '../db/memory-observations.js';
 import { RELATION_TYPES, getOrCreateRelation } from '../db/memory-relations.js';
-import {
-	getEntityContext,
-	getMemoryStats,
-	hybridMemorySearch,
-	semanticMemorySearch,
-} from '../db/memory-search.js';
+import { getEntityContext, hybridMemorySearch, semanticMemorySearch } from '../db/memory-search.js';
 import { generateEmbedding, isOpenAIConfigured } from '../services/embeddings.js';
 import {
 	extractAndStoreMemories,
@@ -73,7 +68,7 @@ export function registerMemoryTools(server: McpServer): void {
 		{
 			title: 'Remember Fact',
 			description:
-				'Store a single atomic fact about an entity (person, project, concept, etc.) with automatic semantic embedding. Creates the entity if it does not exist. Idempotent: duplicate facts are detected and skipped.',
+				'Store a single atomic fact about an entity (person, project, concept, etc.) with automatic semantic embedding. Creates the entity if it does not exist. Idempotent: duplicate facts are detected and skipped. Prefer build_knowledge for batch operations.',
 			inputSchema: {
 				entityName: z
 					.string()
@@ -217,35 +212,62 @@ export function registerMemoryTools(server: McpServer): void {
 	logger.debug('Registered tool: remember_fact');
 
 	// ============================================
-	// Tool: recall_memories
+	// Tool: query_memory
+	// Consolidated: replaces recall_memories, get_entity_context, list_entities
 	// ============================================
 	server.registerTool(
-		'recall_memories',
+		'query_memory',
 		{
-			title: 'Recall Memories',
+			title: 'Query Memory',
 			description:
-				'Search stored memories using hybrid (keyword + semantic) or semantic-only search. Returns memories grouped by entity. Use this to find previously stored facts.',
+				'Query the memory graph. mode="search": semantic/hybrid search across memories. mode="entity": get full context for a named entity (observations + relations). mode="list": list all entities with optional type filter.',
 			inputSchema: {
+				mode: z
+					.enum(['search', 'entity', 'list'])
+					.describe(
+						'Query mode. "search": search memories by query. "entity": get full context for a named entity. "list": list all entities.',
+					),
 				query: z
 					.string()
 					.min(1)
 					.max(1000)
-					.describe('What to search for in memories. Can be a question or topic.'),
+					.optional()
+					.describe('Search query (required for mode="search")'),
 				entityTypes: z
 					.array(EntityTypeSchema)
 					.optional()
-					.describe('Filter by entity types (e.g., ["person", "project"]). Omit to search all.'),
+					.describe('Filter by entity types (e.g., ["person", "project"])'),
+				searchMode: z
+					.enum(['hybrid', 'semantic'])
+					.default('hybrid')
+					.describe(
+						'Search algorithm for mode="search": hybrid (keyword + semantic) or semantic only',
+					),
+				entityName: z
+					.string()
+					.min(1)
+					.max(200)
+					.optional()
+					.describe('Entity name to look up (required for mode="entity")'),
+				includeRelated: z
+					.boolean()
+					.default(true)
+					.describe('Include related entities and relations (for mode="entity")'),
+				maxObs: z
+					.number()
+					.int()
+					.min(1)
+					.max(100)
+					.default(20)
+					.describe('Max observations to return (for mode="entity")'),
 				limit: z
 					.number()
 					.int()
 					.min(1)
-					.max(50)
+					.max(100)
 					.default(10)
-					.describe('Maximum number of memories to return'),
-				searchMode: z
-					.enum(['hybrid', 'semantic'])
-					.default('hybrid')
-					.describe('Search mode: hybrid (keyword + semantic) or semantic only'),
+					.describe('Maximum results (mode="search": max 50, mode="list": max 100)'),
+				offset: z.number().int().min(0).default(0).describe('Pagination offset (for mode="list")'),
 			},
 			annotations: {
 				readOnlyHint: true,
@@ -253,117 +275,208 @@ export function registerMemoryTools(server: McpServer): void {
 				openWorldHint: false,
 			},
 		},
-		async ({ query, entityTypes, limit, searchMode }) => {
-			logger.info('recall_memories called', {
-				query,
-				entityTypes,
-				limit,
-				searchMode,
-			});
+		async ({
+			mode,
+			query,
+			entityTypes,
+			searchMode,
+			entityName,
+			includeRelated,
+			maxObs,
+			limit,
+			offset,
+		}) => {
+			logger.info('query_memory called', { mode, query, entityName, entityTypes, limit });
 
 			if (!isSupabaseConfigured()) {
 				return configError('Database', 'Set SUPABASE_URL and SUPABASE_SERVICE_KEY');
 			}
 
-			if (!isOpenAIConfigured()) {
-				return configError('Embedding provider', 'Set OPENAI_API_KEY or configure Ollama');
-			}
-
 			try {
-				// Generate embedding for the query
-				const embedStart = Date.now();
-				const queryEmbedding = await generateEmbedding(query);
-				logger.debug('embedding generated', {
-					operation: 'recall_memories',
-					queryLength: query.length,
-					latencyMs: Date.now() - embedStart,
-				});
-
-				// Search memories
-				const searchStart = Date.now();
-				const results =
-					searchMode === 'semantic'
-						? await semanticMemorySearch(queryEmbedding, {
-								limit,
-								entityTypes: entityTypes as EntityType[] | undefined,
-							})
-						: await hybridMemorySearch(query, queryEmbedding, {
-								limit,
-								entityTypes: entityTypes as EntityType[] | undefined,
-							});
-				const searchLatencyMs = Date.now() - searchStart;
-
-				// Group results by entity
-				const groupedByEntity = new Map<
-					string,
-					{
-						entityName: string;
-						entityType: string;
-						memories: Array<{ content: string; source: string; score: number }>;
-					}
-				>();
-
-				for (const result of results) {
-					const key = result.entity_id;
-					if (!groupedByEntity.has(key)) {
-						groupedByEntity.set(key, {
-							entityName: result.entity_name,
-							entityType: result.entity_type,
-							memories: [],
-						});
-					}
-					groupedByEntity.get(key)?.memories.push({
-						content: result.observation_content,
-						source: result.source,
-						score: Math.round(result.score * 100) / 100,
-					});
-				}
-
-				const groupedResults = Array.from(groupedByEntity.values());
-
-				logger.info('recall_memories completed', {
-					resultCount: results.length,
-					entityCount: groupedResults.length,
-					searchLatencyMs,
-				});
-
-				// Format based on compact mode
-				const response = isCompact()
-					? {
-							n: results.length,
-							e: groupedResults.map((g) => ({
-								n: g.entityName,
-								t: g.entityType,
-								m: g.memories.map((m) => ({ c: m.content, s: m.score })),
-							})),
+				switch (mode) {
+					// --- Search mode (replaces recall_memories) ---
+					case 'search': {
+						if (!query) {
+							return toolError('query is required for mode="search"');
 						}
-					: {
-							query,
-							totalMemories: results.length,
-							entities: groupedResults,
-						};
+						if (!isOpenAIConfigured()) {
+							return configError('Embedding provider', 'Set OPENAI_API_KEY or configure Ollama');
+						}
 
-				return {
-					content: [
-						{
-							type: 'text' as const,
-							text: toJSON(response),
-						},
-					],
-				};
+						const queryEmbedding = await generateEmbedding(query);
+
+						const results =
+							searchMode === 'semantic'
+								? await semanticMemorySearch(queryEmbedding, {
+										limit: Math.min(limit, 50),
+										entityTypes: entityTypes as EntityType[] | undefined,
+									})
+								: await hybridMemorySearch(query, queryEmbedding, {
+										limit: Math.min(limit, 50),
+										entityTypes: entityTypes as EntityType[] | undefined,
+									});
+
+						// Group results by entity
+						const groupedByEntity = new Map<
+							string,
+							{
+								entityName: string;
+								entityType: string;
+								memories: Array<{ content: string; source: string; score: number }>;
+							}
+						>();
+
+						for (const result of results) {
+							const key = result.entity_id;
+							if (!groupedByEntity.has(key)) {
+								groupedByEntity.set(key, {
+									entityName: result.entity_name,
+									entityType: result.entity_type,
+									memories: [],
+								});
+							}
+							groupedByEntity.get(key)?.memories.push({
+								content: result.observation_content,
+								source: result.source,
+								score: Math.round(result.score * 100) / 100,
+							});
+						}
+
+						const groupedResults = Array.from(groupedByEntity.values());
+
+						const response = isCompact()
+							? {
+									n: results.length,
+									e: groupedResults.map((g) => ({
+										n: g.entityName,
+										t: g.entityType,
+										m: g.memories.map((m) => ({ c: m.content, s: m.score })),
+									})),
+								}
+							: {
+									query,
+									totalMemories: results.length,
+									entities: groupedResults,
+								};
+
+						return {
+							content: [{ type: 'text' as const, text: toJSON(response) }],
+						};
+					}
+
+					// --- Entity mode (replaces get_entity_context) ---
+					case 'entity': {
+						if (!entityName) {
+							return toolError('entityName is required for mode="entity"');
+						}
+
+						const context = await getEntityContext(entityName, includeRelated);
+
+						if (!context) {
+							return {
+								content: [
+									{
+										type: 'text' as const,
+										text: toJSON(
+											isCompact()
+												? { found: false }
+												: {
+														found: false,
+														message: `No entity found with name "${entityName}". Use query_memory with mode="list" to see available entities, or remember_fact to create one.`,
+													},
+										),
+									},
+								],
+							};
+						}
+
+						const limitedObs = context.observations.slice(0, maxObs);
+						const hasMore = context.observations.length > maxObs;
+
+						const response = isCompact()
+							? {
+									t: context.entity_type,
+									o: limitedObs.map((o) => o.content),
+									r:
+										context.outgoing_relations.length > 0 || context.incoming_relations.length > 0
+											? {
+													out: context.outgoing_relations.map(
+														(r) => `${r.relation_type}→${r.to_entity}`,
+													),
+													in: context.incoming_relations.map(
+														(r) => `${r.from_entity}→${r.relation_type}`,
+													),
+												}
+											: undefined,
+									more: hasMore ? context.observations.length - maxObs : undefined,
+								}
+							: {
+									found: true,
+									entity: {
+										id: formatId(context.entity_id),
+										name: context.entity_name,
+										type: context.entity_type,
+										description: context.entity_description,
+									},
+									observations: limitedObs,
+									relations: {
+										outgoing: context.outgoing_relations,
+										incoming: context.incoming_relations,
+									},
+									hasMore,
+									totalObservations: context.observations.length,
+								};
+
+						return {
+							content: [{ type: 'text' as const, text: toJSON(response) }],
+						};
+					}
+
+					// --- List mode (replaces list_entities) ---
+					case 'list': {
+						const { entities, total } = await listEntities({
+							entityTypes: entityTypes as EntityType[] | undefined,
+							limit: Math.min(limit, 100),
+							offset,
+						});
+
+						const response = isCompact()
+							? {
+									n: total,
+									e: entities.map((e) => ({ n: e.name, t: e.entity_type })),
+								}
+							: {
+									total,
+									returned: entities.length,
+									offset,
+									entities: entities.map((e) => ({
+										id: formatId(e.id),
+										name: e.name,
+										type: e.entity_type,
+										description: e.description,
+										updatedAt: e.updated_at,
+									})),
+								};
+
+						return {
+							content: [{ type: 'text' as const, text: toJSON(response) }],
+						};
+					}
+				}
 			} catch (error) {
-				logger.error('recall_memories failed', {
+				logger.error('query_memory failed', {
+					mode,
 					error: error instanceof Error ? error.message : String(error),
 				});
 
 				return toolError(
-					`Memory search failed: ${error instanceof Error ? error.message : 'Unknown error'}`,
+					`Memory query failed: ${error instanceof Error ? error.message : 'Unknown error'}`,
 				);
 			}
 		},
 	);
 
-	logger.debug('Registered tool: recall_memories');
+	logger.debug('Registered tool: query_memory');
 
 	// ============================================
 	// Tool: relate_entities
@@ -379,6 +492,7 @@ export function registerMemoryTools(server: McpServer): void {
 				'Idempotent: creating the same relation twice is a no-op.',
 				`Common relation types: ${Object.values(RELATION_TYPES).join(', ')}.`,
 				'Custom relation types are also accepted (use snake_case).',
+				'Prefer build_knowledge for batch operations.',
 			].join(' '),
 			inputSchema: {
 				fromEntity: z.string().min(1).max(200).describe('The source entity name'),
@@ -390,12 +504,16 @@ export function registerMemoryTools(server: McpServer): void {
 						'Relation type in snake_case active voice (e.g., "works_at", "prefers", "knows", "created", "part_of"). Free-form — any string accepted.',
 					),
 				toEntity: z.string().min(1).max(200).describe('The target entity name'),
-				fromEntityType: EntityTypeSchema.optional().describe(
-					'Type of source entity. Omit if entity already exists — type is auto-detected. Only needed when creating a new entity.',
-				),
-				toEntityType: EntityTypeSchema.optional().describe(
-					'Type of target entity. Omit if entity already exists — type is auto-detected. Only needed when creating a new entity.',
-				),
+				fromEntityType: EntityTypeSchema.optional()
+					.nullable()
+					.describe(
+						'Type of source entity. Omit if entity already exists — type is auto-detected. Only needed when creating a new entity.',
+					),
+				toEntityType: EntityTypeSchema.optional()
+					.nullable()
+					.describe(
+						'Type of target entity. Omit if entity already exists — type is auto-detected. Only needed when creating a new entity.',
+					),
 			},
 			annotations: {
 				readOnlyHint: false,
@@ -490,211 +608,6 @@ export function registerMemoryTools(server: McpServer): void {
 	logger.debug('Registered tool: relate_entities');
 
 	// ============================================
-	// Tool: get_entity_context
-	// ============================================
-	server.registerTool(
-		'get_entity_context',
-		{
-			title: 'Get Entity Context',
-			description:
-				'Retrieve all stored information about an entity: observations (facts), outgoing relations, and incoming relations. Use this to see everything known about a specific entity.',
-			inputSchema: {
-				entityName: z.string().min(1).max(200).describe('Name of the entity to get context for'),
-				includeRelated: z
-					.boolean()
-					.default(true)
-					.describe('Include related entities and their relations'),
-				maxObs: z
-					.number()
-					.int()
-					.min(1)
-					.max(100)
-					.default(20)
-					.describe('Max observations to return (default 20, for token efficiency)'),
-			},
-			annotations: {
-				readOnlyHint: true,
-				destructiveHint: false,
-				openWorldHint: false,
-			},
-		},
-		async ({ entityName, includeRelated, maxObs }) => {
-			logger.info('get_entity_context called', { entityName, includeRelated });
-
-			if (!isSupabaseConfigured()) {
-				return configError('Database', 'Set SUPABASE_URL and SUPABASE_SERVICE_KEY');
-			}
-
-			try {
-				const context = await getEntityContext(entityName, includeRelated);
-
-				if (!context) {
-					return {
-						content: [
-							{
-								type: 'text' as const,
-								text: toJSON(
-									isCompact()
-										? { found: false }
-										: {
-												found: false,
-												message: `No entity found with name "${entityName}". Use list_entities to see available entities, or remember_fact to create one.`,
-											},
-								),
-							},
-						],
-					};
-				}
-
-				logger.info('Entity context retrieved', {
-					entityId: context.entity_id,
-					observationCount: context.observations.length,
-				});
-
-				const limitedObs = context.observations.slice(0, maxObs);
-				const hasMore = context.observations.length > maxObs;
-
-				// Format based on compact mode
-				const response = isCompact()
-					? {
-							t: context.entity_type,
-							o: limitedObs.map((o) => o.content),
-							r:
-								context.outgoing_relations.length > 0 || context.incoming_relations.length > 0
-									? {
-											out: context.outgoing_relations.map(
-												(r) => `${r.relation_type}→${r.to_entity}`,
-											),
-											in: context.incoming_relations.map(
-												(r) => `${r.from_entity}→${r.relation_type}`,
-											),
-										}
-									: undefined,
-							more: hasMore ? context.observations.length - maxObs : undefined,
-						}
-					: {
-							found: true,
-							entity: {
-								id: formatId(context.entity_id),
-								name: context.entity_name,
-								type: context.entity_type,
-								description: context.entity_description,
-							},
-							observations: limitedObs,
-							relations: {
-								outgoing: context.outgoing_relations,
-								incoming: context.incoming_relations,
-							},
-							hasMore,
-							totalObservations: context.observations.length,
-						};
-
-				return {
-					content: [
-						{
-							type: 'text' as const,
-							text: toJSON(response),
-						},
-					],
-				};
-			} catch (error) {
-				logger.error('get_entity_context failed', {
-					error: error instanceof Error ? error.message : String(error),
-				});
-
-				return toolError(
-					`Failed to get context for "${entityName}": ${error instanceof Error ? error.message : 'Unknown error'}`,
-				);
-			}
-		},
-	);
-
-	logger.debug('Registered tool: get_entity_context');
-
-	// ============================================
-	// Tool: list_entities
-	// ============================================
-	server.registerTool(
-		'list_entities',
-		{
-			title: 'List Entities',
-			description:
-				'List all known entities in the memory graph with optional type filtering and pagination.',
-			inputSchema: {
-				entityTypes: z
-					.array(EntityTypeSchema)
-					.optional()
-					.describe('Filter by entity types. Omit to list all.'),
-				limit: z
-					.number()
-					.int()
-					.min(1)
-					.max(100)
-					.default(50)
-					.describe('Maximum number of entities to return'),
-				offset: z.number().int().min(0).default(0).describe('Pagination offset'),
-			},
-			annotations: {
-				readOnlyHint: true,
-				destructiveHint: false,
-				openWorldHint: false,
-			},
-		},
-		async ({ entityTypes, limit, offset }) => {
-			logger.info('list_entities called', { entityTypes, limit, offset });
-
-			if (!isSupabaseConfigured()) {
-				return configError('Database', 'Set SUPABASE_URL and SUPABASE_SERVICE_KEY');
-			}
-
-			try {
-				const { entities, total } = await listEntities({
-					entityTypes: entityTypes as EntityType[] | undefined,
-					limit,
-					offset,
-				});
-
-				const response = isCompact()
-					? {
-							n: total,
-							e: entities.map((e) => ({ n: e.name, t: e.entity_type })),
-						}
-					: {
-							total,
-							returned: entities.length,
-							offset,
-							entities: entities.map((e) => ({
-								id: formatId(e.id),
-								name: e.name,
-								type: e.entity_type,
-								description: e.description,
-								updatedAt: e.updated_at,
-							})),
-						};
-
-				return {
-					content: [
-						{
-							type: 'text' as const,
-							text: toJSON(response),
-						},
-					],
-				};
-			} catch (error) {
-				logger.error('list_entities failed', {
-					error: error instanceof Error ? error.message : String(error),
-				});
-
-				return toolError(
-					`Failed to list entities: ${error instanceof Error ? error.message : 'Unknown error'}`,
-				);
-			}
-		},
-	);
-
-	logger.debug('Registered tool: list_entities');
-
-	// ============================================
 	// Tool: forget_entity
 	// ============================================
 	server.registerTool(
@@ -732,7 +645,7 @@ export function registerMemoryTools(server: McpServer): void {
 
 				if (!entity) {
 					return toolError(
-						`Entity "${entityName}" not found. Use list_entities to see available entities.`,
+						`Entity "${entityName}" not found. Use query_memory with mode="list" to see available entities.`,
 					);
 				}
 
@@ -769,68 +682,6 @@ export function registerMemoryTools(server: McpServer): void {
 	);
 
 	logger.debug('Registered tool: forget_entity');
-
-	// ============================================
-	// Tool: memory_stats
-	// ============================================
-	server.registerTool(
-		'memory_stats',
-		{
-			title: 'Memory Stats',
-			description:
-				'Get statistics about stored memories: entity counts, observation counts, relation counts, and breakdown by entity type.',
-			inputSchema: {},
-			annotations: {
-				readOnlyHint: true,
-				destructiveHint: false,
-				openWorldHint: false,
-			},
-		},
-		async () => {
-			logger.info('memory_stats called');
-
-			if (!isSupabaseConfigured()) {
-				return configError('Database', 'Set SUPABASE_URL and SUPABASE_SERVICE_KEY');
-			}
-
-			try {
-				const stats = await getMemoryStats();
-
-				const response = isCompact()
-					? {
-							ent: stats.totalEntities,
-							obs: stats.totalObservations,
-							rel: stats.totalRelations,
-							byType: stats.entityTypeCounts,
-						}
-					: {
-							totalEntities: stats.totalEntities,
-							totalObservations: stats.totalObservations,
-							totalRelations: stats.totalRelations,
-							entitiesByType: stats.entityTypeCounts,
-						};
-
-				return {
-					content: [
-						{
-							type: 'text' as const,
-							text: toJSON(response),
-						},
-					],
-				};
-			} catch (error) {
-				logger.error('memory_stats failed', {
-					error: error instanceof Error ? error.message : String(error),
-				});
-
-				return toolError(
-					`Failed to get memory stats: ${error instanceof Error ? error.message : 'Unknown error'}`,
-				);
-			}
-		},
-	);
-
-	logger.debug('Registered tool: memory_stats');
 
 	// ============================================
 	// Tool: extract_memories
@@ -974,4 +825,182 @@ export function registerMemoryTools(server: McpServer): void {
 	);
 
 	logger.debug('Registered tool: extract_memories');
+
+	// ============================================
+	// Tool: build_knowledge
+	// ============================================
+	server.registerTool(
+		'build_knowledge',
+		{
+			title: 'Build Knowledge',
+			description:
+				'Store multiple facts and relations in a single call. More efficient than calling remember_fact and relate_entities individually. Creates entities automatically. Idempotent: duplicate facts and relations are skipped.',
+			inputSchema: {
+				facts: z
+					.array(
+						z.object({
+							entityName: z.string().min(1).max(200),
+							entityType: EntityTypeSchema,
+							observation: z.string().min(1).max(2000),
+							source: z
+								.enum(['conversation', 'note', 'document', 'manual'])
+								.optional()
+								.default('conversation'),
+						}),
+					)
+					.max(50)
+					.optional()
+					.describe('Facts to store (max 50)'),
+				relations: z
+					.array(
+						z.object({
+							fromEntity: z.string().min(1).max(200),
+							relation: z.string().min(1).max(100),
+							toEntity: z.string().min(1).max(200),
+							fromEntityType: EntityTypeSchema.optional().nullable(),
+							toEntityType: EntityTypeSchema.optional().nullable(),
+						}),
+					)
+					.max(50)
+					.optional()
+					.describe('Relations to create (max 50)'),
+			},
+			annotations: {
+				readOnlyHint: false,
+				destructiveHint: false,
+				idempotentHint: true,
+				openWorldHint: false,
+			},
+		},
+		async ({ facts, relations }) => {
+			logger.info('build_knowledge called', {
+				factCount: facts?.length ?? 0,
+				relationCount: relations?.length ?? 0,
+			});
+
+			if (!facts?.length && !relations?.length) {
+				return toolError('Provide at least one fact or relation');
+			}
+
+			if (!isSupabaseConfigured()) {
+				return configError('Database', 'Set SUPABASE_URL and SUPABASE_SERVICE_KEY');
+			}
+
+			if (!isOpenAIConfigured()) {
+				return configError('Embedding provider', 'Set OPENAI_API_KEY or configure Ollama');
+			}
+
+			let factsCreated = 0;
+			let factsDuplicate = 0;
+			let relationsCreated = 0;
+			const errors: string[] = [];
+
+			// Process facts
+			if (facts?.length) {
+				for (const fact of facts) {
+					try {
+						const entity = await getOrCreateEntity({
+							name: fact.entityName,
+							entityType: fact.entityType as EntityType,
+						});
+
+						// Check for duplicate
+						const existing = await findSimilarObservation(entity.id, fact.observation);
+						if (existing) {
+							factsDuplicate++;
+							continue;
+						}
+
+						// Generate embedding and create observation
+						const embedding = await generateEmbedding(fact.observation);
+						await createObservation({
+							entityId: entity.id,
+							content: fact.observation,
+							source: fact.source,
+							embedding,
+							validUntil: null,
+						});
+						factsCreated++;
+					} catch (error) {
+						const msg = `fact "${fact.entityName}": ${error instanceof Error ? error.message : String(error)}`;
+						logger.error('build_knowledge fact failed', { entity: fact.entityName, error: msg });
+						errors.push(msg);
+					}
+				}
+			}
+
+			// Process relations
+			if (relations?.length) {
+				for (const rel of relations) {
+					try {
+						const cleanFromType = sanitizeEntityType(rel.fromEntityType);
+						const cleanToType = sanitizeEntityType(rel.toEntityType);
+
+						const fromEntityObj = await getOrCreateEntity({
+							name: rel.fromEntity,
+							entityType:
+								cleanFromType || (await findEntityByName(rel.fromEntity))?.entity_type || 'concept',
+						});
+
+						const toEntityObj = await getOrCreateEntity({
+							name: rel.toEntity,
+							entityType:
+								cleanToType || (await findEntityByName(rel.toEntity))?.entity_type || 'concept',
+						});
+
+						await getOrCreateRelation({
+							fromEntityId: fromEntityObj.id,
+							toEntityId: toEntityObj.id,
+							relationType: rel.relation,
+						});
+						relationsCreated++;
+					} catch (error) {
+						const msg = `relation "${rel.fromEntity} ${rel.relation} ${rel.toEntity}": ${error instanceof Error ? error.message : String(error)}`;
+						logger.error('build_knowledge relation failed', {
+							from: rel.fromEntity,
+							to: rel.toEntity,
+							error: msg,
+						});
+						errors.push(msg);
+					}
+				}
+			}
+
+			const hasErrors = errors.length > 0;
+			logger.info('build_knowledge completed', {
+				factsCreated,
+				factsDuplicate,
+				relationsCreated,
+				errors: hasErrors ? errors.length : 0,
+			});
+
+			return {
+				content: [
+					{
+						type: 'text' as const,
+						text: toJSON(
+							isCompact()
+								? {
+										ok: !hasErrors,
+										...(hasErrors ? { partial: true } : {}),
+										facts: { new: factsCreated, dup: factsDuplicate },
+										rel: relationsCreated,
+										...(hasErrors ? { err: errors } : {}),
+									}
+								: {
+										success: !hasErrors,
+										...(hasErrors ? { partialSuccess: true } : {}),
+										factsCreated,
+										factsDuplicate,
+										relationsCreated,
+										...(hasErrors ? { errors } : {}),
+									},
+						),
+					},
+				],
+			};
+		},
+	);
+
+	logger.debug('Registered tool: build_knowledge');
 }

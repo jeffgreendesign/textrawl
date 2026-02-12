@@ -1,23 +1,17 @@
 ---
 title: MCP Tools Overview
-description: Complete reference for textrawl's 22 MCP tools
+description: Complete reference for textrawl's 18 MCP tools
 ---
 
-textrawl exposes 22 tools via the Model Context Protocol (MCP). These tools allow Claude and other MCP clients to search, retrieve, create, and manage documents, memories, conversations, and insights in your knowledge base.
+textrawl exposes 18 tools via the Model Context Protocol (MCP). These tools allow Claude and other MCP clients to search, retrieve, create, and manage documents, memories, conversations, and insights in your knowledge base.
 
 ## Document Tools
 
-### search_knowledge
+### search
 
-Hybrid semantic + full-text search using Reciprocal Rank Fusion.
+Hybrid semantic + full-text search using Reciprocal Rank Fusion. Optionally include memories and conversations with weighted cross-source fusion.
 
-[View documentation →](/docs/mcp-tools/search-knowledge)
-
-### search_with_context
-
-Unified search across documents, memories, and conversations simultaneously.
-
-[View documentation →](/docs/mcp-tools/search-with-context)
+[View documentation →](/docs/mcp-tools/search)
 
 ### get_document
 
@@ -43,12 +37,6 @@ Create markdown notes with automatic chunking and embedding.
 
 [View documentation →](/docs/mcp-tools/add-note)
 
-### knowledge_stats
-
-Get statistics about the knowledge base contents.
-
-[View documentation →](/docs/mcp-tools/knowledge-stats)
-
 ## Memory Tools (Persistent Memory)
 
 Enable with `ENABLE_MEMORY=true` (default). Requires `setup-db-memory.sql` schema.
@@ -59,11 +47,17 @@ Store facts about entities (people, projects, concepts) with automatic semantic 
 
 [View documentation →](/docs/mcp-tools/remember-fact)
 
-### recall_memories
+### build_knowledge
 
-Semantic search across stored memories using hybrid or semantic-only mode.
+Store multiple facts and relations in a single batch call.
 
-[View documentation →](/docs/mcp-tools/recall-memories)
+[View documentation →](/docs/mcp-tools/build-knowledge)
+
+### query_memory
+
+Query the memory graph: search memories, look up entity context, or list entities. Modes: `search`, `entity`, `list`.
+
+[View documentation →](/docs/mcp-tools/query-memory)
 
 ### relate_entities
 
@@ -71,29 +65,11 @@ Create directed relationships between entities.
 
 [View documentation →](/docs/mcp-tools/relate-entities)
 
-### get_entity_context
-
-Retrieve all information about an entity including observations and relations.
-
-[View documentation →](/docs/mcp-tools/get-entity-context)
-
-### list_entities
-
-List all known entities with pagination.
-
-[View documentation →](/docs/mcp-tools/list-entities)
-
 ### forget_entity
 
 Delete an entity and all its associated memories and relations.
 
 [View documentation →](/docs/mcp-tools/forget-entity)
-
-### memory_stats
-
-Get statistics about stored memories.
-
-[View documentation →](/docs/mcp-tools/memory-stats)
 
 ### extract_memories
 
@@ -111,35 +87,17 @@ Save conversation summary and turns for later recall.
 
 [View documentation →](/docs/mcp-tools/save-conversation-context)
 
-### recall_conversation
+### query_conversations
 
-Semantic search across past conversations by summary, turns, or both.
+Query past conversations: search by content, get by ID/key, or list sessions. Modes: `search`, `get`, `list`.
 
-[View documentation →](/docs/mcp-tools/recall-conversation)
-
-### list_conversations
-
-List recent conversation sessions with pagination.
-
-[View documentation →](/docs/mcp-tools/list-conversations)
-
-### get_conversation
-
-Get full conversation by session ID or key.
-
-[View documentation →](/docs/mcp-tools/get-conversation)
+[View documentation →](/docs/mcp-tools/query-conversations)
 
 ### delete_conversation
 
 Delete a conversation session and all its turns.
 
 [View documentation →](/docs/mcp-tools/delete-conversation)
-
-### conversation_stats
-
-Get conversation storage statistics.
-
-[View documentation →](/docs/mcp-tools/conversation-stats)
 
 ## Insight Tools (Proactive Discovery)
 
@@ -163,11 +121,13 @@ Dismiss an insight so it no longer appears in results.
 
 [View documentation →](/docs/mcp-tools/dismiss-insight)
 
-### insight_stats
+## Stats
 
-Get statistics about the insight queue and processing state.
+### get_stats
 
-[View documentation →](/docs/mcp-tools/insight-stats)
+Get statistics across all features with scope selection: `all`, `knowledge`, `memory`, `conversations`, `insights`.
+
+[View documentation →](/docs/mcp-tools/get-stats)
 
 ## Tool Selection Guide
 
@@ -175,9 +135,9 @@ Get statistics about the insight queue and processing state.
 
 | User Intent | Recommended Tool | Key Parameters |
 |-------------|------------------|----------------|
-| Find content by meaning | `search_knowledge` | `semanticWeight: 1.5` |
-| Find exact keywords | `search_knowledge` | `fullTextWeight: 1.5` |
-| Search everything at once | `search_with_context` | `includeMemories`, `includeConversations` |
+| Find content by meaning | `search` | `semanticWeight: 1.5` |
+| Find exact keywords | `search` | `fullTextWeight: 1.5` |
+| Search everything at once | `search` | `includeMemories: true`, `includeConversations: true` |
 | Read full document | `get_document` | `documentId` |
 | Browse all documents | `list_documents` | `limit`, `offset` |
 | Filter by source type | `list_documents` | `sourceType` |
@@ -189,10 +149,11 @@ Get statistics about the insight queue and processing state.
 | User Intent | Recommended Tool | Key Parameters |
 |-------------|------------------|----------------|
 | Remember facts about people/projects | `remember_fact` | `entityName`, `entityType`, `observation` |
-| Search past memories | `recall_memories` | `query`, `searchMode` |
+| Store many facts at once | `build_knowledge` | `facts`, `relations` |
+| Search past memories | `query_memory` | `mode: "search"`, `query` |
+| Get all info about an entity | `query_memory` | `mode: "entity"`, `entityName` |
+| List all known entities | `query_memory` | `mode: "list"`, `entityTypes` |
 | Connect entities together | `relate_entities` | `fromEntity`, `relation`, `toEntity` |
-| Get all info about an entity | `get_entity_context` | `entityName` |
-| List all known entities | `list_entities` | `entityTypes`, `limit` |
 | Delete an entity completely | `forget_entity` | `entityName`, `confirm: true` |
 | Extract facts from text | `extract_memories` | `text`, `storeResults` |
 
@@ -201,9 +162,9 @@ Get statistics about the insight queue and processing state.
 | User Intent | Recommended Tool | Key Parameters |
 |-------------|------------------|----------------|
 | Save conversation for later | `save_conversation_context` | `summary`, `recentTurns` |
-| Find past conversations | `recall_conversation` | `query`, `searchMode` |
-| Browse conversation history | `list_conversations` | `limit`, `offset` |
-| Get full transcript | `get_conversation` | `sessionKey` or `sessionId` |
+| Find past conversations | `query_conversations` | `mode: "search"`, `query` |
+| Browse conversation history | `query_conversations` | `mode: "list"`, `limit` |
+| Get full transcript | `query_conversations` | `mode: "get"`, `sessionKey` |
 | Delete a conversation | `delete_conversation` | `sessionKey`, `confirm: true` |
 
 ### Insight Tools
@@ -213,14 +174,14 @@ Get statistics about the insight queue and processing state.
 | View discovered patterns | `get_insights` | `status`, `insightType` |
 | Run insight scan | `discover_connections` | `fullScan`, `maxChunks` |
 | Dismiss an insight | `dismiss_insight` | `insightId` |
-| Check queue status | `insight_stats` | (none) |
+| Check system stats | `get_stats` | `scope: "insights"` |
 
 ## Common Patterns
 
 ### Search and Retrieve
 
 ```text
-1. search_knowledge(query: "user question")
+1. search(query: "user question")
    → Get top matching chunks
 2. get_document(documentId: results[0].documentId)
    → Get full document content
@@ -230,7 +191,7 @@ Get statistics about the insight queue and processing state.
 ### Comprehensive Context
 
 ```text
-1. search_with_context(query: "topic", includeMemories: true, includeConversations: true)
+1. search(query: "topic", includeMemories: true, includeConversations: true)
    → Get results from all sources at once
 2. Synthesize answer from documents, memories, and past conversations
 ```
@@ -259,7 +220,7 @@ Get statistics about the insight queue and processing state.
 1. At end of conversation, save context:
    save_conversation_context(summary: "...", sessionKey: "project-planning", recentTurns: [...])
 2. At start of next session, recall:
-   recall_conversation(query: "project planning")
+   query_conversations(mode: "search", query: "project planning")
    → Resume with full context
 ```
 
@@ -296,7 +257,7 @@ All tools return JSON-formatted responses. Memory tools support two response mod
 | `ok` | `success` | Operation status |
 | `dup` | `duplicate` | Dedupe detection |
 
-**Example (`recall_memories`):**
+**Example (`query_memory` mode=search):**
 
 ```json
 {"n":2,"e":[{"n":"Jeff","t":"person","m":[{"c":"prefers dark mode","s":0.92}]}]}
@@ -338,11 +299,10 @@ Common errors:
 | Error | Cause | Fix |
 |-------|-------|-----|
 | `Database not configured` | Missing Supabase credentials | Set `SUPABASE_URL` and `SUPABASE_SERVICE_KEY` |
-| `OpenAI not configured` | Missing embedding API | Set `OPENAI_API_KEY` or configure Ollama |
+| `Embedding provider not configured` | Missing embedding API | Set `OPENAI_API_KEY` or configure Ollama |
 | `Document not found` | Invalid documentId | Verify UUID from search results |
 | `No updates provided` | Empty update request | Provide `title` or `tags` |
-| `Embedding service not configured` | Memory tools need embeddings | Set `OPENAI_API_KEY` or configure Ollama |
-| `Entity not found` | forget_entity with unknown name | Check entity name with `list_entities` |
+| `Entity not found` | forget_entity with unknown name | Check entity name with `query_memory` mode=list |
 | `Confirmation required` | forget_entity without confirm | Set `confirm: true` to delete |
 | `Conversations not enabled` | Feature flag off | Set `ENABLE_CONVERSATIONS=true` |
 | `Memory extraction not enabled` | Feature flag off | Set `ENABLE_MEMORY_EXTRACTION=true` |

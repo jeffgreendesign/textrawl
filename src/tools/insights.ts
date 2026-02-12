@@ -5,7 +5,6 @@ import {
 	type InsightStatus,
 	type InsightType,
 	type ProactiveInsight,
-	getInsightStats,
 	getInsights,
 	searchInsights,
 	shouldRunInsightScan,
@@ -52,6 +51,7 @@ export function registerInsightTools(server: McpServer): void {
 	server.registerTool(
 		'get_insights',
 		{
+			title: 'Get Insights',
 			description:
 				"Get proactive insights discovered from your knowledge base. Shows cross-source connections, recurring themes, entity bridges, and outliers that were automatically found. Use this to discover things you didn't know to ask about.",
 			annotations: {
@@ -213,6 +213,7 @@ export function registerInsightTools(server: McpServer): void {
 	server.registerTool(
 		'discover_connections',
 		{
+			title: 'Discover Connections',
 			description:
 				"Trigger an insight scan to discover connections, patterns, and outliers in your knowledge base. Use after bulk imports (email, Facebook, Google Takeout) to find what's interesting. The scan compares recent content against everything in the database.",
 			annotations: {
@@ -342,6 +343,7 @@ export function registerInsightTools(server: McpServer): void {
 	server.registerTool(
 		'dismiss_insight',
 		{
+			title: 'Dismiss Insight',
 			description: 'Dismiss an insight so it no longer appears in new/seen results',
 			annotations: {
 				readOnlyHint: false,
@@ -412,120 +414,4 @@ export function registerInsightTools(server: McpServer): void {
 	);
 
 	logger.debug('Registered tool: dismiss_insight');
-
-	// ========================================================================
-	// Tool: insight_stats
-	// ========================================================================
-	server.registerTool(
-		'insight_stats',
-		{
-			description:
-				'Get statistics about proactive insights and the insight queue (pending chunks, processing state)',
-			annotations: {
-				readOnlyHint: true,
-				destructiveHint: false,
-				openWorldHint: false,
-			},
-			inputSchema: {},
-		},
-		async () => {
-			logger.info('insight_stats called');
-
-			if (!isSupabaseConfigured()) {
-				return {
-					content: [
-						{
-							type: 'text' as const,
-							text: JSON.stringify({ error: 'Database not configured' }),
-						},
-					],
-				};
-			}
-
-			const schema = await ensureSchema();
-			if (!schema.ok) {
-				return {
-					content: [
-						{
-							type: 'text' as const,
-							text: JSON.stringify({
-								error: 'Insight schema not initialized',
-								message: schema.error,
-							}),
-						},
-					],
-				};
-			}
-
-			try {
-				const stats = await getInsightStats();
-
-				if (isCompact()) {
-					return {
-						content: [
-							{
-								type: 'text' as const,
-								text: JSON.stringify({
-									n: stats.total,
-									new: stats.new,
-									seen: stats.seen,
-									dis: stats.dismissed,
-									types: stats.byType,
-									q: stats.queueState
-										? {
-												p: stats.queueState.chunks_pending,
-												proc: stats.queueState.is_processing,
-												last: stats.queueState.last_scan_at,
-											}
-										: null,
-								}),
-							},
-						],
-					};
-				}
-
-				return {
-					content: [
-						{
-							type: 'text' as const,
-							text: JSON.stringify(
-								{
-									totalInsights: stats.total,
-									new: stats.new,
-									seen: stats.seen,
-									dismissed: stats.dismissed,
-									byType: stats.byType,
-									queue: stats.queueState
-										? {
-												chunksPending: stats.queueState.chunks_pending,
-												isProcessing: stats.queueState.is_processing,
-												lastScanAt: stats.queueState.last_scan_at,
-												lastInsertAt: stats.queueState.last_insert_at,
-											}
-										: null,
-								},
-								null,
-								2,
-							),
-						},
-					],
-				};
-			} catch (error) {
-				return {
-					content: [
-						{
-							type: 'text' as const,
-							text: JSON.stringify({
-								error: 'Failed to get insight stats',
-								message: error instanceof Error ? error.message : 'Unknown error',
-							}),
-						},
-					],
-					isError: true,
-				};
-			}
-		},
-	);
-
-	logger.debug('Registered tool: insight_stats');
 }
