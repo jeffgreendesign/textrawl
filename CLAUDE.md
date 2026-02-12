@@ -113,18 +113,17 @@ Express Server
 
 **MCP Transport:** Uses stateless `StreamableHTTPServerTransport` (no session persistence) for Cloud Run/serverless compatibility. Each request creates a fresh server instance.
 
-### MCP Tools
+### MCP Tools (18 tools)
 
 **Document Tools:**
 
-- `search_knowledge` - Hybrid search with weighted RRF fusion (see below)
-- `search_with_context` - Unified search across documents, memories, and conversations
+- `search` - Hybrid semantic + full-text search with weighted RRF fusion. Set `includeMemories`/`includeConversations` to also search those sources with weighted fusion.
 - `get_document` / `list_documents` - Document retrieval
 - `update_document` - Update document title and/or tags
 - `add_note` - Create markdown notes with automatic chunking and embedding (supports `extractMemories` parameter)
 
-**Weighted RRF in search_knowledge:**
-The `search_knowledge` tool supports weighted Reciprocal Rank Fusion:
+**Weighted RRF in search:**
+The `search` tool supports weighted Reciprocal Rank Fusion:
 
 - `fullTextWeight` (0-2, default: 1.0) - Weight for keyword matching
 - `semanticWeight` (0-2, default: 1.0) - Weight for semantic similarity
@@ -135,33 +134,26 @@ The `search_knowledge` tool supports weighted Reciprocal Rank Fusion:
 
 - `remember_fact` - Store facts about entities (people, concepts, projects, etc.)
 - `build_knowledge` - Store multiple facts and relations in a single batch call
-- `recall_memories` - Semantic search across stored memories
+- `query_memory` - Query the memory graph (`mode: 'search' | 'entity' | 'list'`)
 - `relate_entities` - Create relationships between entities
-- `get_entity_context` - Get all memories and relations for an entity
-- `list_entities` - List all known entities
 - `forget_entity` - Delete an entity and all its memories
-- `memory_stats` - Get memory statistics
 - `extract_memories` - Extract entities and facts from text using LLM (requires `ENABLE_MEMORY_EXTRACTION`)
 
 **Conversation Tools (Conversation Memory):**
 
 - `save_conversation_context` - Save conversation summary and turns for recall
-- `recall_conversation` - Semantic search across past conversations
-- `list_conversations` - List recent conversation sessions
-- `get_conversation` - Get full conversation by session ID or key
+- `query_conversations` - Query past conversations (`mode: 'search' | 'get' | 'list'`)
 - `delete_conversation` - Delete a conversation session
-- `conversation_stats` - Get conversation storage statistics
 
 **Insight Tools (Proactive Discovery):**
 
 - `get_insights` - View discovered cross-source connections and patterns
 - `discover_connections` - Trigger an insight scan across the knowledge base
 - `dismiss_insight` - Dismiss an insight from the queue
-- `insight_stats` - Get insight queue and processing statistics
 
 **Stats:**
 
-- `knowledge_stats` - Get overall knowledge base statistics
+- `get_stats` - Get statistics across all features (`scope: 'all' | 'knowledge' | 'memory' | 'conversations' | 'insights'`)
 
 ### Key Directories
 

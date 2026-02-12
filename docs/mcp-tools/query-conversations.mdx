@@ -1,0 +1,177 @@
+---
+title: query_conversations
+description: Query past conversations by search, retrieval, or listing
+---
+
+Query past conversations using three modes: semantic search, get by ID/key, or paginated listing.
+
+## Parameters
+
+| Parameter | Type | Required | Default | Description |
+|-----------|------|----------|---------|-------------|
+| `mode` | enum | Yes | - | Query mode: `search`, `get`, or `list` |
+| `query` | string | mode=search | - | Search query (1-1000 chars) |
+| `searchMode` | enum | No | `summary` | Search mode: `summary`, `turns`, or `both` (mode=search only) |
+| `includeTranscript` | boolean | No | false | Include recent turns from matches (mode=search only) |
+| `maxTurnsPerConversation` | number | No | 10 | Max turns per conversation in search results (mode=search only) |
+| `sessionId` | string | mode=get | - | Session UUID |
+| `sessionKey` | string | mode=get | - | Session key string |
+| `maxTurns` | number | No | 50 | Max turns to include (mode=get only, 1-200) |
+| `limit` | number | No | 20 | Max results (1-50) |
+| `offset` | number | No | 0 | Pagination offset (mode=list only) |
+
+## Mode: search
+
+Semantic search across past conversations by summary, individual turns, or both. Replaces the former `recall_conversation` tool.
+
+### Example
+
+```json
+{
+  "mode": "search",
+  "query": "database migration decisions",
+  "searchMode": "summary",
+  "includeTranscript": true,
+  "limit": 5
+}
+```
+
+### Search Modes
+
+| Mode | Description |
+|------|-------------|
+| `summary` | Search conversation summaries only (fastest) |
+| `turns` | Search individual turn content |
+| `both` | Search summaries and turns |
+
+### Response (Compact)
+
+```json
+{"n":2,"c":[{"id":"550e8400","k":"db-migration-2026-01","t":"Database Migration Planning","s":0.91,"sum":"Discussed migration strategy from MySQL to PostgreSQL..."},{"id":"7c9e6679","k":null,"t":"API Design Review","s":0.78,"sum":"Reviewed REST API design patterns..."}]}
+```
+
+**Key mapping:** `n`=count, `c`=conversations, `id`=sessionId, `k`=sessionKey, `t`=title, `s`=score, `sum`=summary
+
+### Response (Verbose)
+
+```json
+{
+  "query": "database migration decisions",
+  "totalResults": 2,
+  "conversations": [
+    {
+      "sessionId": "550e8400",
+      "sessionKey": "db-migration-2026-01",
+      "title": "Database Migration Planning",
+      "summary": "Discussed migration strategy from MySQL to PostgreSQL...",
+      "score": 0.91,
+      "turns": [
+        { "role": "user", "content": "What's the plan for the database migration?", "turn_index": 0 },
+        { "role": "assistant", "content": "We should start with...", "turn_index": 1 }
+      ]
+    }
+  ]
+}
+```
+
+> `turns` is only included when `includeTranscript=true`. `matchedTurns` appears when `searchMode` is `turns` or `both`.
+
+## Mode: get
+
+Retrieve a complete conversation session including summary and turns. Must provide either `sessionId` or `sessionKey`. Replaces the former `get_conversation` tool.
+
+### Example
+
+```json
+{
+  "mode": "get",
+  "sessionKey": "db-migration-2026-01",
+  "maxTurns": 50
+}
+```
+
+### Response (Compact)
+
+```json
+{"id":"550e8400","k":"db-migration-2026-01","t":"Database Migration Planning","sum":"Discussed migration strategy...","n":15,"turns":[{"r":"u","c":"What's the plan?"},{"r":"a","c":"We should start with..."}]}
+```
+
+**Key mapping:** `id`=sessionId, `k`=sessionKey, `t`=title, `sum`=summary, `n`=turnCount, `r`=role (first char), `c`=content
+
+### Response (Verbose)
+
+```json
+{
+  "found": true,
+  "session": {
+    "id": "550e8400",
+    "sessionKey": "db-migration-2026-01",
+    "title": "Database Migration Planning",
+    "summary": "Discussed migration strategy...",
+    "turnCount": 15,
+    "lastActivity": "2026-01-05T10:00:00Z",
+    "createdAt": "2026-01-04T09:30:00Z"
+  },
+  "turns": [
+    { "role": "user", "content": "What's the plan?", "turnIndex": 0, "createdAt": "2026-01-04T09:30:00Z" },
+    { "role": "assistant", "content": "We should start with...", "turnIndex": 1, "createdAt": "2026-01-04T09:30:05Z" }
+  ]
+}
+```
+
+## Mode: list
+
+Browse conversation sessions with pagination. Replaces the former `list_conversations` tool.
+
+### Example
+
+```json
+{
+  "mode": "list",
+  "limit": 10,
+  "offset": 0
+}
+```
+
+### Response (Compact)
+
+```json
+{"n":45,"c":[{"id":"550e8400","k":"db-migration-2026-01","t":"Database Migration Planning","turns":15,"last":"2026-01-05T10:00:00Z"},{"id":"7c9e6679","k":null,"t":"API Design Review","turns":8,"last":"2026-01-04T15:30:00Z"}]}
+```
+
+**Key mapping:** `n`=total, `c`=conversations, `turns`=turnCount, `last`=lastActivity
+
+### Response (Verbose)
+
+```json
+{
+  "total": 45,
+  "returned": 10,
+  "offset": 0,
+  "conversations": [
+    {
+      "sessionId": "550e8400",
+      "sessionKey": "db-migration-2026-01",
+      "title": "Database Migration Planning",
+      "turnCount": 15,
+      "lastActivity": "2026-01-05T10:00:00Z",
+      "createdAt": "2026-01-04T09:30:00Z"
+    }
+  ]
+}
+```
+
+## Errors
+
+| Error | Cause | Fix |
+|-------|-------|-----|
+| Conversations not enabled | `ENABLE_CONVERSATIONS` feature flag is false | Set `ENABLE_CONVERSATIONS=true` |
+| Missing query | mode=search without `query` | Provide `query` parameter |
+| Missing session identifier | mode=get without `sessionId` or `sessionKey` | Provide one identifier |
+| Embedding service not configured | Missing API key | Set `OPENAI_API_KEY` or configure Ollama |
+| Session not found | Invalid session ID or key | Check with mode=list |
+
+## Related Tools
+
+- `save_conversation_context` - Save conversations for later recall
+- `delete_conversation` - Delete a conversation session

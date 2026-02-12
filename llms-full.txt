@@ -34,14 +34,14 @@ Memory tools return token-efficient responses by default, reducing context usage
 |---------|---------|---------|
 | `n` | `name` or `count` | All tools (context-dependent) |
 | `t` | `type` | Entity type |
-| `o` | `observations` | get_entity_context |
-| `m` | `memories` | recall_memories |
+| `o` | `observations` | query_memory (entity mode) |
+| `m` | `memories` | query_memory (search mode) |
 | `c` | `content` | Memory content |
 | `s` | `score` | Search relevance |
 | `r` | `relations` | Entity relations |
 | `ok` | `success` | Operation status |
 | `dup` | `duplicate` | Dedupe detection |
-| `ent`/`obs`/`rel` | `totalEntities`/etc. | memory_stats |
+| `ent`/`obs`/`rel` | `totalEntities`/etc. | get_stats (memory scope) |
 
 ### Claude Desktop Configuration
 
@@ -57,9 +57,9 @@ Memory tools return token-efficient responses by default, reducing context usage
 
 ## MCP Tools Reference
 
-### search_knowledge
+### search
 
-Hybrid semantic + full-text search using Reciprocal Rank Fusion.
+Hybrid semantic + full-text search with optional cross-source memory and conversation results. Replaces the previous `search_knowledge` and `search_with_context` tools.
 
 Parameters:
 - query (string, REQUIRED): Natural language search query (1-10000 chars)
@@ -68,14 +68,30 @@ Parameters:
 - semanticWeight (number): Semantic weight 0-2, default 1.0
 - tags (string[]): Filter to docs with ALL tags
 - sourceType (enum): 'note' | 'file' | 'url'
+- contentType (enum): Content type filter
 - minScore (number): Minimum relevance 0-1
+- includeMemories (boolean): Include memory results, default false
+- includeConversations (boolean): Include conversation results, default false
+- memoryWeight (number): Weight for memory results 0-2
+- conversationWeight (number): Weight for conversation results 0-2
 
-Example:
+Example (document search only):
 ```json
 {
   "query": "quarterly planning",
   "limit": 5,
   "semanticWeight": 1.5
+}
+```
+
+Example (cross-source search):
+```json
+{
+  "query": "project architecture decisions",
+  "includeMemories": true,
+  "includeConversations": true,
+  "memoryWeight": 1.0,
+  "conversationWeight": 0.5
 }
 ```
 
@@ -184,22 +200,47 @@ Example:
 }
 ```
 
-### recall_memories
+### query_memory
 
-Semantic search across stored memories using hybrid (keyword + semantic) or semantic-only mode.
+Unified memory query tool that replaces `recall_memories`, `get_entity_context`, and `list_entities`. Dispatches based on mode.
 
 Parameters:
-- query (string, REQUIRED): What to search for (1-1000 chars)
-- entityTypes (enum[]): Filter by entity types
-- limit (number): Max results 1-50, default 10
-- searchMode (enum): hybrid | semantic, default 'hybrid'
+- mode (enum, REQUIRED): 'search' | 'entity' | 'list'
+- query (string): What to search for, required when mode is 'search' (1-1000 chars)
+- entityTypes (enum[]): Filter by entity types (search and list modes)
+- searchMode (enum): hybrid | semantic, default 'hybrid' (search mode only)
+- entityName (string): Entity to look up, required when mode is 'entity'
+- includeRelated (boolean): Include relations in entity mode, default true
+- maxObs (number): Max observations per entity
+- limit (number): Max results (search: 1-50, default 10; list: 1-100, default 50)
+- offset (number): Pagination offset (list mode)
 
-Example:
+Example (search mode - replaces recall_memories):
 ```json
 {
+  "mode": "search",
   "query": "user preferences for development",
   "entityTypes": ["person", "preference"],
   "limit": 10
+}
+```
+
+Example (entity mode - replaces get_entity_context):
+```json
+{
+  "mode": "entity",
+  "entityName": "Jeff",
+  "includeRelated": true
+}
+```
+
+Example (list mode - replaces list_entities):
+```json
+{
+  "mode": "list",
+  "entityTypes": ["person"],
+  "limit": 50,
+  "offset": 0
 }
 ```
 
@@ -223,23 +264,6 @@ Example:
 }
 ```
 
-### get_entity_context
-
-Retrieve all information about an entity including observations and relations.
-
-Parameters:
-- entityName (string, REQUIRED): Name of entity to look up
-- includeRelated (boolean): Include relations, default true
-
-### list_entities
-
-List all known entities with pagination.
-
-Parameters:
-- entityTypes (enum[]): Filter by entity types
-- limit (number): 1-100, default 50
-- offset (number): Pagination offset, default 0
-
 ### forget_entity
 
 Delete an entity and all its associated memories and relations.
@@ -247,14 +271,6 @@ Delete an entity and all its associated memories and relations.
 Parameters:
 - entityName (string, REQUIRED): Name of entity to delete
 - confirm (boolean, REQUIRED): Must be true to confirm deletion
-
-### memory_stats
-
-Get statistics about stored memories.
-
-Parameters: None
-
-Returns total entities, observations, relations, and counts by entity type.
 
 ### extract_memories
 
@@ -280,35 +296,49 @@ Parameters:
 - recentTurns (array): Recent turns to save (max 50), each with role (user|assistant|system) and content
 - embedTurns (boolean): Generate embeddings for individual turns, default false
 
-### recall_conversation
+### query_conversations
 
-Semantic search across past conversations.
-
-Parameters:
-- query (string, REQUIRED): What to search for (1-1000 chars)
-- limit (number): Max results 1-20, default 5
-- searchMode (enum): summary | turns | both, default 'summary'
-- includeTranscript (boolean): Include recent turns from matches, default false
-- maxTurnsPerConversation (number): Max turns per conversation, default 10
-
-### list_conversations
-
-List recent conversation sessions.
+Unified conversation query tool that replaces `recall_conversation`, `get_conversation`, and `list_conversations`. Dispatches based on mode.
 
 Parameters:
-- limit (number): 1-50, default 20
-- offset (number): Pagination offset, default 0
+- mode (enum, REQUIRED): 'search' | 'get' | 'list'
+- query (string): What to search for, required when mode is 'search' (1-1000 chars)
+- searchMode (enum): summary | turns | both, default 'summary' (search mode only)
+- includeTranscript (boolean): Include recent turns from matches, default false (search mode)
+- maxTurnsPerConversation (number): Max turns per conversation in search results, default 10
+- sessionId (string): Session ID to retrieve, for get mode
+- sessionKey (string): Session key to retrieve, for get mode
+- maxTurns (number): Maximum turns to include (get mode), default 50
+- limit (number): Max results (search: 1-20, default 5; list: 1-50, default 20)
+- offset (number): Pagination offset (list mode)
 
-### get_conversation
+Example (search mode - replaces recall_conversation):
+```json
+{
+  "mode": "search",
+  "query": "deployment configuration discussion",
+  "searchMode": "both",
+  "includeTranscript": true
+}
+```
 
-Get full conversation by session ID or key.
+Example (get mode - replaces get_conversation):
+```json
+{
+  "mode": "get",
+  "sessionKey": "project-kickoff-2026",
+  "maxTurns": 20
+}
+```
 
-Parameters:
-- sessionId (string): Session ID to retrieve
-- sessionKey (string): Session key to retrieve
-- maxTurns (number): Maximum turns to include, default 50
-
-Note: MUST provide either sessionId or sessionKey.
+Example (list mode - replaces list_conversations):
+```json
+{
+  "mode": "list",
+  "limit": 20,
+  "offset": 0
+}
+```
 
 ### delete_conversation
 
@@ -319,29 +349,21 @@ Parameters:
 - sessionKey (string): Session key to delete
 - confirm (boolean, REQUIRED): Must be true to confirm deletion
 
-### conversation_stats
+## Stats
 
-Get conversation storage statistics. No parameters.
+### get_stats
 
-## Unified Search & Stats
-
-### search_with_context
-
-Unified search across documents, memories, and conversations.
+Get statistics across the knowledge base. Replaces `knowledge_stats`, `memory_stats`, `conversation_stats`, and `insight_stats`. Dispatches based on scope.
 
 Parameters:
-- query (string, REQUIRED): Natural language search query (1-10000 chars)
-- limit (number): Max results per source 1-30, default 5
-- includeDocuments (boolean): Search documents/notes, default true
-- includeMemories (boolean): Search entity memories, default true
-- includeConversations (boolean): Search past conversations, default false
-- documentWeight (number): Weight for document results 0-2, default 1.0
-- memoryWeight (number): Weight for memory results 0-2, default 1.0
-- conversationWeight (number): Weight for conversation results 0-2, default 0.5
+- scope (enum): 'all' | 'knowledge' | 'memory' | 'conversations' | 'insights', default 'all'
 
-### knowledge_stats
-
-Get statistics about the knowledge base contents. No parameters.
+Example:
+```json
+{
+  "scope": "all"
+}
+```
 
 ## Insight Tools (Proactive Discovery)
 
@@ -371,12 +393,6 @@ Dismiss an insight so it no longer appears in new/seen results.
 
 Parameters:
 - insightId (string, REQUIRED): The insight ID to dismiss
-
-### insight_stats
-
-Get statistics about proactive insights and the insight queue.
-
-Parameters: None
 
 ## Environment Variables
 

@@ -1,23 +1,30 @@
 ---
-title: search_knowledge
-description: Hybrid semantic + full-text search tool
+title: search
+description: Hybrid semantic + full-text search with optional cross-source fusion
 ---
 
-Hybrid search combining semantic similarity with full-text keyword matching using Reciprocal Rank Fusion (RRF).
+Hybrid search combining semantic similarity with full-text keyword matching using Reciprocal Rank Fusion (RRF). Optionally search across entity memories and past conversations with weighted fusion.
 
 ## Parameters
 
 | Parameter | Type | Required | Default | Description |
 |-----------|------|----------|---------|-------------|
 | `query` | string | Yes | - | Natural language search query (1-10000 chars) |
-| `limit` | number | No | 10 | Maximum results to return (1-50) |
+| `limit` | number | No | 5 | Maximum results to return (1-50) |
 | `fullTextWeight` | number | No | 1.0 | Weight for keyword matching (0-2) |
 | `semanticWeight` | number | No | 1.0 | Weight for semantic similarity (0-2) |
 | `tags` | string[] | No | - | Filter to documents with ALL specified tags |
 | `sourceType` | enum | No | - | Filter by source: `note`, `file`, or `url` |
+| `contentType` | enum | No | - | Filter by content type: `email`, `youtube`, `calendar`, `contact`, `webpage`, `document` |
 | `minScore` | number | No | - | Minimum relevance score threshold (0-1) |
+| `includeMemories` | boolean | No | false | Also search entity memories (requires `ENABLE_MEMORY`) |
+| `includeConversations` | boolean | No | false | Also search past conversations (requires `ENABLE_CONVERSATIONS`) |
+| `memoryWeight` | number | No | 1.0 | Weight for memory results when `includeMemories=true` (0-2) |
+| `conversationWeight` | number | No | 0.5 | Weight for conversation results when `includeConversations=true` (0-2) |
 
 ## Example Request
+
+### Document-Only Search (Default)
 
 ```json
 {
@@ -31,16 +38,25 @@ Hybrid search combining semantic similarity with full-text keyword matching usin
 }
 ```
 
+### Cross-Source Search
+
+```json
+{
+  "query": "database architecture decisions",
+  "includeMemories": true,
+  "includeConversations": true,
+  "memoryWeight": 1.5,
+  "limit": 10
+}
+```
+
 ## Response
+
+### Document-Only Response
 
 ```json
 {
   "query": "quarterly planning meeting notes",
-  "filters": {
-    "tags": ["work", "planning"],
-    "sourceType": "note",
-    "minScore": 0.5
-  },
   "totalResults": 3,
   "results": [
     {
@@ -51,16 +67,23 @@ Hybrid search combining semantic similarity with full-text keyword matching usin
       "chunkId": "7c9e6679-7425-40de-944b-e07fc1f90ae7",
       "content": "In the Q4 planning meeting, we discussed the roadmap for...",
       "score": 0.89
-    },
-    {
-      "documentId": "6ba7b810-9dad-11d1-80b4-00c04fd430c8",
-      "documentTitle": "Annual Planning Overview",
-      "sourceType": "note",
-      "tags": ["work", "planning"],
-      "chunkId": "f47ac10b-58cc-4372-a567-0e02b2c3d479",
-      "content": "Quarterly milestones should align with company objectives...",
-      "score": 0.76
     }
+  ]
+}
+```
+
+### Cross-Source Response
+
+When `includeMemories` or `includeConversations` is true, results are fused by score:
+
+```json
+{
+  "query": "database architecture decisions",
+  "counts": { "documents": 3, "memories": 2, "conversations": 1 },
+  "results": [
+    { "type": "document", "score": 0.91, "data": { "id": "...", "title": "DB Design Doc", "content": "..." } },
+    { "type": "memory", "score": 0.85, "data": { "entityName": "Database", "content": "Uses PostgreSQL with pgvector" } },
+    { "type": "conversation", "score": 0.42, "data": { "sessionKey": "db-planning", "title": "DB Planning Session" } }
   ]
 }
 ```
@@ -111,13 +134,22 @@ Only returns documents tagged with both `work` AND `project-x`.
 
 ### By Source Type
 
-Filter by how the document was created:
-
 | sourceType | Description |
 |------------|-------------|
 | `note` | Created via `add_note` tool |
 | `file` | Uploaded via CLI or Web UI |
 | `url` | Web content (future feature) |
+
+### By Content Type
+
+| contentType | Description |
+|-------------|-------------|
+| `email` | Email messages |
+| `youtube` | YouTube watch history |
+| `calendar` | Calendar events |
+| `contact` | Contacts |
+| `webpage` | Saved web pages |
+| `document` | General documents |
 
 ### By Score Threshold
 
@@ -134,32 +166,11 @@ Filter out low-relevance results:
 
 ## Error Responses
 
-### Database not configured
-
-```json
-{
-  "error": "Database not configured",
-  "message": "Set SUPABASE_URL and SUPABASE_SERVICE_KEY to enable search."
-}
-```
-
-### OpenAI not configured
-
-```json
-{
-  "error": "OpenAI not configured",
-  "message": "Set OPENAI_API_KEY to enable semantic search."
-}
-```
-
-### Search failed
-
-```json
-{
-  "error": "Search failed",
-  "message": "Connection timeout to database"
-}
-```
+| Error | Cause | Fix |
+|-------|-------|-----|
+| Database not configured | Missing Supabase credentials | Set `SUPABASE_URL` and `SUPABASE_SERVICE_KEY` |
+| Embedding provider not configured | Missing API key | Set `OPENAI_API_KEY` or configure Ollama |
+| Search failed | Database or embedding error | Check connectivity and logs |
 
 ## Best Practices
 
@@ -167,4 +178,5 @@ Filter out low-relevance results:
 2. **Use semantic weight for questions**: Increase `semanticWeight` for natural language queries
 3. **Use full-text weight for keywords**: Increase `fullTextWeight` for specific terms
 4. **Combine with get_document**: Search returns chunks, use `get_document` for full context
-5. **Check score distribution**: If all scores are low, try rephrasing the query
+5. **Use cross-source sparingly**: Enable `includeMemories`/`includeConversations` only when you need context from those sources
+6. **Check score distribution**: If all scores are low, try rephrasing the query

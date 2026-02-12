@@ -30,7 +30,7 @@ Memory tools return token-efficient responses by default (40-60% smaller). Set `
 - `dup` → `duplicate`
 - `ent`/`obs`/`rel` → `totalEntities`/`totalObservations`/`totalRelations`
 
-**Example (`recall_memories` compact response):**
+**Example (`query_memory` compact response):**
 
 ```json
 {"n":2,"e":[{"n":"Jeff","t":"person","m":[{"c":"prefers dark mode","s":0.92}]}]}
@@ -56,13 +56,19 @@ Memory tools return token-efficient responses by default (40-60% smaller). Set `
 
 ## Tool Selection Guide
 
+### Search (18 tools total)
+
+| User Intent | Tool | Key Parameters |
+|-------------|------|----------------|
+| Find content by meaning | `search` | `query`, `semanticWeight: 1.5` |
+| Find exact phrases/keywords | `search` | `query`, `fullTextWeight: 1.5` |
+| Balanced hybrid search | `search` | `query` (default weights) |
+| Search across all sources | `search` | `query`, `includeMemories: true`, `includeConversations: true` |
+
 ### Document Tools
 
 | User Intent | Tool | Key Parameters |
 |-------------|------|----------------|
-| Find content by meaning | `search_knowledge` | `query`, `semanticWeight: 1.5` |
-| Find exact phrases/keywords | `search_knowledge` | `query`, `fullTextWeight: 1.5` |
-| Balanced hybrid search | `search_knowledge` | `query` (default weights) |
 | Get full document content | `get_document` | `documentId` |
 | Browse all documents | `list_documents` | `limit`, `offset` |
 | Filter by type | `list_documents` | `sourceType: 'note' \| 'file' \| 'url'` |
@@ -76,12 +82,11 @@ Enable with `ENABLE_MEMORY=true` (default). Requires `setup-db-memory.sql` (Open
 | User Intent | Tool | Key Parameters |
 |-------------|------|----------------|
 | Remember facts about people/projects | `remember_fact` | `entityName`, `entityType`, `observation` |
-| Search past memories | `recall_memories` | `query`, `searchMode: 'hybrid'` |
+| Search past memories | `query_memory` | `mode: 'search'`, `query` |
+| Get all info about an entity | `query_memory` | `mode: 'entity'`, `entityName` |
+| List all known entities | `query_memory` | `mode: 'list'`, `entityTypes`, `limit` |
 | Connect entities together | `relate_entities` | `fromEntity`, `relation`, `toEntity` |
-| Get all info about an entity | `get_entity_context` | `entityName` |
-| List all known entities | `list_entities` | `entityTypes`, `limit` |
 | Delete an entity completely | `forget_entity` | `entityName`, `confirm: true` |
-| View memory statistics | `memory_stats` | (no parameters) |
 | Extract entities from text | `extract_memories` | `text`, `source`, `storeResults` |
 
 ### Conversation Tools (Conversation Memory)
@@ -91,18 +96,20 @@ Enable with `ENABLE_CONVERSATIONS=true` (default). Requires `setup-db-conversati
 | User Intent | Tool | Key Parameters |
 |-------------|------|----------------|
 | Save conversation for later recall | `save_conversation_context` | `summary`, `recentTurns`, `sessionKey` |
-| Search past conversations | `recall_conversation` | `query`, `searchMode: 'summary'` |
-| Browse conversation history | `list_conversations` | `limit`, `offset` |
-| Get full conversation transcript | `get_conversation` | `sessionId` or `sessionKey` |
+| Search past conversations | `query_conversations` | `mode: 'search'`, `query` |
+| Browse conversation history | `query_conversations` | `mode: 'list'`, `limit`, `offset` |
+| Get full conversation transcript | `query_conversations` | `mode: 'get'`, `sessionId` or `sessionKey` |
 | Delete a conversation | `delete_conversation` | `sessionId` or `sessionKey`, `confirm: true` |
-| View conversation statistics | `conversation_stats` | (no parameters) |
 
-### Unified Search & Stats
+### Stats
 
 | User Intent | Tool | Key Parameters |
 |-------------|------|----------------|
-| Search across all sources | `search_with_context` | `query`, `includeDocuments`, `includeMemories`, `includeConversations` |
-| Get knowledge base statistics | `knowledge_stats` | (no parameters) |
+| Get all statistics | `get_stats` | `scope: 'all'` |
+| Get knowledge base statistics | `get_stats` | `scope: 'knowledge'` |
+| Get memory statistics | `get_stats` | `scope: 'memory'` |
+| Get conversation statistics | `get_stats` | `scope: 'conversations'` |
+| Get insight queue stats | `get_stats` | `scope: 'insights'` |
 
 ### Insight Tools (Proactive Discovery)
 
@@ -113,13 +120,12 @@ Enable with `ENABLE_INSIGHTS=true` (default).
 | View discovered patterns/connections | `get_insights` | `status`, `insightType`, `query` |
 | Trigger insight scan | `discover_connections` | `fullScan`, `maxChunks` |
 | Dismiss an insight | `dismiss_insight` | `insightId` |
-| View insight queue stats | `insight_stats` | (no parameters) |
 
 ## Tool Schemas (RFC 2119)
 
-### search_knowledge
+### search
 
-Hybrid semantic + full-text search using Reciprocal Rank Fusion.
+Hybrid semantic + full-text search using Reciprocal Rank Fusion. Consolidates `search_knowledge` and `search_with_context` into a single tool. By default searches documents only; set `includeMemories` and/or `includeConversations` to search across all sources.
 
 **Parameters:**
 
@@ -130,6 +136,8 @@ Hybrid semantic + full-text search using Reciprocal Rank Fusion.
 - `tags` (string[], OPTIONAL): Filter to docs with ALL specified tags
 - `sourceType` (enum, OPTIONAL): `'note' | 'file' | 'url'`
 - `minScore` (number, OPTIONAL): Minimum relevance score 0-1
+- `includeMemories` (boolean, OPTIONAL): Also search memories, default false
+- `includeConversations` (boolean, OPTIONAL): Also search conversations, default false
 
 **Response:**
 
@@ -311,18 +319,24 @@ Store multiple facts and relations in a single call. Prefer this over separate `
 }
 ```
 
-### recall_memories
+### query_memory
+
+Unified memory query tool. Consolidates `recall_memories`, `get_entity_context`, and `list_entities` into a single tool with a `mode` parameter.
+
+**Parameters (all modes):**
+
+- `mode` (enum, REQUIRED): `'search' | 'entity' | 'list'`
+
+**Parameters (mode: 'search'):**
 
 Semantic search across stored memories using hybrid (keyword + semantic) or semantic-only mode.
-
-**Parameters:**
 
 - `query` (string, REQUIRED): What to search for (1-1000 chars)
 - `entityTypes` (enum[], OPTIONAL): Filter by entity types
 - `limit` (number, OPTIONAL): Max results 1-50, default 10
 - `searchMode` (enum, OPTIONAL): `'hybrid' | 'semantic'`, default 'hybrid'
 
-**Response:**
+**Response (mode: 'search'):**
 
 ```json
 {
@@ -336,6 +350,50 @@ Semantic search across stored memories using hybrid (keyword + semantic) or sema
         { "content": "prefers dark mode", "source": "conversation", "confidence": 1.0, "score": 0.85 }
       ]
     }
+  ]
+}
+```
+
+**Parameters (mode: 'entity'):**
+
+Retrieve all information about an entity including observations and relations.
+
+- `entityName` (string, REQUIRED): Name of entity to look up
+- `includeRelated` (boolean, OPTIONAL): Include relations, default true
+
+**Response (mode: 'entity'):**
+
+```json
+{
+  "found": true,
+  "entity": { "id": "uuid", "name": "Jeff", "type": "person", "description": null },
+  "observations": [
+    { "id": "uuid", "content": "prefers dark mode", "source": "conversation", "confidence": 1.0, "created_at": "..." }
+  ],
+  "relations": {
+    "outgoing": [{ "relation_type": "works_at", "to_entity": "Acme Corp", "to_entity_type": "organization", "strength": 1.0 }],
+    "incoming": []
+  }
+}
+```
+
+**Parameters (mode: 'list'):**
+
+List all known entities with pagination.
+
+- `entityTypes` (enum[], OPTIONAL): Filter by entity types
+- `limit` (number, OPTIONAL): 1-100, default 50
+- `offset` (number, OPTIONAL): Pagination offset, default 0
+
+**Response (mode: 'list'):**
+
+```json
+{
+  "total": 25,
+  "returned": 25,
+  "offset": 0,
+  "entities": [
+    { "id": "uuid", "name": "Jeff", "type": "person", "description": null, "updatedAt": "..." }
   ]
 }
 ```
@@ -364,54 +422,6 @@ Create directed relationships between entities.
 }
 ```
 
-### get_entity_context
-
-Retrieve all information about an entity including observations and relations.
-
-**Parameters:**
-
-- `entityName` (string, REQUIRED): Name of entity to look up
-- `includeRelated` (boolean, OPTIONAL): Include relations, default true
-
-**Response:**
-
-```json
-{
-  "found": true,
-  "entity": { "id": "uuid", "name": "Jeff", "type": "person", "description": null },
-  "observations": [
-    { "id": "uuid", "content": "prefers dark mode", "source": "conversation", "confidence": 1.0, "created_at": "..." }
-  ],
-  "relations": {
-    "outgoing": [{ "relation_type": "works_at", "to_entity": "Acme Corp", "to_entity_type": "organization", "strength": 1.0 }],
-    "incoming": []
-  }
-}
-```
-
-### list_entities
-
-List all known entities with pagination.
-
-**Parameters:**
-
-- `entityTypes` (enum[], OPTIONAL): Filter by entity types
-- `limit` (number, OPTIONAL): 1-100, default 50
-- `offset` (number, OPTIONAL): Pagination offset, default 0
-
-**Response:**
-
-```json
-{
-  "total": 25,
-  "returned": 25,
-  "offset": 0,
-  "entities": [
-    { "id": "uuid", "name": "Jeff", "type": "person", "description": null, "updatedAt": "..." }
-  ]
-}
-```
-
 ### forget_entity
 
 Delete an entity and all its associated memories and relations.
@@ -428,23 +438,6 @@ Delete an entity and all its associated memories and relations.
   "success": true,
   "message": "Forgotten: Jeff and all associated memories",
   "deletedEntityId": "uuid"
-}
-```
-
-### memory_stats
-
-Get statistics about stored memories.
-
-**Parameters:** None
-
-**Response:**
-
-```json
-{
-  "totalEntities": 25,
-  "totalObservations": 150,
-  "totalRelations": 30,
-  "entitiesByType": { "person": 10, "project": 8, "concept": 7 }
 }
 ```
 
@@ -470,11 +463,17 @@ Save conversation summary and turns for later recall.
 - `recentTurns` (array, OPTIONAL): Recent turns to save (max 50), each with `role` and `content`
 - `embedTurns` (boolean, OPTIONAL): Generate embeddings for individual turns, default false
 
-### recall_conversation
+### query_conversations
+
+Unified conversation query tool. Consolidates `recall_conversation`, `get_conversation`, and `list_conversations` into a single tool with a `mode` parameter.
+
+**Parameters (all modes):**
+
+- `mode` (enum, REQUIRED): `'search' | 'get' | 'list'`
+
+**Parameters (mode: 'search'):**
 
 Semantic search across past conversations.
-
-**Parameters:**
 
 - `query` (string, REQUIRED): What to search for (1-1000 chars)
 - `limit` (number, OPTIONAL): Max results 1-20, default 5
@@ -482,26 +481,22 @@ Semantic search across past conversations.
 - `includeTranscript` (boolean, OPTIONAL): Include recent turns, default false
 - `maxTurnsPerConversation` (number, OPTIONAL): Max turns per conversation, default 10
 
-### list_conversations
-
-List recent conversation sessions.
-
-**Parameters:**
-
-- `limit` (number, OPTIONAL): 1-50, default 20
-- `offset` (number, OPTIONAL): Pagination offset, default 0
-
-### get_conversation
+**Parameters (mode: 'get'):**
 
 Get full conversation by session ID or key.
-
-**Parameters:**
 
 - `sessionId` (string, OPTIONAL): Session ID to retrieve
 - `sessionKey` (string, OPTIONAL): Session key to retrieve
 - `maxTurns` (number, OPTIONAL): Max turns to include, default 50
 
 MUST provide either `sessionId` or `sessionKey`.
+
+**Parameters (mode: 'list'):**
+
+List recent conversation sessions.
+
+- `limit` (number, OPTIONAL): 1-50, default 20
+- `offset` (number, OPTIONAL): Pagination offset, default 0
 
 ### delete_conversation
 
@@ -513,32 +508,26 @@ Delete a conversation session.
 - `sessionKey` (string, OPTIONAL): Session key to delete
 - `confirm` (boolean, REQUIRED): Must be true to confirm deletion
 
-### conversation_stats
+### get_stats
 
-Get conversation storage statistics.
-
-**Parameters:** None
-
-### search_with_context
-
-Unified search across documents, memories, and conversations.
+Unified statistics tool. Consolidates `knowledge_stats`, `memory_stats`, `conversation_stats`, and `insight_stats` into a single tool.
 
 **Parameters:**
 
-- `query` (string, REQUIRED): Natural language search query (1-10000 chars)
-- `limit` (number, OPTIONAL): Max results per source 1-30, default 5
-- `includeDocuments` (boolean, OPTIONAL): Search documents, default true
-- `includeMemories` (boolean, OPTIONAL): Search memories, default true
-- `includeConversations` (boolean, OPTIONAL): Search conversations, default false
-- `documentWeight` (number, OPTIONAL): Weight for document results 0-2, default 1.0
-- `memoryWeight` (number, OPTIONAL): Weight for memory results 0-2, default 1.0
-- `conversationWeight` (number, OPTIONAL): Weight for conversation results 0-2, default 0.5
+- `scope` (enum, REQUIRED): `'all' | 'knowledge' | 'memory' | 'conversations' | 'insights'`
 
-### knowledge_stats
+**Response (scope: 'all'):**
 
-Get statistics about the knowledge base contents.
+```json
+{
+  "knowledge": { "totalDocuments": 100, "totalChunks": 500, "storageBytes": 1048576 },
+  "memory": { "totalEntities": 25, "totalObservations": 150, "totalRelations": 30 },
+  "conversations": { "totalSessions": 10, "totalTurns": 200 },
+  "insights": { "totalInsights": 15, "newInsights": 5 }
+}
+```
 
-**Parameters:** None
+When `scope` is set to a specific subsystem, only that section is returned.
 
 ### get_insights
 
@@ -568,12 +557,6 @@ Dismiss an insight from the queue.
 
 - `insightId` (string, REQUIRED): The insight ID to dismiss
 
-### insight_stats
-
-Get insight queue and processing statistics.
-
-**Parameters:** None
-
 ## Tool Interaction Guide
 
 ### Memory Data Model
@@ -590,8 +573,9 @@ Textrawl's memory system has three concepts:
 |------|------|-------|
 | Store a fact about something | `remember_fact` | Creates entity if needed. One fact per call. |
 | Connect two things | `relate_entities` | Creates both entities if needed. Entity types are optional and auto-detected. |
-| Find stored facts | `recall_memories` | Semantic search across all observations. |
-| See everything about one entity | `get_entity_context` | Returns observations + all relations. |
+| Find stored facts | `query_memory` | `mode: 'search'` — semantic search across all observations. |
+| See everything about one entity | `query_memory` | `mode: 'entity'` — returns observations + all relations. |
+| List all known entities | `query_memory` | `mode: 'list'` — paginated entity listing. |
 | Bulk-extract from text | `extract_memories` | Requires `ENABLE_MEMORY_EXTRACTION=true`. |
 
 ### Critical Behavior Notes
@@ -614,7 +598,7 @@ Textrawl's memory system has three concepts:
 ### Pattern 1: Search and Retrieve
 
 ```text
-1. search_knowledge(query: "user question") → get top results
+1. search(query: "user question") → get top results
 2. get_document(documentId: results[0].documentId) → full content
 3. Synthesize answer from full document
 ```
@@ -630,9 +614,9 @@ Textrawl's memory system has three concepts:
 ### Pattern 3: Iterative Refinement
 
 ```text
-1. search_knowledge(query: "broad topic", limit: 5)
+1. search(query: "broad topic", limit: 5)
 2. If results insufficient, adjust weights or add filters
-3. search_knowledge(query: "refined", tags: ["specific"], minScore: 0.7)
+3. search(query: "refined", tags: ["specific"], minScore: 0.7)
 ```
 
 ### Pattern 4: Browse and Organize
@@ -655,16 +639,16 @@ Textrawl's memory system has three concepts:
 
 ```text
 1. Before responding, check for relevant memories
-2. recall_memories(query: "user preferences", entityTypes: ["person", "preference"])
-3. get_entity_context(entityName: "User") for full context
+2. query_memory(mode: "search", query: "user preferences", entityTypes: ["person", "preference"])
+3. query_memory(mode: "entity", entityName: "User") for full context
 4. Incorporate memories into response
 ```
 
 ### Pattern 7: Memory-Enhanced Search
 
 ```text
-1. recall_memories(query: "...", limit: 5) for entity context
-2. search_knowledge(query: "...", tags: relevant_tags) for documents
+1. search(query: "...", includeMemories: true) for combined results
+2. Or separately: query_memory(mode: "search", query: "...") + search(query: "...")
 3. Combine entity knowledge with document content
 ```
 
@@ -688,7 +672,7 @@ Errors are returned in the result object (NOT as protocol-level errors):
 | `No updates provided` | update_document called without changes | Provide `title` or `tags` |
 | `Document not found` | Invalid documentId | Verify UUID from search or list results |
 | `Embedding service not configured` | Memory tools need embeddings | Set `OPENAI_API_KEY` or configure Ollama |
-| `Entity not found` | forget_entity with unknown name | Check entity name with `list_entities` |
+| `Entity not found` | forget_entity with unknown name | Check entity name with `query_memory(mode: "list")` |
 | `Confirmation required` | forget_entity without confirm | Set `confirm: true` to delete |
 
 ## Testing Tools
@@ -700,7 +684,7 @@ pnpm inspector    # MCP Inspector at http://localhost:5173
 **Document tools test sequence:**
 
 1. `add_note` - Create test document
-2. `search_knowledge` - Find it
+2. `search` - Find it
 3. `get_document` - Retrieve full content
 4. `update_document` - Modify tags
 5. `list_documents` - Verify in list
@@ -708,27 +692,27 @@ pnpm inspector    # MCP Inspector at http://localhost:5173
 **Memory tools test sequence:**
 
 1. `remember_fact` - Store a fact about "TestUser"
-2. `recall_memories` - Search for the fact
+2. `query_memory(mode: "search")` - Search for the fact
 3. `relate_entities` - Create a relation
-4. `get_entity_context` - Get full entity info
-5. `list_entities` - Verify entity exists
-6. `memory_stats` - Check counts
+4. `query_memory(mode: "entity")` - Get full entity info
+5. `query_memory(mode: "list")` - Verify entity exists
+6. `get_stats(scope: "memory")` - Check counts
 7. `forget_entity` - Clean up test data
 
 **Conversation tools test sequence:**
 
 1. `save_conversation_context` - Save a test conversation
-2. `recall_conversation` - Search for it
-3. `get_conversation` - Retrieve full transcript
-4. `list_conversations` - Verify in list
-5. `conversation_stats` - Check counts
+2. `query_conversations(mode: "search")` - Search for it
+3. `query_conversations(mode: "get")` - Retrieve full transcript
+4. `query_conversations(mode: "list")` - Verify in list
+5. `get_stats(scope: "conversations")` - Check counts
 6. `delete_conversation` - Clean up test data
 
 **Insight tools test sequence:**
 
 1. `discover_connections` - Run a scan
 2. `get_insights` - View discovered insights
-3. `insight_stats` - Check queue stats
+3. `get_stats(scope: "insights")` - Check queue stats
 4. `dismiss_insight` - Dismiss a test insight
 
 ## When Modifying This Codebase
