@@ -9,9 +9,9 @@ Update the metadata of an existing document. Currently supports updating title a
 
 | Parameter | Type | Required | Description |
 |-----------|------|----------|-------------|
-| `documentId` | string | Yes | UUID of the document |
-| `title` | string | No | New document title |
-| `tags` | string[] | No | New tags (replaces existing) |
+| `documentId` | string | REQUIRED | UUID of the document |
+| `title` | string | OPTIONAL | New document title |
+| `tags` | string[] | OPTIONAL | New tags (replaces existing) |
 
 At least one of `title` or `tags` must be provided.
 

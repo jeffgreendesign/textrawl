@@ -30,7 +30,7 @@ export function registerSearchTool(server: McpServer): void {
 					.min(1)
 					.max(10000, 'Query must be at most 10KB')
 					.describe('Natural language search query'),
-				limit: z.number().min(1).max(50).default(5).describe('Maximum results to return'),
+				limit: z.number().min(1).max(50).default(10).describe('Maximum results to return'),
 				fullTextWeight: z
 					.number()
 					.min(0)
@@ -55,7 +55,7 @@ export function registerSearchTool(server: McpServer): void {
 					.enum(['email', 'youtube', 'calendar', 'contact', 'webpage', 'document'])
 					.optional()
 					.describe(
-						'Filter by content type (email, youtube watch history, calendar events, contacts, webpages)',
+						'Filter by content type (email, YouTube watch history, calendar events, contacts, webpages)',
 					),
 				minScore: z
 					.number()
@@ -466,7 +466,7 @@ export function registerSearchTool(server: McpServer): void {
 				allResults.sort((a, b) => b.score - a.score);
 
 				// Limit total results
-				const limitedResults = allResults.slice(0, limit * 2);
+				const limitedResults = allResults.slice(0, limit);
 
 				logger.info('search_with_context completed', {
 					documentCount: documentResults.length,

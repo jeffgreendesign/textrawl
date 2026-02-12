@@ -25,6 +25,7 @@ Hybrid semantic + full-text search using Reciprocal Rank Fusion.
 - semanticWeight (number): Semantic weight 0-2, default 1.0
 - tags (string[]): Filter to docs with ALL tags
 - sourceType (enum): 'note' | 'file' | 'url'
+- contentType (enum): 'email' | 'youtube' | 'calendar' | 'contact' | 'webpage' | 'document'
 - minScore (number): Minimum relevance 0-1
 
 ### get_document
@@ -60,6 +61,7 @@ Create markdown notes with automatic embedding.
 - title (string, REQUIRED): Note title (max 500 chars)
 - content (string, REQUIRED): Markdown content (max 1MB)
 - tags (string[]): Tags for organization
+- extractMemories (boolean): Extract entities/facts and store as memories, default false
 
 ## Memory Tools (Persistent Memory)
 
@@ -235,7 +237,7 @@ Get insight queue and processing statistics. No parameters.
 
 ## Quick Facts
 
-- 22 MCP tools available (6 document/search + 8 memory + 6 conversation + 4 insight)
+- 25 MCP tools available (5 document + 8 memory + 6 conversation + 2 unified search/stats + 4 insight)
 - Embedding: OpenAI (1536 dim) or Ollama (1024 dim)
 - Database: Supabase PostgreSQL with pgvector
 - Chunking: 512 tokens, 50 token overlap, paragraph-aware

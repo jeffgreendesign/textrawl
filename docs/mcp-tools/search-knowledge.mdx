@@ -9,13 +9,14 @@ Hybrid search combining semantic similarity with full-text keyword matching usin
 
 | Parameter | Type | Required | Default | Description |
 |-----------|------|----------|---------|-------------|
-| `query` | string | Yes | - | Natural language search query (1-10000 chars) |
-| `limit` | number | No | 10 | Maximum results to return (1-50) |
-| `fullTextWeight` | number | No | 1.0 | Weight for keyword matching (0-2) |
-| `semanticWeight` | number | No | 1.0 | Weight for semantic similarity (0-2) |
-| `tags` | string[] | No | - | Filter to documents with ALL specified tags |
-| `sourceType` | enum | No | - | Filter by source: `note`, `file`, or `url` |
-| `minScore` | number | No | - | Minimum relevance score threshold (0-1) |
+| `query` | string | REQUIRED | - | Natural language search query (1-10000 chars) |
+| `limit` | number | OPTIONAL | 10 | Maximum results to return (1-50) |
+| `fullTextWeight` | number | OPTIONAL | 1.0 | Weight for keyword matching (0-2) |
+| `semanticWeight` | number | OPTIONAL | 1.0 | Weight for semantic similarity (0-2) |
+| `tags` | string[] | OPTIONAL | - | Filter to documents with ALL specified tags |
+| `sourceType` | enum | OPTIONAL | - | Filter by source: `note`, `file`, or `url` |
+| `contentType` | enum | OPTIONAL | - | Filter by content type: `email`, `youtube` (YouTube watch history), `calendar`, `contact`, `webpage`, `document` |
+| `minScore` | number | OPTIONAL | - | Minimum relevance score threshold (0-1) |
 
 ## Example Request
 

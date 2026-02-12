@@ -71,13 +71,20 @@
 					},
 					"tags": {
 						"type": "array",
-						"items": { "type": "string" },
+						"items": {
+							"type": "string"
+						},
 						"description": "Filter results to documents with ALL specified tags"
 					},
 					"sourceType": {
 						"type": "string",
 						"enum": ["note", "file", "url"],
 						"description": "Filter by document source type"
+					},
+					"contentType": {
+						"type": "string",
+						"enum": ["email", "youtube", "calendar", "contact", "webpage", "document"],
+						"description": "Filter by content type (email, YouTube, calendar, contacts, webpages)"
 					},
 					"minScore": {
 						"type": "number",
@@ -134,7 +141,9 @@
 					},
 					"tags": {
 						"type": "array",
-						"items": { "type": "string" },
+						"items": {
+							"type": "string"
+						},
 						"description": "Filter to documents containing ALL specified tags"
 					}
 				}
@@ -159,7 +168,9 @@
 					},
 					"tags": {
 						"type": "array",
-						"items": { "type": "string" },
+						"items": {
+							"type": "string"
+						},
 						"description": "New tags for the document (replaces existing tags)"
 					}
 				}
@@ -186,8 +197,15 @@
 					},
 					"tags": {
 						"type": "array",
-						"items": { "type": "string" },
+						"items": {
+							"type": "string"
+						},
 						"description": "Optional tags for organization"
+					},
+					"extractMemories": {
+						"type": "boolean",
+						"default": false,
+						"description": "Extract entities and facts from content and store as memories (requires ENABLE_MEMORY_EXTRACTION=true and ANTHROPIC_API_KEY)"
 					}
 				}
 			}
@@ -490,8 +508,14 @@
 						"items": {
 							"type": "object",
 							"properties": {
-								"role": { "type": "string", "enum": ["user", "assistant", "system"] },
-								"content": { "type": "string", "maxLength": 50000 }
+								"role": {
+									"type": "string",
+									"enum": ["user", "assistant", "system"]
+								},
+								"content": {
+									"type": "string",
+									"maxLength": 50000
+								}
 							}
 						},
 						"description": "Recent conversation turns to save"

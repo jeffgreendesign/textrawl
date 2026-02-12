@@ -129,6 +129,7 @@ Hybrid semantic + full-text search using Reciprocal Rank Fusion.
 - `semanticWeight` (number, OPTIONAL): Semantic similarity weight 0-2, default 1.0
 - `tags` (string[], OPTIONAL): Filter to docs with ALL specified tags
 - `sourceType` (enum, OPTIONAL): `'note' | 'file' | 'url'`
+- `contentType` (enum, OPTIONAL): `'email' | 'youtube' | 'calendar' | 'contact' | 'webpage' | 'document'`
 - `minScore` (number, OPTIONAL): Minimum relevance score 0-1
 
 **Response:**
@@ -244,6 +245,7 @@ Create markdown notes with automatic chunking and embedding.
 - `title` (string, REQUIRED): Note title (1-500 chars)
 - `content` (string, REQUIRED): Note content in markdown (1 char - 1MB)
 - `tags` (string[], OPTIONAL): Tags for organization
+- `extractMemories` (boolean, OPTIONAL): Extract entities/facts and store as memories, default false (requires `ENABLE_MEMORY_EXTRACTION=true`)
 
 **Response:**
 

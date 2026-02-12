@@ -318,6 +318,10 @@ export function registerConversationTools(server: McpServer): void {
 					}
 
 					// Merge with existing results or add new
+					const newSessionEntries: Array<{
+						sessionId: string;
+						turns: Array<{ content: string; role: string; score: number }>;
+					}> = [];
 					for (const [sessionId, turns] of sessionTurns) {
 						const existing = results.find((r) => r.session_id === sessionId);
 						if (existing) {
@@ -325,8 +329,18 @@ export function registerConversationTools(server: McpServer): void {
 							// Boost score if turns also matched
 							existing.score = existing.score * 1.2;
 						} else {
-							// Need to fetch session info
-							const session = await getSession(sessionId);
+							newSessionEntries.push({ sessionId, turns });
+						}
+					}
+
+					// Fetch all missing sessions in parallel
+					if (newSessionEntries.length > 0) {
+						const sessions = await Promise.all(
+							newSessionEntries.map((e) => getSession(e.sessionId)),
+						);
+						for (let i = 0; i < newSessionEntries.length; i++) {
+							const { sessionId, turns } = newSessionEntries[i];
+							const session = sessions[i];
 							results.push({
 								session_id: sessionId,
 								session_key: session.session_key,
@@ -345,9 +359,11 @@ export function registerConversationTools(server: McpServer): void {
 
 				// Include transcript if requested
 				if (includeTranscript) {
-					for (const result of limitedResults) {
-						const turns = await getRecentTurns(result.session_id, maxTurnsPerConversation);
-						result.turns = turns.map((t) => ({
+					const allTurns = await Promise.all(
+						limitedResults.map((r) => getRecentTurns(r.session_id, maxTurnsPerConversation)),
+					);
+					for (let i = 0; i < limitedResults.length; i++) {
+						limitedResults[i].turns = allTurns[i].map((t) => ({
 							role: t.role,
 							content: t.content,
 							turn_index: t.turn_index,

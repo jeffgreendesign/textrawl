@@ -66,14 +66,16 @@ export function registerNoteTool(server: McpServer): void {
 							type: 'text' as const,
 							text: JSON.stringify(
 								{
-									error: 'OpenAI not configured',
-									message: 'Set OPENAI_API_KEY to enable embedding generation for search.',
+									error: 'Embedding provider not configured',
+									message:
+										'Set OPENAI_API_KEY or configure Ollama to enable embedding generation for search.',
 								},
 								null,
 								2,
 							),
 						},
 					],
+					isError: true,
 				};
 			}
 
