@@ -1,8 +1,9 @@
 /**
  * Conversion Manager - Coordinate file conversions
+ *
+ * Uses runCliScript() for subprocess lifecycle (FD cleanup, abort, timeout).
+ * In-process document conversion uses processDocument() directly.
  */
-import { spawn } from 'node:child_process';
-import { resolve } from 'node:path';
 import type { BrowserWindow } from 'electron';
 import pLimit from 'p-limit';
 import { IPC } from '../../shared/ipc-channels.js';
@@ -13,18 +14,20 @@ import type {
 	OverallProgress,
 	ScannedFile,
 } from '../../shared/types.js';
+import { runCliScript } from '../utils/run-cli-script.js';
 import { processDocument } from './document-processor.js';
 import { getMboxPathFromBundle } from './file-router.js';
-
-// __dirname is available in CJS bundle
 
 export class ConversionManager {
 	private window: BrowserWindow;
 	private isRunning = false;
 	private shouldCancel = false;
+	private abortController: AbortController | null = null;
 	private totalFiles = 0;
 	private completedFiles = 0;
 	private errorCount = 0;
+	private startedAt = 0;
+	private fileErrors = new Map<string, string>();
 
 	constructor(window: BrowserWindow) {
 		this.window = window;
@@ -36,7 +39,7 @@ export class ConversionManager {
 	async startConversion(
 		files: ScannedFile[],
 		options: ConversionOptions,
-	): Promise<{ success: boolean; error?: string }> {
+	): Promise<{ success: boolean; error?: string; fileErrors?: Map<string, string> }> {
 		if (this.isRunning) {
 			return { success: false, error: 'Conversion already in progress' };
 		}
@@ -56,9 +59,12 @@ export class ConversionManager {
 
 		this.isRunning = true;
 		this.shouldCancel = false;
+		this.abortController = new AbortController();
 		this.totalFiles = files.length;
 		this.completedFiles = 0;
 		this.errorCount = 0;
+		this.startedAt = Date.now();
+		this.fileErrors = new Map();
 
 		// Concurrency limit
 		const limit = pLimit(3);
@@ -77,29 +83,38 @@ export class ConversionManager {
 
 			// Send completion - success if at least one file converted
 			const successCount = this.completedFiles - this.errorCount;
-			this.window.webContents.send(IPC.COMPLETE, {
+
+			// Log a summary so successes are counted but not individually listed
+			if (successCount > 0) {
+				this.sendLog('info', `Converted ${successCount} file(s) successfully`);
+			}
+
+			this.emitToRenderer(IPC.COMPLETE, {
 				type: 'conversion',
 				success: successCount > 0,
 				successCount,
 				errorCount: this.errorCount,
 			});
 
-			return { success: true };
+			return { success: true, fileErrors: this.fileErrors };
 		} catch (error) {
 			return {
 				success: false,
 				error: error instanceof Error ? error.message : String(error),
+				fileErrors: this.fileErrors,
 			};
 		} finally {
 			this.isRunning = false;
+			this.abortController = null;
 		}
 	}
 
 	/**
-	 * Cancel ongoing conversion
+	 * Cancel ongoing conversion — kills running child processes
 	 */
 	cancel(): void {
 		this.shouldCancel = true;
+		this.abortController?.abort();
 	}
 
 	/**
@@ -137,13 +152,22 @@ export class ConversionManager {
 		} catch (error) {
 			this.errorCount++;
 			this.completedFiles++;
+			const errorMsg = error instanceof Error ? error.message : String(error);
+			this.fileErrors.set(file.id, errorMsg);
 			this.sendFileProgress({
 				fileId: file.id,
 				fileName: file.name,
 				status: 'error',
 				progress: 0,
-				error: error instanceof Error ? error.message : String(error),
+				error: errorMsg,
 			});
+			// Log the actual error so it appears in the log viewer
+			this.sendLog(
+				'error',
+				`Failed: ${file.name} — ${this.summarizeError(errorMsg)}`,
+				errorMsg,
+				file.id,
+			);
 			this.sendOverallProgress();
 		}
 	}
@@ -170,146 +194,110 @@ export class ConversionManager {
 				outputPath: result.outputPath,
 				message: 'Converted successfully',
 			});
-			this.sendLog('info', `Converted ${file.name}`, result.outputPath, file.id);
+			this.sendLog('debug', `Converted ${file.name}`, result.outputPath, file.id);
 		} else {
 			throw new Error(result.error || 'Unknown error');
 		}
 	}
 
 	/**
-	 * Run CLI converter via subprocess
+	 * Run CLI converter via subprocess using shared runCliScript utility
 	 */
 	private async runCliConverter(file: ScannedFile, options: ConversionOptions): Promise<void> {
-		return new Promise((resolvePromise, reject) => {
-			// Determine input path (handle mbox bundles)
-			const inputPath = file.type === 'mbox-bundle' ? getMboxPathFromBundle(file.path) : file.path;
+		const inputPath = file.type === 'mbox-bundle' ? getMboxPathFromBundle(file.path) : file.path;
 
-			// Find the converter script
-			// Go up from dist/main to desktop, then up to textrawl project root
-			// __dirname in bundled CJS is the directory of dist/main/index.js
-			const projectRoot = resolve(__dirname, '..', '..', '..');
-			const converterScript = resolve(
-				projectRoot,
-				'scripts',
-				'cli',
-				'converters',
-				`${file.converterType}.ts`,
-			);
+		const args = [inputPath, '-o', options.outputDir];
+		if (options.verbose) args.push('-v');
+		if (options.dryRun) args.push('--dry-run');
+		if (options.tags.length > 0) {
+			args.push('-t', ...options.tags);
+		}
 
-			this.sendLog(
-				'info',
-				`Converting ${file.name} with ${file.converterType} converter...`,
-				undefined,
-				file.id,
-			);
+		this.sendLog(
+			'info',
+			`Converting ${file.name} with ${file.converterType} converter...`,
+			undefined,
+			file.id,
+		);
 
-			const args = ['tsx', converterScript, inputPath, '-o', options.outputDir];
+		let lastProgress = 0;
+		let lastLoggedProgress = -10;
 
-			if (options.verbose) args.push('-v');
-			if (options.dryRun) args.push('--dry-run');
-			if (options.tags.length > 0) {
-				args.push('-t', ...options.tags);
-			}
+		await runCliScript({
+			scriptPath: `scripts/cli/converters/${file.converterType}.ts`,
+			args,
+			label: 'Converter',
+			mirrorStderr: true,
+			signal: this.abortController?.signal,
+			onProgress: ({ percent, current, total }) => {
+				if (percent <= lastProgress) return;
+				lastProgress = percent;
 
-			const child = spawn('npx', args, {
-				cwd: projectRoot,
-				stdio: ['ignore', 'pipe', 'pipe'],
-				env: { ...process.env },
-			});
-
-			let stderr = '';
-			let lastProgress = 0;
-			let lastLoggedProgress = -10; // Log every 10%
-
-			child.stderr?.on('data', (data: Buffer) => {
-				const output = data.toString();
-				stderr += output;
-
-				// Mirror converter output to main process stderr for terminal debugging
-				process.stderr.write(output);
-
-				// Parse progress from [PROGRESS] lines - capture percentage and count
-				// Format: [PROGRESS] 45% (690/1548) Message 691
-				const progressMatch = output.match(/\[PROGRESS\]\s*(\d+)%(?:\s*\((\d+)\/(\d+)\))?/);
-				if (progressMatch) {
-					const progress = parseInt(progressMatch[1], 10);
-					const current = progressMatch[2] ? parseInt(progressMatch[2], 10) : null;
-					const total = progressMatch[3] ? parseInt(progressMatch[3], 10) : null;
-
-					if (progress > lastProgress) {
-						lastProgress = progress;
-
-						// Build informative message
-						let message = `${progress}%`;
-						if (current !== null && total !== null) {
-							message = `${current}/${total} items (${progress}%)`;
-						}
-
-						this.sendFileProgress({
-							fileId: file.id,
-							fileName: file.name,
-							status: 'processing',
-							progress,
-							message,
-						});
-
-						// Log progress milestones (every 10%)
-						if (progress >= lastLoggedProgress + 10) {
-							lastLoggedProgress = Math.floor(progress / 10) * 10;
-							const logMsg =
-								current !== null && total !== null
-									? `Processing ${file.name}: ${current}/${total} (${progress}%)`
-									: `Processing ${file.name}: ${progress}%`;
-							this.sendLog('info', logMsg, undefined, file.id);
-						}
-					}
+				let message = `${percent}%`;
+				if (current !== null && total !== null) {
+					message = `${current}/${total} items (${percent}%)`;
 				}
 
-				// Log any non-progress output (filter out progress lines)
-				const lines = output
-					.split('\n')
-					.filter((line) => line.trim() && !line.includes('[PROGRESS]'));
-				for (const line of lines) {
-					this.sendLog('debug', line, undefined, file.id);
-				}
-			});
+				this.sendFileProgress({
+					fileId: file.id,
+					fileName: file.name,
+					status: 'processing',
+					progress: percent,
+					message,
+				});
 
-			child.stdout?.on('data', (data: Buffer) => {
-				// Some converters may output to stdout
-				const output = data.toString().trim();
-				if (output) {
-					this.sendLog('debug', output, undefined, file.id);
+				// Log progress milestones (every 10%)
+				if (percent >= lastLoggedProgress + 10) {
+					lastLoggedProgress = Math.floor(percent / 10) * 10;
+					const logMsg =
+						current !== null && total !== null
+							? `Processing ${file.name}: ${current}/${total} (${percent}%)`
+							: `Processing ${file.name}: ${percent}%`;
+					this.sendLog('info', logMsg, undefined, file.id);
 				}
-			});
-
-			child.on('exit', (code) => {
-				if (code === 0) {
-					this.sendFileProgress({
-						fileId: file.id,
-						fileName: file.name,
-						status: 'complete',
-						progress: 100,
-						outputPath: options.outputDir,
-						message: 'Converted successfully',
-					});
-					this.sendLog('info', `Converted ${file.name}`, undefined, file.id);
-					resolvePromise();
-				} else {
-					reject(new Error(`Converter exited with code ${code}: ${stderr.slice(-500)}`));
-				}
-			});
-
-			child.on('error', (error) => {
-				reject(error);
-			});
+			},
+			onOutput: ({ text }) => {
+				this.sendLog('debug', text, undefined, file.id);
+			},
 		});
+
+		// Only reached on exit code 0
+		this.sendFileProgress({
+			fileId: file.id,
+			fileName: file.name,
+			status: 'complete',
+			progress: 100,
+			outputPath: options.outputDir,
+			message: 'Converted successfully',
+		});
+		this.sendLog('debug', `Converted ${file.name}`, undefined, file.id);
 	}
 
 	/**
-	 * Send file progress update to renderer
+	 * Extract a short, readable reason from a converter error message.
+	 */
+	private summarizeError(msg: string): string {
+		// CLI converter: "Converter exited with code N: <stderr tail>"
+		const codeMatch = msg.match(/Converter exited with code (\d+)/);
+		if (codeMatch) {
+			// Try to find a meaningful last line from stderr
+			const stderrPart = msg.slice(msg.indexOf(':') + 1).trim();
+			const lines = stderrPart.split('\n').filter((l) => l.trim());
+			const lastLine = lines.at(-1)?.trim();
+			if (lastLine && lastLine.length < 200) {
+				return lastLine;
+			}
+			return `converter exited with code ${codeMatch[1]}`;
+		}
+		// Truncate long messages
+		return msg.length > 120 ? `${msg.slice(0, 120)}...` : msg;
+	}
+
+	/**
+	 * Send file progress update to renderer (with destroyed-window guard)
 	 */
 	private sendFileProgress(progress: FileProgress): void {
-		this.window.webContents.send(IPC.PROGRESS, {
+		this.emitToRenderer(IPC.PROGRESS, {
 			type: 'file',
 			data: progress,
 		});
@@ -326,9 +314,11 @@ export class ConversionManager {
 			skippedCount: 0,
 			percentComplete:
 				this.totalFiles === 0 ? 100 : Math.round((this.completedFiles / this.totalFiles) * 100),
+			startedAt: this.startedAt,
+			elapsedMs: Date.now() - this.startedAt,
 		};
 
-		this.window.webContents.send(IPC.PROGRESS, {
+		this.emitToRenderer(IPC.PROGRESS, {
 			type: 'overall',
 			data: progress,
 		});
@@ -352,6 +342,13 @@ export class ConversionManager {
 			fileId,
 		};
 
-		this.window.webContents.send(IPC.LOG, entry);
+		this.emitToRenderer(IPC.LOG, entry);
+	}
+
+	/** Guard against sending IPC to a destroyed window. */
+	private emitToRenderer(channel: string, data: unknown): void {
+		if (!this.window.isDestroyed()) {
+			this.window.webContents.send(channel, data);
+		}
 	}
 }
