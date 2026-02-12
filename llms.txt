@@ -75,6 +75,13 @@ Store facts about entities with semantic embeddings.
 - source (enum): conversation | note | document | manual
 - validUntil (string): ISO date for expiring facts
 
+### build_knowledge
+
+Store multiple facts and relations in a single batch call.
+
+- facts (array): Facts to store, max 50. Each: entityName, entityType, observation, source?
+- relations (array): Relations to create, max 50. Each: fromEntity, relation, toEntity, fromEntityType?, toEntityType?
+
 ### recall_memories
 
 Search stored memories with hybrid or semantic search.

@@ -142,6 +142,48 @@ Example:
 }
 ```
 
+### build_knowledge
+
+Store multiple facts and relations in a single batch call. Prefer this over separate remember_fact and relate_entities calls.
+
+Parameters:
+- facts (array, max 50): Array of facts to store
+  - entityName (string, REQUIRED): Entity name (1-200 chars)
+  - entityType (enum, REQUIRED): person | concept | project | preference | fact | location | organization
+  - observation (string, REQUIRED): Fact to remember (1-2000 chars)
+  - source (enum): conversation | note | document | manual, default 'conversation'
+- relations (array, max 50): Array of relations to create
+  - fromEntity (string, REQUIRED): Source entity name
+  - relation (string, REQUIRED): Relationship type (e.g., "works on", "manages")
+  - toEntity (string, REQUIRED): Target entity name
+  - fromEntityType (enum): Type of source entity
+  - toEntityType (enum): Type of target entity
+
+Example:
+```json
+{
+  "facts": [
+    {
+      "entityName": "Jeff",
+      "entityType": "person",
+      "observation": "leads the backend team"
+    },
+    {
+      "entityName": "Project Alpha",
+      "entityType": "project",
+      "observation": "uses PostgreSQL for the database layer"
+    }
+  ],
+  "relations": [
+    {
+      "fromEntity": "Jeff",
+      "relation": "works on",
+      "toEntity": "Project Alpha"
+    }
+  ]
+}
+```
+
 ### recall_memories
 
 Semantic search across stored memories using hybrid (keyword + semantic) or semantic-only mode.

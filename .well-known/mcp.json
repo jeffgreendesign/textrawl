@@ -240,6 +240,113 @@
 			}
 		},
 		{
+			"name": "build_knowledge",
+			"description": "Store multiple facts and relations in a single batch call. Prefer over separate remember_fact and relate_entities calls.",
+			"featureFlag": "ENABLE_MEMORY",
+			"inputSchema": {
+				"type": "object",
+				"properties": {
+					"facts": {
+						"type": "array",
+						"maxItems": 50,
+						"description": "Facts to store (max 50)",
+						"items": {
+							"type": "object",
+							"required": ["entityName", "entityType", "observation"],
+							"properties": {
+								"entityName": {
+									"type": "string",
+									"minLength": 1,
+									"maxLength": 200,
+									"description": "Entity name"
+								},
+								"entityType": {
+									"type": "string",
+									"enum": [
+										"person",
+										"concept",
+										"project",
+										"preference",
+										"fact",
+										"location",
+										"organization"
+									],
+									"description": "Type of entity"
+								},
+								"observation": {
+									"type": "string",
+									"minLength": 1,
+									"maxLength": 2000,
+									"description": "Fact to remember"
+								},
+								"source": {
+									"type": "string",
+									"enum": ["conversation", "note", "document", "manual"],
+									"default": "conversation",
+									"description": "Source of this memory"
+								}
+							}
+						}
+					},
+					"relations": {
+						"type": "array",
+						"maxItems": 50,
+						"description": "Relations to create (max 50)",
+						"items": {
+							"type": "object",
+							"required": ["fromEntity", "relation", "toEntity"],
+							"properties": {
+								"fromEntity": {
+									"type": "string",
+									"minLength": 1,
+									"maxLength": 200,
+									"description": "Source entity name"
+								},
+								"relation": {
+									"type": "string",
+									"minLength": 1,
+									"maxLength": 100,
+									"description": "Relationship type"
+								},
+								"toEntity": {
+									"type": "string",
+									"minLength": 1,
+									"maxLength": 200,
+									"description": "Target entity name"
+								},
+								"fromEntityType": {
+									"type": "string",
+									"enum": [
+										"person",
+										"concept",
+										"project",
+										"preference",
+										"fact",
+										"location",
+										"organization"
+									],
+									"description": "Type of source entity (optional)"
+								},
+								"toEntityType": {
+									"type": "string",
+									"enum": [
+										"person",
+										"concept",
+										"project",
+										"preference",
+										"fact",
+										"location",
+										"organization"
+									],
+									"description": "Type of target entity (optional)"
+								}
+							}
+						}
+					}
+				}
+			}
+		},
+		{
 			"name": "recall_memories",
 			"description": "Semantic search across stored memories",
 			"featureFlag": "ENABLE_MEMORY",

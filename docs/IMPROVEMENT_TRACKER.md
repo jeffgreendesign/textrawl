@@ -8,23 +8,23 @@
 
 ## PR 1: Migrate to `registerTool()` API
 
-- [ ] Audit all `server.tool()` calls across codebase
-- [ ] Migrate each to `server.registerTool()` with `title` and `description` fields
-- [ ] Add explicit `title` metadata to every tool (user-facing display name)
+- [x] Audit all `server.tool()` calls across codebase
+- [x] Migrate each to `server.registerTool()` with `title` and `description` fields
+- [x] Add explicit `title` metadata to every tool (user-facing display name)
 - [ ] Verify all tools still pass manual testing via MCP Inspector
-- [ ] Commit and open PR
+- [x] Commit and open PR
 
 ## PR 2: Merge memory write tools into `build_knowledge`
 
-- [ ] Create new combined tool `build_knowledge` in `src/tools/memory.ts`
-- [ ] Accept `facts` array (each: entityName, entityType, observation, source?)
-- [ ] Accept `relations` array (each: fromEntity, fromEntityType?, relation, toEntity, toEntityType?)
-- [ ] Process all facts first, then all relations in a single handler
-- [ ] Fix the bug where `relate_entities` rejects optional entityType as null (make truly optional)
-- [ ] Update tool descriptions to guide agents toward `build_knowledge`
-- [ ] Update all 8 documentation files
+- [x] Create new combined tool `build_knowledge` in `src/tools/memory.ts`
+- [x] Accept `facts` array (each: entityName, entityType, observation, source?)
+- [x] Accept `relations` array (each: fromEntity, fromEntityType?, relation, toEntity, toEntityType?)
+- [x] Process all facts first, then all relations in a single handler
+- [x] Fix the bug where `relate_entities` rejects optional entityType as null (make truly optional)
+- [x] Update tool descriptions to guide agents toward `build_knowledge`
+- [x] Update all 8 documentation files
 - [ ] Test: single call creating 5 entities + 3 relations
-- [ ] Commit and open PR
+- [~] Commit and open PR
 
 ## PR 3: Consolidate read/query tools to reduce tool count
 

@@ -282,6 +282,35 @@ Store facts about entities (people, projects, concepts) with automatic semantic 
 }
 ```
 
+### build_knowledge
+
+Store multiple facts and relations in a single call. Prefer this over separate `remember_fact` and `relate_entities` calls for batch operations.
+
+**Parameters:**
+
+- `facts` (array, OPTIONAL): Array of facts to store (max 50)
+  - `entityName` (string, REQUIRED): Entity name (1-200 chars)
+  - `entityType` (enum, REQUIRED): `'person' | 'concept' | 'project' | 'preference' | 'fact' | 'location' | 'organization'`
+  - `observation` (string, REQUIRED): Fact to remember (1-2000 chars)
+  - `source` (enum, OPTIONAL): `'conversation' | 'note' | 'document' | 'manual'`, default 'conversation'
+- `relations` (array, OPTIONAL): Array of relations to create (max 50)
+  - `fromEntity` (string, REQUIRED): Source entity name
+  - `relation` (string, REQUIRED): Relationship type (e.g., "works on", "manages")
+  - `toEntity` (string, REQUIRED): Target entity name
+  - `fromEntityType` (enum, OPTIONAL): Type of source entity
+  - `toEntityType` (enum, OPTIONAL): Type of target entity
+
+**Response:**
+
+```json
+{
+  "success": true,
+  "factsCreated": 3,
+  "factsDuplicate": 0,
+  "relationsCreated": 2
+}
+```
+
 ### recall_memories
 
 Semantic search across stored memories using hybrid (keyword + semantic) or semantic-only mode.

@@ -134,6 +134,7 @@ The `search_knowledge` tool supports weighted Reciprocal Rank Fusion:
 **Memory Tools (Persistent Memory):**
 
 - `remember_fact` - Store facts about entities (people, concepts, projects, etc.)
+- `build_knowledge` - Store multiple facts and relations in a single batch call
 - `recall_memories` - Semantic search across stored memories
 - `relate_entities` - Create relationships between entities
 - `get_entity_context` - Get all memories and relations for an entity

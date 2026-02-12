@@ -13,69 +13,7 @@
 6. **Count current tools**: `grep -c "server\.tool\|server\.registerTool" src/server.ts src/tools/*.ts`
 7. **Check rate limiting**: `grep -rn "rate.limit\|rateLimit" src/ --include="*.ts"` to see current implementation.
 
-Create a tracking file at `docs/IMPROVEMENT_TRACKER.md` with the checklist below. Update it after each PR is complete so you know where to pick up.
-
-~~~markdown
-# Textrawl Improvement Tracker
-
-## Status Key
-- [ ] Not started
-- [~] In progress
-- [x] Complete
-
-## PR 1: Migrate to `registerTool()` API
-- [ ] Audit all `server.tool()` calls across codebase
-- [ ] Migrate each to `server.registerTool()` with `title` and `description` fields
-- [ ] Add explicit `title` metadata to every tool (user-facing display name)
-- [ ] Verify all tools still pass manual testing via MCP Inspector
-- [ ] Update any related docs or README references
-- [ ] Commit and open PR
-
-## PR 2: Merge memory write tools into `build_knowledge`
-- [ ] Create new combined tool `build_knowledge` in `src/tools/memory.ts`
-- [ ] Accept `facts` array (each: entityName, entityType, observation, source?, validUntil?)
-- [ ] Accept `relations` array (each: fromEntity, fromEntityType?, relation, toEntity, toEntityType?)
-- [ ] Process all facts first, then all relations in a single handler
-- [ ] Fix the bug where `relate_entities` rejects optional entityType as null (make truly optional)
-- [ ] Keep `remember_fact` and `relate_entities` as thin wrappers calling the same internal logic (backward compat)
-- [ ] Mark old tools with `[Deprecated]` in their descriptions
-- [ ] Update tool descriptions to guide agents toward `build_knowledge`
-- [ ] Test: single call creating 5 entities + 3 relations
-- [ ] Commit and open PR
-
-## PR 3: Consolidate read/query tools to reduce tool count
-- [ ] Audit all 24 tools, group by domain (search, documents, memory, conversations, insights)
-- [ ] Identify tools that can be merged without losing functionality
-- [ ] Consider merging `search_knowledge` + `search_with_context` (add includeMemories/includeConversations as optional params to one tool)
-- [ ] Consider merging `list_entities` + `get_entity_context` + `recall_memories` into fewer tools
-- [ ] Consider merging `list_conversations` + `recall_conversation` + `get_conversation`
-- [ ] Consider merging stats tools (`knowledge_stats`, `memory_stats`, `conversation_stats`, `insight_stats`) into a single `get_stats` tool with a `scope` param
-- [ ] Update `src/server.ts` registration to reflect reduced tool set
-- [ ] Keep deprecated tool names as aliases if feasible (backward compat for existing MCP clients)
-- [ ] Target: reduce from ~24 tools to ~15 or fewer
-- [ ] Document the mapping from old tool names to new ones
-- [ ] Commit and open PR
-
-## PR 4: Add `outputSchema` to search and retrieval tools
-- [ ] Confirm SDK version supports `outputSchema` (requires `@modelcontextprotocol/sdk` >=1.12 or check docs)
-- [ ] Define JSON Schema output shapes for `search_knowledge` (array of results with id, title, content, score, sourceType)
-- [ ] Define output shapes for `recall_memories` (entities with observations)
-- [ ] Define output shapes for `list_documents`, `get_document`, `get_entity_context`
-- [ ] Add `outputSchema` to each tool's registration
-- [ ] Return data via `structuredContent` alongside existing `content` text (backward compat)
-- [ ] Test with MCP Inspector that both structured and unstructured content are returned
-- [ ] Commit and open PR
-
-## PR 5: Redis-backed rate limiting (if multi-replica)
-- [ ] Audit current rate limiting in `src/index.ts` (likely `express-rate-limit` in-memory)
-- [ ] Determine if Cloud Run is configured for multiple instances
-- [ ] If yes: add `rate-limit-redis` or `ioredis` + a Redis/Memorystore connection
-- [ ] If single instance only: document this as a known limitation and skip implementation
-- [ ] Add `REDIS_URL` to config/env schema
-- [ ] Add rate limiter store swap: use Redis if `REDIS_URL` is set, else fall back to in-memory
-- [ ] Test rate limiting behavior
-- [ ] Commit and open PR
-~~~
+See `docs/IMPROVEMENT_TRACKER.md` for the tracking checklist. Update it after each PR is complete so you know where to pick up.
 
 ## PR 1: Migrate to `registerTool()` API
 

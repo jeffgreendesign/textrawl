@@ -73,7 +73,7 @@ export function registerMemoryTools(server: McpServer): void {
 		{
 			title: 'Remember Fact',
 			description:
-				'Store a single atomic fact about an entity (person, project, concept, etc.) with automatic semantic embedding. Creates the entity if it does not exist. Idempotent: duplicate facts are detected and skipped.',
+				'Store a single atomic fact about an entity (person, project, concept, etc.) with automatic semantic embedding. Creates the entity if it does not exist. Idempotent: duplicate facts are detected and skipped. Prefer build_knowledge for batch operations.',
 			inputSchema: {
 				entityName: z
 					.string()
@@ -379,6 +379,7 @@ export function registerMemoryTools(server: McpServer): void {
 				'Idempotent: creating the same relation twice is a no-op.',
 				`Common relation types: ${Object.values(RELATION_TYPES).join(', ')}.`,
 				'Custom relation types are also accepted (use snake_case).',
+				'Prefer build_knowledge for batch operations.',
 			].join(' '),
 			inputSchema: {
 				fromEntity: z.string().min(1).max(200).describe('The source entity name'),
@@ -390,12 +391,16 @@ export function registerMemoryTools(server: McpServer): void {
 						'Relation type in snake_case active voice (e.g., "works_at", "prefers", "knows", "created", "part_of"). Free-form — any string accepted.',
 					),
 				toEntity: z.string().min(1).max(200).describe('The target entity name'),
-				fromEntityType: EntityTypeSchema.optional().describe(
-					'Type of source entity. Omit if entity already exists — type is auto-detected. Only needed when creating a new entity.',
-				),
-				toEntityType: EntityTypeSchema.optional().describe(
-					'Type of target entity. Omit if entity already exists — type is auto-detected. Only needed when creating a new entity.',
-				),
+				fromEntityType: EntityTypeSchema.optional()
+					.nullable()
+					.describe(
+						'Type of source entity. Omit if entity already exists — type is auto-detected. Only needed when creating a new entity.',
+					),
+				toEntityType: EntityTypeSchema.optional()
+					.nullable()
+					.describe(
+						'Type of target entity. Omit if entity already exists — type is auto-detected. Only needed when creating a new entity.',
+					),
 			},
 			annotations: {
 				readOnlyHint: false,
@@ -974,4 +979,182 @@ export function registerMemoryTools(server: McpServer): void {
 	);
 
 	logger.debug('Registered tool: extract_memories');
+
+	// ============================================
+	// Tool: build_knowledge
+	// ============================================
+	server.registerTool(
+		'build_knowledge',
+		{
+			title: 'Build Knowledge',
+			description:
+				'Store multiple facts and relations in a single call. More efficient than calling remember_fact and relate_entities individually. Creates entities automatically. Idempotent: duplicate facts and relations are skipped.',
+			inputSchema: {
+				facts: z
+					.array(
+						z.object({
+							entityName: z.string().min(1).max(200),
+							entityType: EntityTypeSchema,
+							observation: z.string().min(1).max(2000),
+							source: z
+								.enum(['conversation', 'note', 'document', 'manual'])
+								.optional()
+								.default('conversation'),
+						}),
+					)
+					.max(50)
+					.optional()
+					.describe('Facts to store (max 50)'),
+				relations: z
+					.array(
+						z.object({
+							fromEntity: z.string().min(1).max(200),
+							relation: z.string().min(1).max(100),
+							toEntity: z.string().min(1).max(200),
+							fromEntityType: EntityTypeSchema.optional().nullable(),
+							toEntityType: EntityTypeSchema.optional().nullable(),
+						}),
+					)
+					.max(50)
+					.optional()
+					.describe('Relations to create (max 50)'),
+			},
+			annotations: {
+				readOnlyHint: false,
+				destructiveHint: false,
+				idempotentHint: true,
+				openWorldHint: false,
+			},
+		},
+		async ({ facts, relations }) => {
+			logger.info('build_knowledge called', {
+				factCount: facts?.length ?? 0,
+				relationCount: relations?.length ?? 0,
+			});
+
+			if (!facts?.length && !relations?.length) {
+				return toolError('Provide at least one fact or relation');
+			}
+
+			if (!isSupabaseConfigured()) {
+				return configError('Database', 'Set SUPABASE_URL and SUPABASE_SERVICE_KEY');
+			}
+
+			if (!isOpenAIConfigured()) {
+				return configError('Embedding provider', 'Set OPENAI_API_KEY or configure Ollama');
+			}
+
+			let factsCreated = 0;
+			let factsDuplicate = 0;
+			let relationsCreated = 0;
+			const errors: string[] = [];
+
+			// Process facts
+			if (facts?.length) {
+				for (const fact of facts) {
+					try {
+						const entity = await getOrCreateEntity({
+							name: fact.entityName,
+							entityType: fact.entityType as EntityType,
+						});
+
+						// Check for duplicate
+						const existing = await findSimilarObservation(entity.id, fact.observation);
+						if (existing) {
+							factsDuplicate++;
+							continue;
+						}
+
+						// Generate embedding and create observation
+						const embedding = await generateEmbedding(fact.observation);
+						await createObservation({
+							entityId: entity.id,
+							content: fact.observation,
+							source: fact.source,
+							embedding,
+							validUntil: null,
+						});
+						factsCreated++;
+					} catch (error) {
+						const msg = `fact "${fact.entityName}": ${error instanceof Error ? error.message : String(error)}`;
+						logger.error('build_knowledge fact failed', { entity: fact.entityName, error: msg });
+						errors.push(msg);
+					}
+				}
+			}
+
+			// Process relations
+			if (relations?.length) {
+				for (const rel of relations) {
+					try {
+						const cleanFromType = sanitizeEntityType(rel.fromEntityType);
+						const cleanToType = sanitizeEntityType(rel.toEntityType);
+
+						const fromEntityObj = await getOrCreateEntity({
+							name: rel.fromEntity,
+							entityType:
+								cleanFromType || (await findEntityByName(rel.fromEntity))?.entity_type || 'concept',
+						});
+
+						const toEntityObj = await getOrCreateEntity({
+							name: rel.toEntity,
+							entityType:
+								cleanToType || (await findEntityByName(rel.toEntity))?.entity_type || 'concept',
+						});
+
+						await getOrCreateRelation({
+							fromEntityId: fromEntityObj.id,
+							toEntityId: toEntityObj.id,
+							relationType: rel.relation,
+						});
+						relationsCreated++;
+					} catch (error) {
+						const msg = `relation "${rel.fromEntity} ${rel.relation} ${rel.toEntity}": ${error instanceof Error ? error.message : String(error)}`;
+						logger.error('build_knowledge relation failed', {
+							from: rel.fromEntity,
+							to: rel.toEntity,
+							error: msg,
+						});
+						errors.push(msg);
+					}
+				}
+			}
+
+			const hasErrors = errors.length > 0;
+			logger.info('build_knowledge completed', {
+				factsCreated,
+				factsDuplicate,
+				relationsCreated,
+				errors: hasErrors ? errors.length : 0,
+			});
+
+			return {
+				content: [
+					{
+						type: 'text' as const,
+						text: toJSON(
+							isCompact()
+								? {
+										ok: !hasErrors,
+										...(hasErrors ? { partial: true } : {}),
+										facts: { new: factsCreated, dup: factsDuplicate },
+										rel: relationsCreated,
+										...(hasErrors ? { err: errors } : {}),
+									}
+								: {
+										success: !hasErrors,
+										...(hasErrors ? { partialSuccess: true } : {}),
+										factsCreated,
+										factsDuplicate,
+										relationsCreated,
+										...(hasErrors ? { errors } : {}),
+									},
+						),
+					},
+				],
+			};
+		},
+	);
+
+	logger.debug('Registered tool: build_knowledge');
 }
