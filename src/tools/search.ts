@@ -12,38 +12,42 @@ import { logger } from '../utils/logger.js';
 // --- Output Schema ---
 
 const SearchResultItemSchema = z.object({
-	type: z.enum(['document', 'memory', 'conversation']),
-	score: z.number(),
+	type: z.enum(['document', 'memory', 'conversation']).describe('Source type of this result'),
+	score: z.number().describe('Relevance score (higher is better)'),
 	// Document fields
-	documentId: z.string().optional(),
-	documentTitle: z.string().optional(),
-	sourceType: z.string().optional(),
-	tags: z.array(z.string()).optional(),
-	chunkId: z.string().optional(),
+	documentId: z.string().optional().describe('Document UUID (present for document results)'),
+	documentTitle: z.string().optional().describe('Document title (present for document results)'),
+	sourceType: z.string().optional().describe('How the document was added (note, file, url)'),
+	tags: z.array(z.string()).optional().describe('Document tags'),
+	chunkId: z.string().optional().describe('Matched chunk UUID within the document'),
 	// Memory fields
-	entityId: z.string().optional(),
-	entityName: z.string().optional(),
-	entityType: z.string().optional(),
+	entityId: z.string().optional().describe('Entity UUID (present for memory results)'),
+	entityName: z.string().optional().describe('Entity name (present for memory results)'),
+	entityType: z.string().optional().describe('Entity type such as person, concept, project'),
 	// Conversation fields
-	sessionId: z.string().optional(),
-	sessionKey: z.string().nullable().optional(),
-	title: z.string().nullable().optional(),
-	summary: z.string().nullable().optional(),
+	sessionId: z
+		.string()
+		.optional()
+		.describe('Conversation session UUID (present for conversation results)'),
+	sessionKey: z.string().nullable().optional().describe('User-defined session key'),
+	title: z.string().nullable().optional().describe('Conversation title'),
+	summary: z.string().nullable().optional().describe('Conversation summary snippet'),
 	// Shared
-	content: z.string().optional(),
+	content: z.string().optional().describe('Matched text content snippet'),
 });
 
 const SearchOutputSchema = {
-	query: z.string(),
-	totalResults: z.number(),
-	results: z.array(SearchResultItemSchema),
+	query: z.string().describe('The original search query'),
+	totalResults: z.number().describe('Number of results returned'),
+	results: z.array(SearchResultItemSchema).describe('Ranked search results'),
 	counts: z
 		.object({
-			documents: z.number(),
-			memories: z.number(),
-			conversations: z.number(),
+			documents: z.number().describe('Number of document results'),
+			memories: z.number().describe('Number of memory results'),
+			conversations: z.number().describe('Number of conversation results'),
 		})
-		.optional(),
+		.optional()
+		.describe('Per-source result counts (only present for cross-source searches)'),
 };
 
 /**
@@ -285,10 +289,12 @@ export function registerSearchTool(server: McpServer): void {
 						type: 'document',
 						score: doc.score,
 						data: {
-							id: doc.document_id,
-							title: doc.document_title,
-							content: doc.content.slice(0, 500),
+							documentId: doc.document_id,
+							documentTitle: doc.document_title,
 							sourceType: doc.source_type,
+							tags: (doc.document_metadata?.tags as string[]) || [],
+							chunkId: doc.chunk_id,
+							content: doc.content.slice(0, 500),
 						},
 					});
 				}
