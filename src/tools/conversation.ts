@@ -19,7 +19,7 @@ import {
 } from '../db/conversation-sessions.js';
 import { createTurns, getRecentTurns, getSessionTurns } from '../db/conversation-turns.js';
 import { generateEmbedding, isOpenAIConfigured } from '../services/embeddings.js';
-import { formatId, isCompact, toJSON, toolError } from '../utils/compact.js';
+import { configError, formatId, isCompact, toJSON, toolError } from '../utils/compact.js';
 import { logger } from '../utils/logger.js';
 
 /**
@@ -29,39 +29,48 @@ export function registerConversationTools(server: McpServer): void {
 	// ============================================
 	// Tool: save_conversation_context
 	// ============================================
-	server.tool(
+	server.registerTool(
 		'save_conversation_context',
 		{
-			sessionKey: z
-				.string()
-				.min(1)
-				.max(200)
-				.optional()
-				.describe('Optional session key to identify this conversation'),
-			title: z.string().max(500).optional().describe('Title for this conversation'),
-			summary: z.string().min(1).max(10000).describe('Summary of the conversation context to save'),
-			recentTurns: z
-				.array(
-					z.object({
-						role: z.enum(['user', 'assistant', 'system']),
-						content: z.string().max(50000),
-					}),
-				)
-				.max(50)
-				.optional()
-				.describe('Recent conversation turns to save'),
-			embedTurns: z
-				.boolean()
-				.default(false)
-				.describe(
-					'Generate embeddings for individual turns (slower but enables turn-level search)',
-				),
-		},
-		{
-			readOnlyHint: false,
-			destructiveHint: false,
-			idempotentHint: true,
-			openWorldHint: false,
+			title: 'Save Conversation',
+			description:
+				'Save a conversation summary and recent turns for later recall. Use a sessionKey to update an existing conversation. Turns can optionally be embedded for fine-grained search.',
+			inputSchema: {
+				sessionKey: z
+					.string()
+					.min(1)
+					.max(200)
+					.optional()
+					.describe('Optional session key to identify this conversation'),
+				title: z.string().max(500).optional().describe('Title for this conversation'),
+				summary: z
+					.string()
+					.min(1)
+					.max(10000)
+					.describe('Summary of the conversation context to save'),
+				recentTurns: z
+					.array(
+						z.object({
+							role: z.enum(['user', 'assistant', 'system']),
+							content: z.string().max(50000),
+						}),
+					)
+					.max(50)
+					.optional()
+					.describe('Recent conversation turns to save'),
+				embedTurns: z
+					.boolean()
+					.default(false)
+					.describe(
+						'Generate embeddings for individual turns (slower but enables turn-level search)',
+					),
+			},
+			annotations: {
+				readOnlyHint: false,
+				destructiveHint: false,
+				idempotentHint: true,
+				openWorldHint: false,
+			},
 		},
 		async ({ sessionKey, title, summary, recentTurns, embedTurns }) => {
 			logger.info('save_conversation_context called', {
@@ -73,31 +82,11 @@ export function registerConversationTools(server: McpServer): void {
 			});
 
 			if (!isSupabaseConfigured()) {
-				return {
-					content: [
-						{
-							type: 'text' as const,
-							text: toJSON({
-								error: 'Database not configured',
-								message: 'Set SUPABASE_URL and SUPABASE_SERVICE_KEY',
-							}),
-						},
-					],
-				};
+				return configError('Database', 'Set SUPABASE_URL and SUPABASE_SERVICE_KEY');
 			}
 
 			if (!isOpenAIConfigured()) {
-				return {
-					content: [
-						{
-							type: 'text' as const,
-							text: toJSON({
-								error: 'Embedding not configured',
-								message: 'Set OPENAI_API_KEY or configure Ollama',
-							}),
-						},
-					],
-				};
+				return configError('Embeddings', 'Set OPENAI_API_KEY or configure Ollama');
 			}
 
 			try {
@@ -198,37 +187,42 @@ export function registerConversationTools(server: McpServer): void {
 	// ============================================
 	// Tool: recall_conversation
 	// ============================================
-	server.tool(
+	server.registerTool(
 		'recall_conversation',
 		{
-			query: z.string().min(1).max(1000).describe('What to search for in past conversations'),
-			limit: z
-				.number()
-				.int()
-				.min(1)
-				.max(20)
-				.default(5)
-				.describe('Maximum number of conversations to return'),
-			searchMode: z
-				.enum(['summary', 'turns', 'both'])
-				.default('summary')
-				.describe('Search summaries only, individual turns, or both'),
-			includeTranscript: z
-				.boolean()
-				.default(false)
-				.describe('Include recent turns from matching conversations'),
-			maxTurnsPerConversation: z
-				.number()
-				.int()
-				.min(1)
-				.max(50)
-				.default(10)
-				.describe('Max turns to include per conversation if includeTranscript is true'),
-		},
-		{
-			readOnlyHint: true,
-			destructiveHint: false,
-			openWorldHint: false,
+			title: 'Recall Conversation',
+			description:
+				'Search past conversations by semantic similarity. Can search summaries, individual turns, or both. Optionally includes the transcript of matching conversations.',
+			inputSchema: {
+				query: z.string().min(1).max(1000).describe('What to search for in past conversations'),
+				limit: z
+					.number()
+					.int()
+					.min(1)
+					.max(20)
+					.default(5)
+					.describe('Maximum number of conversations to return'),
+				searchMode: z
+					.enum(['summary', 'turns', 'both'])
+					.default('summary')
+					.describe('Search summaries only, individual turns, or both'),
+				includeTranscript: z
+					.boolean()
+					.default(false)
+					.describe('Include recent turns from matching conversations'),
+				maxTurnsPerConversation: z
+					.number()
+					.int()
+					.min(1)
+					.max(50)
+					.default(10)
+					.describe('Max turns to include per conversation if includeTranscript is true'),
+			},
+			annotations: {
+				readOnlyHint: true,
+				destructiveHint: false,
+				openWorldHint: false,
+			},
 		},
 		async ({ query, limit, searchMode, includeTranscript, maxTurnsPerConversation }) => {
 			logger.info('recall_conversation called', {
@@ -239,25 +233,11 @@ export function registerConversationTools(server: McpServer): void {
 			});
 
 			if (!isSupabaseConfigured()) {
-				return {
-					content: [
-						{
-							type: 'text' as const,
-							text: toJSON({ error: 'Database not configured' }),
-						},
-					],
-				};
+				return configError('Database', 'Set SUPABASE_URL and SUPABASE_SERVICE_KEY');
 			}
 
 			if (!isOpenAIConfigured()) {
-				return {
-					content: [
-						{
-							type: 'text' as const,
-							text: toJSON({ error: 'Embedding not configured' }),
-						},
-					],
-				};
+				return configError('Embeddings', 'Set OPENAI_API_KEY or configure Ollama');
 			}
 
 			try {
@@ -370,9 +350,10 @@ export function registerConversationTools(server: McpServer): void {
 								s: Math.round(r.score * 100) / 100,
 								sum: r.summary?.slice(0, 200),
 								turns: r.turns?.map((t) => ({ r: t.role[0], c: t.content })),
-								matched: r.matchedTurns
-									?.slice(0, 3)
-									.map((t) => ({ r: t.role[0], c: t.content.slice(0, 100) })),
+								matched: r.matchedTurns?.slice(0, 3).map((t) => ({
+									r: t.role[0],
+									c: t.content.slice(0, 100),
+								})),
 							})),
 						}
 					: {
@@ -414,35 +395,33 @@ export function registerConversationTools(server: McpServer): void {
 	// ============================================
 	// Tool: list_conversations
 	// ============================================
-	server.tool(
+	server.registerTool(
 		'list_conversations',
 		{
-			limit: z
-				.number()
-				.int()
-				.min(1)
-				.max(50)
-				.default(20)
-				.describe('Maximum number of conversations to return'),
-			offset: z.number().int().min(0).default(0).describe('Pagination offset'),
-		},
-		{
-			readOnlyHint: true,
-			destructiveHint: false,
-			openWorldHint: false,
+			title: 'List Conversations',
+			description:
+				'List recent conversation sessions with pagination. Returns session metadata, turn counts, and last activity timestamps.',
+			inputSchema: {
+				limit: z
+					.number()
+					.int()
+					.min(1)
+					.max(50)
+					.default(20)
+					.describe('Maximum number of conversations to return'),
+				offset: z.number().int().min(0).default(0).describe('Pagination offset'),
+			},
+			annotations: {
+				readOnlyHint: true,
+				destructiveHint: false,
+				openWorldHint: false,
+			},
 		},
 		async ({ limit, offset }) => {
 			logger.info('list_conversations called', { limit, offset });
 
 			if (!isSupabaseConfigured()) {
-				return {
-					content: [
-						{
-							type: 'text' as const,
-							text: toJSON({ error: 'Database not configured' }),
-						},
-					],
-				};
+				return configError('Database', 'Set SUPABASE_URL and SUPABASE_SERVICE_KEY');
 			}
 
 			try {
@@ -498,41 +477,32 @@ export function registerConversationTools(server: McpServer): void {
 	// ============================================
 	// Tool: get_conversation
 	// ============================================
-	server.tool(
+	server.registerTool(
 		'get_conversation',
 		{
-			sessionId: z.string().optional().describe('Session ID to retrieve'),
-			sessionKey: z.string().optional().describe('Session key to retrieve'),
-			maxTurns: z.number().int().min(1).max(200).default(50).describe('Maximum turns to include'),
-		},
-		{
-			readOnlyHint: true,
-			destructiveHint: false,
-			openWorldHint: false,
+			title: 'Get Conversation',
+			description:
+				'Retrieve a full conversation by session ID or session key. Returns the session metadata and all turns up to the specified limit.',
+			inputSchema: {
+				sessionId: z.string().optional().describe('Session ID to retrieve'),
+				sessionKey: z.string().optional().describe('Session key to retrieve'),
+				maxTurns: z.number().int().min(1).max(200).default(50).describe('Maximum turns to include'),
+			},
+			annotations: {
+				readOnlyHint: true,
+				destructiveHint: false,
+				openWorldHint: false,
+			},
 		},
 		async ({ sessionId, sessionKey, maxTurns }) => {
 			logger.info('get_conversation called', { sessionId, sessionKey, maxTurns });
 
 			if (!sessionId && !sessionKey) {
-				return {
-					content: [
-						{
-							type: 'text' as const,
-							text: toJSON({ error: 'Either sessionId or sessionKey is required' }),
-						},
-					],
-				};
+				return toolError('Either sessionId or sessionKey is required');
 			}
 
 			if (!isSupabaseConfigured()) {
-				return {
-					content: [
-						{
-							type: 'text' as const,
-							text: toJSON({ error: 'Database not configured' }),
-						},
-					],
-				};
+				return configError('Database', 'Set SUPABASE_URL and SUPABASE_SERVICE_KEY');
 			}
 
 			try {
@@ -548,7 +518,10 @@ export function registerConversationTools(server: McpServer): void {
 									text: toJSON(
 										isCompact()
 											? { found: false }
-											: { found: false, message: `No conversation found with key: ${sessionKey}` },
+											: {
+													found: false,
+													message: `No conversation found with key: ${sessionKey}`,
+												},
 									),
 								},
 							],
@@ -558,14 +531,7 @@ export function registerConversationTools(server: McpServer): void {
 				}
 
 				if (!resolvedSessionId) {
-					return {
-						content: [
-							{
-								type: 'text' as const,
-								text: toJSON({ error: 'No session ID resolved' }),
-							},
-						],
-					};
+					return toolError('No session ID resolved');
 				}
 
 				const result = await getConversationWithTurns(resolvedSessionId, { maxTurns });
@@ -644,52 +610,36 @@ export function registerConversationTools(server: McpServer): void {
 	// ============================================
 	// Tool: delete_conversation
 	// ============================================
-	server.tool(
+	server.registerTool(
 		'delete_conversation',
 		{
-			sessionId: z.string().optional().describe('Session ID to delete'),
-			sessionKey: z.string().optional().describe('Session key to delete'),
-			confirm: z.boolean().describe('Must be true to confirm deletion'),
-		},
-		{
-			readOnlyHint: false,
-			destructiveHint: true,
-			openWorldHint: false,
+			title: 'Delete Conversation',
+			description:
+				'Permanently delete a conversation session and all its turns. Requires confirm=true to proceed.',
+			inputSchema: {
+				sessionId: z.string().optional().describe('Session ID to delete'),
+				sessionKey: z.string().optional().describe('Session key to delete'),
+				confirm: z.boolean().describe('Must be true to confirm deletion'),
+			},
+			annotations: {
+				readOnlyHint: false,
+				destructiveHint: true,
+				openWorldHint: false,
+			},
 		},
 		async ({ sessionId, sessionKey, confirm }) => {
 			logger.info('delete_conversation called', { sessionId, sessionKey, confirm });
 
 			if (!confirm) {
-				return {
-					content: [
-						{
-							type: 'text' as const,
-							text: toJSON({ error: 'Set confirm=true to delete' }),
-						},
-					],
-				};
+				return toolError('Set confirm=true to delete');
 			}
 
 			if (!sessionId && !sessionKey) {
-				return {
-					content: [
-						{
-							type: 'text' as const,
-							text: toJSON({ error: 'Either sessionId or sessionKey is required' }),
-						},
-					],
-				};
+				return toolError('Either sessionId or sessionKey is required');
 			}
 
 			if (!isSupabaseConfigured()) {
-				return {
-					content: [
-						{
-							type: 'text' as const,
-							text: toJSON({ error: 'Database not configured' }),
-						},
-					],
-				};
+				return configError('Database', 'Set SUPABASE_URL and SUPABASE_SERVICE_KEY');
 			}
 
 			try {
@@ -698,27 +648,13 @@ export function registerConversationTools(server: McpServer): void {
 				if (!resolvedSessionId && sessionKey) {
 					const session = await findSessionByKey(sessionKey);
 					if (!session) {
-						return {
-							content: [
-								{
-									type: 'text' as const,
-									text: toJSON({ ok: false, error: 'Conversation not found' }),
-								},
-							],
-						};
+						return toolError('Conversation not found');
 					}
 					resolvedSessionId = session.id;
 				}
 
 				if (!resolvedSessionId) {
-					return {
-						content: [
-							{
-								type: 'text' as const,
-								text: toJSON({ error: 'No session ID resolved' }),
-							},
-						],
-					};
+					return toolError('No session ID resolved');
 				}
 
 				await deleteSession(resolvedSessionId);
@@ -758,26 +694,24 @@ export function registerConversationTools(server: McpServer): void {
 	// ============================================
 	// Tool: conversation_stats
 	// ============================================
-	server.tool(
+	server.registerTool(
 		'conversation_stats',
-		{},
 		{
-			readOnlyHint: true,
-			destructiveHint: false,
-			openWorldHint: false,
+			title: 'Conversation Stats',
+			description:
+				'Get conversation storage statistics including session count, turn count, and search index coverage.',
+			inputSchema: {},
+			annotations: {
+				readOnlyHint: true,
+				destructiveHint: false,
+				openWorldHint: false,
+			},
 		},
 		async () => {
 			logger.info('conversation_stats called');
 
 			if (!isSupabaseConfigured()) {
-				return {
-					content: [
-						{
-							type: 'text' as const,
-							text: toJSON({ error: 'Database not configured' }),
-						},
-					],
-				};
+				return configError('Database', 'Set SUPABASE_URL and SUPABASE_SERVICE_KEY');
 			}
 
 			try {

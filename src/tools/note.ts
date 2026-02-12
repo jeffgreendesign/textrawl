@@ -6,6 +6,7 @@ import { createDocument } from '../db/documents.js';
 import { smartChunk } from '../services/chunker.js';
 import { generateEmbeddings, isOpenAIConfigured } from '../services/embeddings.js';
 import { extractAndStoreMemories, isExtractionConfigured } from '../services/memory-extraction.js';
+import { configError, toolError } from '../utils/compact.js';
 import { config } from '../utils/config.js';
 import { logger } from '../utils/logger.js';
 
@@ -15,22 +16,34 @@ import { logger } from '../utils/logger.js';
  * This tool allows quick capture of notes to the knowledge base.
  */
 export function registerNoteTool(server: McpServer): void {
-	server.tool(
+	// ============================================
+	// Tool: add_note
+	// ============================================
+	server.registerTool(
 		'add_note',
 		{
-			title: z.string().min(1).max(500).describe('Note title'),
-			content: z
-				.string()
-				.min(1)
-				.max(1000000, 'Content must be at most 1MB')
-				.describe('Note content (markdown supported)'),
-			tags: z.array(z.string()).optional().describe('Optional tags for organization'),
-			extractMemories: z
-				.boolean()
-				.default(false)
-				.describe(
-					'Extract entities and facts from content and store as memories (requires ENABLE_MEMORY_EXTRACTION=true and ANTHROPIC_API_KEY)',
-				),
+			title: 'Add Note',
+			description:
+				'Create a markdown note in the knowledge base with automatic chunking and embedding for search. Optionally extract entities and facts as memories.',
+			inputSchema: {
+				title: z.string().min(1).max(500).describe('Note title'),
+				content: z
+					.string()
+					.min(1)
+					.max(1000000, 'Content must be at most 1MB')
+					.describe('Note content (markdown supported)'),
+				tags: z.array(z.string()).optional().describe('Optional tags for organization'),
+				extractMemories: z
+					.boolean()
+					.default(false)
+					.describe(
+						'Extract entities and facts from content and store as memories (requires ENABLE_MEMORY_EXTRACTION=true and ANTHROPIC_API_KEY)',
+					),
+			},
+			annotations: {
+				readOnlyHint: false,
+				destructiveHint: false,
+			},
 		},
 		async ({ title, content, tags, extractMemories }) => {
 			logger.info('add_note called', {
@@ -42,39 +55,14 @@ export function registerNoteTool(server: McpServer): void {
 
 			// Check if services are configured
 			if (!isSupabaseConfigured()) {
-				return {
-					content: [
-						{
-							type: 'text' as const,
-							text: JSON.stringify(
-								{
-									error: 'Database not configured',
-									message: 'Set SUPABASE_URL and SUPABASE_SERVICE_KEY to enable note storage.',
-								},
-								null,
-								2,
-							),
-						},
-					],
-				};
+				return configError('Database', 'Set SUPABASE_URL and SUPABASE_SERVICE_KEY');
 			}
 
 			if (!isOpenAIConfigured()) {
-				return {
-					content: [
-						{
-							type: 'text' as const,
-							text: JSON.stringify(
-								{
-									error: 'OpenAI not configured',
-									message: 'Set OPENAI_API_KEY to enable embedding generation for search.',
-								},
-								null,
-								2,
-							),
-						},
-					],
-				};
+				return configError(
+					'Embeddings',
+					'Set OPENAI_API_KEY to enable embedding generation for search',
+				);
 			}
 
 			try {
@@ -121,7 +109,9 @@ export function registerNoteTool(server: McpServer): void {
 						};
 					} else {
 						try {
-							logger.info('Extracting memories from note', { documentId: document.id });
+							logger.info('Extracting memories from note', {
+								documentId: document.id,
+							});
 							const { extraction, storage } = await extractAndStoreMemories(content, 'note');
 							memoryResult = {
 								entitiesFound: extraction.entities.length,
@@ -186,23 +176,7 @@ export function registerNoteTool(server: McpServer): void {
 				logger.error('add_note failed', {
 					error: error instanceof Error ? error.message : String(error),
 				});
-
-				return {
-					content: [
-						{
-							type: 'text' as const,
-							text: JSON.stringify(
-								{
-									success: false,
-									error: 'Failed to add note',
-									message: error instanceof Error ? error.message : 'Unknown error',
-								},
-								null,
-								2,
-							),
-						},
-					],
-				};
+				return toolError(error instanceof Error ? error.message : 'Failed to add note');
 			}
 		},
 	);

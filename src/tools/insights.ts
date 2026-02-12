@@ -52,6 +52,7 @@ export function registerInsightTools(server: McpServer): void {
 	server.registerTool(
 		'get_insights',
 		{
+			title: 'Get Insights',
 			description:
 				"Get proactive insights discovered from your knowledge base. Shows cross-source connections, recurring themes, entity bridges, and outliers that were automatically found. Use this to discover things you didn't know to ask about.",
 			annotations: {
@@ -213,6 +214,7 @@ export function registerInsightTools(server: McpServer): void {
 	server.registerTool(
 		'discover_connections',
 		{
+			title: 'Discover Connections',
 			description:
 				"Trigger an insight scan to discover connections, patterns, and outliers in your knowledge base. Use after bulk imports (email, Facebook, Google Takeout) to find what's interesting. The scan compares recent content against everything in the database.",
 			annotations: {
@@ -342,6 +344,7 @@ export function registerInsightTools(server: McpServer): void {
 	server.registerTool(
 		'dismiss_insight',
 		{
+			title: 'Dismiss Insight',
 			description: 'Dismiss an insight so it no longer appears in new/seen results',
 			annotations: {
 				readOnlyHint: false,
@@ -419,6 +422,7 @@ export function registerInsightTools(server: McpServer): void {
 	server.registerTool(
 		'insight_stats',
 		{
+			title: 'Insight Stats',
 			description:
 				'Get statistics about proactive insights and the insight queue (pending chunks, processing state)',
 			annotations: {

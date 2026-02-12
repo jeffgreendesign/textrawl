@@ -18,6 +18,7 @@ export function registerSearchTool(server: McpServer): void {
 	server.registerTool(
 		'search_knowledge',
 		{
+			title: 'Search Knowledge',
 			description: 'Search the knowledge base using hybrid semantic + full-text search',
 			annotations: {
 				readOnlyHint: true,
@@ -250,6 +251,7 @@ export function registerSearchTool(server: McpServer): void {
 	server.registerTool(
 		'search_with_context',
 		{
+			title: 'Search With Context',
 			description: 'Unified search across documents, memories, and conversations',
 			annotations: {
 				readOnlyHint: true,

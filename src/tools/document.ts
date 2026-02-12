@@ -7,46 +7,42 @@ import {
 	listDocuments as listDocumentsFromDb,
 	updateDocument as updateDocumentInDb,
 } from '../db/documents.js';
-import { formatId, isCompact } from '../utils/compact.js';
+import { configError, formatId, isCompact, toolError } from '../utils/compact.js';
 import { logger } from '../utils/logger.js';
 
 /**
- * Register document-related tools: get_document and list_documents
+ * Register document-related tools: get_document, list_documents, update_document
  */
 export function registerDocumentTools(server: McpServer): void {
-	// get_document - Retrieve a full document by ID
-	server.tool(
+	// ============================================
+	// Tool: get_document
+	// ============================================
+	server.registerTool(
 		'get_document',
 		{
-			documentId: z.string().uuid().describe('The document UUID'),
-			includeChunks: z.boolean().default(false).describe('Include document chunks in response'),
-			maxContentLength: z
-				.number()
-				.int()
-				.min(0)
-				.default(4000)
-				.describe('Maximum content characters to return (0 = full content)'),
+			title: 'Get Document',
+			description:
+				'Retrieve a full document by ID with optional chunk data. Returns document content, metadata, and optionally the individual search chunks.',
+			inputSchema: {
+				documentId: z.string().uuid().describe('The document UUID'),
+				includeChunks: z.boolean().default(false).describe('Include document chunks in response'),
+				maxContentLength: z
+					.number()
+					.int()
+					.min(0)
+					.default(4000)
+					.describe('Maximum content characters to return (0 = full content)'),
+			},
+			annotations: {
+				readOnlyHint: true,
+				destructiveHint: false,
+			},
 		},
 		async ({ documentId, includeChunks, maxContentLength }) => {
 			logger.info('get_document called', { documentId, includeChunks });
 
 			if (!isSupabaseConfigured()) {
-				return {
-					content: [
-						{
-							type: 'text' as const,
-							text: JSON.stringify(
-								{
-									error: 'Database not configured',
-									message:
-										'Set SUPABASE_URL and SUPABASE_SERVICE_KEY to enable document retrieval.',
-								},
-								null,
-								2,
-							),
-						},
-					],
-				};
+				return configError('Database', 'Set SUPABASE_URL and SUPABASE_SERVICE_KEY');
 			}
 
 			try {
@@ -112,55 +108,51 @@ export function registerDocumentTools(server: McpServer): void {
 				logger.error('get_document failed', {
 					error: error instanceof Error ? error.message : String(error),
 				});
-
-				return {
-					content: [
-						{
-							type: 'text' as const,
-							text: JSON.stringify(
-								{
-									error: 'Failed to get document',
-									message: error instanceof Error ? error.message : 'Unknown error',
-								},
-								null,
-								2,
-							),
-						},
-					],
-				};
+				return toolError(error instanceof Error ? error.message : 'Failed to get document');
 			}
 		},
 	);
 
 	logger.debug('Registered tool: get_document');
 
-	// list_documents - List recent documents with pagination
-	server.tool(
+	// ============================================
+	// Tool: list_documents
+	// ============================================
+	server.registerTool(
 		'list_documents',
 		{
-			limit: z.number().min(1).max(100).default(20).describe('Number of documents to return'),
-			offset: z.number().min(0).default(0).describe('Pagination offset'),
-			sourceType: z.enum(['note', 'file', 'url']).optional().describe('Filter by source type'),
-			contentType: z
-				.enum(['email', 'youtube', 'calendar', 'contact', 'webpage', 'document'])
-				.optional()
-				.describe(
-					'Filter by content type (email, youtube watch history, calendar events, contacts, webpages)',
-				),
-			tags: z
-				.array(z.string())
-				.optional()
-				.describe('Filter by tags (returns docs containing ALL specified tags)'),
-			sortBy: z
-				.enum(['created_at', 'updated_at', 'title'])
-				.optional()
-				.default('created_at')
-				.describe('Field to sort by'),
-			sortOrder: z
-				.enum(['asc', 'desc'])
-				.optional()
-				.default('desc')
-				.describe('Sort order (asc for oldest first, desc for newest first)'),
+			title: 'List Documents',
+			description:
+				'List documents in the knowledge base with pagination. Supports filtering by source type, content type, and tags. Returns document metadata without full content.',
+			inputSchema: {
+				limit: z.number().min(1).max(100).default(20).describe('Number of documents to return'),
+				offset: z.number().min(0).default(0).describe('Pagination offset'),
+				sourceType: z.enum(['note', 'file', 'url']).optional().describe('Filter by source type'),
+				contentType: z
+					.enum(['email', 'youtube', 'calendar', 'contact', 'webpage', 'document'])
+					.optional()
+					.describe(
+						'Filter by content type (email, youtube watch history, calendar events, contacts, webpages)',
+					),
+				tags: z
+					.array(z.string())
+					.optional()
+					.describe('Filter by tags (returns docs containing ALL specified tags)'),
+				sortBy: z
+					.enum(['created_at', 'updated_at', 'title'])
+					.optional()
+					.default('created_at')
+					.describe('Field to sort by'),
+				sortOrder: z
+					.enum(['asc', 'desc'])
+					.optional()
+					.default('desc')
+					.describe('Sort order (asc for oldest first, desc for newest first)'),
+			},
+			annotations: {
+				readOnlyHint: true,
+				destructiveHint: false,
+			},
 		},
 		async ({ limit, offset, sourceType, contentType, tags, sortBy, sortOrder }) => {
 			logger.info('list_documents called', {
@@ -174,21 +166,7 @@ export function registerDocumentTools(server: McpServer): void {
 			});
 
 			if (!isSupabaseConfigured()) {
-				return {
-					content: [
-						{
-							type: 'text' as const,
-							text: JSON.stringify(
-								{
-									error: 'Database not configured',
-									message: 'Set SUPABASE_URL and SUPABASE_SERVICE_KEY to enable document listing.',
-								},
-								null,
-								2,
-							),
-						},
-					],
-				};
+				return configError('Database', 'Set SUPABASE_URL and SUPABASE_SERVICE_KEY');
 			}
 
 			try {
@@ -258,76 +236,45 @@ export function registerDocumentTools(server: McpServer): void {
 				logger.error('list_documents failed', {
 					error: error instanceof Error ? error.message : String(error),
 				});
-
-				return {
-					content: [
-						{
-							type: 'text' as const,
-							text: JSON.stringify(
-								{
-									error: 'Failed to list documents',
-									message: error instanceof Error ? error.message : 'Unknown error',
-								},
-								null,
-								2,
-							),
-						},
-					],
-				};
+				return toolError(error instanceof Error ? error.message : 'Failed to list documents');
 			}
 		},
 	);
 
 	logger.debug('Registered tool: list_documents');
 
-	// update_document - Update a document's title and/or tags
-	server.tool(
+	// ============================================
+	// Tool: update_document
+	// ============================================
+	server.registerTool(
 		'update_document',
 		{
-			documentId: z.string().uuid().describe('The document UUID to update'),
-			title: z.string().min(1).optional().describe('New title for the document'),
-			tags: z
-				.array(z.string())
-				.optional()
-				.describe('New tags for the document (replaces existing tags)'),
+			title: 'Update Document',
+			description:
+				"Update a document's title and/or tags. Provide at least one of title or tags to update.",
+			inputSchema: {
+				documentId: z.string().uuid().describe('The document UUID to update'),
+				title: z.string().min(1).optional().describe('New title for the document'),
+				tags: z
+					.array(z.string())
+					.optional()
+					.describe('New tags for the document (replaces existing tags)'),
+			},
+			annotations: {
+				readOnlyHint: false,
+				destructiveHint: false,
+				idempotentHint: true,
+			},
 		},
 		async ({ documentId, title, tags }) => {
 			logger.info('update_document called', { documentId, title, tags });
 
 			if (!isSupabaseConfigured()) {
-				return {
-					content: [
-						{
-							type: 'text' as const,
-							text: JSON.stringify(
-								{
-									error: 'Database not configured',
-									message: 'Set SUPABASE_URL and SUPABASE_SERVICE_KEY to enable document updates.',
-								},
-								null,
-								2,
-							),
-						},
-					],
-				};
+				return configError('Database', 'Set SUPABASE_URL and SUPABASE_SERVICE_KEY');
 			}
 
 			if (title === undefined && tags === undefined) {
-				return {
-					content: [
-						{
-							type: 'text' as const,
-							text: JSON.stringify(
-								{
-									error: 'No updates provided',
-									message: 'Provide at least one of: title, tags',
-								},
-								null,
-								2,
-							),
-						},
-					],
-				};
+				return toolError('No updates provided. Provide at least one of: title, tags');
 			}
 
 			try {
@@ -338,7 +285,11 @@ export function registerDocumentTools(server: McpServer): void {
 						content: [
 							{
 								type: 'text' as const,
-								text: JSON.stringify({ ok: true, id: formatId(document.id), t: document.title }),
+								text: JSON.stringify({
+									ok: true,
+									id: formatId(document.id),
+									t: document.title,
+								}),
 							},
 						],
 					};
@@ -371,22 +322,7 @@ export function registerDocumentTools(server: McpServer): void {
 				logger.error('update_document failed', {
 					error: error instanceof Error ? error.message : String(error),
 				});
-
-				return {
-					content: [
-						{
-							type: 'text' as const,
-							text: JSON.stringify(
-								{
-									error: 'Failed to update document',
-									message: error instanceof Error ? error.message : 'Unknown error',
-								},
-								null,
-								2,
-							),
-						},
-					],
-				};
+				return toolError(error instanceof Error ? error.message : 'Failed to update document');
 			}
 		},
 	);

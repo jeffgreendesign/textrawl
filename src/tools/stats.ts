@@ -13,8 +13,9 @@ export function registerStatsTools(server: McpServer): void {
 	server.registerTool(
 		'knowledge_stats',
 		{
+			title: 'Knowledge Stats',
 			description: 'Get statistics about the knowledge base contents',
-			inputSchema: z.object({}),
+			inputSchema: {},
 			annotations: {
 				readOnlyHint: true,
 				destructiveHint: false,
