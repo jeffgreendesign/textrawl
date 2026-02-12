@@ -10,12 +10,14 @@ import { IPC } from '../shared/ipc-channels.js';
 import type {
 	AppSettings,
 	ConversionOptions,
+	RecentProject,
 	ScannedFile,
 	UploadOptions,
 } from '../shared/types.js';
 import { ConversionManager } from './services/conversion-manager.js';
 import { scanPaths } from './services/file-router.js';
 import { ProjectManager } from './services/project-manager.js';
+import { ProjectStore } from './services/project-store.js';
 import { SettingsStore } from './services/settings-store.js';
 import { UploadManager } from './services/upload-manager.js';
 import { logger } from './utils/logger.js';
@@ -26,6 +28,7 @@ let mainWindow: BrowserWindow | null = null;
 let conversionManager: ConversionManager | null = null;
 let uploadManager: UploadManager | null = null;
 let settingsStore!: SettingsStore; // Initialized in app.whenReady() before any IPC handlers
+let projectStore!: ProjectStore;
 let projectManager: ProjectManager | null = null;
 let hasShownKeychainWarning = false;
 
@@ -55,7 +58,7 @@ function createWindow(): void {
 
 	// Initialize managers
 	conversionManager = new ConversionManager(mainWindow);
-	uploadManager = new UploadManager(mainWindow);
+	uploadManager = new UploadManager(mainWindow, settingsStore);
 
 	// Show one-time warning if OS keychain is unavailable
 	if (!safeStorage.isEncryptionAvailable() && !hasShownKeychainWarning) {
@@ -126,6 +129,16 @@ function setupIpcHandlers(): void {
 		return result.canceled ? [] : result.filePaths;
 	});
 
+	// Get recent projects
+	ipcMain.handle(IPC.PROJECT_GET_RECENT, async (): Promise<RecentProject[]> => {
+		return projectStore.getRecentProjects();
+	});
+
+	// Remove a recent project entry
+	ipcMain.handle(IPC.PROJECT_REMOVE_RECENT, async (_event, sourceDir: string) => {
+		projectStore.removeRecentProject(sourceDir);
+	});
+
 	// Load settings
 	ipcMain.handle(IPC.SETTINGS_LOAD, async () => {
 		return settingsStore.get();
@@ -134,6 +147,10 @@ function setupIpcHandlers(): void {
 	// Save settings
 	ipcMain.handle(IPC.SETTINGS_SAVE, async (_event, settings: AppSettings) => {
 		settingsStore.set(settings);
+		// Dynamically update log level when verbose setting changes
+		if (settings.verboseLogging !== undefined) {
+			logger.setLevel(settings.verboseLogging ? 'debug' : 'info');
+		}
 		return { success: true };
 	});
 
@@ -187,13 +204,46 @@ function setupIpcHandlers(): void {
 		if (!projectManager) return { success: false, error: 'No project loaded' };
 		return projectManager.retryErrors(relativePaths);
 	});
+
+	// Convert oversized files
+	ipcMain.handle(IPC.PROJECT_CONVERT_OVERSIZED, async (_event, relativePaths: string[]) => {
+		if (!projectManager) return { success: false, error: 'No project loaded' };
+		return projectManager.convertOversized(relativePaths);
+	});
+
+	// Convert selected files (status-aware routing)
+	ipcMain.handle(IPC.PROJECT_CONVERT_SELECTED, async (_event, relativePaths: string[]) => {
+		if (!projectManager) return { pending: 0, retried: 0, oversized: 0, skipped: 0, total: 0 };
+		return projectManager.convertSelected(relativePaths);
+	});
+
+	// Dismiss all errors (clear stored errors, let files re-reconcile)
+	ipcMain.handle(IPC.PROJECT_DISMISS_ERRORS, async () => {
+		if (!projectManager) return { dismissed: 0 };
+		return projectManager.dismissErrors();
+	});
+
+	// Generate report of oversized/unsupported file breakdown
+	ipcMain.handle(IPC.PROJECT_GENERATE_REPORT, async () => {
+		if (!projectManager) return null;
+		return projectManager.generateReport();
+	});
 }
 
 // App lifecycle
 app.whenReady().then(() => {
-	// Initialize settings store after app is ready (safeStorage requires it)
+	// Initialize stores after app is ready (safeStorage requires it)
 	settingsStore = new SettingsStore();
 	settingsStore.init();
+	projectStore = new ProjectStore();
+
+	// Enable verbose logging if CLI flag or saved setting is active
+	const cliVerbose = process.argv.includes('-v') || process.argv.includes('--verbose');
+	const settingsVerbose = settingsStore.get().verboseLogging ?? false;
+	if (cliVerbose || settingsVerbose) {
+		logger.setLevel('debug');
+		logger.debug(`[main] Verbose logging enabled (${cliVerbose ? 'CLI flag' : 'saved setting'})`);
+	}
 
 	// Warn if OS keychain is unavailable (rare — mainly headless Linux without a keyring)
 	if (!safeStorage.isEncryptionAvailable()) {

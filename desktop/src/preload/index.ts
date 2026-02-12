@@ -7,11 +7,14 @@ import { IPC } from '../shared/ipc-channels.js';
 import type {
 	AppSettings,
 	ConversionOptions,
+	ConvertSelectedResult,
 	LogEntry,
 	ProgressUpdate,
 	ProjectState,
 	ProjectStats,
+	RecentProject,
 	ScannedFile,
+	StatusReport,
 	TreeFile,
 	UploadOptions,
 } from '../shared/types.js';
@@ -60,6 +63,15 @@ const electronAPI = {
 		return ipcRenderer.invoke(IPC.SETTINGS_SAVE, settings);
 	},
 
+	// Recent projects
+	getRecentProjects: (): Promise<RecentProject[]> => {
+		return ipcRenderer.invoke(IPC.PROJECT_GET_RECENT);
+	},
+
+	removeRecentProject: (sourceDir: string): Promise<void> => {
+		return ipcRenderer.invoke(IPC.PROJECT_REMOVE_RECENT, sourceDir);
+	},
+
 	// Project management
 	loadProject: (sourceDir: string, outputDir: string): Promise<ProjectState | null> => {
 		return ipcRenderer.invoke(IPC.PROJECT_LOAD, sourceDir, outputDir);
@@ -81,12 +93,28 @@ const electronAPI = {
 		return ipcRenderer.invoke(IPC.PROJECT_CONVERT, paths);
 	},
 
+	convertSelected: (paths: string[]): Promise<ConvertSelectedResult> => {
+		return ipcRenderer.invoke(IPC.PROJECT_CONVERT_SELECTED, paths);
+	},
+
 	uploadConverted: (): Promise<void> => {
 		return ipcRenderer.invoke(IPC.PROJECT_UPLOAD);
 	},
 
 	retryFiles: (paths: string[]): Promise<void> => {
 		return ipcRenderer.invoke(IPC.PROJECT_RETRY, paths);
+	},
+
+	convertOversized: (paths: string[]): Promise<void> => {
+		return ipcRenderer.invoke(IPC.PROJECT_CONVERT_OVERSIZED, paths);
+	},
+
+	dismissErrors: (): Promise<{ dismissed: number }> => {
+		return ipcRenderer.invoke(IPC.PROJECT_DISMISS_ERRORS);
+	},
+
+	generateReport: (): Promise<StatusReport> => {
+		return ipcRenderer.invoke(IPC.PROJECT_GENERATE_REPORT);
 	},
 
 	// Event listeners (main → renderer)
