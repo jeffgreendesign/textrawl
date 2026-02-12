@@ -23,36 +23,41 @@ Retrieve the complete content of a document, optionally including its chunks.
 
 ## Response
 
+The MCP response contains both `content` (text for LLM consumption) and `structuredContent` (canonical JSON):
+
 ```json
 {
-  "document": {
-    "id": "550e8400-e29b-41d4-a716-446655440000",
-    "title": "Q4 Planning Notes",
-    "sourceType": "note",
-    "sourceUrl": null,
-    "content": "Full document content...",
-    "metadata": { "tags": ["work", "planning", "q4"] },
-    "createdAt": "2024-10-15T14:30:00Z",
-    "updatedAt": "2024-10-15T14:30:00Z"
-  },
-  "chunks": [
-    {
-      "id": "7c9e6679-7425-40de-944b-e07fc1f90ae7",
-      "index": 0,
-      "content": "First chunk content..."
+  "content": [{ "type": "text", "text": "{...}" }],
+  "structuredContent": {
+    "document": {
+      "id": "550e8400-e29b-41d4-a716-446655440000",
+      "title": "Q4 Planning Notes",
+      "sourceType": "note",
+      "sourceUrl": null,
+      "content": "Full document content...",
+      "metadata": { "tags": ["work", "planning", "q4"] },
+      "createdAt": "2024-10-15T14:30:00Z",
+      "updatedAt": "2024-10-15T14:30:00Z"
     },
-    {
-      "id": "f47ac10b-58cc-4372-a567-0e02b2c3d479",
-      "index": 1,
-      "content": "Second chunk content..."
-    }
-  ]
+    "chunks": [
+      {
+        "id": "7c9e6679-7425-40de-944b-e07fc1f90ae7",
+        "index": 0,
+        "content": "First chunk content..."
+      },
+      {
+        "id": "f47ac10b-58cc-4372-a567-0e02b2c3d479",
+        "index": 1,
+        "content": "Second chunk content..."
+      }
+    ]
+  }
 }
 ```
 
 ## Output Schema
 
-This tool returns `structuredContent` alongside the text response. The `structuredContent` object uses canonical verbose keys regardless of the `COMPACT_RESPONSES` setting.
+This tool MUST return `structuredContent` alongside the text response. The `structuredContent` object MUST use canonical verbose keys regardless of the `COMPACT_RESPONSES` setting.
 
 | Field | Type | Description |
 |-------|------|-------------|
@@ -65,6 +70,7 @@ This tool returns `structuredContent` alongside the text response. The `structur
 | `document.truncated` | boolean | Whether content was truncated |
 | `document.fullLength` | integer | Full content length (when truncated) |
 | `document.metadata` | object? | Document metadata |
+| `document.metadata.tags` | string[] | Document tags (within metadata) |
 | `document.createdAt` | string | ISO creation timestamp |
 | `document.updatedAt` | string | ISO update timestamp |
 | `chunks` | array | Document chunks (when `includeChunks=true`) |

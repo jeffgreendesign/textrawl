@@ -285,8 +285,8 @@ export function registerSearchTool(server: McpServer): void {
 						type: 'document',
 						score: doc.score,
 						data: {
-							id: doc.document_id,
-							title: doc.document_title,
+							documentId: doc.document_id,
+							documentTitle: doc.document_title,
 							content: doc.content.slice(0, 500),
 							sourceType: doc.source_type,
 						},

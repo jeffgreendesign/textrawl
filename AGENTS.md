@@ -56,16 +56,16 @@ Memory tools return token-efficient responses by default (40-60% smaller). Set `
 
 ## Structured Output (outputSchema)
 
-Six read-only tools return `structuredContent` alongside the text `content` response. The `structuredContent` object always uses full canonical keys (verbose format) regardless of the `COMPACT_RESPONSES` setting, making it suitable for programmatic consumption.
+Six read-only tools MUST return `structuredContent` alongside the text `content` response. The `structuredContent` object MUST use full canonical keys (verbose format) regardless of the `COMPACT_RESPONSES` setting, making it suitable for programmatic consumption.
 
 **Tools with `outputSchema`:** `search`, `get_document`, `list_documents`, `query_memory`, `query_conversations`, `get_stats`
 
-Clients that support `outputSchema` (MCP SDK v1.26.0+) receive both:
+Clients that support `outputSchema` (MCP SDK v1.26.0+) MUST receive both:
 
 - `content` — text payload (compact or verbose depending on `COMPACT_RESPONSES`)
 - `structuredContent` — canonical JSON matching the declared `outputSchema`
 
-Clients that do not support `outputSchema` continue to receive only the `content` text response with no change in behavior.
+Clients that do not support `outputSchema` SHOULD continue to receive only the `content` text response with no change in behavior.
 
 ## Tool Selection Guide
 

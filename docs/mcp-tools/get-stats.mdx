@@ -71,7 +71,7 @@ When `COMPACT_RESPONSES=true`, stats use abbreviated keys. Knowledge stats pass 
 
 ```json
 {
-  "knowledge": { "total": 150, "bySourceType": { "note": 80 }, "topTags": [{ "tag": "work", "count": 45 }], "dateRange": { "oldest": "...", "newest": "..." } },
+  "knowledge": { "total": 150, "bySourceType": { "note": 80 }, "byContentType": { "email": 30 }, "topTags": [{ "tag": "work", "count": 45 }], "dateRange": { "oldest": "...", "newest": "..." } },
   "memory": { "ent": 25, "obs": 150, "rel": 30, "byType": { "person": 10 } },
   "conversations": { "sess": 15, "indexed": 12, "turns": 340, "turnIdx": 280 },
   "insights": { "n": 8, "new": 3, "seen": 4, "dis": 1, "types": {}, "q": { "p": 0, "proc": false, "last": "..." } }
@@ -80,7 +80,7 @@ When `COMPACT_RESPONSES=true`, stats use abbreviated keys. Knowledge stats pass 
 
 ## Output Schema
 
-This tool returns `structuredContent` alongside the text response. The `structuredContent` object uses canonical verbose keys regardless of the `COMPACT_RESPONSES` setting.
+This tool MUST return `structuredContent` alongside the text response. The `structuredContent` object MUST use canonical verbose keys regardless of the `COMPACT_RESPONSES` setting.
 
 | Field | Type | Description |
 |-------|------|-------------|
@@ -89,7 +89,11 @@ This tool returns `structuredContent` alongside the text response. The `structur
 | `knowledge.bySourceType` | object | Count by source type |
 | `knowledge.byContentType` | object | Count by content type |
 | `knowledge.topTags` | array | Top tags with counts |
+| `knowledge.topTags[].tag` | string | Tag name |
+| `knowledge.topTags[].count` | integer | Number of documents with this tag |
 | `knowledge.dateRange` | object | Oldest/newest document dates |
+| `knowledge.dateRange.oldest` | string? | ISO timestamp of oldest document |
+| `knowledge.dateRange.newest` | string? | ISO timestamp of newest document |
 | `memory` | object | Memory stats (when scope includes memory) |
 | `memory.totalEntities` | integer | Total entities |
 | `memory.totalObservations` | integer | Total observations |
