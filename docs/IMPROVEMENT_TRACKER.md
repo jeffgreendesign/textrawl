@@ -102,4 +102,4 @@
 - [x] Add `REDIS_URL` to config/env schema
 - [x] Add rate limiter store swap: use Redis if `REDIS_URL` is set, else fall back to in-memory
 - [x] Update `.env.example` and `CLAUDE.md`
-- [~] Commit and open PR
+- [x] Commit and open PR
