@@ -215,6 +215,72 @@ export function registerMemoryTools(server: McpServer): void {
 	// Tool: query_memory
 	// Consolidated: replaces recall_memories, get_entity_context, list_entities
 	// ============================================
+	// --- query_memory Output Schema ---
+	const QueryMemoryOutputSchema = {
+		mode: z.enum(['search', 'entity', 'list']),
+		// Search mode fields
+		totalMemories: z.number().optional(),
+		entities: z
+			.array(
+				z.object({
+					entityName: z.string(),
+					entityType: z.string(),
+					memories: z.array(
+						z.object({
+							content: z.string(),
+							source: z.string(),
+							score: z.number(),
+						}),
+					),
+				}),
+			)
+			.optional(),
+		// Entity mode fields
+		found: z.boolean().optional(),
+		entity: z
+			.object({
+				id: z.string(),
+				name: z.string(),
+				type: z.string(),
+				description: z.string().nullable(),
+			})
+			.optional(),
+		observations: z
+			.array(
+				z.object({
+					id: z.string(),
+					content: z.string(),
+					source: z.string(),
+					created_at: z.string(),
+				}),
+			)
+			.optional(),
+		relations: z
+			.object({
+				outgoing: z.array(z.object({ relation_type: z.string(), to_entity: z.string() })),
+				incoming: z.array(z.object({ from_entity: z.string(), relation_type: z.string() })),
+			})
+			.optional(),
+		hasMore: z.boolean().optional(),
+		totalObservations: z.number().optional(),
+		message: z.string().optional(),
+		// List mode fields
+		total: z.number().optional(),
+		returned: z.number().optional(),
+		offset: z.number().optional(),
+		entityList: z
+			.array(
+				z.object({
+					id: z.string(),
+					name: z.string(),
+					type: z.string(),
+					description: z.string().nullable(),
+					updatedAt: z.string(),
+				}),
+			)
+			.optional(),
+	};
+
 	server.registerTool(
 		'query_memory',
 		{
@@ -269,6 +335,7 @@ export function registerMemoryTools(server: McpServer): void {
 					.describe('Maximum results (mode="search": max 50, mode="list": max 100)'),
 				offset: z.number().int().min(0).default(0).describe('Pagination offset (for mode="list")'),
 			},
+			outputSchema: QueryMemoryOutputSchema,
 			annotations: {
 				readOnlyHint: true,
 				destructiveHint: false,
@@ -344,23 +411,28 @@ export function registerMemoryTools(server: McpServer): void {
 
 						const groupedResults = Array.from(groupedByEntity.values());
 
-						const response = isCompact()
-							? {
+						// Build structuredContent (always verbose, canonical keys)
+						const structuredContent = {
+							mode: 'search' as const,
+							totalMemories: results.length,
+							entities: groupedResults,
+						};
+
+						// Build content text (compact or verbose)
+						const text = isCompact()
+							? JSON.stringify({
 									n: results.length,
 									e: groupedResults.map((g) => ({
 										n: g.entityName,
 										t: g.entityType,
 										m: g.memories.map((m) => ({ c: m.content, s: m.score })),
 									})),
-								}
-							: {
-									query,
-									totalMemories: results.length,
-									entities: groupedResults,
-								};
+								})
+							: JSON.stringify(structuredContent, null, 2);
 
 						return {
-							content: [{ type: 'text' as const, text: toJSON(response) }],
+							content: [{ type: 'text' as const, text }],
+							structuredContent,
 						};
 					}
 
@@ -373,28 +445,47 @@ export function registerMemoryTools(server: McpServer): void {
 						const context = await getEntityContext(entityName, includeRelated);
 
 						if (!context) {
+							const structuredContent = {
+								mode: 'entity' as const,
+								found: false,
+								message: `No entity found with name "${entityName}". Use query_memory with mode="list" to see available entities, or remember_fact to create one.`,
+							};
+
+							const text = isCompact()
+								? JSON.stringify({ found: false })
+								: JSON.stringify(structuredContent, null, 2);
+
 							return {
-								content: [
-									{
-										type: 'text' as const,
-										text: toJSON(
-											isCompact()
-												? { found: false }
-												: {
-														found: false,
-														message: `No entity found with name "${entityName}". Use query_memory with mode="list" to see available entities, or remember_fact to create one.`,
-													},
-										),
-									},
-								],
+								content: [{ type: 'text' as const, text }],
+								structuredContent,
 							};
 						}
 
 						const limitedObs = context.observations.slice(0, maxObs);
 						const hasMore = context.observations.length > maxObs;
 
-						const response = isCompact()
-							? {
+						// Build structuredContent (always verbose, canonical keys)
+						const structuredContent = {
+							mode: 'entity' as const,
+							found: true,
+							entity: {
+								id: context.entity_id,
+								name: context.entity_name,
+								type: context.entity_type,
+								description: context.entity_description,
+							},
+							observations: limitedObs,
+							relations: {
+								outgoing: context.outgoing_relations,
+								incoming: context.incoming_relations,
+							},
+							hasMore,
+							totalObservations: context.observations.length,
+						};
+
+						// Build content text (compact or verbose)
+						const text = isCompact()
+							? JSON.stringify({
 									t: context.entity_type,
 									o: limitedObs.map((o) => o.content),
 									r:
@@ -409,26 +500,12 @@ export function registerMemoryTools(server: McpServer): void {
 												}
 											: undefined,
 									more: hasMore ? context.observations.length - maxObs : undefined,
-								}
-							: {
-									found: true,
-									entity: {
-										id: formatId(context.entity_id),
-										name: context.entity_name,
-										type: context.entity_type,
-										description: context.entity_description,
-									},
-									observations: limitedObs,
-									relations: {
-										outgoing: context.outgoing_relations,
-										incoming: context.incoming_relations,
-									},
-									hasMore,
-									totalObservations: context.observations.length,
-								};
+								})
+							: JSON.stringify(structuredContent, null, 2);
 
 						return {
-							content: [{ type: 'text' as const, text: toJSON(response) }],
+							content: [{ type: 'text' as const, text }],
+							structuredContent,
 						};
 					}
 
@@ -440,26 +517,32 @@ export function registerMemoryTools(server: McpServer): void {
 							offset,
 						});
 
-						const response = isCompact()
-							? {
+						// Build structuredContent (always verbose, canonical keys)
+						const structuredContent = {
+							mode: 'list' as const,
+							total,
+							returned: entities.length,
+							offset,
+							entityList: entities.map((e) => ({
+								id: e.id,
+								name: e.name,
+								type: e.entity_type,
+								description: e.description,
+								updatedAt: e.updated_at,
+							})),
+						};
+
+						// Build content text (compact or verbose)
+						const text = isCompact()
+							? JSON.stringify({
 									n: total,
 									e: entities.map((e) => ({ n: e.name, t: e.entity_type })),
-								}
-							: {
-									total,
-									returned: entities.length,
-									offset,
-									entities: entities.map((e) => ({
-										id: formatId(e.id),
-										name: e.name,
-										type: e.entity_type,
-										description: e.description,
-										updatedAt: e.updated_at,
-									})),
-								};
+								})
+							: JSON.stringify(structuredContent, null, 2);
 
 						return {
-							content: [{ type: 'text' as const, text: toJSON(response) }],
+							content: [{ type: 'text' as const, text }],
+							structuredContent,
 						};
 					}
 				}

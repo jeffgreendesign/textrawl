@@ -187,6 +187,75 @@ export function registerConversationTools(server: McpServer): void {
 	// Tool: query_conversations
 	// Consolidated: replaces recall_conversation, list_conversations, get_conversation
 	// ============================================
+
+	// --- query_conversations Output Schema ---
+	const QueryConversationsOutputSchema = {
+		mode: z.enum(['search', 'get', 'list']),
+		// Search mode fields
+		totalResults: z.number().optional(),
+		conversations: z
+			.array(
+				z.object({
+					sessionId: z.string(),
+					sessionKey: z.string().nullable(),
+					title: z.string().nullable(),
+					summary: z.string().nullable(),
+					score: z.number().optional(),
+					turns: z
+						.array(
+							z.object({
+								role: z.string(),
+								content: z.string(),
+								turnIndex: z.number(),
+							}),
+						)
+						.optional(),
+					matchedTurns: z
+						.array(
+							z.object({
+								role: z.string(),
+								content: z.string(),
+								score: z.number(),
+							}),
+						)
+						.optional(),
+					// List mode fields on each conversation
+					turnCount: z.number().optional(),
+					lastActivity: z.string().nullable().optional(),
+					createdAt: z.string().optional(),
+				}),
+			)
+			.optional(),
+		// Get mode fields
+		found: z.boolean().optional(),
+		session: z
+			.object({
+				id: z.string(),
+				sessionKey: z.string().nullable(),
+				title: z.string().nullable(),
+				summary: z.string().nullable(),
+				turnCount: z.number(),
+				lastActivity: z.string().nullable(),
+				createdAt: z.string(),
+			})
+			.optional(),
+		turns: z
+			.array(
+				z.object({
+					role: z.string(),
+					content: z.string(),
+					turnIndex: z.number(),
+					createdAt: z.string(),
+				}),
+			)
+			.optional(),
+		message: z.string().optional(),
+		// List mode fields
+		total: z.number().optional(),
+		returned: z.number().optional(),
+		offset: z.number().optional(),
+	};
+
 	server.registerTool(
 		'query_conversations',
 		{
@@ -232,6 +301,7 @@ export function registerConversationTools(server: McpServer): void {
 				limit: z.number().int().min(1).max(50).default(20).describe('Maximum results to return'),
 				offset: z.number().int().min(0).default(0).describe('Pagination offset (for mode="list")'),
 			},
+			outputSchema: QueryConversationsOutputSchema,
 			annotations: {
 				readOnlyHint: true,
 				destructiveHint: false,
@@ -349,8 +419,28 @@ export function registerConversationTools(server: McpServer): void {
 							}
 						}
 
-						const response = isCompact()
-							? {
+						// Build structuredContent (always verbose, canonical keys)
+						const structuredContent = {
+							mode: 'search' as const,
+							totalResults: limitedResults.length,
+							conversations: limitedResults.map((r) => ({
+								sessionId: r.session_id,
+								sessionKey: r.session_key,
+								title: r.title,
+								summary: r.summary,
+								score: Math.round(r.score * 100) / 100,
+								turns: r.turns?.map((t) => ({
+									role: t.role,
+									content: t.content,
+									turnIndex: t.turn_index,
+								})),
+								matchedTurns: r.matchedTurns,
+							})),
+						};
+
+						// Build content text (compact or verbose)
+						const text = isCompact()
+							? JSON.stringify({
 									n: limitedResults.length,
 									c: limitedResults.map((r) => ({
 										id: formatId(r.session_id),
@@ -367,23 +457,12 @@ export function registerConversationTools(server: McpServer): void {
 											c: t.content.slice(0, 100),
 										})),
 									})),
-								}
-							: {
-									query,
-									totalResults: limitedResults.length,
-									conversations: limitedResults.map((r) => ({
-										sessionId: formatId(r.session_id),
-										sessionKey: r.session_key,
-										title: r.title,
-										summary: r.summary,
-										score: Math.round(r.score * 100) / 100,
-										turns: r.turns,
-										matchedTurns: r.matchedTurns,
-									})),
-								};
+								})
+							: JSON.stringify(structuredContent, null, 2);
 
 						return {
-							content: [{ type: 'text' as const, text: toJSON(response) }],
+							content: [{ type: 'text' as const, text }],
+							structuredContent,
 						};
 					}
 
@@ -397,20 +476,17 @@ export function registerConversationTools(server: McpServer): void {
 						if (!resolvedSessionId && sessionKey) {
 							const session = await findSessionByKey(sessionKey);
 							if (!session) {
+								const structuredContent = {
+									mode: 'get' as const,
+									found: false,
+									message: `No conversation found with key: ${sessionKey}`,
+								};
+								const text = isCompact()
+									? JSON.stringify({ found: false })
+									: JSON.stringify(structuredContent, null, 2);
 								return {
-									content: [
-										{
-											type: 'text' as const,
-											text: toJSON(
-												isCompact()
-													? { found: false }
-													: {
-															found: false,
-															message: `No conversation found with key: ${sessionKey}`,
-														},
-											),
-										},
-									],
+									content: [{ type: 'text' as const, text }],
+									structuredContent,
 								};
 							}
 							resolvedSessionId = session.id;
@@ -425,25 +501,44 @@ export function registerConversationTools(server: McpServer): void {
 						});
 
 						if (!result) {
+							const structuredContent = {
+								mode: 'get' as const,
+								found: false,
+								message: `No conversation found with ID: ${resolvedSessionId}`,
+							};
+							const text = isCompact()
+								? JSON.stringify({ found: false })
+								: JSON.stringify(structuredContent, null, 2);
 							return {
-								content: [
-									{
-										type: 'text' as const,
-										text: toJSON(
-											isCompact()
-												? { found: false }
-												: {
-														found: false,
-														message: `No conversation found with ID: ${resolvedSessionId}`,
-													},
-										),
-									},
-								],
+								content: [{ type: 'text' as const, text }],
+								structuredContent,
 							};
 						}
 
-						const response = isCompact()
-							? {
+						// Build structuredContent (always verbose, canonical keys)
+						const structuredContent = {
+							mode: 'get' as const,
+							found: true,
+							session: {
+								id: result.session.id,
+								sessionKey: result.session.session_key,
+								title: result.session.title,
+								summary: result.session.summary,
+								turnCount: result.session.turn_count,
+								lastActivity: result.session.last_activity,
+								createdAt: result.session.created_at,
+							},
+							turns: result.turns.map((t) => ({
+								role: t.role,
+								content: t.content,
+								turnIndex: t.turn_index,
+								createdAt: t.created_at,
+							})),
+						};
+
+						// Build content text (compact or verbose)
+						const text = isCompact()
+							? JSON.stringify({
 									id: formatId(result.session.id),
 									k: result.session.session_key,
 									t: result.session.title,
@@ -453,28 +548,12 @@ export function registerConversationTools(server: McpServer): void {
 										r: t.role[0],
 										c: t.content,
 									})),
-								}
-							: {
-									found: true,
-									session: {
-										id: formatId(result.session.id),
-										sessionKey: result.session.session_key,
-										title: result.session.title,
-										summary: result.session.summary,
-										turnCount: result.session.turn_count,
-										lastActivity: result.session.last_activity,
-										createdAt: result.session.created_at,
-									},
-									turns: result.turns.map((t) => ({
-										role: t.role,
-										content: t.content,
-										turnIndex: t.turn_index,
-										createdAt: t.created_at,
-									})),
-								};
+								})
+							: JSON.stringify(structuredContent, null, 2);
 
 						return {
-							content: [{ type: 'text' as const, text: toJSON(response) }],
+							content: [{ type: 'text' as const, text }],
+							structuredContent,
 						};
 					}
 
@@ -482,8 +561,25 @@ export function registerConversationTools(server: McpServer): void {
 					case 'list': {
 						const { sessions, total } = await listSessions({ limit, offset });
 
-						const response = isCompact()
-							? {
+						// Build structuredContent (always verbose, canonical keys)
+						const structuredContent = {
+							mode: 'list' as const,
+							total,
+							returned: sessions.length,
+							offset,
+							conversations: sessions.map((s) => ({
+								sessionId: s.id,
+								sessionKey: s.session_key,
+								title: s.title,
+								turnCount: s.turn_count,
+								lastActivity: s.last_activity,
+								createdAt: s.created_at,
+							})),
+						};
+
+						// Build content text (compact or verbose)
+						const text = isCompact()
+							? JSON.stringify({
 									n: total,
 									c: sessions.map((s) => ({
 										id: formatId(s.id),
@@ -492,23 +588,12 @@ export function registerConversationTools(server: McpServer): void {
 										turns: s.turn_count,
 										last: s.last_activity,
 									})),
-								}
-							: {
-									total,
-									returned: sessions.length,
-									offset,
-									conversations: sessions.map((s) => ({
-										sessionId: formatId(s.id),
-										sessionKey: s.session_key,
-										title: s.title,
-										turnCount: s.turn_count,
-										lastActivity: s.last_activity,
-										createdAt: s.created_at,
-									})),
-								};
+								})
+							: JSON.stringify(structuredContent, null, 2);
 
 						return {
-							content: [{ type: 'text' as const, text: toJSON(response) }],
+							content: [{ type: 'text' as const, text }],
+							structuredContent,
 						};
 					}
 				}
