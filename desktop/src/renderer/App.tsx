@@ -23,7 +23,7 @@ declare global {
 type AppState = 'idle' | 'scanning' | 'ready' | 'converting' | 'complete' | 'uploading';
 type AppMode = 'dropzone' | 'project';
 
-const MAX_LOG_ENTRIES = 1000;
+const MAX_LOG_ENTRIES = 10_000;
 
 /** Append an entry and cap the array at MAX_LOG_ENTRIES. */
 function appendLog(prev: LogEntry[], entry: LogEntry): LogEntry[] {
@@ -85,7 +85,13 @@ export function App() {
 					}
 				} else {
 					setState('ready');
-					addLog('error', 'Conversion failed - no files were converted successfully');
+					const errCount = data.errorCount || 0;
+					addLog(
+						'error',
+						errCount > 0
+							? `All ${errCount} file(s) failed — see errors above for details`
+							: 'Conversion failed — no convertible files in batch',
+					);
 				}
 			} else if (data.type === 'upload') {
 				setState('complete');
@@ -295,7 +301,13 @@ export function App() {
 					</>
 				)}
 
-				{logs.length > 0 && <LogViewer logs={logs} onClear={handleClearLogs} />}
+				{logs.length > 0 && (
+					<LogViewer
+						logs={logs}
+						onClear={handleClearLogs}
+						verboseEnabled={settings.verboseLogging}
+					/>
+				)}
 			</main>
 		</div>
 	);
