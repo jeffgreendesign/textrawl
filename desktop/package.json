@@ -8,6 +8,7 @@
 	"scripts": {
 		"preinstall": "npx only-allow pnpm",
 		"dev": "pnpm run build && env -u ELECTRON_RUN_AS_NODE electron .",
+		"dev:verbose": "pnpm run build && env -u ELECTRON_RUN_AS_NODE electron . --verbose",
 		"dev:vite": "vite",
 		"build": "pnpm run build:main && pnpm run build:preload && pnpm run build:renderer",
 		"build:main": "esbuild src/main/index.ts --bundle --platform=node --target=node20 --outfile=dist/main/index.js --format=cjs --external:electron --external:electron-store --external:pdf-parse --external:mammoth --external:xlsx --external:csv-parse --external:rtf-parser --external:unzipper --external:gray-matter --external:fast-xml-parser --external:chokidar",

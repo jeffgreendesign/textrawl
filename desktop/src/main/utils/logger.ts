@@ -15,7 +15,7 @@ const LOG_LEVELS: Record<LogLevel, number> = {
 };
 
 const envLevel = process.env.LOG_LEVEL as string | undefined;
-const currentLevel: LogLevel = envLevel && envLevel in LOG_LEVELS ? (envLevel as LogLevel) : 'info';
+let currentLevel: LogLevel = envLevel && envLevel in LOG_LEVELS ? (envLevel as LogLevel) : 'info';
 
 function shouldLog(level: LogLevel): boolean {
 	return LOG_LEVELS[level] >= LOG_LEVELS[currentLevel];
@@ -32,4 +32,8 @@ export const logger = {
 	info: (message: string, ...args: unknown[]) => log('info', message, ...args),
 	warn: (message: string, ...args: unknown[]) => log('warn', message, ...args),
 	error: (message: string, ...args: unknown[]) => log('error', message, ...args),
+	setLevel: (level: LogLevel) => {
+		currentLevel = level;
+	},
+	getLevel: (): LogLevel => currentLevel,
 };
