@@ -5,6 +5,7 @@ import { spawnSync } from 'node:child_process';
 import { existsSync, readdirSync, statSync } from 'node:fs';
 import { basename, extname, join } from 'node:path';
 import type { ConverterType, FileType, ScannedFile, SizeTier } from '../../shared/types.js';
+import { logger } from '../utils/logger.js';
 
 // Extension to file type mapping
 const EXTENSION_MAP: Record<string, FileType> = {
@@ -216,16 +217,28 @@ export function classifyFileSize(
 }
 
 /**
- * Detect file type via macOS mdls command for extensionless files
+ * Cache for mdls results — avoids re-spawning mdls for the same file.
+ * Keyed by absolute file path.
+ */
+const mdlsCache = new Map<string, FileType>();
+
+/**
+ * Detect file type via macOS mdls command for extensionless files.
+ * Results are cached to reduce redundant process spawns during large scans.
  */
 function detectTypeViaMdls(filePath: string): FileType {
+	const cached = mdlsCache.get(filePath);
+	if (cached !== undefined) return cached;
+
+	let result: FileType = 'unknown';
 	try {
-		const result = spawnSync('mdls', ['-name', 'kMDItemContentType', filePath], {
+		const proc = spawnSync('mdls', ['-name', 'kMDItemContentType', filePath], {
 			encoding: 'utf8',
 			timeout: 5000,
+			stdio: ['pipe', 'pipe', 'pipe'],
 		});
-		const output = result.stdout;
-		console.error(`[file-router] mdls output for "${filePath}": ${output.trim()}`);
+		const output = proc.stdout;
+		logger.debug(`[file-router] mdls output for "${filePath}": ${output.trim()}`);
 		const match = output.match(/"(.+)"/);
 		if (match) {
 			const uti = match[1];
@@ -233,20 +246,23 @@ function detectTypeViaMdls(filePath: string): FileType {
 
 			// Fallback: if UTI contains "text", treat as plain text
 			if (!mappedType && (uti.includes('text') || uti.includes('plain'))) {
-				console.error(
+				logger.debug(
 					`[file-router] UTI "${uti}" not in map, but looks like text - treating as txt`,
 				);
 				mappedType = 'txt';
 			}
 
-			console.error(`[file-router] UTI "${uti}" -> type "${mappedType || 'unknown'}"`);
-			return mappedType || 'unknown';
+			logger.debug(`[file-router] UTI "${uti}" -> type "${mappedType || 'unknown'}"`);
+			result = mappedType || 'unknown';
+		} else {
+			logger.debug('[file-router] mdls returned no UTI match');
 		}
-		console.error('[file-router] mdls returned no UTI match');
 	} catch (err) {
-		console.error(`[file-router] mdls failed for "${filePath}":`, err);
+		logger.debug(`[file-router] mdls failed for "${filePath}":`, err);
 	}
-	return 'unknown';
+
+	mdlsCache.set(filePath, result);
+	return result;
 }
 
 /**
@@ -331,46 +347,46 @@ export function routeFile(filePath: string): {
 	converterType: ConverterType | null;
 } {
 	const ext = extname(filePath).toLowerCase();
-	console.error(`[file-router] routeFile: "${filePath}" ext="${ext}"`);
+	logger.debug(`[file-router] routeFile: "${filePath}" ext="${ext}"`);
 
 	try {
 		const stats = statSync(filePath);
 
 		if (stats.isDirectory()) {
-			console.error(`[file-router] "${filePath}" is a directory`);
+			logger.debug(`[file-router] "${filePath}" is a directory`);
 			// Check for .mbox bundle (Apple Mail format)
 			if (ext === '.mbox' && isAppleMailBundle(filePath)) {
-				console.error('[file-router] -> detected as mbox-bundle');
+				logger.debug('[file-router] -> detected as mbox-bundle');
 				return { type: 'mbox-bundle', converterType: 'mbox' };
 			}
 
 			// Check for .rtfd bundle (macOS rich text)
 			if (isRtfdBundle(filePath)) {
-				console.error('[file-router] -> detected as rtfd');
+				logger.debug('[file-router] -> detected as rtfd');
 				return { type: 'rtfd', converterType: 'processor' };
 			}
 
 			// Regular directory - will be scanned
-			console.error('[file-router] -> regular directory, will scan contents');
+			logger.debug('[file-router] -> regular directory, will scan contents');
 			return { type: 'unknown', converterType: null };
 		}
 
 		// Handle files by extension
 		let type = EXTENSION_MAP[ext] || 'unknown';
-		console.error(`[file-router] extension lookup: ext="${ext}" -> type="${type}"`);
+		logger.debug(`[file-router] extension lookup: ext="${ext}" -> type="${type}"`);
 
 		// Fallback: use macOS mdls for extensionless files
 		if (type === 'unknown' && ext === '' && process.platform === 'darwin') {
-			console.error('[file-router] trying mdls fallback for extensionless file');
+			logger.debug('[file-router] trying mdls fallback for extensionless file');
 			type = detectTypeViaMdls(filePath);
 		}
 
 		const converterType = CONVERTER_MAP[type];
-		console.error(`[file-router] -> final: type="${type}" converterType="${converterType}"`);
+		logger.debug(`[file-router] -> final: type="${type}" converterType="${converterType}"`);
 
 		return { type, converterType };
 	} catch (err) {
-		console.error(`[file-router] error routing "${filePath}":`, err);
+		logger.debug(`[file-router] error routing "${filePath}":`, err);
 		return { type: 'unknown', converterType: null };
 	}
 }
@@ -472,7 +488,7 @@ export function scanDirectory(dirPath: string): ScannedFile[] {
 			}
 		}
 	} catch (error) {
-		console.error(`Error scanning directory ${dirPath}:`, error);
+		logger.error(`[file-router] Error scanning directory ${dirPath}:`, error);
 	}
 
 	return results;
@@ -482,15 +498,15 @@ export function scanDirectory(dirPath: string): ScannedFile[] {
  * Scan multiple paths (files and/or directories)
  */
 export async function scanPaths(paths: string[]): Promise<ScannedFile[]> {
-	console.error(`[file-router] scanPaths called with ${paths.length} path(s):`);
-	paths.forEach((p, i) => console.error(`[file-router]   [${i}] ${p}`));
+	logger.debug(`[file-router] scanPaths called with ${paths.length} path(s):`);
+	paths.forEach((p, i) => logger.debug(`[file-router]   [${i}] ${p}`));
 
 	const results: ScannedFile[] = [];
 
 	for (const path of paths) {
 		try {
 			if (!existsSync(path)) {
-				console.error(`[file-router] path does not exist: "${path}"`);
+				logger.debug(`[file-router] path does not exist: "${path}"`);
 				continue;
 			}
 
@@ -529,7 +545,7 @@ export async function scanPaths(paths: string[]): Promise<ScannedFile[]> {
 						sizeWarning,
 					});
 				} else if (isDriveExportFolder(path, basename(path))) {
-					console.error(`[file-router] detected Google Drive export folder: "${path}"`);
+					logger.debug(`[file-router] detected Google Drive export folder: "${path}"`);
 					const contentSize = getBundleContentSize(path, 'takeout');
 					const { sizeTier, sizeWarning } = classifyFileSize(contentSize, 'takeout');
 					results.push({
@@ -554,16 +570,16 @@ export async function scanPaths(paths: string[]): Promise<ScannedFile[]> {
 
 				// For ZIP files, classify to determine actual type
 				if (type === 'zip') {
-					console.error(`[file-router] classifying ZIP file: "${path}"`);
+					logger.debug(`[file-router] classifying ZIP file: "${path}"`);
 					type = await classifyZip(path);
 					converterType = CONVERTER_MAP[type];
-					console.error(
+					logger.debug(
 						`[file-router] ZIP classified as: type="${type}" converterType="${converterType}"`,
 					);
 				}
 
 				if (type !== 'unknown' && converterType !== null) {
-					console.error(`[file-router] adding file: "${path}" type="${type}"`);
+					logger.debug(`[file-router] adding file: "${path}" type="${type}"`);
 					const { sizeTier, sizeWarning } = classifyFileSize(stats.size, type);
 					results.push({
 						id: generateFileId(),
@@ -577,15 +593,15 @@ export async function scanPaths(paths: string[]): Promise<ScannedFile[]> {
 						sizeWarning,
 					});
 				} else {
-					console.error(`[file-router] SKIPPING file (unknown type or no converter): "${path}"`);
+					logger.debug(`[file-router] SKIPPING file (unknown type or no converter): "${path}"`);
 				}
 			}
 		} catch (error) {
-			console.error(`[file-router] Error scanning path ${path}:`, error);
+			logger.error(`[file-router] Error scanning path ${path}:`, error);
 		}
 	}
 
-	console.error(`[file-router] scanPaths complete: found ${results.length} convertible file(s)`);
+	logger.debug(`[file-router] scanPaths complete: found ${results.length} convertible file(s)`);
 	return results;
 }
 
@@ -606,7 +622,7 @@ export async function classifyZip(zipPath: string): Promise<FileType> {
 				entries.some((f) => f.endsWith('index.htm') || f.endsWith('index.html')),
 		);
 		if (hasFacebookSignature) {
-			console.error('[file-router] classifyZip: detected Facebook export');
+			logger.debug('[file-router] classifyZip: detected Facebook export');
 			return 'facebook';
 		}
 
@@ -617,7 +633,7 @@ export async function classifyZip(zipPath: string): Promise<FileType> {
 				entries.some((e) => e.includes('your_instagram_activity/')) ||
 				entries.some((e) => e.includes('/likes/') || e.startsWith('likes/')));
 		if (hasInstagramSignature) {
-			console.error('[file-router] classifyZip: detected Instagram export');
+			logger.debug('[file-router] classifyZip: detected Instagram export');
 			return 'instagram';
 		}
 
@@ -626,7 +642,7 @@ export async function classifyZip(zipPath: string): Promise<FileType> {
 			(e) => e.includes('StreamingHistory') && e.endsWith('.json'),
 		);
 		if (hasSpotifySignature) {
-			console.error('[file-router] classifyZip: detected Spotify export');
+			logger.debug('[file-router] classifyZip: detected Spotify export');
 			return 'spotify';
 		}
 
@@ -635,13 +651,13 @@ export async function classifyZip(zipPath: string): Promise<FileType> {
 			entries.some((e) => e.endsWith('comments.csv')) ||
 			entries.some((e) => e.endsWith('posts.csv'));
 		if (hasRedditSignature) {
-			console.error('[file-router] classifyZip: detected Reddit export');
+			logger.debug('[file-router] classifyZip: detected Reddit export');
 			return 'reddit';
 		}
 
 		// Google Takeout signature
 		if (entries.some((e) => e.includes('Takeout/'))) {
-			console.error('[file-router] classifyZip: detected Google Takeout');
+			logger.debug('[file-router] classifyZip: detected Google Takeout');
 			return 'takeout';
 		}
 
@@ -652,14 +668,14 @@ export async function classifyZip(zipPath: string): Promise<FileType> {
 		);
 
 		if (hasSupported) {
-			console.error('[file-router] classifyZip: detected generic archive');
+			logger.debug('[file-router] classifyZip: detected generic archive');
 			return 'zip';
 		}
 
-		console.error('[file-router] classifyZip: unknown ZIP format');
+		logger.debug('[file-router] classifyZip: unknown ZIP format');
 		return 'unknown';
 	} catch (err) {
-		console.error('[file-router] classifyZip error:', err);
+		logger.debug('[file-router] classifyZip error:', err);
 		return 'unknown';
 	}
 }
