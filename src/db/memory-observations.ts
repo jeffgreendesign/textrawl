@@ -267,12 +267,19 @@ export async function deleteObservationByContent(
 }
 
 /**
- * Check if a similar observation already exists (for deduplication)
+ * Check if a similar observation already exists (for deduplication).
+ *
+ * Two-stage check:
+ *  1. Exact string match (fast, no embedding needed)
+ *  2. Semantic similarity via embedding (requires `embedding` param)
+ *     Searches top-10 semantic matches globally, then filters by entity_id
+ *     and checks against `similarityThreshold` (default 0.95).
  */
 export async function findSimilarObservation(
 	entityId: string,
 	content: string,
 	similarityThreshold = 0.95,
+	embedding?: number[],
 ): Promise<MemoryObservation | null> {
 	if (!isSupabaseConfigured()) {
 		throw new DatabaseError('Supabase not configured');
@@ -280,7 +287,7 @@ export async function findSimilarObservation(
 
 	const client = getSupabaseClient();
 
-	// First try exact match
+	// Stage 1: Exact string match (fast path)
 	const { data: exactMatch, error: exactError } = await client
 		.from('memory_observations')
 		.select('*')
@@ -300,8 +307,55 @@ export async function findSimilarObservation(
 		return exactMatch as MemoryObservation;
 	}
 
-	// TODO: If needed, implement vector similarity check using embedding
-	// This would require the observation to already have an embedding
+	// Stage 2: Semantic similarity check via embedding
+	if (embedding) {
+		const { data: semanticMatches, error: semanticError } = await client.rpc(
+			'memory_semantic_search',
+			{
+				query_embedding: embedding,
+				match_count: 10,
+				entity_types: null,
+				include_expired: false,
+			},
+		);
+
+		if (semanticError) {
+			// Non-fatal: log and fall through to return null
+			logger.warn('Semantic dedup search failed, falling back to exact match only', {
+				error: semanticError.message,
+			});
+			return null;
+		}
+
+		if (semanticMatches) {
+			for (const row of semanticMatches as Array<Record<string, unknown>>) {
+				if (
+					row.entity_id === entityId &&
+					typeof row.similarity === 'number' &&
+					row.similarity >= similarityThreshold
+				) {
+					logger.debug('Semantic duplicate found', {
+						entityId,
+						observationId: row.observation_id,
+						similarity: row.similarity,
+						threshold: similarityThreshold,
+					});
+					return {
+						id: row.observation_id as string,
+						entity_id: row.entity_id as string,
+						content: row.observation_content as string,
+						source: row.source as ObservationSource,
+						confidence: (row.confidence as number) ?? 1.0,
+						valid_from: '',
+						valid_until: null,
+						embedding: null,
+						metadata: {},
+						created_at: '',
+					};
+				}
+			}
+		}
+	}
 
 	return null;
 }
