@@ -9,12 +9,12 @@ Browse all documents in your knowledge base with pagination and filtering option
 
 | Parameter | Type | Required | Default | Description |
 |-----------|------|----------|---------|-------------|
-| `limit` | number | No | 20 | Results per page (1-100) |
-| `offset` | number | No | 0 | Skip this many results |
-| `sourceType` | enum | No | - | Filter by: `note`, `file`, `url` |
-| `tags` | string[] | No | - | Filter by tags (AND logic) |
-| `sortBy` | enum | No | `created_at` | Sort by: `created_at`, `updated_at`, `title` |
-| `sortOrder` | enum | No | `desc` | Sort order: `asc`, `desc` |
+| `limit` | number | OPTIONAL | 20 | Results per page (1-100) |
+| `offset` | number | OPTIONAL | 0 | Skip this many results |
+| `sourceType` | enum | OPTIONAL | - | Filter by: `note`, `file`, `url` |
+| `tags` | string[] | OPTIONAL | - | Filter by tags (AND logic) |
+| `sortBy` | enum | OPTIONAL | `created_at` | Sort by: `created_at`, `updated_at`, `title` |
+| `sortOrder` | enum | OPTIONAL | `desc` | Sort order: `asc`, `desc` |
 
 ## Example Request
 
