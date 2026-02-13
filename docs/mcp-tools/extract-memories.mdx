@@ -10,8 +10,8 @@ Extract entities, facts, and relationships from text using Claude. Requires `ENA
 | Parameter | Type | Required | Default | Description |
 |-----------|------|----------|---------|-------------|
 | `text` | string | REQUIRED | - | Text to extract from (10-100000 chars) |
-| `source` | enum | OPTIONAL | `document` | Source: conversation, note, document, manual |
-| `storeResults` | boolean | OPTIONAL | `false` | Store extracted memories in database |
+| `source` | enum | OPTIONAL | `manual` | Source: conversation, note, document, manual |
+| `storeResults` | boolean | OPTIONAL | `true` | Store extracted memories in database |
 
 ## Example Request
 
@@ -50,5 +50,6 @@ Set `storeResults: true` to persist extracted memories to the database.
 
 ## Related Tools
 
-- `remember_fact` - Manually store individual facts
-- `recall_memories` - Search extracted memories
+- [`remember_fact`](/docs/mcp-tools/remember-fact) - Manually store individual facts
+- [`query_memory`](/docs/mcp-tools/query-memory) - Search extracted memories
+- [`build_knowledge`](/docs/mcp-tools/build-knowledge) - Batch store facts and relations

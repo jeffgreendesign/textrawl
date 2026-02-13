@@ -149,9 +149,21 @@ Set `COMPACT_RESPONSES=false` for human-readable verbose responses during develo
 
 See [Response Format](/docs/mcp-tools#response-format) for the complete key mapping.
 
+### Rate Limiting
+
+| Variable | Required | Default | Description |
+|----------|----------|---------|-------------|
+| `REDIS_URL` | No | - | Redis URL for shared rate limiting across instances (e.g. `redis://localhost:6379`) |
+
+```bash
+REDIS_URL=redis://localhost:6379
+```
+
+When `REDIS_URL` is set, rate limit counters are shared across all server instances via Redis. Without it, each instance tracks limits independently in memory (fine for single-instance deployments).
+
 ## Rate Limits
 
-Built-in rate limiting (not configurable):
+Built-in rate limiting:
 
 | Endpoint | Limit |
 |----------|-------|

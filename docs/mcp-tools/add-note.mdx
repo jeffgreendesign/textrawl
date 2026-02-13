@@ -9,9 +9,10 @@ Create new notes in your knowledge base with automatic chunking and embedding ge
 
 | Parameter | Type | Required | Default | Description |
 |-----------|------|----------|---------|-------------|
-| `title` | string | Yes | - | Note title (1-500 chars) |
-| `content` | string | Yes | - | Markdown content (1-100000 chars) |
-| `tags` | string[] | No | `[]` | Tags for organization |
+| `title` | string | REQUIRED | - | Note title (1-500 chars) |
+| `content` | string | REQUIRED | - | Markdown content (1-100000 chars) |
+| `tags` | string[] | OPTIONAL | `[]` | Tags for organization |
+| `extractMemories` | boolean | OPTIONAL | `false` | Extract entities and facts as memories (REQUIRES `ENABLE_MEMORY_EXTRACTION=true` and `ANTHROPIC_API_KEY`) |
 
 ## Example Request
 
