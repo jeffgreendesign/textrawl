@@ -6,6 +6,7 @@ import { bearerAuth } from './api/middleware/auth.js';
 import { errorHandler } from './api/middleware/error.js';
 import { apiLimiter, healthLimiter } from './api/middleware/rateLimit.js';
 import { apiRoutes } from './api/routes.js';
+import { statusRouter } from './api/status.js';
 import { checkDatabaseConnection, isSupabaseConfigured } from './db/client.js';
 import { createMcpServer } from './server.js';
 import { isOpenAIConfigured } from './services/embeddings.js';
@@ -81,6 +82,9 @@ app.get('/health/ready', healthLimiter, async (_req, res) => {
 app.get('/health/live', healthLimiter, (_req, res) => {
 	res.json({ status: 'live' });
 });
+
+// Service monitoring dashboard (rate-limited, no auth)
+app.use(healthLimiter, statusRouter);
 
 // MCP endpoint - Streamable HTTP transport (stateless mode for Cloud Run)
 // Protected with rate limiting and authentication
