@@ -296,6 +296,9 @@ statusRouter.get('/status', async (_req, res) => {
 		}
 
 		// --- Tool statuses ---
+		const embeddingsService = services.find((s) => s.name === 'Embeddings');
+		const embeddingsHealthy = embeddingsService?.status === 'operational';
+
 		const tools: ToolStatus[] = TOOL_DEFINITIONS.map((def) => {
 			// Check feature flag
 			if (def.featureFlag && !config[def.featureFlag]) {
@@ -348,6 +351,14 @@ statusRouter.get('/status', async (_req, res) => {
 						group: def.group,
 						status: 'degraded' as ServiceStatus,
 						message: 'Embeddings not configured (full-text only)',
+					};
+				}
+				if (!embeddingsHealthy) {
+					return {
+						name: def.name,
+						group: def.group,
+						status: 'degraded' as ServiceStatus,
+						message: `Embeddings ${embeddingsService?.status ?? 'unavailable'} (full-text only)`,
 					};
 				}
 			}
@@ -825,7 +836,7 @@ async function refresh() {
 	const info = document.getElementById('lastCheck');
 	info.textContent = 'Checking...';
 	try {
-		const r = await fetch('./status', { signal: AbortSignal.timeout(15000) });
+		const r = await fetch('../status', { signal: AbortSignal.timeout(15000) });
 		if (!r.ok) throw new Error('HTTP ' + r.status);
 		const data = await r.json();
 		render(data);
