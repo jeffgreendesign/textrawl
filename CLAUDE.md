@@ -78,6 +78,7 @@ Copy `.env.example` to `.env` and configure:
 - `COMPACT_RESPONSES` - Token-efficient response format (default: true)
 - `CHUNKING_MODE` - `fixed` (default) or `semantic` for embedding-based topic splitting
 - `SEMANTIC_SIMILARITY_THRESHOLD` - Threshold for semantic chunking (default: 0.5)
+- `REDIS_URL` - Optional Redis URL for shared rate limiting across instances (e.g. `redis://localhost:6379`)
 
 ### Ollama Model Options
 
@@ -109,7 +110,7 @@ Express Server
 └── GET /health/*          → Health/readiness probes
 ```
 
-**Rate limits:** API: 100 req/min, Upload: 10 req/min
+**Rate limits:** API: 100 req/min, Upload: 10 req/min. Set `REDIS_URL` for shared counters across instances; otherwise in-memory.
 
 **MCP Transport:** Uses stateless `StreamableHTTPServerTransport` (no session persistence) for Cloud Run/serverless compatibility. Each request creates a fresh server instance.
 

@@ -111,6 +111,9 @@ const envSchema = z.object({
 		.transform((val) => parseFloat(val))
 		.refine((val) => val >= 0 && val <= 1, 'Must be between 0 and 1'),
 
+	// Redis (optional - enables shared rate limiting across instances)
+	REDIS_URL: z.string().url().optional(),
+
 	// File size limits
 	MAX_SINGLE_FILE_SIZE: z
 		.string()

@@ -94,12 +94,12 @@
 - [x] Add to `query_conversations`
 - [x] Add to `get_stats`
 - [x] Update all documentation files (CLAUDE.md, README.md, AGENTS.md, llms.txt, llms-full.txt, .well-known/mcp.json, docs/mcp-tools/*.mdx)
-- [ ] Test with MCP Inspector that both structured and unstructured content are returned
-- [~] Commit and open PR
+- [x] Test with MCP Inspector that both structured and unstructured content are returned
+- [x] Commit and open PR
 
 ## PR 5: Redis-backed rate limiting (optional)
 
-- [ ] Add `REDIS_URL` to config/env schema
-- [ ] Add rate limiter store swap: use Redis if `REDIS_URL` is set, else fall back to in-memory
-- [ ] Update `.env.example` and `CLAUDE.md`
-- [ ] Commit and open PR
+- [x] Add `REDIS_URL` to config/env schema
+- [x] Add rate limiter store swap: use Redis if `REDIS_URL` is set, else fall back to in-memory
+- [x] Update `.env.example` and `CLAUDE.md`
+- [x] Commit and open PR
