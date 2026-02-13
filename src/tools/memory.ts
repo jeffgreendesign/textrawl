@@ -128,8 +128,17 @@ export function registerMemoryTools(server: McpServer): void {
 					entityType: entityType as EntityType,
 				});
 
-				// Check for duplicate observation
-				const existing = await findSimilarObservation(entity.id, observation);
+				// Generate embedding first so we can use it for semantic dedup
+				const embedStart = Date.now();
+				const embedding = await generateEmbedding(observation);
+				logger.debug('embedding generated', {
+					operation: 'remember_fact',
+					entityName,
+					latencyMs: Date.now() - embedStart,
+				});
+
+				// Check for duplicate observation (exact match + semantic similarity)
+				const existing = await findSimilarObservation(entity.id, observation, 0.95, embedding);
 				if (existing) {
 					logger.debug('Duplicate observation skipped', {
 						entityId: entity.id,
@@ -155,16 +164,7 @@ export function registerMemoryTools(server: McpServer): void {
 					};
 				}
 
-				// Generate embedding for the observation
-				const embedStart = Date.now();
-				const embedding = await generateEmbedding(observation);
-				logger.debug('embedding generated', {
-					operation: 'remember_fact',
-					entityName,
-					latencyMs: Date.now() - embedStart,
-				});
-
-				// Create the observation
+				// Create the observation (reuse embedding from above)
 				const obs = await createObservation({
 					entityId: entity.id,
 					content: observation,
@@ -987,15 +987,22 @@ export function registerMemoryTools(server: McpServer): void {
 							entityType: fact.entityType as EntityType,
 						});
 
-						// Check for duplicate
-						const existing = await findSimilarObservation(entity.id, fact.observation);
+						// Generate embedding first for semantic dedup
+						const embedding = await generateEmbedding(fact.observation);
+
+						// Check for duplicate (exact match + semantic similarity)
+						const existing = await findSimilarObservation(
+							entity.id,
+							fact.observation,
+							0.95,
+							embedding,
+						);
 						if (existing) {
 							factsDuplicate++;
 							continue;
 						}
 
-						// Generate embedding and create observation
-						const embedding = await generateEmbedding(fact.observation);
+						// Create observation (reuse embedding from above)
 						await createObservation({
 							entityId: entity.id,
 							content: fact.observation,

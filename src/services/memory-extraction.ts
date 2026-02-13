@@ -285,19 +285,19 @@ export async function storeExtractedMemories(
 			// Process observations
 			for (const observation of entity.observations) {
 				try {
-					// Check for duplicate
-					const existing = await findSimilarObservation(dbEntity.id, observation);
+					// Generate embedding first for semantic dedup (if configured)
+					const embedding = isEmbeddingsConfigured()
+						? await generateEmbedding(observation)
+						: undefined;
+
+					// Check for duplicate (exact match + semantic similarity)
+					const existing = await findSimilarObservation(dbEntity.id, observation, 0.95, embedding);
 					if (existing) {
 						result.observationsDuplicate++;
 						continue;
 					}
 
-					// Generate embedding for observation (if configured)
-					const embedding = isEmbeddingsConfigured()
-						? await generateEmbedding(observation)
-						: undefined;
-
-					// Create observation
+					// Create observation (reuse embedding from above)
 					await createObservation({
 						entityId: dbEntity.id,
 						content: observation,
