@@ -12,6 +12,7 @@ Create new notes in your knowledge base with automatic chunking and embedding ge
 | `title` | string | Yes | - | Note title (1-500 chars) |
 | `content` | string | Yes | - | Markdown content (1-100000 chars) |
 | `tags` | string[] | No | `[]` | Tags for organization |
+| `extractMemories` | boolean | No | `false` | Extract entities and facts as memories (requires `ENABLE_MEMORY_EXTRACTION=true` and `ANTHROPIC_API_KEY`) |
 
 ## Example Request
 

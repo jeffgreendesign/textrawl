@@ -13,8 +13,8 @@ Browse all documents in your knowledge base with pagination and filtering option
 | `offset` | number | No | 0 | Skip this many results |
 | `sourceType` | enum | No | - | Filter by: `note`, `file`, `url` |
 | `tags` | string[] | No | - | Filter by tags (AND logic) |
-| `orderBy` | enum | No | `updatedAt` | Sort by: `createdAt`, `updatedAt`, `title` |
-| `order` | enum | No | `desc` | Sort order: `asc`, `desc` |
+| `sortBy` | enum | No | `created_at` | Sort by: `created_at`, `updated_at`, `title` |
+| `sortOrder` | enum | No | `desc` | Sort order: `asc`, `desc` |
 
 ## Example Request
 
@@ -24,8 +24,8 @@ Browse all documents in your knowledge base with pagination and filtering option
   "offset": 0,
   "sourceType": "note",
   "tags": ["work"],
-  "orderBy": "updatedAt",
-  "order": "desc"
+  "sortBy": "created_at",
+  "sortOrder": "desc"
 }
 ```
 
@@ -103,7 +103,7 @@ Returns documents with BOTH tags.
 {
   "sourceType": "note",
   "tags": ["important"],
-  "orderBy": "createdAt",
-  "order": "asc"
+  "sortBy": "created_at",
+  "sortOrder": "asc"
 }
 ```

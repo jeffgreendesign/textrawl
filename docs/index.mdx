@@ -60,31 +60,27 @@ pnpm inspector
 
 ## MCP Tools
 
-textrawl exposes 22 tools via MCP:
+textrawl exposes 18 tools via MCP:
 
 ### Document Tools
 
 | Tool | Purpose |
 |------|---------|
-| `search_knowledge` | Hybrid search with configurable weights |
-| `search_with_context` | Unified search across documents, memories, and conversations |
+| `search` | Hybrid semantic + full-text search with optional memory/conversation fusion |
 | `get_document` | Retrieve full document content |
 | `list_documents` | Browse documents with pagination |
 | `update_document` | Update document title and tags |
 | `add_note` | Create notes with automatic embedding |
-| `knowledge_stats` | Knowledge base statistics |
 
 ### Memory Tools
 
 | Tool | Purpose |
 |------|---------|
 | `remember_fact` | Store facts about entities with semantic embeddings |
-| `recall_memories` | Search stored memories with hybrid search |
+| `build_knowledge` | Store multiple facts and relations in a single batch call |
+| `query_memory` | Query the memory graph (search, entity, or list modes) |
 | `relate_entities` | Create relationships between entities |
-| `get_entity_context` | Get all info about an entity |
-| `list_entities` | List known entities with pagination |
 | `forget_entity` | Delete entity and associated memories |
-| `memory_stats` | Get memory statistics |
 | `extract_memories` | Extract entities and facts from text via LLM |
 
 ### Conversation Tools
@@ -92,11 +88,8 @@ textrawl exposes 22 tools via MCP:
 | Tool | Purpose |
 |------|---------|
 | `save_conversation_context` | Save conversation summary and turns for recall |
-| `recall_conversation` | Search past conversations |
-| `list_conversations` | Browse conversation history |
-| `get_conversation` | Get full conversation transcript |
+| `query_conversations` | Query past conversations (search, get, or list modes) |
 | `delete_conversation` | Delete a conversation session |
-| `conversation_stats` | Conversation storage statistics |
 
 ### Insight Tools
 
@@ -105,7 +98,12 @@ textrawl exposes 22 tools via MCP:
 | `get_insights` | View discovered patterns and connections |
 | `discover_connections` | Trigger insight scan across knowledge base |
 | `dismiss_insight` | Dismiss an insight from the queue |
-| `insight_stats` | Insight queue and processing statistics |
+
+### Stats
+
+| Tool | Purpose |
+|------|---------|
+| `get_stats` | Statistics across knowledge, memory, conversations, and insights |
 
 [View all tools →](/docs/mcp-tools)
 
