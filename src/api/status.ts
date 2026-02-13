@@ -1,3 +1,4 @@
+import crypto from 'node:crypto';
 import { Router, type Router as RouterType } from 'express';
 import { checkDatabaseConnection, isSupabaseConfigured } from '../db/client.js';
 import { isEmbeddingsConfigured } from '../services/embeddings.js';
@@ -431,11 +432,16 @@ statusRouter.get('/status', async (_req, res) => {
 // ---------------------------------------------------------------------------
 
 statusRouter.get('/status/dashboard', (_req, res) => {
+	const nonce = crypto.randomBytes(16).toString('base64');
 	res.setHeader('Content-Type', 'text/html; charset=utf-8');
-	res.send(getDashboardHTML());
+	res.setHeader(
+		'Content-Security-Policy',
+		`default-src 'none'; script-src 'nonce-${nonce}'; style-src 'unsafe-inline'; connect-src 'self'; base-uri 'none'; form-action 'none'`,
+	);
+	res.send(getDashboardHTML(nonce));
 });
 
-function getDashboardHTML(): string {
+function getDashboardHTML(nonce: string): string {
 	return `<!DOCTYPE html>
 <html lang="en">
 <head>
@@ -708,8 +714,8 @@ h1 {
 		<h1>Textrawl Service Monitor</h1>
 		<div class="header-right">
 			<span class="refresh-info" id="lastCheck">Checking...</span>
-			<button class="btn" onclick="refresh()">Refresh</button>
-			<select class="btn" id="autoRefresh" onchange="setAutoRefresh(this.value)">
+			<button class="btn" id="refreshBtn">Refresh</button>
+			<select class="btn" id="autoRefresh">
 				<option value="0">Auto: Off</option>
 				<option value="30">Auto: 30s</option>
 				<option value="60" selected>Auto: 60s</option>
@@ -726,7 +732,7 @@ h1 {
 	</div>
 </div>
 
-<script>
+<script nonce="${nonce}">
 let refreshTimer = null;
 let lastData = null;
 
@@ -852,6 +858,12 @@ function setAutoRefresh(seconds) {
 	const s = parseInt(seconds, 10);
 	if (s > 0) { refreshTimer = setInterval(refresh, s * 1000); }
 }
+
+// Bind event listeners
+document.getElementById('refreshBtn').addEventListener('click', refresh);
+document.getElementById('autoRefresh').addEventListener('change', function() {
+	setAutoRefresh(this.value);
+});
 
 // Initial load
 refresh();

@@ -19,18 +19,10 @@ const app = express();
 // Use 1 hop in production (behind single load balancer), disable in development
 app.set('trust proxy', config.NODE_ENV === 'production' ? 1 : false);
 
-// Security middleware — relax CSP for the status dashboard (self-contained inline HTML)
+// Security middleware — skip helmet for dashboard (sets its own nonce-based CSP)
 app.use((req, res, next) => {
 	if (req.path === '/status/dashboard') {
-		helmet({
-			contentSecurityPolicy: {
-				directives: {
-					defaultSrc: ["'self'"],
-					scriptSrc: ["'self'", "'unsafe-inline'"],
-					styleSrc: ["'self'", "'unsafe-inline'"],
-				},
-			},
-		})(req, res, next);
+		next();
 	} else {
 		helmet()(req, res, next);
 	}
