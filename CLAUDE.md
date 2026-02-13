@@ -373,27 +373,27 @@ Fumadocs does **not** include built-in search — it requires an explicit API ro
 2. It imports `source` from `@/lib/source` and `createFromSource` from `fumadocs-core/search/server`
 3. `pnpm docs:build` succeeds and shows `/api/search` in the route table
 
-## Pull Request Workflow
+## Pull Request Style
 
-When completing work that's ready for a PR:
+**PR titles** should use conventional commit format:
 
-1. **Always create the PR directly** using `gh pr create --title "..." --body "..."` - never just provide a link to `/pull/new/branch-name`
-2. **Use conventional commit format for PR titles:**
-   - `feat:` - New features
-   - `fix:` - Bug fixes
-   - `docs:` - Documentation changes
-   - `refactor:` - Code refactoring
-   - `chore:` - Maintenance tasks
-3. **Include in the PR body:**
-   - Summary of changes (2-4 bullet points)
-   - Link to related issue if applicable (e.g., `Closes #123`)
-   - Test plan or verification steps
-4. **After creating the PR**, report the actual PR URL returned by `gh`
+- `feat:` - New features
+- `fix:` - Bug fixes
+- `docs:` - Documentation changes
+- `refactor:` - Code refactoring
+- `chore:` - Maintenance tasks
+
+**PR body** should include:
+
+- Summary of changes (2-4 bullet points)
+- Link to related issue if applicable (e.g., `Closes #123`)
+- Test plan or verification steps
 
 **Example:**
 
-```bash
-gh pr create --title "feat: add user authentication" --body "$(cat <<'EOF'
+```text
+Title: feat: add user authentication
+
 ## Summary
 - Add JWT-based authentication middleware
 - Create login/logout API endpoints
@@ -404,8 +404,6 @@ Closes #42
 ## Test Plan
 - Run `pnpm inspector` and test protected endpoints
 - Verify tokens expire after configured TTL
-EOF
-)"
 ```
 
 ## Cursor IDE Integration
