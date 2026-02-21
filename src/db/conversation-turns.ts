@@ -282,6 +282,7 @@ export async function getRecentTurns(sessionId: string, limit = 10): Promise<Con
 		throw new DatabaseError('Supabase not configured');
 	}
 
+	const clampedLimit = Math.max(1, limit);
 	const client = getSupabaseClient();
 
 	const { data, error } = await client
@@ -289,7 +290,7 @@ export async function getRecentTurns(sessionId: string, limit = 10): Promise<Con
 		.select('*')
 		.eq('session_id', sessionId)
 		.order('turn_index', { ascending: false })
-		.limit(limit);
+		.limit(clampedLimit);
 
 	if (error) {
 		logger.error('Failed to get recent turns', { error: error.message });
@@ -305,6 +306,7 @@ export async function getRecentTurns(sessionId: string, limit = 10): Promise<Con
  *
  * @param id - The UUID of the turn to delete
  * @returns Resolves when the turn has been deleted
+ * @throws {NotFoundError} If no turn exists with the given ID
  * @throws {DatabaseError} If Supabase is not configured or the delete fails
  */
 export async function deleteTurn(id: string): Promise<void> {

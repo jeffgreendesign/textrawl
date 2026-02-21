@@ -1,5 +1,5 @@
 import type { InsightStatus, InsightType, ProactiveInsight } from '../types/database.js';
-import { DatabaseError } from '../utils/errors.js';
+import { DatabaseError, NotFoundError } from '../utils/errors.js';
 import { logger } from '../utils/logger.js';
 import { getSupabaseClient, isSupabaseConfigured } from './client.js';
 
@@ -276,6 +276,7 @@ export async function searchInsights(
  * @param insightId - The UUID of the insight to update
  * @param status - The new status to set ('new', 'seen', or 'dismissed')
  * @returns Resolves when the status has been updated
+ * @throws {NotFoundError} If no insight exists with the given ID
  * @throws {DatabaseError} If Supabase is not configured or the update fails
  */
 export async function updateInsightStatus(insightId: string, status: InsightStatus): Promise<void> {
@@ -284,7 +285,11 @@ export async function updateInsightStatus(insightId: string, status: InsightStat
 	}
 
 	const client = getSupabaseClient();
-	const { error } = await client.from('proactive_insights').update({ status }).eq('id', insightId);
+	const { data, error } = await client
+		.from('proactive_insights')
+		.update({ status })
+		.eq('id', insightId)
+		.select('id');
 
 	if (error) {
 		logger.error('Failed to update insight status', {
@@ -294,6 +299,10 @@ export async function updateInsightStatus(insightId: string, status: InsightStat
 			hint: error.hint,
 		});
 		throw new DatabaseError(`Failed to update insight status: ${error.message}`);
+	}
+
+	if (!data || data.length === 0) {
+		throw new NotFoundError(`Insight not found: ${insightId}`);
 	}
 }
 
