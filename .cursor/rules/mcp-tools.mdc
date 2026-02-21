@@ -5,89 +5,121 @@ globs: ["src/tools/**/*.ts"]
 
 # MCP Tool Patterns
 
-## Tool Registration
+## Tool Registration (Preferred: `registerTool`)
 
-Tools are registered using `server.tool()` with inline Zod schemas:
+Use `server.registerTool()` (SDK v1.26.0+) with `title`, `description`, `inputSchema`, `outputSchema`, and `annotations`:
 
 ```typescript
-import { McpServer } from '@modelcontextprotocol/sdk/server/mcp.js';
+import type { McpServer } from '@modelcontextprotocol/sdk/server/mcp.js';
 import { z } from 'zod';
+import { configError, formatId, isCompact, toolError, toolResponse } from '../utils/compact.js';
+import { logger } from '../utils/logger.js';
 
-server.tool(
+server.registerTool(
   'tool_name',
   {
-    param: z.string().describe('Description shown to LLM'),
-    optionalParam: z.number().optional().default(10).describe('Optional with default'),
+    title: 'Tool Name',
+    description: 'What this tool does',
+    inputSchema: {
+      query: z.string().min(1).max(10000).describe('Search query'),
+      limit: z.number().min(1).max(50).default(10).describe('Max results'),
+    },
+    // For read-only tools: define outputSchema + return structuredContent
+    outputSchema: {
+      totalResults: z.number(),
+      results: z.array(z.object({ id: z.string(), content: z.string() })),
+    },
+    annotations: {
+      readOnlyHint: true,     // Does not modify data
+      destructiveHint: false,  // Does not delete data
+      idempotentHint: true,    // Safe to call multiple times
+      openWorldHint: false,    // Does not make external API calls
+    },
   },
-  async ({ param, optionalParam }) => {
-    // Implementation
-    return {
-      content: [{ type: 'text', text: JSON.stringify(result, null, 2) }]
-    };
+  async ({ query, limit }) => {
+    logger.info('tool_name called', { query, limit });
+
+    if (!isSupabaseConfigured()) {
+      return configError('Database', 'Set SUPABASE_URL and SUPABASE_SERVICE_KEY');
+    }
+
+    try {
+      const results = await doQuery(query, limit);
+      const structuredContent = { totalResults: results.length, results };
+
+      return toolResponse({
+        compact: { n: results.length, r: results.map(r => ({ id: formatId(r.id), c: r.content })) },
+        verbose: structuredContent,
+        structuredContent,  // Always verbose, canonical keys
+      });
+    } catch (error) {
+      logger.error('tool_name failed', {
+        error: error instanceof Error ? error.message : String(error),
+      });
+      return toolError(`Operation failed: ${error instanceof Error ? error.message : 'Unknown error'}`);
+    }
   }
 );
+
+logger.debug('Registered tool: tool_name');
 ```
 
-## Response Format
+## Response Helpers (`src/utils/compact.ts`)
 
-Always return JSON-stringified results:
+Always use the shared helpers — never build error/response objects inline:
+
+- **`toolResponse({ compact, verbose, structuredContent? })`** — Standard response with compact/verbose branching
+- **`toolError(message)`** — Error response with `isError: true` (prevents LLM retry spirals)
+- **`configError(what, fix)`** — Configuration error (permanent failure)
+- **`toJSON(obj)`** — Compact or pretty JSON based on `COMPACT_RESPONSES`
+- **`formatId(uuid)`** — Truncated (8 chars) or full UUID
+- **`isCompact()`** — Check current mode
+
+## Structured Output Pattern (Read-Only Tools)
+
+Read-only tools (`search`, `get_document`, `list_documents`, `query_memory`, `query_conversations`, `get_stats`) MUST:
+
+1. Define `outputSchema` in the tool config (Zod shapes)
+2. Return both `content` (text for LLM) and `structuredContent` (typed JSON for programmatic use)
+3. `structuredContent` MUST always use full canonical keys (verbose) regardless of `COMPACT_RESPONSES`
+
+Use `toolResponse()` to avoid manual compact/verbose branching:
 
 ```typescript
-return {
-  content: [
-    {
-      type: 'text' as const,
-      text: JSON.stringify(result, null, 2),
-    },
-  ],
-};
+return toolResponse({
+  compact: { n: total, r: [...] },        // Token-efficient for LLM
+  verbose: structuredContent,               // Human-readable
+  structuredContent,                        // Typed, canonical (always verbose)
+});
 ```
 
-## Error Responses
+## Error Handling
 
-Return errors in the result object (NOT as thrown exceptions):
+CRITICAL: Error responses MUST include `isError: true` to prevent LLM retry spirals:
 
 ```typescript
-if (!isConfigured()) {
-  return {
-    content: [
-      {
-        type: 'text' as const,
-        text: JSON.stringify(
-          {
-            error: 'Service not configured',
-            message: 'Set REQUIRED_VAR to enable this feature.',
-          },
-          null,
-          2
-        ),
-      },
-    ],
-  };
-}
+// Config errors (permanent — do not retry)
+return configError('Database', 'Set SUPABASE_URL and SUPABASE_SERVICE_KEY');
+
+// Runtime errors
+return toolError(`Search failed: ${error.message}`);
 ```
 
 ## Zod Schema Guidelines
 
-- Use `.describe()` on all parameters (shown to LLM)
+- Use `.describe()` on ALL parameters (shown to LLM)
 - Set sensible `.default()` values
 - Use `.min()` and `.max()` for validation
 - Use `.enum()` for fixed options
 
-```typescript
-{
-  query: z.string().min(1).max(10000).describe('Search query'),
-  limit: z.number().min(1).max(50).default(10).describe('Max results'),
-  type: z.enum(['note', 'file', 'url']).optional().describe('Filter by type'),
-}
-```
-
 ## Logging
 
-Always log tool calls for debugging:
+Always log tool calls and registration:
 
 ```typescript
 logger.info('tool_name called', { param1, param2 });
 // ... implementation
 logger.debug('Registered tool: tool_name');
 ```
+
+CRITICAL: All logs must use `console.error()` (stderr) — stdout is reserved for MCP JSON-RPC. Use the `logger` from `src/utils/logger.ts`.

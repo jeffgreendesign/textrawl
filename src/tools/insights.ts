@@ -13,10 +13,8 @@ import {
 } from '../db/insights.js';
 import { generateEmbedding, isOpenAIConfigured } from '../services/embeddings.js';
 import { runInsightScan } from '../services/insight-analysis.js';
-import { config } from '../utils/config.js';
+import { configError, formatId, isCompact, toJSON, toolError } from '../utils/compact.js';
 import { logger } from '../utils/logger.js';
-
-const isCompact = () => config.COMPACT_RESPONSES;
 
 /**
  * Register proactive insight tools
@@ -76,29 +74,12 @@ export function registerInsightTools(server: McpServer): void {
 			logger.info('get_insights called', { status, insightType, query, limit });
 
 			if (!isSupabaseConfigured()) {
-				return {
-					content: [
-						{
-							type: 'text' as const,
-							text: JSON.stringify({ error: 'Database not configured' }),
-						},
-					],
-				};
+				return configError('Database', 'Set SUPABASE_URL and SUPABASE_SERVICE_KEY');
 			}
 
 			const schema = await ensureSchema();
 			if (!schema.ok) {
-				return {
-					content: [
-						{
-							type: 'text' as const,
-							text: JSON.stringify({
-								error: 'Insight schema not initialized',
-								message: schema.error,
-							}),
-						},
-					],
-				};
+				return toolError(`Insight schema not initialized: ${schema.error}`);
 			}
 
 			try {
@@ -107,14 +88,7 @@ export function registerInsightTools(server: McpServer): void {
 				if (query) {
 					// Semantic search over insights
 					if (!isOpenAIConfigured()) {
-						return {
-							content: [
-								{
-									type: 'text' as const,
-									text: JSON.stringify({ error: 'Embeddings not configured for semantic search' }),
-								},
-							],
-						};
+						return configError('Embedding provider', 'Set OPENAI_API_KEY or configure Ollama');
 					}
 					const queryEmbedding = await generateEmbedding(query);
 					results = await searchInsights(queryEmbedding, {
@@ -144,7 +118,7 @@ export function registerInsightTools(server: McpServer): void {
 									n: results.length,
 									new: newInsights.length,
 									insights: results.map((r) => ({
-										id: r.id.slice(0, 8),
+										id: formatId(r.id),
 										t: r.insight_type,
 										title: r.title,
 										sum: r.summary,
@@ -189,18 +163,9 @@ export function registerInsightTools(server: McpServer): void {
 				logger.error('get_insights failed', {
 					error: error instanceof Error ? error.message : String(error),
 				});
-				return {
-					content: [
-						{
-							type: 'text' as const,
-							text: JSON.stringify({
-								error: 'Failed to get insights',
-								message: error instanceof Error ? error.message : 'Unknown error',
-							}),
-						},
-					],
-					isError: true,
-				};
+				return toolError(
+					`Failed to get insights: ${error instanceof Error ? error.message : 'Unknown error'}`,
+				);
 			}
 		},
 	);
@@ -239,40 +204,16 @@ export function registerInsightTools(server: McpServer): void {
 			logger.info('discover_connections called', { fullScan, maxChunks });
 
 			if (!isSupabaseConfigured()) {
-				return {
-					content: [
-						{
-							type: 'text' as const,
-							text: JSON.stringify({ error: 'Database not configured' }),
-						},
-					],
-				};
+				return configError('Database', 'Set SUPABASE_URL and SUPABASE_SERVICE_KEY');
 			}
 
 			const schema = await ensureSchema();
 			if (!schema.ok) {
-				return {
-					content: [
-						{
-							type: 'text' as const,
-							text: JSON.stringify({
-								error: 'Insight schema not initialized',
-								message: schema.error,
-							}),
-						},
-					],
-				};
+				return toolError(`Insight schema not initialized: ${schema.error}`);
 			}
 
 			if (!isOpenAIConfigured()) {
-				return {
-					content: [
-						{
-							type: 'text' as const,
-							text: JSON.stringify({ error: 'Embeddings not configured' }),
-						},
-					],
-				};
+				return configError('Embedding provider', 'Set OPENAI_API_KEY or configure Ollama');
 			}
 
 			try {
@@ -287,7 +228,7 @@ export function registerInsightTools(server: McpServer): void {
 									ok: true,
 									chunks: result.chunksAnalyzed,
 									found: result.insightsCreated,
-									batch: result.batchId.slice(0, 8),
+									batch: formatId(result.batchId),
 								}),
 							},
 						],
@@ -319,18 +260,9 @@ export function registerInsightTools(server: McpServer): void {
 				logger.error('discover_connections failed', {
 					error: error instanceof Error ? error.message : String(error),
 				});
-				return {
-					content: [
-						{
-							type: 'text' as const,
-							text: JSON.stringify({
-								error: 'Insight scan failed',
-								message: error instanceof Error ? error.message : 'Unknown error',
-							}),
-						},
-					],
-					isError: true,
-				};
+				return toolError(
+					`Insight scan failed: ${error instanceof Error ? error.message : 'Unknown error'}`,
+				);
 			}
 		},
 	);
@@ -359,29 +291,12 @@ export function registerInsightTools(server: McpServer): void {
 			logger.info('dismiss_insight called', { insightId });
 
 			if (!isSupabaseConfigured()) {
-				return {
-					content: [
-						{
-							type: 'text' as const,
-							text: JSON.stringify({ error: 'Database not configured' }),
-						},
-					],
-				};
+				return configError('Database', 'Set SUPABASE_URL and SUPABASE_SERVICE_KEY');
 			}
 
 			const schema = await ensureSchema();
 			if (!schema.ok) {
-				return {
-					content: [
-						{
-							type: 'text' as const,
-							text: JSON.stringify({
-								error: 'Insight schema not initialized',
-								message: schema.error,
-							}),
-						},
-					],
-				};
+				return toolError(`Insight schema not initialized: ${schema.error}`);
 			}
 
 			try {
@@ -390,25 +305,16 @@ export function registerInsightTools(server: McpServer): void {
 					content: [
 						{
 							type: 'text' as const,
-							text: JSON.stringify(
+							text: toJSON(
 								isCompact() ? { ok: true } : { success: true, message: 'Insight dismissed' },
 							),
 						},
 					],
 				};
 			} catch (error) {
-				return {
-					content: [
-						{
-							type: 'text' as const,
-							text: JSON.stringify({
-								error: 'Failed to dismiss insight',
-								message: error instanceof Error ? error.message : 'Unknown error',
-							}),
-						},
-					],
-					isError: true,
-				};
+				return toolError(
+					`Failed to dismiss insight: ${error instanceof Error ? error.message : 'Unknown error'}`,
+				);
 			}
 		},
 	);

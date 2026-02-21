@@ -59,7 +59,12 @@ export async function createDocument(input: CreateDocumentInput): Promise<Docume
 }
 
 /**
- * Get a document by ID
+ * Retrieve a single document by its UUID.
+ *
+ * @param id - The UUID of the document to retrieve
+ * @returns The full document record
+ * @throws {NotFoundError} If no document exists with the given ID
+ * @throws {DatabaseError} If Supabase is not configured or the query fails
  */
 export async function getDocument(id: string): Promise<Document> {
 	if (!isSupabaseConfigured()) {
@@ -82,7 +87,19 @@ export async function getDocument(id: string): Promise<Document> {
 }
 
 /**
- * List documents with pagination
+ * List documents with pagination, optional filtering by source type, content type,
+ * and tags, and configurable sort order.
+ *
+ * @param options - Pagination and filter options
+ * @param options.limit - Maximum number of documents to return (default: 20)
+ * @param options.offset - Number of documents to skip for pagination (default: 0)
+ * @param options.sourceType - Filter by source type ('note', 'file', or 'url')
+ * @param options.contentType - Filter by content type in metadata JSONB
+ * @param options.tags - Filter to documents whose metadata tags contain all specified tags
+ * @param options.sortBy - Column to sort by (default: 'created_at')
+ * @param options.sortOrder - Sort direction, 'asc' or 'desc' (default: 'desc')
+ * @returns An object with the matching documents array and the total count for pagination
+ * @throws {DatabaseError} If Supabase is not configured or the query fails
  */
 export async function listDocuments(
 	options: ListDocumentsOptions = {},
@@ -136,7 +153,16 @@ export async function listDocuments(
 }
 
 /**
- * Update a document's title and/or tags
+ * Update a document's title and/or tags. Tags are merged into the existing
+ * metadata object. If no fields are provided, the existing document is returned unchanged.
+ *
+ * @param id - The UUID of the document to update
+ * @param input - Fields to update (title and/or tags)
+ * @param input.title - New title for the document
+ * @param input.tags - New tags array, merged into existing metadata
+ * @returns The updated document record
+ * @throws {NotFoundError} If no document exists with the given ID
+ * @throws {DatabaseError} If Supabase is not configured or the update fails
  */
 export async function updateDocument(id: string, input: UpdateDocumentInput): Promise<Document> {
 	if (!isSupabaseConfigured()) {

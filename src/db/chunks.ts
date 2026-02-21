@@ -65,7 +65,11 @@ export async function createChunks(
 }
 
 /**
- * Get chunks for a document
+ * Retrieve all chunks belonging to a document, ordered by chunk index.
+ *
+ * @param documentId - The UUID of the parent document
+ * @returns An array of chunks sorted by `chunk_index` in ascending order
+ * @throws {DatabaseError} If Supabase is not configured or the query fails
  */
 export async function getChunksForDocument(documentId: string): Promise<Chunk[]> {
 	if (!isSupabaseConfigured()) {

@@ -1,3 +1,4 @@
+import { createRequire } from 'node:module';
 import { McpServer } from '@modelcontextprotocol/sdk/server/mcp.js';
 import { registerConversationTools } from './tools/conversation.js';
 import { registerDocumentTools } from './tools/document.js';
@@ -9,6 +10,9 @@ import { registerStatsTools } from './tools/stats.js';
 import { getKnowledgeStatsHTML, getSearchResultsHTML } from './ui/index.js';
 import { config } from './utils/config.js';
 import { logger } from './utils/logger.js';
+
+const require = createRequire(import.meta.url);
+const { version: PKG_VERSION } = require('../package.json');
 
 /**
  * Register UI resources for MCP Apps
@@ -63,7 +67,7 @@ function registerUIResources(server: McpServer): void {
 export function createMcpServer(): McpServer {
 	const server = new McpServer({
 		name: 'textrawl',
-		version: '0.2.0',
+		version: PKG_VERSION,
 	});
 
 	logger.debug('Registering MCP tools');
@@ -103,7 +107,7 @@ export function createMcpServer(): McpServer {
 
 	logger.info('MCP server created', {
 		name: 'textrawl',
-		version: '0.2.0',
+		version: PKG_VERSION,
 		memoryEnabled: config.ENABLE_MEMORY,
 		conversationsEnabled: config.ENABLE_CONVERSATIONS,
 		insightsEnabled: config.ENABLE_INSIGHTS,

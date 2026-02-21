@@ -48,7 +48,16 @@ export interface EntityContext {
 }
 
 /**
- * Semantic search across memory observations
+ * Perform a pure semantic (vector similarity) search across memory observations
+ * using the `memory_semantic_search` Supabase RPC.
+ *
+ * @param queryEmbedding - The vector embedding of the search query
+ * @param options - Search configuration options
+ * @param options.limit - Maximum number of results to return (default: 10)
+ * @param options.entityTypes - Optional array of entity types to filter by
+ * @param options.includeExpired - Whether to include expired observations (default: false)
+ * @returns An array of memory search results ranked by cosine similarity
+ * @throws {DatabaseError} If Supabase is not configured or the search RPC fails
  */
 export async function semanticMemorySearch(
 	queryEmbedding: number[],
@@ -90,7 +99,19 @@ export async function semanticMemorySearch(
 }
 
 /**
- * Hybrid search across memory observations (FTS + semantic)
+ * Perform a hybrid search across memory observations combining full-text search
+ * and vector similarity using Reciprocal Rank Fusion (RRF) via the
+ * `memory_hybrid_search` Supabase RPC.
+ *
+ * @param queryText - The raw text query used for full-text search
+ * @param queryEmbedding - The vector embedding of the query for semantic search
+ * @param options - Search configuration options
+ * @param options.limit - Maximum number of results to return (default: 10)
+ * @param options.entityTypes - Optional array of entity types to filter by
+ * @param options.fullTextWeight - Weight applied to full-text search scores in RRF (default: 1.0)
+ * @param options.semanticWeight - Weight applied to semantic search scores in RRF (default: 1.0)
+ * @returns An array of memory search results ranked by fused RRF score
+ * @throws {DatabaseError} If Supabase is not configured or the search RPC fails
  */
 export async function hybridMemorySearch(
 	queryText: string,
@@ -137,7 +158,13 @@ export async function hybridMemorySearch(
 }
 
 /**
- * Get full context for an entity including observations and relations
+ * Retrieve the full context for a named entity, including its observations,
+ * outgoing relations, and incoming relations, via the `get_entity_context` Supabase RPC.
+ *
+ * @param entityName - The name of the entity to look up (case-sensitive in the RPC)
+ * @param includeRelated - Whether to include related entity relations (default: true)
+ * @returns The entity context with observations and relations, or `null` if the entity is not found
+ * @throws {DatabaseError} If Supabase is not configured or the RPC call fails
  */
 export async function getEntityContext(
 	entityName: string,

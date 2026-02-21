@@ -15,8 +15,11 @@
 		"lint:fix": "biome check --write .",
 		"lint:md": "markdownlint-cli2",
 		"lint:md:fix": "markdownlint-cli2 --fix",
+		"test": "vitest run",
+		"test:watch": "vitest",
 		"quality": "pnpm lint && pnpm lint:md && pnpm typecheck",
 		"security-check": "./scripts/security-check.sh",
+		"tool-sync": "./scripts/tool-sync-check.sh",
 		"preinstall": "npx only-allow pnpm",
 		"prepare": "husky",
 		"inspector": "npx @modelcontextprotocol/inspector http://localhost:3000/mcp",
@@ -89,7 +92,8 @@
 		"turndown": "^7.1.0",
 		"turndown-plugin-gfm": "^1.0.2",
 		"typescript": "^5.7.0",
-		"unzipper": "^0.12.0"
+		"unzipper": "^0.12.0",
+		"vitest": "^4.0.18"
 	},
 	"pnpm": {
 		"overrides": {

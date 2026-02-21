@@ -61,37 +61,8 @@ export async function checkDatabaseConnection(): Promise<boolean> {
 
 /**
  * Database types for TypeScript
+ *
+ * Canonical definitions are in src/types/database.ts.
+ * Re-exported here for backward compatibility.
  */
-export interface Document {
-	id: string;
-	title: string;
-	source_type: 'note' | 'file' | 'url';
-	source_url: string | null;
-	file_path: string | null;
-	raw_content: string;
-	metadata: Record<string, unknown>;
-	created_at: string;
-	updated_at: string;
-}
-
-export interface Chunk {
-	id: string;
-	document_id: string;
-	content: string;
-	chunk_index: number;
-	start_offset: number | null;
-	end_offset: number | null;
-	embedding: number[] | null;
-	metadata: Record<string, unknown>;
-	created_at: string;
-}
-
-export interface SearchResult {
-	chunk_id: string;
-	document_id: string;
-	content: string;
-	document_title: string;
-	source_type: 'note' | 'file' | 'url';
-	document_metadata: Record<string, unknown> | null;
-	score: number;
-}
+export type { Chunk, Document, SearchResult } from '../types/database.js';

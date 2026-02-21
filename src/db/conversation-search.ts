@@ -29,7 +29,14 @@ export interface TurnSearchResult {
 }
 
 /**
- * Semantic search across conversation summaries
+ * Perform a pure semantic (vector similarity) search across conversation session
+ * summaries using the `conversation_semantic_search` Supabase RPC.
+ *
+ * @param queryEmbedding - The vector embedding of the search query
+ * @param options - Search configuration options
+ * @param options.limit - Maximum number of results to return (default: 10)
+ * @returns An array of conversation search results ranked by cosine similarity
+ * @throws {DatabaseError} If Supabase is not configured or the search RPC fails
  */
 export async function semanticConversationSearch(
 	queryEmbedding: number[],
@@ -62,7 +69,18 @@ export async function semanticConversationSearch(
 }
 
 /**
- * Hybrid search across conversation summaries (FTS + semantic)
+ * Perform a hybrid search across conversation session summaries combining full-text
+ * search and vector similarity using Reciprocal Rank Fusion (RRF) via the
+ * `conversation_hybrid_search` Supabase RPC.
+ *
+ * @param queryText - The raw text query used for full-text search
+ * @param queryEmbedding - The vector embedding of the query for semantic search
+ * @param options - Search configuration options
+ * @param options.limit - Maximum number of results to return (default: 10)
+ * @param options.fullTextWeight - Weight applied to full-text search scores in RRF (default: 1.0)
+ * @param options.semanticWeight - Weight applied to semantic search scores in RRF (default: 1.0)
+ * @returns An array of conversation search results ranked by fused RRF score
+ * @throws {DatabaseError} If Supabase is not configured or the search RPC fails
  */
 export async function hybridConversationSearch(
 	queryText: string,
@@ -103,7 +121,19 @@ export async function hybridConversationSearch(
 }
 
 /**
- * Search within conversation turns (for finding specific messages)
+ * Search within individual conversation turns (messages) using hybrid full-text
+ * and semantic search via the `conversation_turn_search` Supabase RPC.
+ * Optionally filter to a specific session.
+ *
+ * @param queryText - The raw text query used for full-text search
+ * @param queryEmbedding - The vector embedding of the query for semantic search
+ * @param options - Search configuration options
+ * @param options.limit - Maximum number of results to return (default: 20)
+ * @param options.sessionId - Optional session UUID to restrict search to a single conversation
+ * @param options.fullTextWeight - Weight applied to full-text search scores in RRF (default: 1.0)
+ * @param options.semanticWeight - Weight applied to semantic search scores in RRF (default: 1.0)
+ * @returns An array of turn search results ranked by fused RRF score
+ * @throws {DatabaseError} If Supabase is not configured or the search RPC fails
  */
 export async function searchConversationTurns(
 	queryText: string,
@@ -147,7 +177,14 @@ export async function searchConversationTurns(
 }
 
 /**
- * Get recent conversations (no search, just recent activity)
+ * Retrieve recent conversation sessions ordered by last activity, without any
+ * search ranking. Results are mapped to the search result format with a score of 0.
+ *
+ * @param options - Pagination options
+ * @param options.limit - Maximum number of sessions to return (default: 20)
+ * @param options.offset - Number of sessions to skip for pagination (default: 0)
+ * @returns An object with the sessions array and total count for pagination
+ * @throws {DatabaseError} If Supabase is not configured or the query fails
  */
 export async function getRecentConversations(options: {
 	limit?: number;
@@ -192,7 +229,14 @@ export async function getRecentConversations(options: {
 }
 
 /**
- * Get full conversation context including turns
+ * Retrieve a full conversation context including the session metadata and its
+ * associated turns ordered by turn index. Returns `null` if the session does not exist.
+ *
+ * @param sessionId - The UUID of the conversation session
+ * @param options - Options for limiting turn retrieval
+ * @param options.maxTurns - Maximum number of turns to return (default: 50)
+ * @returns The session with its turns, or `null` if the session is not found
+ * @throws {DatabaseError} If Supabase is not configured or any query fails
  */
 export async function getConversationWithTurns(
 	sessionId: string,
@@ -260,7 +304,11 @@ export async function getConversationWithTurns(
 }
 
 /**
- * Get conversation statistics
+ * Gather aggregate statistics about conversation search readiness, including total
+ * session and turn counts and how many have embeddings for search.
+ *
+ * @returns Statistics with total sessions/turns and counts of those with embeddings
+ * @throws {DatabaseError} If Supabase is not configured or any of the underlying queries fail
  */
 export async function getConversationSearchStats(): Promise<{
 	totalSessions: number;

@@ -43,7 +43,18 @@ export interface CreateObservationBatchInput {
 }
 
 /**
- * Create a new observation for an entity
+ * Create a new observation (atomic fact) associated with a memory entity.
+ *
+ * @param input - Observation creation data
+ * @param input.entityId - The UUID of the parent entity
+ * @param input.content - The text content of the observation
+ * @param input.source - Source of the observation (default: 'conversation')
+ * @param input.confidence - Confidence score from 0 to 1 (default: 1.0)
+ * @param input.validUntil - Optional ISO date string after which the observation expires
+ * @param input.embedding - Optional vector embedding for semantic search
+ * @param input.metadata - Optional metadata key-value pairs
+ * @returns The newly created memory observation record
+ * @throws {DatabaseError} If Supabase is not configured or the insert fails
  */
 export async function createObservation(input: CreateObservationInput): Promise<MemoryObservation> {
 	if (!isSupabaseConfigured()) {
@@ -267,13 +278,20 @@ export async function deleteObservationByContent(
 }
 
 /**
- * Check if a similar observation already exists (for deduplication).
+ * Check if a similar observation already exists for deduplication purposes.
  *
  * Two-stage check:
  *  1. Exact string match (fast, no embedding needed)
  *  2. Semantic similarity via embedding (requires `embedding` param)
  *     Searches top-10 semantic matches globally, then filters by entity_id
  *     and checks against `similarityThreshold` (default 0.95).
+ *
+ * @param entityId - The UUID of the entity to check observations for
+ * @param content - The observation text to check for duplicates
+ * @param similarityThreshold - Minimum cosine similarity to consider a semantic duplicate (default: 0.95)
+ * @param embedding - Optional vector embedding to enable semantic similarity checking
+ * @returns The existing duplicate observation if found, or `null` if no duplicate exists
+ * @throws {DatabaseError} If Supabase is not configured or the exact-match query fails
  */
 export async function findSimilarObservation(
 	entityId: string,

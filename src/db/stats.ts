@@ -1,20 +1,16 @@
+import type { KnowledgeStats } from '../types/database.js';
 import { DatabaseError } from '../utils/errors.js';
 import { logger } from '../utils/logger.js';
 import { getSupabaseClient, isSupabaseConfigured } from './client.js';
 
-export interface KnowledgeStats {
-	total: number;
-	bySourceType: Record<string, number>;
-	byContentType: Record<string, number>;
-	topTags: Array<{ tag: string; count: number }>;
-	dateRange: {
-		oldest: string | null;
-		newest: string | null;
-	};
-}
+export type { KnowledgeStats } from '../types/database.js';
 
 /**
- * Get knowledge base statistics
+ * Gather aggregate statistics about the knowledge base, including document counts
+ * by source type and content type, top tags, and the date range of stored documents.
+ *
+ * @returns Knowledge base statistics with totals, breakdowns, top 10 tags, and date range
+ * @throws {DatabaseError} If Supabase is not configured or any of the underlying queries fail
  */
 export async function getKnowledgeStats(): Promise<KnowledgeStats> {
 	if (!isSupabaseConfigured()) {

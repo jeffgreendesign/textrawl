@@ -1,22 +1,12 @@
+import type { MemoryRelation } from '../types/database.js';
 import { DatabaseError, NotFoundError, ValidationError } from '../utils/errors.js';
 import { logger } from '../utils/logger.js';
 import { getSupabaseClient, isSupabaseConfigured } from './client.js';
 
+export type { MemoryRelation } from '../types/database.js';
+
 // UUID format validation regex
 const UUID_REGEX = /^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i;
-
-/**
- * Memory Relation type definition
- */
-export interface MemoryRelation {
-	id: string;
-	from_entity_id: string;
-	to_entity_id: string;
-	relation_type: string;
-	strength: number;
-	metadata: Record<string, unknown>;
-	created_at: string;
-}
 
 export interface CreateRelationInput {
 	fromEntityId: string;
@@ -27,7 +17,14 @@ export interface CreateRelationInput {
 }
 
 /**
- * Common relation types for reference
+ * Common relation types for reference. Provides a typed lookup of well-known
+ * relation type strings organized by category: people, project, concept, and generic.
+ *
+ * @example
+ * ```typescript
+ * import { RELATION_TYPES } from './memory-relations.js';
+ * const rel = RELATION_TYPES.WORKS_AT; // 'works_at'
+ * ```
  */
 export const RELATION_TYPES = {
 	// People relations
@@ -108,7 +105,18 @@ export async function createRelation(input: CreateRelationInput): Promise<Memory
 }
 
 /**
- * Get or create a relation (upsert pattern)
+ * Get or create a relation between two entities using an upsert on the
+ * (from_entity_id, to_entity_id, relation_type) unique constraint. The relation
+ * type is normalized to lowercase with underscores.
+ *
+ * @param input - Relation creation/update data
+ * @param input.fromEntityId - UUID of the source entity
+ * @param input.toEntityId - UUID of the target entity
+ * @param input.relationType - Type of relation (normalized to lowercase with underscores)
+ * @param input.strength - Relation strength from 0 to 1 (default: 1.0)
+ * @param input.metadata - Optional metadata key-value pairs
+ * @returns The existing or newly created relation
+ * @throws {DatabaseError} If Supabase is not configured, entities are the same, or the upsert fails
  */
 export async function getOrCreateRelation(input: CreateRelationInput): Promise<MemoryRelation> {
 	if (!isSupabaseConfigured()) {
@@ -123,21 +131,27 @@ export async function getOrCreateRelation(input: CreateRelationInput): Promise<M
 
 	const normalizedType = input.relationType.toLowerCase().replace(/\s+/g, '_');
 
+	// Build the upsert payload dynamically — only include strength and metadata
+	// when explicitly provided so that onConflict merge preserves existing DB
+	// values for unspecified fields.
+	const payload: Record<string, unknown> = {
+		from_entity_id: input.fromEntityId,
+		to_entity_id: input.toEntityId,
+		relation_type: normalizedType,
+	};
+	if (input.strength !== undefined) {
+		payload.strength = input.strength;
+	}
+	if (input.metadata !== undefined) {
+		payload.metadata = input.metadata;
+	}
+
 	const { data, error } = await client
 		.from('memory_relations')
-		.upsert(
-			{
-				from_entity_id: input.fromEntityId,
-				to_entity_id: input.toEntityId,
-				relation_type: normalizedType,
-				strength: input.strength ?? 1.0,
-				metadata: input.metadata || {},
-			},
-			{
-				onConflict: 'from_entity_id,to_entity_id,relation_type',
-				ignoreDuplicates: false,
-			},
-		)
+		.upsert(payload, {
+			onConflict: 'from_entity_id,to_entity_id,relation_type',
+			ignoreDuplicates: false,
+		})
 		.select()
 		.single();
 
