@@ -762,10 +762,10 @@ async function analyzeZip(zipPath: string): Promise<AnalysisResult> {
 }
 
 /**
- * Detect format and analyze export
+ * Internal export analysis logic operating on an already-validated path.
+ * Use analyzeExport() for external callers that need path validation.
  */
-export async function analyzeExport(path: string): Promise<AnalysisResult> {
-	const validatedPath = validateInputPath(path);
+async function analyzeExportInternal(validatedPath: string): Promise<AnalysisResult> {
 	const stat = statSync(validatedPath);
 	const name = basename(validatedPath);
 	const ext = extname(validatedPath).toLowerCase();
@@ -829,6 +829,15 @@ export async function analyzeExport(path: string): Promise<AnalysisResult> {
 }
 
 /**
+ * Detect format and analyze export.
+ * Validates the input path before delegating to the internal analysis logic.
+ */
+export async function analyzeExport(path: string): Promise<AnalysisResult> {
+	const validatedPath = validateInputPath(path);
+	return analyzeExportInternal(validatedPath);
+}
+
+/**
  * Analyze a Google Drive export folder by counting files and reading -info.json metadata
  */
 function analyzeDriveFolder(folderPath: string): {
@@ -888,9 +897,9 @@ export async function analyzeTakeout(path: string): Promise<AnalysisResult> {
 	const validatedPath = validateInputPath(path);
 	const stat = statSync(validatedPath);
 
-	// For ZIP files, delegate to analyzeExport which handles extraction
+	// For ZIP files, delegate to internal analysis (path already validated)
 	if (stat.isFile() && extname(validatedPath).toLowerCase() === '.zip') {
-		return analyzeExport(validatedPath);
+		return analyzeExportInternal(validatedPath);
 	}
 
 	// For directories, check if it's a Takeout root or a Drive folder directly
@@ -951,6 +960,6 @@ export async function analyzeTakeout(path: string): Promise<AnalysisResult> {
 		};
 	}
 
-	// Fallback
-	return analyzeExport(validatedPath);
+	// Fallback (path already validated)
+	return analyzeExportInternal(validatedPath);
 }

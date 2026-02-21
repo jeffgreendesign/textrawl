@@ -1,0 +1,10 @@
+name: "Textrawl CodeQL Configuration"
+
+# Extend the default security queries
+queries:
+  - uses: security-extended
+  - uses: security-and-quality
+
+# Model extensions to recognize custom sanitizers
+model-packs:
+  - path: extensions/security-sanitizers.yml
