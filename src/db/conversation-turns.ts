@@ -56,13 +56,21 @@ export async function createTurn(input: CreateTurnInput): Promise<ConversationTu
 	for (let attempt = 0; attempt < maxRetries; attempt++) {
 		let turnIndex = input.turnIndex;
 		if (turnIndex === undefined) {
-			const { data: lastTurn } = await client
+			const { data: lastTurn, error: indexError } = await client
 				.from('conversation_turns')
 				.select('turn_index')
 				.eq('session_id', input.sessionId)
 				.order('turn_index', { ascending: false })
 				.limit(1)
 				.maybeSingle();
+
+			if (indexError) {
+				logger.error('Failed to query last turn index', {
+					error: indexError.message,
+					sessionId: input.sessionId,
+				});
+				throw new DatabaseError('Failed to query last turn index');
+			}
 
 			turnIndex = lastTurn ? lastTurn.turn_index + 1 : 0;
 		}
@@ -142,13 +150,21 @@ export async function createTurns(input: CreateTurnsInput): Promise<number> {
 		if (input.startIndex !== undefined) {
 			startIndex = input.startIndex;
 		} else {
-			const { data: lastTurn } = await client
+			const { data: lastTurn, error: indexError } = await client
 				.from('conversation_turns')
 				.select('turn_index')
 				.eq('session_id', input.sessionId)
 				.order('turn_index', { ascending: false })
 				.limit(1)
 				.maybeSingle();
+
+			if (indexError) {
+				logger.error('Failed to query last turn index', {
+					error: indexError.message,
+					sessionId: input.sessionId,
+				});
+				throw new DatabaseError('Failed to query last turn index');
+			}
 
 			startIndex = lastTurn ? lastTurn.turn_index + 1 : 0;
 		}
@@ -246,8 +262,10 @@ export async function getSessionTurns(
 	}
 
 	const { order = 'asc' } = options;
-	const clampedLimit = Math.max(1, options.limit ?? 100);
-	const clampedOffset = Math.max(0, options.offset ?? 0);
+	const rawLimit = options.limit ?? 100;
+	const rawOffset = options.offset ?? 0;
+	const clampedLimit = Math.max(1, Number.isFinite(rawLimit) ? Math.floor(rawLimit) : 100);
+	const clampedOffset = Math.max(0, Number.isFinite(rawOffset) ? Math.floor(rawOffset) : 0);
 	const client = getSupabaseClient();
 
 	const { data, error, count } = await client
@@ -282,7 +300,7 @@ export async function getRecentTurns(sessionId: string, limit = 10): Promise<Con
 		throw new DatabaseError('Supabase not configured');
 	}
 
-	const clampedLimit = Math.max(1, limit);
+	const clampedLimit = Math.max(1, Number.isFinite(limit) ? Math.floor(limit) : 10);
 	const client = getSupabaseClient();
 
 	const { data, error } = await client
