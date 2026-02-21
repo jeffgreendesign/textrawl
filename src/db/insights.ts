@@ -340,21 +340,28 @@ export async function getInsightStats(): Promise<{
 			getInsightQueueState(),
 		]);
 
-	if (totalResult.error) {
-		logger.error('Failed to get insight stats', {
-			error: totalResult.error.message,
-			code: totalResult.error.code,
-			details: totalResult.error.details,
-			hint: totalResult.error.hint,
-		});
-		throw new DatabaseError(`Failed to get insight stats: ${totalResult.error.message}`);
+	// Validate every query result — any single failure should surface immediately
+	for (const [name, result] of [
+		['totalResult', totalResult],
+		['newResult', newResult],
+		['seenResult', seenResult],
+		['dismissedResult', dismissedResult],
+		['typeResult', typeResult],
+	] as const) {
+		if (result.error) {
+			logger.error(`Failed to get insight stats (${name})`, {
+				error: result.error.message,
+				code: result.error.code,
+				details: result.error.details,
+				hint: result.error.hint,
+			});
+			throw new DatabaseError(`Failed to get insight stats (${name}): ${result.error.message}`);
+		}
 	}
 
 	const byType: Record<string, number> = {};
-	if (typeResult.data) {
-		for (const row of typeResult.data) {
-			byType[row.insight_type] = (byType[row.insight_type] || 0) + 1;
-		}
+	for (const row of typeResult.data ?? []) {
+		byType[row.insight_type] = (byType[row.insight_type] || 0) + 1;
 	}
 
 	return {

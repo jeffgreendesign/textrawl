@@ -245,7 +245,9 @@ export async function getSessionTurns(
 		throw new DatabaseError('Supabase not configured');
 	}
 
-	const { limit = 100, offset = 0, order = 'asc' } = options;
+	const { order = 'asc' } = options;
+	const clampedLimit = Math.max(1, options.limit ?? 100);
+	const clampedOffset = Math.max(0, options.offset ?? 0);
 	const client = getSupabaseClient();
 
 	const { data, error, count } = await client
@@ -253,7 +255,7 @@ export async function getSessionTurns(
 		.select('*', { count: 'exact' })
 		.eq('session_id', sessionId)
 		.order('turn_index', { ascending: order === 'asc' })
-		.range(offset, offset + limit - 1);
+		.range(clampedOffset, clampedOffset + clampedLimit - 1);
 
 	if (error) {
 		logger.error('Failed to get session turns', { error: error.message });
@@ -312,11 +314,19 @@ export async function deleteTurn(id: string): Promise<void> {
 
 	const client = getSupabaseClient();
 
-	const { error } = await client.from('conversation_turns').delete().eq('id', id);
+	const { data, error } = await client
+		.from('conversation_turns')
+		.delete()
+		.eq('id', id)
+		.select('id');
 
 	if (error) {
 		logger.error('Failed to delete turn', { error: error.message });
 		throw new DatabaseError('Failed to delete turn');
+	}
+
+	if (!data || data.length === 0) {
+		throw new NotFoundError(`Conversation turn not found: ${id}`);
 	}
 
 	logger.debug('Deleted conversation turn', { id });
