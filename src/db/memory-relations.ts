@@ -27,7 +27,14 @@ export interface CreateRelationInput {
 }
 
 /**
- * Common relation types for reference
+ * Common relation types for reference. Provides a typed lookup of well-known
+ * relation type strings organized by category: people, project, concept, and generic.
+ *
+ * @example
+ * ```typescript
+ * import { RELATION_TYPES } from './memory-relations.js';
+ * const rel = RELATION_TYPES.WORKS_AT; // 'works_at'
+ * ```
  */
 export const RELATION_TYPES = {
 	// People relations
@@ -108,7 +115,18 @@ export async function createRelation(input: CreateRelationInput): Promise<Memory
 }
 
 /**
- * Get or create a relation (upsert pattern)
+ * Get or create a relation between two entities using an upsert on the
+ * (from_entity_id, to_entity_id, relation_type) unique constraint. The relation
+ * type is normalized to lowercase with underscores.
+ *
+ * @param input - Relation creation/update data
+ * @param input.fromEntityId - UUID of the source entity
+ * @param input.toEntityId - UUID of the target entity
+ * @param input.relationType - Type of relation (normalized to lowercase with underscores)
+ * @param input.strength - Relation strength from 0 to 1 (default: 1.0)
+ * @param input.metadata - Optional metadata key-value pairs
+ * @returns The existing or newly created relation
+ * @throws {DatabaseError} If Supabase is not configured, entities are the same, or the upsert fails
  */
 export async function getOrCreateRelation(input: CreateRelationInput): Promise<MemoryRelation> {
 	if (!isSupabaseConfigured()) {

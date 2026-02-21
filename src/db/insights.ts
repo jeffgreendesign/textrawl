@@ -56,7 +56,14 @@ export interface InsightQueueState {
 // Queue operations
 // ---------------------------------------------------------------------------
 
-/** Increment the insight queue counter after chunk inserts */
+/**
+ * Increment the insight queue counter after chunk inserts. This is called
+ * non-blocking after chunk creation to track when a proactive insight scan
+ * should be triggered. Silently logs errors without throwing.
+ *
+ * @param chunkCount - The number of chunks that were just inserted
+ * @returns Resolves when the queue counter has been incremented (or on error)
+ */
 export async function incrementInsightQueue(chunkCount: number): Promise<void> {
 	if (!isSupabaseConfigured()) return;
 
@@ -71,7 +78,12 @@ export async function incrementInsightQueue(chunkCount: number): Promise<void> {
 	}
 }
 
-/** Get current queue state */
+/**
+ * Get the current state of the insight processing queue, including the number of
+ * pending chunks, last insert/scan timestamps, and whether processing is active.
+ *
+ * @returns The insight queue state, or `null` if Supabase is not configured or the query fails
+ */
 export async function getInsightQueueState(): Promise<InsightQueueState | null> {
 	if (!isSupabaseConfigured()) return null;
 
@@ -91,7 +103,15 @@ export async function getInsightQueueState(): Promise<InsightQueueState | null> 
 	return data as InsightQueueState;
 }
 
-/** Check if scan should run (threshold reached + debounce elapsed) */
+/**
+ * Check whether a proactive insight scan should be triggered based on the number of
+ * pending chunks exceeding the threshold and sufficient time having elapsed since the
+ * last scan (debounce).
+ *
+ * @param threshold - Minimum number of pending chunks to trigger a scan (default: 50)
+ * @param debounceSeconds - Minimum seconds since last scan before allowing another (default: 300)
+ * @returns An object indicating whether to scan and how many chunks are pending
+ */
 export async function shouldRunInsightScan(
 	threshold = 50,
 	debounceSeconds = 300,
@@ -116,7 +136,14 @@ export async function shouldRunInsightScan(
 	};
 }
 
-/** Mark queue as processing / done */
+/**
+ * Mark the insight queue as actively processing or done. When marking as done
+ * (processing=false), the pending chunk count is reset to 0 and the last scan
+ * timestamp is updated to now.
+ *
+ * @param processing - `true` to mark as processing, `false` to mark as done and reset counters
+ * @returns Resolves when the queue state has been updated
+ */
 export async function setInsightQueueProcessing(processing: boolean): Promise<void> {
 	if (!isSupabaseConfigured()) return;
 
@@ -138,7 +165,14 @@ export async function setInsightQueueProcessing(processing: boolean): Promise<vo
 // Insight CRUD
 // ---------------------------------------------------------------------------
 
-/** Create one or more insights */
+/**
+ * Create one or more proactive insights in the database. Each insight includes
+ * a type, title, summary, supporting evidence, and optional entities and embedding.
+ *
+ * @param inputs - Array of insight creation data
+ * @returns Resolves when all insights have been inserted
+ * @throws {DatabaseError} If Supabase is not configured or the batch insert fails
+ */
 export async function createInsights(inputs: CreateInsightInput[]): Promise<void> {
 	if (!isSupabaseConfigured()) {
 		throw new DatabaseError('Supabase not configured');
@@ -172,7 +206,18 @@ export async function createInsights(inputs: CreateInsightInput[]): Promise<void
 	logger.info('Created insights', { count: records.length });
 }
 
-/** Get insights with optional filters */
+/**
+ * Retrieve proactive insights with optional filtering by status and/or type,
+ * ordered by most recently created first.
+ *
+ * @param options - Filter and pagination options
+ * @param options.status - Optional status filter ('new', 'seen', or 'dismissed')
+ * @param options.insightType - Optional insight type filter
+ * @param options.limit - Maximum number of insights to return (default: 20)
+ * @param options.offset - Number of insights to skip for pagination (default: 0)
+ * @returns An array of proactive insight records
+ * @throws {DatabaseError} If Supabase is not configured or the query fails
+ */
 export async function getInsights(options: {
 	status?: InsightStatus;
 	insightType?: InsightType;
@@ -210,7 +255,17 @@ export async function getInsights(options: {
 	return data as ProactiveInsight[];
 }
 
-/** Semantic search over insights */
+/**
+ * Perform a semantic (vector similarity) search over proactive insights using the
+ * `insight_semantic_search` Supabase RPC.
+ *
+ * @param queryEmbedding - The vector embedding of the search query
+ * @param options - Search configuration options
+ * @param options.limit - Maximum number of results to return (default: 10)
+ * @param options.status - Optional status filter to restrict results
+ * @returns An array of proactive insights ranked by cosine similarity
+ * @throws {DatabaseError} If Supabase is not configured or the search RPC fails
+ */
 export async function searchInsights(
 	queryEmbedding: number[],
 	options: { limit?: number; status?: InsightStatus },
@@ -239,7 +294,14 @@ export async function searchInsights(
 	return data as ProactiveInsight[];
 }
 
-/** Update insight status (new → seen, seen → dismissed) */
+/**
+ * Update the status of a proactive insight (e.g., new -> seen, seen -> dismissed).
+ *
+ * @param insightId - The UUID of the insight to update
+ * @param status - The new status to set ('new', 'seen', or 'dismissed')
+ * @returns Resolves when the status has been updated
+ * @throws {DatabaseError} If Supabase is not configured or the update fails
+ */
 export async function updateInsightStatus(insightId: string, status: InsightStatus): Promise<void> {
 	if (!isSupabaseConfigured()) {
 		throw new DatabaseError('Supabase not configured');
@@ -259,7 +321,13 @@ export async function updateInsightStatus(insightId: string, status: InsightStat
 	}
 }
 
-/** Get insight stats */
+/**
+ * Gather aggregate statistics about proactive insights, including total counts
+ * broken down by status and type, plus the current insight queue state.
+ *
+ * @returns Insight statistics with totals by status, by type, and the queue state
+ * @throws {DatabaseError} If Supabase is not configured or the query fails
+ */
 export async function getInsightStats(): Promise<{
 	total: number;
 	new: number;
@@ -314,7 +382,13 @@ export async function getInsightStats(): Promise<{
 // Schema validation
 // ---------------------------------------------------------------------------
 
-/** Check if insight tables exist in the database */
+/**
+ * Check if the required insight tables (`proactive_insights` and `insight_queue`)
+ * exist in the database. Returns validation status and a hint with the SQL scripts
+ * to run if tables are missing.
+ *
+ * @returns Validation result with `valid` flag, list of missing tables, and a setup hint
+ */
 export async function validateInsightSchema(): Promise<{
 	valid: boolean;
 	missing: string[];

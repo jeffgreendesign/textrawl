@@ -2,9 +2,48 @@
 
 This file provides guidance to Claude Code (claude.ai/code) when working with code in this repository.
 
+## Table of Contents
+
+- [Project Overview](#project-overview)
+- [Quick Reference](#quick-reference)
+- [Development Commands](#development-commands)
+- [Environment Setup](#environment-setup)
+- [Architecture](#architecture)
+  - [Request Flow](#request-flow)
+  - [MCP Tools (18 tools)](#mcp-tools-18-tools)
+  - [Key Directories](#key-directories)
+  - [Database](#database)
+  - [Compact Response Format](#compact-response-format)
+- [Code Conventions](#critical-conventions)
+  - [Code Style (Biome)](#code-style-biome)
+  - [Logging](#logging)
+  - [ESM Imports](#esm-imports)
+  - [MCP Tool Pattern](#mcp-tool-pattern)
+  - [Error Handling](#error-handling)
+- [Testing](#testing)
+- [Documentation Sync Rules](#documentation-sync-rules)
+- [Agent Discovery Files](#agent-discovery-files)
+- [Documentation Website](#documentation-website)
+- [Pull Request Style](#pull-request-style)
+
 ## Project Overview
 
 Textrawl is a Personal Knowledge MCP (Model Context Protocol) Server that provides hybrid semantic + full-text search over documents. It allows Claude to search, retrieve, and add documents to a knowledge base backed by Supabase PostgreSQL with vector embeddings.
+
+## Quick Reference
+
+| Aspect | Value |
+|--------|-------|
+| Package manager | pnpm (v9.15+) — do not use npm |
+| Node.js | >= 22.0.0 |
+| Lint | `pnpm lint` (Biome) + `pnpm lint:md` (markdownlint) |
+| Test | `pnpm test` (Vitest) |
+| Type check | `pnpm typecheck` |
+| Build | `pnpm build` (tsc + esbuild) |
+| All quality checks | `pnpm quality` (lint + lint:md + typecheck) |
+| Indentation | Tabs |
+| Quotes | Single |
+| Line width | 100 |
 
 ## Development Commands
 
@@ -16,11 +55,14 @@ pnpm dev            # Watch mode dev server (tsx)
 pnpm build          # TypeScript compile + esbuild bundle to dist/
 pnpm start          # Run production build
 pnpm typecheck      # Type-check without emitting
+pnpm test           # Run unit tests (Vitest)
+pnpm test:watch     # Run tests in watch mode
 pnpm lint           # Biome lint check
 pnpm lint:fix       # Biome lint with auto-fix
 pnpm lint:md        # Markdown lint check (markdownlint-cli2)
 pnpm lint:md:fix    # Markdown lint with auto-fix
 pnpm quality        # Lint + markdown lint + typecheck combined
+pnpm tool-sync      # Verify MCP tool names appear in all doc files
 pnpm inspector      # MCP Inspector at http://localhost:5173
 
 # CLI conversion tools (see docs/cli/ for full documentation)
@@ -53,11 +95,11 @@ Install all dependencies from root with `pnpm install`.
 
 **Requirements:** Node.js >= 22.0.0
 
-**Testing:** No test suite yet. Use `pnpm inspector` to manually test MCP tools.
+**Testing:** `pnpm test` runs Vitest unit tests. Tests are in `src/**/__tests__/*.test.ts`. Use `pnpm inspector` for manual MCP tool integration testing.
 
 ### Pre-commit Hooks (Husky)
 
-Commits run `pnpm lint`, `pnpm lint:md`, `./scripts/security-check.sh`, and `pnpm typecheck`. All four must pass.
+Commits run `pnpm lint`, `pnpm lint:md`, `./scripts/security-check.sh`, `./scripts/tool-sync-check.sh`, and `pnpm typecheck`. All must pass.
 
 ## Environment Setup
 
@@ -163,7 +205,7 @@ The `search` tool supports weighted Reciprocal Rank Fusion:
 - `src/services/` - Embedding generation, text chunking, file processing
 - `src/api/` - Express routes and middleware
 - `src/utils/` - Configuration, custom errors, logger
-- `src/types/` - TypeScript type definitions
+- `src/types/` - TypeScript type definitions (centralized in `src/types/database.ts`)
 - `scripts/cli/` - CLI conversion tools and upload utility
 - `scripts/ui/` - Web UI for file conversion (MBOX, EML, ZIP, HTML, PDF, DOCX, TXT, MD)
 
@@ -297,7 +339,13 @@ server.tool('tool_name', {
 });
 ```
 
-**Error responses** MUST include `isError: true` to prevent LLM retry spirals. Use the shared `toolError()` and `configError()` helpers from `src/utils/compact.ts`.
+**Response helpers** in `src/utils/compact.ts`:
+
+- `toolResponse({ compact, verbose, structuredContent? })` — Standard compact/verbose response
+- `toolError(message)` — Error with `isError: true` (prevents LLM retry spirals)
+- `configError(what, fix)` — Configuration error (permanent failure)
+- `toJSON(obj)` — Compact or pretty JSON
+- `formatId(uuid)` — Truncated or full UUID
 
 ### Text Chunking
 
@@ -325,6 +373,20 @@ Custom error hierarchy in `src/utils/errors.ts` - use specific error types (`Not
 ### External Dependencies
 
 `pdf-parse` is externalized in esbuild (native module) - must be in `node_modules` at runtime.
+
+## Testing
+
+Unit tests use **Vitest** and live in `src/**/__tests__/*.test.ts`:
+
+```bash
+pnpm test           # Run all tests
+pnpm test:watch     # Watch mode
+pnpm vitest run src/utils/__tests__/compact.test.ts  # Single file
+```
+
+Test files cover pure utility functions (compact helpers, error hierarchy, text chunking). For MCP tool integration testing, use `pnpm inspector`.
+
+Tests are included in CI (`.github/workflows/ci.yml`) and run on every push/PR to main.
 
 ## Agent Discovery Files
 

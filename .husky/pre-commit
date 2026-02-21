@@ -12,5 +12,8 @@ pnpm lint:md
 # Verify critical docs website files exist
 ./scripts/docs-check.sh
 
+# Verify tool documentation sync
+./scripts/tool-sync-check.sh
+
 # Run type checking
 pnpm typecheck

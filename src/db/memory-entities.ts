@@ -83,7 +83,17 @@ export async function createEntity(input: CreateEntityInput): Promise<MemoryEnti
 }
 
 /**
- * Get or create an entity (upsert pattern)
+ * Get or create a memory entity using an upsert on the (name, entity_type) unique constraint.
+ * If the entity already exists, it is updated with the provided fields and returned.
+ *
+ * @param input - Entity creation/update data
+ * @param input.name - The entity name (used for conflict detection)
+ * @param input.entityType - The entity type (used for conflict detection)
+ * @param input.description - Optional description of the entity
+ * @param input.embedding - Optional vector embedding for the entity
+ * @param input.metadata - Optional metadata key-value pairs
+ * @returns The existing or newly created memory entity
+ * @throws {DatabaseError} If Supabase is not configured or the upsert fails
  */
 export async function getOrCreateEntity(input: CreateEntityInput): Promise<MemoryEntity> {
 	if (!isSupabaseConfigured()) {
@@ -170,7 +180,12 @@ export async function getEntityByName(name: string, entityType: EntityType): Pro
 }
 
 /**
- * Find entity by name (case-insensitive, any type)
+ * Find a memory entity by name using a case-insensitive match across all entity types.
+ * Returns `null` if no entity is found rather than throwing.
+ *
+ * @param name - The entity name to search for (case-insensitive)
+ * @returns The matching memory entity, or `null` if not found
+ * @throws {DatabaseError} If Supabase is not configured or the query fails
  */
 export async function findEntityByName(name: string): Promise<MemoryEntity | null> {
 	if (!isSupabaseConfigured()) {
@@ -239,7 +254,12 @@ export async function updateEntity(id: string, input: UpdateEntityInput): Promis
 }
 
 /**
- * Delete an entity (cascades to observations and relations)
+ * Delete a memory entity by ID. Deletion cascades to all associated observations
+ * and relations via database foreign key constraints.
+ *
+ * @param id - The UUID of the entity to delete
+ * @returns Resolves when the entity has been deleted
+ * @throws {DatabaseError} If Supabase is not configured or the delete fails
  */
 export async function deleteEntity(id: string): Promise<void> {
 	if (!isSupabaseConfigured()) {
@@ -259,7 +279,15 @@ export async function deleteEntity(id: string): Promise<void> {
 }
 
 /**
- * List entities with optional filtering
+ * List memory entities with pagination and optional filtering by entity type,
+ * ordered by most recently updated first.
+ *
+ * @param options - Pagination and filter options
+ * @param options.entityTypes - Optional array of entity types to filter by
+ * @param options.limit - Maximum number of entities to return (default: 50)
+ * @param options.offset - Number of entities to skip for pagination (default: 0)
+ * @returns An object with the matching entities array and total count for pagination
+ * @throws {DatabaseError} If Supabase is not configured or the query fails
  */
 export async function listEntities(options: {
 	entityTypes?: EntityType[];

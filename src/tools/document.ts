@@ -7,7 +7,14 @@ import {
 	listDocuments as listDocumentsFromDb,
 	updateDocument as updateDocumentInDb,
 } from '../db/documents.js';
-import { configError, formatId, isCompact, toJSON, toolError } from '../utils/compact.js';
+import {
+	configError,
+	formatId,
+	isCompact,
+	toJSON,
+	toolError,
+	toolResponse,
+} from '../utils/compact.js';
 import { logger } from '../utils/logger.js';
 
 // --- Output Schemas ---
@@ -258,37 +265,20 @@ export function registerDocumentTools(server: McpServer): void {
 					},
 				};
 
-				// Build content text (compact or verbose)
-				if (isCompact()) {
-					return {
-						content: [
-							{
-								type: 'text' as const,
-								text: JSON.stringify({
-									n: total,
-									more: offset + documents.length < total,
-									d: documents.map((d) => ({
-										id: formatId(d.id),
-										t: d.title,
-										src: d.source_type,
-										at: d.created_at,
-									})),
-								}),
-							},
-						],
-						structuredContent,
-					};
-				}
-
-				return {
-					content: [
-						{
-							type: 'text' as const,
-							text: JSON.stringify(structuredContent, null, 2),
-						},
-					],
+				return toolResponse({
+					compact: {
+						n: total,
+						more: offset + documents.length < total,
+						d: documents.map((d) => ({
+							id: formatId(d.id),
+							t: d.title,
+							src: d.source_type,
+							at: d.created_at,
+						})),
+					},
+					verbose: structuredContent,
 					structuredContent,
-				};
+				});
 			} catch (error) {
 				logger.error('list_documents failed', {
 					error: error instanceof Error ? error.message : String(error),
@@ -336,45 +326,25 @@ export function registerDocumentTools(server: McpServer): void {
 
 			try {
 				const document = await updateDocumentInDb(documentId, { title, tags });
-
-				if (isCompact()) {
-					return {
-						content: [
-							{
-								type: 'text' as const,
-								text: JSON.stringify({
-									ok: true,
-									id: formatId(document.id),
-									t: document.title,
-								}),
-							},
-						],
-					};
-				}
-
 				const metadata = document.metadata as Record<string, unknown> | null;
 
-				return {
-					content: [
-						{
-							type: 'text' as const,
-							text: JSON.stringify(
-								{
-									success: true,
-									document: {
-										id: document.id,
-										title: document.title,
-										sourceType: document.source_type,
-										tags: (metadata?.tags as string[]) || [],
-										updatedAt: document.updated_at,
-									},
-								},
-								null,
-								2,
-							),
+				return toolResponse({
+					compact: {
+						ok: true,
+						id: formatId(document.id),
+						t: document.title,
+					},
+					verbose: {
+						success: true,
+						document: {
+							id: document.id,
+							title: document.title,
+							sourceType: document.source_type,
+							tags: (metadata?.tags as string[]) || [],
+							updatedAt: document.updated_at,
 						},
-					],
-				};
+					},
+				});
 			} catch (error) {
 				logger.error('update_document failed', {
 					error: error instanceof Error ? error.message : String(error),

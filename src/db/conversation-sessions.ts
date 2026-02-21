@@ -33,7 +33,17 @@ export interface UpdateSessionInput {
 }
 
 /**
- * Create a new conversation session
+ * Create a new conversation session. If a session with the same session key
+ * already exists (unique constraint violation), the existing session is returned.
+ *
+ * @param input - Session creation data
+ * @param input.sessionKey - Optional unique key for the session (for idempotent lookups)
+ * @param input.title - Optional human-readable title
+ * @param input.summary - Optional conversation summary text
+ * @param input.summaryEmbedding - Optional vector embedding of the summary
+ * @param input.metadata - Optional metadata key-value pairs
+ * @returns The newly created or existing conversation session
+ * @throws {DatabaseError} If Supabase is not configured or the insert fails
  */
 export async function createSession(input: CreateSessionInput): Promise<ConversationSession> {
 	if (!isSupabaseConfigured()) {
@@ -76,7 +86,13 @@ export async function createSession(input: CreateSessionInput): Promise<Conversa
 }
 
 /**
- * Get or create a session by key (upsert pattern)
+ * Get or create a conversation session using an upsert on the session_key unique constraint.
+ * If the session already exists, it is updated with the provided fields and returned.
+ *
+ * @param sessionKey - The unique session key to upsert on
+ * @param input - Optional session data (title, summary, embedding, metadata) to set on create/update
+ * @returns The existing or newly created conversation session
+ * @throws {DatabaseError} If Supabase is not configured or the upsert fails
  */
 export async function getOrCreateSession(
 	sessionKey: string,
@@ -115,7 +131,12 @@ export async function getOrCreateSession(
 }
 
 /**
- * Get session by ID
+ * Retrieve a conversation session by its UUID.
+ *
+ * @param id - The UUID of the session to retrieve
+ * @returns The conversation session record
+ * @throws {NotFoundError} If no session exists with the given ID
+ * @throws {DatabaseError} If Supabase is not configured or the query fails
  */
 export async function getSession(id: string): Promise<ConversationSession> {
 	if (!isSupabaseConfigured()) {
@@ -142,7 +163,12 @@ export async function getSession(id: string): Promise<ConversationSession> {
 }
 
 /**
- * Get session by session key
+ * Retrieve a conversation session by its unique session key.
+ *
+ * @param sessionKey - The unique session key to look up
+ * @returns The conversation session record
+ * @throws {NotFoundError} If no session exists with the given key
+ * @throws {DatabaseError} If Supabase is not configured or the query fails
  */
 export async function getSessionByKey(sessionKey: string): Promise<ConversationSession> {
 	if (!isSupabaseConfigured()) {
@@ -169,7 +195,12 @@ export async function getSessionByKey(sessionKey: string): Promise<ConversationS
 }
 
 /**
- * Find session by key (returns null if not found)
+ * Find a conversation session by its session key. Returns `null` if not found
+ * rather than throwing an error.
+ *
+ * @param sessionKey - The unique session key to search for
+ * @returns The conversation session, or `null` if not found
+ * @throws {DatabaseError} If Supabase is not configured or the query fails
  */
 export async function findSessionByKey(sessionKey: string): Promise<ConversationSession | null> {
 	if (!isSupabaseConfigured()) {
@@ -193,7 +224,18 @@ export async function findSessionByKey(sessionKey: string): Promise<Conversation
 }
 
 /**
- * Update a session
+ * Update a conversation session's title, summary, embedding, and/or metadata.
+ * If no fields are provided, the existing session is returned unchanged.
+ *
+ * @param id - The UUID of the session to update
+ * @param input - Fields to update
+ * @param input.title - New title for the session
+ * @param input.summary - New summary text
+ * @param input.summaryEmbedding - New vector embedding for the summary
+ * @param input.metadata - New metadata key-value pairs
+ * @returns The updated conversation session record
+ * @throws {NotFoundError} If no session exists with the given ID
+ * @throws {DatabaseError} If Supabase is not configured or the update fails
  */
 export async function updateSession(
 	id: string,
@@ -243,7 +285,12 @@ export async function updateSession(
 }
 
 /**
- * Delete a session (cascades to turns)
+ * Delete a conversation session by ID. Deletion cascades to all associated
+ * conversation turns via database foreign key constraints.
+ *
+ * @param id - The UUID of the session to delete
+ * @returns Resolves when the session has been deleted
+ * @throws {DatabaseError} If Supabase is not configured or the delete fails
  */
 export async function deleteSession(id: string): Promise<void> {
 	if (!isSupabaseConfigured()) {
@@ -263,7 +310,13 @@ export async function deleteSession(id: string): Promise<void> {
 }
 
 /**
- * List recent sessions with pagination
+ * List conversation sessions with pagination, ordered by most recent activity first.
+ *
+ * @param options - Pagination options
+ * @param options.limit - Maximum number of sessions to return (default: 20)
+ * @param options.offset - Number of sessions to skip for pagination (default: 0)
+ * @returns An object with the matching sessions array and total count for pagination
+ * @throws {DatabaseError} If Supabase is not configured or the query fails
  */
 export async function listSessions(options: {
 	limit?: number;
@@ -294,7 +347,11 @@ export async function listSessions(options: {
 }
 
 /**
- * Get conversation stats
+ * Gather aggregate statistics about conversation sessions, including total session
+ * and turn counts and the date range of stored sessions.
+ *
+ * @returns Conversation statistics with session/turn totals and date range
+ * @throws {DatabaseError} If Supabase is not configured or any of the underlying queries fail
  */
 export async function getConversationStats(): Promise<{
 	totalSessions: number;

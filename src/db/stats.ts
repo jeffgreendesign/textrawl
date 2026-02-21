@@ -14,7 +14,11 @@ export interface KnowledgeStats {
 }
 
 /**
- * Get knowledge base statistics
+ * Gather aggregate statistics about the knowledge base, including document counts
+ * by source type and content type, top tags, and the date range of stored documents.
+ *
+ * @returns Knowledge base statistics with totals, breakdowns, top 10 tags, and date range
+ * @throws {DatabaseError} If Supabase is not configured or any of the underlying queries fail
  */
 export async function getKnowledgeStats(): Promise<KnowledgeStats> {
 	if (!isSupabaseConfigured()) {

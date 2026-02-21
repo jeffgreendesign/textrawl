@@ -40,7 +40,19 @@ export interface CreateTurnsInput {
 }
 
 /**
- * Create a single conversation turn
+ * Create a single conversation turn (message) within a session. If no turn index
+ * is provided, the next sequential index is determined automatically.
+ *
+ * @param input - Turn creation data
+ * @param input.sessionId - The UUID of the parent conversation session
+ * @param input.role - The role of the message author ('user', 'assistant', or 'system')
+ * @param input.content - The text content of the turn
+ * @param input.embedding - Optional vector embedding for semantic search
+ * @param input.turnIndex - Optional explicit turn index (auto-incremented if omitted)
+ * @param input.tokenCount - Optional token count for the turn content
+ * @param input.metadata - Optional metadata key-value pairs
+ * @returns The newly created conversation turn record
+ * @throws {DatabaseError} If Supabase is not configured or the insert fails
  */
 export async function createTurn(input: CreateTurnInput): Promise<ConversationTurn> {
 	if (!isSupabaseConfigured()) {
@@ -92,7 +104,16 @@ export async function createTurn(input: CreateTurnInput): Promise<ConversationTu
 }
 
 /**
- * Create multiple conversation turns in batch
+ * Create multiple conversation turns in a single batch insert. Turn indexes are
+ * assigned sequentially starting from the provided start index or auto-detected
+ * from the last existing turn in the session.
+ *
+ * @param input - Batch turn creation data
+ * @param input.sessionId - The UUID of the parent conversation session
+ * @param input.turns - Array of turn data (role, content, embedding, tokenCount, metadata)
+ * @param input.startIndex - Optional starting turn index (auto-detected if omitted)
+ * @returns The number of turns created
+ * @throws {DatabaseError} If Supabase is not configured or the batch insert fails
  */
 export async function createTurns(input: CreateTurnsInput): Promise<number> {
 	if (!isSupabaseConfigured()) {
@@ -147,7 +168,12 @@ export async function createTurns(input: CreateTurnsInput): Promise<number> {
 }
 
 /**
- * Get turn by ID
+ * Retrieve a conversation turn by its UUID.
+ *
+ * @param id - The UUID of the turn to retrieve
+ * @returns The conversation turn record
+ * @throws {NotFoundError} If no turn exists with the given ID
+ * @throws {DatabaseError} If Supabase is not configured or the query fails
  */
 export async function getTurn(id: string): Promise<ConversationTurn> {
 	if (!isSupabaseConfigured()) {
@@ -170,7 +196,16 @@ export async function getTurn(id: string): Promise<ConversationTurn> {
 }
 
 /**
- * Get all turns for a session in order
+ * Retrieve all turns for a conversation session with pagination and configurable
+ * sort order.
+ *
+ * @param sessionId - The UUID of the conversation session
+ * @param options - Pagination and ordering options
+ * @param options.limit - Maximum number of turns to return (default: 100)
+ * @param options.offset - Number of turns to skip for pagination (default: 0)
+ * @param options.order - Sort order by turn index, 'asc' or 'desc' (default: 'asc')
+ * @returns An object with the turns array and total count for pagination
+ * @throws {DatabaseError} If Supabase is not configured or the query fails
  */
 export async function getSessionTurns(
 	sessionId: string,
@@ -206,7 +241,13 @@ export async function getSessionTurns(
 }
 
 /**
- * Get recent turns for a session (useful for context window)
+ * Get the most recent turns for a session in chronological order. Useful for
+ * building a context window of recent conversation history.
+ *
+ * @param sessionId - The UUID of the conversation session
+ * @param limit - Maximum number of recent turns to return (default: 10)
+ * @returns An array of the most recent turns in chronological (ascending) order
+ * @throws {DatabaseError} If Supabase is not configured or the query fails
  */
 export async function getRecentTurns(sessionId: string, limit = 10): Promise<ConversationTurn[]> {
 	if (!isSupabaseConfigured()) {
@@ -232,7 +273,11 @@ export async function getRecentTurns(sessionId: string, limit = 10): Promise<Con
 }
 
 /**
- * Delete a turn by ID
+ * Delete a single conversation turn by its UUID.
+ *
+ * @param id - The UUID of the turn to delete
+ * @returns Resolves when the turn has been deleted
+ * @throws {DatabaseError} If Supabase is not configured or the delete fails
  */
 export async function deleteTurn(id: string): Promise<void> {
 	if (!isSupabaseConfigured()) {
@@ -252,7 +297,13 @@ export async function deleteTurn(id: string): Promise<void> {
 }
 
 /**
- * Delete all turns after a specific index (for conversation rollback)
+ * Delete all turns in a session that have a turn index greater than the specified
+ * index. Useful for conversation rollback/undo operations.
+ *
+ * @param sessionId - The UUID of the conversation session
+ * @param afterIndex - The turn index threshold; turns with index > this value are deleted
+ * @returns The number of turns that were deleted
+ * @throws {DatabaseError} If Supabase is not configured or the delete fails
  */
 export async function deleteTurnsAfter(sessionId: string, afterIndex: number): Promise<number> {
 	if (!isSupabaseConfigured()) {
@@ -283,7 +334,13 @@ export async function deleteTurnsAfter(sessionId: string, afterIndex: number): P
 }
 
 /**
- * Update turn embedding (for async embedding generation)
+ * Update the vector embedding for a conversation turn. Typically called
+ * asynchronously after turn creation when embeddings are generated in the background.
+ *
+ * @param id - The UUID of the turn to update
+ * @param embedding - The vector embedding to set
+ * @returns Resolves when the embedding has been updated
+ * @throws {DatabaseError} If Supabase is not configured or the update fails
  */
 export async function updateTurnEmbedding(id: string, embedding: number[]): Promise<void> {
 	if (!isSupabaseConfigured()) {
@@ -303,7 +360,11 @@ export async function updateTurnEmbedding(id: string, embedding: number[]): Prom
 }
 
 /**
- * Get turn count for a session
+ * Get the total number of turns in a conversation session.
+ *
+ * @param sessionId - The UUID of the conversation session
+ * @returns The number of turns in the session
+ * @throws {DatabaseError} If Supabase is not configured or the count query fails
  */
 export async function getTurnCount(sessionId: string): Promise<number> {
 	if (!isSupabaseConfigured()) {
