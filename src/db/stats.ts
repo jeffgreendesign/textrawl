@@ -1,17 +1,9 @@
+import type { KnowledgeStats } from '../types/database.js';
 import { DatabaseError } from '../utils/errors.js';
 import { logger } from '../utils/logger.js';
 import { getSupabaseClient, isSupabaseConfigured } from './client.js';
 
-export interface KnowledgeStats {
-	total: number;
-	bySourceType: Record<string, number>;
-	byContentType: Record<string, number>;
-	topTags: Array<{ tag: string; count: number }>;
-	dateRange: {
-		oldest: string | null;
-		newest: string | null;
-	};
-}
+export type { KnowledgeStats } from '../types/database.js';
 
 /**
  * Gather aggregate statistics about the knowledge base, including document counts

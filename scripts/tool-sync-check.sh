@@ -19,7 +19,7 @@ ROOT_DIR="$(cd "$SCRIPT_DIR/.." && pwd)"
 # Extract registered tool names from source code
 # registerTool( is on one line, the tool name string is on the next
 TOOL_NAMES=$(grep -A1 "registerTool\b\|server\.tool\b" "$ROOT_DIR/src/tools/"*.ts \
-	| grep -oE "'[a-z_]+'" \
+	| grep -oE "'[a-z0-9_]+'" \
 	| tr -d "'" \
 	| sort -u)
 
@@ -29,6 +29,8 @@ if [ -z "$TOOL_NAMES" ]; then
 fi
 
 DOC_FILES=(
+	"CLAUDE.md"
+	"README.md"
 	"AGENTS.md"
 	"llms.txt"
 	"llms-full.txt"

@@ -1,39 +1,13 @@
+import type { InsightStatus, InsightType, ProactiveInsight } from '../types/database.js';
 import { DatabaseError } from '../utils/errors.js';
 import { logger } from '../utils/logger.js';
 import { getSupabaseClient, isSupabaseConfigured } from './client.js';
 
 // ---------------------------------------------------------------------------
-// Types
+// Types — re-exported from the canonical types module for backward compat
 // ---------------------------------------------------------------------------
 
-export type InsightType =
-	| 'cross_source'
-	| 'theme_cluster'
-	| 'entity_bridge'
-	| 'temporal_pattern'
-	| 'outlier';
-
-export type InsightStatus = 'new' | 'seen' | 'dismissed';
-
-export interface ProactiveInsight {
-	id: string;
-	insight_type: InsightType;
-	title: string;
-	summary: string;
-	evidence: Array<{
-		chunkId: string;
-		documentId: string;
-		documentTitle?: string;
-		content: string;
-		score: number;
-		sourceType?: string;
-	}>;
-	entities: string[];
-	batch_id: string | null;
-	status: InsightStatus;
-	created_at: string;
-	score?: number;
-}
+export type { InsightStatus, InsightType, ProactiveInsight } from '../types/database.js';
 
 export interface CreateInsightInput {
 	insightType: InsightType;

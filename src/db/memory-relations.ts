@@ -1,22 +1,12 @@
+import type { MemoryRelation } from '../types/database.js';
 import { DatabaseError, NotFoundError, ValidationError } from '../utils/errors.js';
 import { logger } from '../utils/logger.js';
 import { getSupabaseClient, isSupabaseConfigured } from './client.js';
 
+export type { MemoryRelation } from '../types/database.js';
+
 // UUID format validation regex
 const UUID_REGEX = /^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i;
-
-/**
- * Memory Relation type definition
- */
-export interface MemoryRelation {
-	id: string;
-	from_entity_id: string;
-	to_entity_id: string;
-	relation_type: string;
-	strength: number;
-	metadata: Record<string, unknown>;
-	created_at: string;
-}
 
 export interface CreateRelationInput {
 	fromEntityId: string;

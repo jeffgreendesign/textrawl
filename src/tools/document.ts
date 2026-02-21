@@ -7,14 +7,7 @@ import {
 	listDocuments as listDocumentsFromDb,
 	updateDocument as updateDocumentInDb,
 } from '../db/documents.js';
-import {
-	configError,
-	formatId,
-	isCompact,
-	toJSON,
-	toolError,
-	toolResponse,
-} from '../utils/compact.js';
+import { configError, formatId, toolError, toolResponse } from '../utils/compact.js';
 import { logger } from '../utils/logger.js';
 
 // --- Output Schemas ---
@@ -128,43 +121,31 @@ export function registerDocumentTools(server: McpServer): void {
 					}));
 				}
 
-				// Build content text (compact or verbose)
-				if (isCompact()) {
-					const compact: Record<string, unknown> = {
-						id: formatId(document.id),
-						t: document.title,
-						src: document.source_type,
-						c: content,
-						...(truncateContent ? { trunc: true, full: rawContent.length } : {}),
-					};
+				const compactObj: Record<string, unknown> = {
+					id: formatId(document.id),
+					t: document.title,
+					src: document.source_type,
+					c: content,
+					...(truncateContent ? { trunc: true, full: rawContent.length } : {}),
+				};
 
-					if (includeChunks) {
-						const chunks = structuredContent.chunks as Array<{
-							id: string;
-							index: number;
-							content: string;
-						}>;
-						compact.ch = chunks.map((c) => ({
-							i: c.index,
-							c: c.content.slice(0, 300),
-						}));
-					}
-
-					return {
-						content: [{ type: 'text' as const, text: JSON.stringify(compact) }],
-						structuredContent,
-					};
+				if (includeChunks) {
+					const chunks = structuredContent.chunks as Array<{
+						id: string;
+						index: number;
+						content: string;
+					}>;
+					compactObj.ch = chunks.map((c) => ({
+						i: c.index,
+						c: c.content.slice(0, 300),
+					}));
 				}
 
-				return {
-					content: [
-						{
-							type: 'text' as const,
-							text: JSON.stringify(structuredContent, null, 2),
-						},
-					],
+				return toolResponse({
+					compact: compactObj,
+					verbose: structuredContent,
 					structuredContent,
-				};
+				});
 			} catch (error) {
 				logger.error('get_document failed', {
 					error: error instanceof Error ? error.message : String(error),

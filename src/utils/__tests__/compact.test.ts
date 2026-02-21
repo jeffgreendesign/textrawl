@@ -1,4 +1,4 @@
-import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest';
+import { beforeEach, describe, expect, it, vi } from 'vitest';
 
 // Mock the config module before importing compact
 vi.mock('../config.js', () => ({
@@ -9,6 +9,10 @@ import { configError, formatId, isCompact, toJSON, toolError, toolResponse } fro
 import { config } from '../config.js';
 
 describe('compact utilities', () => {
+	beforeEach(() => {
+		(config as { COMPACT_RESPONSES: boolean }).COMPACT_RESPONSES = false;
+	});
+
 	describe('isCompact', () => {
 		it('returns true when COMPACT_RESPONSES is true', () => {
 			(config as { COMPACT_RESPONSES: boolean }).COMPACT_RESPONSES = true;

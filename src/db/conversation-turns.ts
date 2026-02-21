@@ -1,21 +1,9 @@
+import type { ConversationTurn } from '../types/database.js';
 import { DatabaseError, NotFoundError } from '../utils/errors.js';
 import { logger } from '../utils/logger.js';
 import { getSupabaseClient, isSupabaseConfigured } from './client.js';
 
-/**
- * Conversation Turn type definition
- */
-export interface ConversationTurn {
-	id: string;
-	session_id: string;
-	role: 'user' | 'assistant' | 'system';
-	content: string;
-	embedding: number[] | null;
-	turn_index: number;
-	token_count: number | null;
-	metadata: Record<string, unknown>;
-	created_at: string;
-}
+export type { ConversationTurn } from '../types/database.js';
 
 export interface CreateTurnInput {
 	sessionId: string;
@@ -61,46 +49,63 @@ export async function createTurn(input: CreateTurnInput): Promise<ConversationTu
 
 	const client = getSupabaseClient();
 
-	// If no turn index provided, get the next one
-	let turnIndex = input.turnIndex;
-	if (turnIndex === undefined) {
-		const { data: lastTurn } = await client
+	// Retry loop handles the race condition when turnIndex is auto-detected:
+	// concurrent createTurn calls may read the same max turn_index and attempt
+	// the same next value. On unique-violation (23505) we re-query and retry.
+	const maxRetries = 3;
+	for (let attempt = 0; attempt < maxRetries; attempt++) {
+		let turnIndex = input.turnIndex;
+		if (turnIndex === undefined) {
+			const { data: lastTurn } = await client
+				.from('conversation_turns')
+				.select('turn_index')
+				.eq('session_id', input.sessionId)
+				.order('turn_index', { ascending: false })
+				.limit(1)
+				.maybeSingle();
+
+			turnIndex = lastTurn ? lastTurn.turn_index + 1 : 0;
+		}
+
+		const { data, error } = await client
 			.from('conversation_turns')
-			.select('turn_index')
-			.eq('session_id', input.sessionId)
-			.order('turn_index', { ascending: false })
-			.limit(1)
-			.maybeSingle();
+			.insert({
+				session_id: input.sessionId,
+				role: input.role,
+				content: input.content,
+				embedding: input.embedding || null,
+				turn_index: turnIndex,
+				token_count: input.tokenCount || null,
+				metadata: input.metadata || {},
+			})
+			.select()
+			.single();
 
-		turnIndex = lastTurn ? lastTurn.turn_index + 1 : 0;
+		if (error) {
+			// Retry on unique-violation only when auto-detecting turnIndex
+			if (error.code === '23505' && input.turnIndex === undefined && attempt < maxRetries - 1) {
+				logger.debug('Turn index conflict, retrying', {
+					sessionId: input.sessionId,
+					attempt: attempt + 1,
+					turnIndex,
+				});
+				continue;
+			}
+			logger.error('Failed to create turn', { error: error.message });
+			throw new DatabaseError('Failed to create conversation turn');
+		}
+
+		logger.debug('Created conversation turn', {
+			id: data.id,
+			sessionId: data.session_id,
+			turnIndex: data.turn_index,
+			role: data.role,
+		});
+		return data as ConversationTurn;
 	}
 
-	const { data, error } = await client
-		.from('conversation_turns')
-		.insert({
-			session_id: input.sessionId,
-			role: input.role,
-			content: input.content,
-			embedding: input.embedding || null,
-			turn_index: turnIndex,
-			token_count: input.tokenCount || null,
-			metadata: input.metadata || {},
-		})
-		.select()
-		.single();
-
-	if (error) {
-		logger.error('Failed to create turn', { error: error.message });
-		throw new DatabaseError('Failed to create conversation turn');
-	}
-
-	logger.debug('Created conversation turn', {
-		id: data.id,
-		sessionId: data.session_id,
-		turnIndex: data.turn_index,
-		role: data.role,
-	});
-	return data as ConversationTurn;
+	// Should be unreachable — all retries exhausted means the last attempt threw
+	throw new DatabaseError('Failed to create conversation turn after retries');
 }
 
 /**

@@ -1,21 +1,9 @@
+import type { ConversationSession } from '../types/database.js';
 import { DatabaseError, NotFoundError } from '../utils/errors.js';
 import { logger } from '../utils/logger.js';
 import { getSupabaseClient, isSupabaseConfigured } from './client.js';
 
-/**
- * Conversation Session type definition
- */
-export interface ConversationSession {
-	id: string;
-	session_key: string | null;
-	title: string | null;
-	summary: string | null;
-	summary_embedding: number[] | null;
-	metadata: Record<string, unknown>;
-	turn_count: number;
-	last_activity: string;
-	created_at: string;
-}
+export type { ConversationSession } from '../types/database.js';
 
 export interface CreateSessionInput {
 	sessionKey?: string;
@@ -104,21 +92,29 @@ export async function getOrCreateSession(
 
 	const client = getSupabaseClient();
 
+	// Build the upsert payload dynamically — only include fields that were
+	// explicitly provided so that Supabase's onConflict merge preserves
+	// existing DB values for unspecified columns.
+	const payload: Record<string, unknown> = { session_key: sessionKey };
+	if (input?.title !== undefined) {
+		payload.title = input.title;
+	}
+	if (input?.summary !== undefined) {
+		payload.summary = input.summary;
+	}
+	if (input?.summaryEmbedding !== undefined) {
+		payload.summary_embedding = input.summaryEmbedding;
+	}
+	if (input?.metadata !== undefined) {
+		payload.metadata = input.metadata;
+	}
+
 	const { data, error } = await client
 		.from('conversation_sessions')
-		.upsert(
-			{
-				session_key: sessionKey,
-				title: input?.title || null,
-				summary: input?.summary || null,
-				summary_embedding: input?.summaryEmbedding || null,
-				metadata: input?.metadata || {},
-			},
-			{
-				onConflict: 'session_key',
-				ignoreDuplicates: false,
-			},
-		)
+		.upsert(payload, {
+			onConflict: 'session_key',
+			ignoreDuplicates: false,
+		})
 		.select()
 		.single();
 
@@ -365,31 +361,38 @@ export async function getConversationStats(): Promise<{
 
 	const client = getSupabaseClient();
 
-	// Get session count and date range
-	const { data: sessions, error: sessionsError } = await client
-		.from('conversation_sessions')
-		.select('created_at')
-		.order('created_at', { ascending: true });
+	// Use efficient count + limit-1 queries instead of fetching all rows
+	const [sessionCountResult, turnCountResult, oldestResult, newestResult] = await Promise.all([
+		client.from('conversation_sessions').select('*', { count: 'exact', head: true }),
+		client.from('conversation_turns').select('*', { count: 'exact', head: true }),
+		client
+			.from('conversation_sessions')
+			.select('created_at')
+			.order('created_at', { ascending: true })
+			.limit(1)
+			.maybeSingle(),
+		client
+			.from('conversation_sessions')
+			.select('created_at')
+			.order('created_at', { ascending: false })
+			.limit(1)
+			.maybeSingle(),
+	]);
 
-	if (sessionsError) {
-		logger.error('Failed to get session stats', { error: sessionsError.message });
+	if (sessionCountResult.error) {
+		logger.error('Failed to get session stats', { error: sessionCountResult.error.message });
 		throw new DatabaseError('Failed to get conversation stats');
 	}
 
-	// Get total turn count
-	const { count: turnCount, error: turnsError } = await client
-		.from('conversation_turns')
-		.select('*', { count: 'exact', head: true });
-
-	if (turnsError) {
-		logger.error('Failed to get turn stats', { error: turnsError.message });
+	if (turnCountResult.error) {
+		logger.error('Failed to get turn stats', { error: turnCountResult.error.message });
 		throw new DatabaseError('Failed to get conversation stats');
 	}
 
 	return {
-		totalSessions: sessions?.length || 0,
-		totalTurns: turnCount || 0,
-		oldestSession: sessions?.[0]?.created_at || null,
-		newestSession: sessions?.[sessions.length - 1]?.created_at || null,
+		totalSessions: sessionCountResult.count || 0,
+		totalTurns: turnCountResult.count || 0,
+		oldestSession: oldestResult.data?.created_at || null,
+		newestSession: newestResult.data?.created_at || null,
 	};
 }
