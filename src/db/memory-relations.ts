@@ -131,21 +131,27 @@ export async function getOrCreateRelation(input: CreateRelationInput): Promise<M
 
 	const normalizedType = input.relationType.toLowerCase().replace(/\s+/g, '_');
 
+	// Build the upsert payload dynamically — only include strength and metadata
+	// when explicitly provided so that onConflict merge preserves existing DB
+	// values for unspecified fields.
+	const payload: Record<string, unknown> = {
+		from_entity_id: input.fromEntityId,
+		to_entity_id: input.toEntityId,
+		relation_type: normalizedType,
+	};
+	if (input.strength !== undefined) {
+		payload.strength = input.strength;
+	}
+	if (input.metadata !== undefined) {
+		payload.metadata = input.metadata;
+	}
+
 	const { data, error } = await client
 		.from('memory_relations')
-		.upsert(
-			{
-				from_entity_id: input.fromEntityId,
-				to_entity_id: input.toEntityId,
-				relation_type: normalizedType,
-				strength: input.strength ?? 1.0,
-				metadata: input.metadata || {},
-			},
-			{
-				onConflict: 'from_entity_id,to_entity_id,relation_type',
-				ignoreDuplicates: false,
-			},
-		)
+		.upsert(payload, {
+			onConflict: 'from_entity_id,to_entity_id,relation_type',
+			ignoreDuplicates: false,
+		})
 		.select()
 		.single();
 

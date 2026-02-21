@@ -89,6 +89,8 @@ export async function createTurn(input: CreateTurnInput): Promise<ConversationTu
 					attempt: attempt + 1,
 					turnIndex,
 				});
+				// Small backoff before retry to reduce collision likelihood
+				await new Promise((r) => setTimeout(r, 10 * 2 ** attempt));
 				continue;
 			}
 			logger.error('Failed to create turn', { error: error.message });
@@ -131,45 +133,64 @@ export async function createTurns(input: CreateTurnsInput): Promise<number> {
 
 	const client = getSupabaseClient();
 
-	// Get the starting index
-	let startIndex: number;
-	if (input.startIndex !== undefined) {
-		startIndex = input.startIndex;
-	} else {
-		const { data: lastTurn } = await client
-			.from('conversation_turns')
-			.select('turn_index')
-			.eq('session_id', input.sessionId)
-			.order('turn_index', { ascending: false })
-			.limit(1)
-			.maybeSingle();
+	// Retry loop handles the race condition when startIndex is auto-detected:
+	// concurrent createTurns calls may read the same max turn_index and attempt
+	// overlapping ranges. On unique-violation (23505) we re-query and retry.
+	const maxRetries = 3;
+	for (let attempt = 0; attempt < maxRetries; attempt++) {
+		let startIndex: number;
+		if (input.startIndex !== undefined) {
+			startIndex = input.startIndex;
+		} else {
+			const { data: lastTurn } = await client
+				.from('conversation_turns')
+				.select('turn_index')
+				.eq('session_id', input.sessionId)
+				.order('turn_index', { ascending: false })
+				.limit(1)
+				.maybeSingle();
 
-		startIndex = lastTurn ? lastTurn.turn_index + 1 : 0;
+			startIndex = lastTurn ? lastTurn.turn_index + 1 : 0;
+		}
+
+		// Prepare batch insert
+		const turnRecords = input.turns.map((turn, i) => ({
+			session_id: input.sessionId,
+			role: turn.role,
+			content: turn.content,
+			embedding: turn.embedding || null,
+			turn_index: startIndex + i,
+			token_count: turn.tokenCount || null,
+			metadata: turn.metadata || {},
+		}));
+
+		const { error } = await client.from('conversation_turns').insert(turnRecords);
+
+		if (error) {
+			// Retry on unique-violation only when auto-detecting startIndex
+			if (error.code === '23505' && input.startIndex === undefined && attempt < maxRetries - 1) {
+				logger.debug('Turn index conflict in batch insert, retrying', {
+					sessionId: input.sessionId,
+					attempt: attempt + 1,
+					startIndex,
+				});
+				// Small backoff before retry
+				await new Promise((r) => setTimeout(r, 10 * 2 ** attempt));
+				continue;
+			}
+			logger.error('Failed to create turns', { error: error.message });
+			throw new DatabaseError('Failed to create conversation turns');
+		}
+
+		logger.info('Created conversation turns', {
+			sessionId: input.sessionId,
+			count: turnRecords.length,
+		});
+		return turnRecords.length;
 	}
 
-	// Prepare batch insert
-	const turnRecords = input.turns.map((turn, i) => ({
-		session_id: input.sessionId,
-		role: turn.role,
-		content: turn.content,
-		embedding: turn.embedding || null,
-		turn_index: startIndex + i,
-		token_count: turn.tokenCount || null,
-		metadata: turn.metadata || {},
-	}));
-
-	const { error } = await client.from('conversation_turns').insert(turnRecords);
-
-	if (error) {
-		logger.error('Failed to create turns', { error: error.message });
-		throw new DatabaseError('Failed to create conversation turns');
-	}
-
-	logger.info('Created conversation turns', {
-		sessionId: input.sessionId,
-		count: turnRecords.length,
-	});
-	return turnRecords.length;
+	// Should be unreachable — all retries exhausted means the last attempt threw
+	throw new DatabaseError('Failed to create conversation turns after retries');
 }
 
 /**

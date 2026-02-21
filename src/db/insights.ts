@@ -202,14 +202,16 @@ export async function getInsights(options: {
 		throw new DatabaseError('Supabase not configured');
 	}
 
-	const { status, insightType, limit = 20, offset = 0 } = options;
+	const { status, insightType } = options;
+	const clampedLimit = Math.max(1, options.limit ?? 20);
+	const clampedOffset = Math.max(0, options.offset ?? 0);
 	const client = getSupabaseClient();
 
 	let query = client
 		.from('proactive_insights')
 		.select('*')
 		.order('created_at', { ascending: false })
-		.range(offset, offset + limit - 1);
+		.range(clampedOffset, clampedOffset + clampedLimit - 1);
 
 	if (status) query = query.eq('status', status);
 	if (insightType) query = query.eq('insight_type', insightType);
@@ -316,40 +318,53 @@ export async function getInsightStats(): Promise<{
 
 	const client = getSupabaseClient();
 
-	const [countResult, queueState] = await Promise.all([
-		client.from('proactive_insights').select('id, status, insight_type'),
-		getInsightQueueState(),
-	]);
+	// Use efficient count queries instead of fetching all rows.
+	// Status counts use head:true (no data returned), byType still needs rows
+	// but selects only insight_type to minimise transfer.
+	const [totalResult, newResult, seenResult, dismissedResult, typeResult, queueState] =
+		await Promise.all([
+			client.from('proactive_insights').select('*', { count: 'exact', head: true }),
+			client
+				.from('proactive_insights')
+				.select('*', { count: 'exact', head: true })
+				.eq('status', 'new'),
+			client
+				.from('proactive_insights')
+				.select('*', { count: 'exact', head: true })
+				.eq('status', 'seen'),
+			client
+				.from('proactive_insights')
+				.select('*', { count: 'exact', head: true })
+				.eq('status', 'dismissed'),
+			client.from('proactive_insights').select('insight_type'),
+			getInsightQueueState(),
+		]);
 
-	if (countResult.error) {
+	if (totalResult.error) {
 		logger.error('Failed to get insight stats', {
-			error: countResult.error.message,
-			code: countResult.error.code,
-			details: countResult.error.details,
-			hint: countResult.error.hint,
+			error: totalResult.error.message,
+			code: totalResult.error.code,
+			details: totalResult.error.details,
+			hint: totalResult.error.hint,
 		});
-		throw new DatabaseError(`Failed to get insight stats: ${countResult.error.message}`);
+		throw new DatabaseError(`Failed to get insight stats: ${totalResult.error.message}`);
 	}
 
-	const rows = countResult.data ?? [];
-	const stats = {
-		total: rows.length,
-		new: 0,
-		seen: 0,
-		dismissed: 0,
-		byType: {} as Record<string, number>,
+	const byType: Record<string, number> = {};
+	if (typeResult.data) {
+		for (const row of typeResult.data) {
+			byType[row.insight_type] = (byType[row.insight_type] || 0) + 1;
+		}
+	}
+
+	return {
+		total: totalResult.count || 0,
+		new: newResult.count || 0,
+		seen: seenResult.count || 0,
+		dismissed: dismissedResult.count || 0,
+		byType,
 		queueState,
 	};
-
-	for (const row of rows) {
-		if (row.status === 'new') stats.new++;
-		else if (row.status === 'seen') stats.seen++;
-		else if (row.status === 'dismissed') stats.dismissed++;
-
-		stats.byType[row.insight_type] = (stats.byType[row.insight_type] || 0) + 1;
-	}
-
-	return stats;
 }
 
 // ---------------------------------------------------------------------------

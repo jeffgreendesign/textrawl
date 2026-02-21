@@ -295,11 +295,19 @@ export async function deleteSession(id: string): Promise<void> {
 
 	const client = getSupabaseClient();
 
-	const { error } = await client.from('conversation_sessions').delete().eq('id', id);
+	const { data, error } = await client
+		.from('conversation_sessions')
+		.delete()
+		.eq('id', id)
+		.select('id');
 
 	if (error) {
 		logger.error('Failed to delete session', { error: error.message });
 		throw new DatabaseError('Failed to delete session');
+	}
+
+	if (!data || data.length === 0) {
+		throw new NotFoundError(`Conversation session not found: ${id}`);
 	}
 
 	logger.info('Deleted conversation session', { id });
@@ -386,6 +394,16 @@ export async function getConversationStats(): Promise<{
 
 	if (turnCountResult.error) {
 		logger.error('Failed to get turn stats', { error: turnCountResult.error.message });
+		throw new DatabaseError('Failed to get conversation stats');
+	}
+
+	if (oldestResult.error) {
+		logger.error('Failed to get oldest session', { error: oldestResult.error.message });
+		throw new DatabaseError('Failed to get conversation stats');
+	}
+
+	if (newestResult.error) {
+		logger.error('Failed to get newest session', { error: newestResult.error.message });
 		throw new DatabaseError('Failed to get conversation stats');
 	}
 
