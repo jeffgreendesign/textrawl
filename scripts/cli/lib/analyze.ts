@@ -20,6 +20,7 @@ import { homedir, tmpdir } from 'node:os';
 import { basename, extname, join, resolve, sep } from 'node:path';
 import { createInterface } from 'node:readline';
 import { Open } from 'unzipper';
+import { validateInputPath } from './security.js';
 
 /**
  * Sanitize and normalize a folder path to prevent path traversal attacks.
@@ -761,28 +762,29 @@ async function analyzeZip(zipPath: string): Promise<AnalysisResult> {
 }
 
 /**
- * Detect format and analyze export
+ * Internal export analysis logic operating on an already-validated path.
+ * Use analyzeExport() for external callers that need path validation.
  */
-export async function analyzeExport(path: string): Promise<AnalysisResult> {
-	const stat = statSync(path);
-	const name = basename(path);
-	const ext = extname(path).toLowerCase();
+async function analyzeExportInternal(validatedPath: string): Promise<AnalysisResult> {
+	const stat = statSync(validatedPath);
+	const name = basename(validatedPath);
+	const ext = extname(validatedPath).toLowerCase();
 
 	// File-based detection
 	if (stat.isFile()) {
 		if (ext === '.mbox') {
-			return analyzeMbox(path);
+			return analyzeMbox(validatedPath);
 		}
 		// ZIP files - extract and analyze contents
 		if (ext === '.zip') {
-			return analyzeZip(path);
+			return analyzeZip(validatedPath);
 		}
 	}
 
 	// Folder-based detection
 	if (stat.isDirectory()) {
 		// Sanitize path early for directory analysis
-		const sanitizedPath = sanitizeFolderPath(path);
+		const sanitizedPath = sanitizeFolderPath(validatedPath);
 		const files = readdirSync(sanitizedPath);
 
 		// Spotify: has StreamingHistory*.json
@@ -824,6 +826,15 @@ export async function analyzeExport(path: string): Promise<AnalysisResult> {
 		estimatedOutputFiles: 0,
 		estimatedOutputSizeBytes: 0,
 	};
+}
+
+/**
+ * Detect format and analyze export.
+ * Validates the input path before delegating to the internal analysis logic.
+ */
+export async function analyzeExport(path: string): Promise<AnalysisResult> {
+	const validatedPath = validateInputPath(path);
+	return analyzeExportInternal(validatedPath);
 }
 
 /**
@@ -883,16 +894,17 @@ function analyzeDriveFolder(folderPath: string): {
  * Wraps analyzeExport with Takeout-specific enhancements (Drive file counting)
  */
 export async function analyzeTakeout(path: string): Promise<AnalysisResult> {
-	const stat = statSync(path);
+	const validatedPath = validateInputPath(path);
+	const stat = statSync(validatedPath);
 
-	// For ZIP files, delegate to analyzeExport which handles extraction
-	if (stat.isFile() && extname(path).toLowerCase() === '.zip') {
-		return analyzeExport(path);
+	// For ZIP files, delegate to internal analysis (path already validated)
+	if (stat.isFile() && extname(validatedPath).toLowerCase() === '.zip') {
+		return analyzeExportInternal(validatedPath);
 	}
 
 	// For directories, check if it's a Takeout root or a Drive folder directly
 	if (stat.isDirectory()) {
-		const sanitizedPath = sanitizeFolderPath(path);
+		const sanitizedPath = sanitizeFolderPath(validatedPath);
 		const files = readdirSync(sanitizedPath);
 
 		// Check if this is a Takeout root with a Drive subfolder
@@ -948,6 +960,6 @@ export async function analyzeTakeout(path: string): Promise<AnalysisResult> {
 		};
 	}
 
-	// Fallback
-	return analyzeExport(path);
+	// Fallback (path already validated)
+	return analyzeExportInternal(validatedPath);
 }

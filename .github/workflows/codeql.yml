@@ -32,8 +32,8 @@ jobs:
         uses: github/codeql-action/init@v3
         with:
           languages: ${{ matrix.language }}
-          # Focus on security queries for path traversal and other vulnerabilities
-          queries: security-extended,security-and-quality
+          # Uses custom config with sanitizer model extensions
+          config-file: .github/codeql/codeql-config.yml
 
       # For TypeScript, we need to build to enable full analysis
       - name: Setup pnpm

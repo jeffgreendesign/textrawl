@@ -1,0 +1,19 @@
+# CodeQL model extension: Mark validateInputPath as a path-injection sanitizer.
+#
+# validateInputPath (scripts/cli/lib/security.ts) performs:
+#   1. Null-byte detection
+#   2. Path resolution and normalization via resolve() + normalize()
+#   3. Existence check via existsSync()
+#   4. Symlink resolution via realpathSync()
+#   5. Allowed-base-directory verification (home, temp, cwd)
+#
+# Its return value is a fully validated canonical path that is safe to pass
+# to filesystem APIs. Marking it as a neutral summary tells CodeQL that
+# taint does NOT propagate through its return value.
+
+extensions:
+  - addsTo:
+      pack: codeql/javascript-all
+      extensible: neutralModel
+    data:
+      - ["scripts/cli/lib/security", "Member[validateInputPath]", "summary"]
