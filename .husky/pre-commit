@@ -1,19 +1,4 @@
 #!/bin/sh
 
-# Run linting on staged files
-pnpm lint
-
-# Run markdown linting
-pnpm lint:md
-
-# Run security checks
-./scripts/security-check.sh
-
-# Verify critical docs website files exist
-./scripts/docs-check.sh
-
-# Verify tool documentation sync
-./scripts/tool-sync-check.sh
-
-# Run type checking
-pnpm typecheck
+# Fast local gate (no network calls)
+pnpm verify:fast

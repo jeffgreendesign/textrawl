@@ -18,6 +18,8 @@
 		"test": "vitest run",
 		"test:watch": "vitest",
 		"quality": "pnpm lint && pnpm lint:md && pnpm typecheck",
+		"verify:fast": "pnpm quality && pnpm test && ./scripts/security-check.sh && ./scripts/docs-check.sh && ./scripts/tool-sync-check.sh",
+		"verify": "pnpm quality && pnpm test && ./scripts/security-check.sh && ./scripts/tool-sync-check.sh && pnpm build && pnpm docs:build",
 		"security-check": "./scripts/security-check.sh",
 		"tool-sync": "./scripts/tool-sync-check.sh",
 		"preinstall": "npx only-allow pnpm",

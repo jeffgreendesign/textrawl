@@ -123,6 +123,7 @@ export async function listDocuments(
 		.from('documents')
 		.select('*', { count: 'exact' })
 		.order(sortBy, { ascending: sortOrder === 'asc' })
+		.order('id', { ascending: sortOrder === 'asc' })
 		.range(offset, offset + limit - 1);
 
 	if (sourceType) {
