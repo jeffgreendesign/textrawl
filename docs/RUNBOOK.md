@@ -42,7 +42,7 @@ curl -s http://localhost:3000/health/live
 - Conversations (optional): `scripts/setup-db-conversation-ollama-v2.sql`
 - Insights (optional): `scripts/setup-db-insights-ollama-v2.sql`
 
-3. Security hardening scripts:
+1. Security hardening scripts:
 
 - Base: `scripts/security-rls.sql`
 - Memory hardening (when memory tables are enabled): `scripts/security-rls-memory.sql`

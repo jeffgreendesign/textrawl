@@ -138,42 +138,47 @@ pnpm -s run | rg "verify|verify:fast|quality"
 ```
 
 Expected:
+
 - Both `verify` and `verify:fast` listed.
 
-2. Run fast local gate:
+1. Run fast local gate:
 
 ```bash
 pnpm verify:fast
 ```
 
 Expected:
+
 - lint + markdown lint + typecheck + tests + local shell checks pass.
 
-3. Run canonical full gate:
+1. Run canonical full gate:
 
 ```bash
 pnpm verify
 ```
 
 Expected:
+
 - quality + tests + build + docs build pass.
 
-4. Confirm CI uses the canonical command:
+1. Confirm CI uses the canonical command:
 
 ```bash
 rg "pnpm verify" .github/workflows/ci.yml
 ```
 
 Expected:
+
 - CI contains one gate step using `pnpm verify`.
 
-5. Confirm pre-commit uses fast gate:
+1. Confirm pre-commit uses fast gate:
 
 ```bash
 cat .husky/pre-commit
 ```
 
 Expected:
+
 - Hook executes `pnpm verify:fast`.
 
 ---
