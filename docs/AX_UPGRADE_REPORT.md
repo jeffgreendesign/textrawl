@@ -116,13 +116,13 @@ Improve agent/developer experience (AX) and operational clarity without changing
 - **Single command gate in CI/local** reduces drift and “works-on-my-machine” mismatch.
   - Repo source: existing CI + scripts (`package.json`, `.github/workflows/ci.yml`).
 - **Secret-handling emphasis** aligns with Supabase key model and server-only service role usage.
-  - Supabase official: https://supabase.com/docs/guides/api/api-keys
+  - Supabase official: [supabase]
 - **MCP config/runbook guidance** aligns with official MCP and OpenAI MCP connector docs.
-  - MCP official: https://modelcontextprotocol.io
-  - OpenAI MCP docs: https://platform.openai.com/docs/mcp
+  - MCP official: [mcp]
+  - OpenAI MCP docs: [openai-mcp]
 - **Dimension/schema mapping docs** reduce common pgvector runtime failures.
-  - pgvector official: https://github.com/pgvector/pgvector
-  - PostgreSQL official: https://www.postgresql.org/docs/
+  - pgvector official: [pgvector]
+  - PostgreSQL official: [postgresql]
 - **Deterministic pagination/sorting** improves predictable list behavior for agents/tools.
   - Repo source: `src/db/documents.ts`
 
@@ -184,3 +184,12 @@ Expected:
 2. Add an explicit deployment matrix doc (Supabase-hosted vs self-hosted Postgres + PostgREST/Supabase alternatives).
 3. Add contract tests for read-only tool `structuredContent` schemas.
 4. Consider documenting Supabase Vercel integration only if/when Vercel deployment is officially supported in this repo.
+
+
+## References
+
+[supabase]: https://supabase.com/docs/guides/api/api-keys
+[mcp]: https://modelcontextprotocol.io
+[openai-mcp]: https://platform.openai.com/docs/mcp
+[pgvector]: https://github.com/pgvector/pgvector
+[postgresql]: https://www.postgresql.org/docs/

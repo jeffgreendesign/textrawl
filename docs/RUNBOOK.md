@@ -19,15 +19,33 @@ curl -s http://localhost:3000/health/live
 ## 2) Supabase setup
 
 1. Create a Supabase project.
-2. Run one **core schema** script:
-   - OpenAI: `scripts/setup-db.sql`
-   - Ollama 1024d: `scripts/setup-db-ollama.sql`
-   - Ollama 768d: `scripts/setup-db-ollama-v2.sql`
-3. Optional features:
-   - Memory: `scripts/setup-db-memory.sql` or `scripts/setup-db-memory-ollama.sql`
-   - Conversations: `scripts/setup-db-conversation*.sql`
-   - Insights: `scripts/setup-db-insights*.sql`
-4. Security hardening: `scripts/security-rls.sql` (+ `scripts/security-rls-memory.sql` when applicable).
+2. Pick **one profile** and run the exact SQL scripts:
+
+### OpenAI profile (1536d)
+
+- Core: `scripts/setup-db.sql`
+- Memory (optional): `scripts/setup-db-memory.sql`
+- Conversations (optional): `scripts/setup-db-conversation.sql`
+- Insights (optional): `scripts/setup-db-insights.sql`
+
+### Ollama v1 profile (1024d)
+
+- Core: `scripts/setup-db-ollama.sql`
+- Memory (optional): `scripts/setup-db-memory-ollama.sql`
+- Conversations (optional): `scripts/setup-db-conversation-ollama.sql`
+- Insights (optional): `scripts/setup-db-insights-ollama.sql`
+
+### Ollama v2 profile (768d)
+
+- Core: `scripts/setup-db-ollama-v2.sql`
+- Memory (optional): not currently provided as a dedicated v2 memory schema script
+- Conversations (optional): `scripts/setup-db-conversation-ollama-v2.sql`
+- Insights (optional): `scripts/setup-db-insights-ollama-v2.sql`
+
+3. Security hardening scripts:
+
+- Base: `scripts/security-rls.sql`
+- Memory hardening (when memory tables are enabled): `scripts/security-rls-memory.sql`
 
 ## 3) Local Postgres alternative (without Supabase)
 
@@ -95,8 +113,16 @@ Then open the Inspector UI and verify tools load.
 
 ## Why
 
-- Supabase setup and operational guidance. https://supabase.com/docs
-- pgvector extension and vector index behavior. https://github.com/pgvector/pgvector
-- PostgreSQL operational references. https://www.postgresql.org/docs/
-- MCP transport and client interoperability expectations. https://modelcontextprotocol.io
-- OpenAI client-side MCP connector guidance. https://platform.openai.com/docs/mcp
+- Supabase setup and operational guidance. [supabase]
+- pgvector extension and vector index behavior. [pgvector]
+- PostgreSQL operational references. [postgresql]
+- MCP transport and client interoperability expectations. [mcp]
+- OpenAI client-side MCP connector guidance. [openai]
+
+## References
+
+[supabase]: https://supabase.com/docs
+[pgvector]: https://github.com/pgvector/pgvector
+[postgresql]: https://www.postgresql.org/docs/
+[mcp]: https://modelcontextprotocol.io
+[openai]: https://platform.openai.com/docs/mcp

@@ -50,6 +50,13 @@
 
 ## Why
 
-- MCP protocol architecture and stateless HTTP transport principles. https://modelcontextprotocol.io
-- Supabase security model and key separation. https://supabase.com/docs/guides/api/api-keys
-- PostgreSQL and pgvector index/function behavior references. https://www.postgresql.org/docs/ and https://github.com/pgvector/pgvector
+- MCP protocol architecture and stateless HTTP transport principles. [mcp]
+- Supabase security model and key separation. [supabase]
+- PostgreSQL and pgvector index/function behavior references. [postgresql] and [pgvector]
+
+## References
+
+[mcp]: https://modelcontextprotocol.io
+[supabase]: https://supabase.com/docs/guides/api/api-keys
+[postgresql]: https://www.postgresql.org/docs/
+[pgvector]: https://github.com/pgvector/pgvector

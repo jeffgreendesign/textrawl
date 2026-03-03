@@ -58,6 +58,13 @@ This file centralizes runtime configuration for Textrawl server, MCP tools, CLI,
 
 ## Why
 
-- Supabase service-role keys are privileged and intended for trusted server environments only. https://supabase.com/docs/guides/api/api-keys
-- MCP servers should enforce authentication/authorization at transport boundaries in deployed environments. https://modelcontextprotocol.io
-- OpenAI MCP integration and client connector behavior are documented in OpenAI MCP docs. https://platform.openai.com/docs/mcp
+- Supabase service-role keys are privileged and intended for trusted server environments only. [supabase]
+- MCP servers should enforce authentication/authorization at transport boundaries in deployed environments. [mcp]
+- OpenAI MCP integration and client connector behavior are documented in OpenAI MCP docs. [openai-mcp]
+
+
+## References
+
+[supabase]: https://supabase.com/docs/guides/api/api-keys
+[mcp]: https://modelcontextprotocol.io
+[openai-mcp]: https://platform.openai.com/docs/mcp

@@ -5,7 +5,7 @@
 - Confirm server is running and reachable: `curl http://localhost:3000/health`.
 - Validate MCP endpoint config points to `/mcp` and includes proper headers.
 - If auth is enabled, include `Authorization: Bearer <API_BEARER_TOKEN>`.
-- Run `pnpm inspector` and verify tools enumerate.
+- Run `pnpm inspector` and verify tools are listed.
 
 ## No search results / embeddings mismatch
 
