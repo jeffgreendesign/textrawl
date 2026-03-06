@@ -1,0 +1,91 @@
+#!/usr/bin/env tsx
+/**
+ * CLI entry point for Postgres analysis.
+ *
+ * Usage:
+ *   pnpm pg:analyze              Full markdown report to stdout
+ *   pnpm pg:analyze -- --json    JSON output
+ *   pnpm pg:analyze -- --save    Save to history directory
+ *   pnpm pg:analyze -- --diff    Compare with last saved report
+ */
+import 'dotenv/config';
+import { closePgPool, getPgPool } from '../../src/db/pg-client.js';
+import { formatCompact, formatMarkdown } from '../../src/services/pg-analyze/formatter.js';
+import {
+	compareReports,
+	formatDiff,
+	getHistory,
+	saveReport,
+} from '../../src/services/pg-analyze/history.js';
+import { runAnalysis } from '../../src/services/pg-analyze/index.js';
+
+const args = process.argv.slice(2);
+const jsonMode = args.includes('--json');
+const shouldSave = args.includes('--save');
+const showDiff = args.includes('--diff');
+
+const reportDir = process.env.PG_REPORT_DIR ?? './reports/pg-analysis';
+
+async function main(): Promise<void> {
+	if (!process.env.DATABASE_URL) {
+		console.error('Error: DATABASE_URL environment variable is required.');
+		console.error('Set it in your .env file or pass it inline:');
+		console.error('  DATABASE_URL=postgres://... pnpm pg:analyze');
+		process.exit(1);
+	}
+
+	// Validate connection
+	try {
+		getPgPool(process.env.DATABASE_URL);
+	} catch (err) {
+		console.error(`Connection failed: ${err instanceof Error ? err.message : String(err)}`);
+		process.exit(1);
+	}
+
+	try {
+		const report = await runAnalysis();
+
+		if (shouldSave) {
+			const path = saveReport(report, reportDir);
+			console.error(`Report saved: ${path}`);
+		}
+
+		if (showDiff) {
+			const history = getHistory(reportDir, 2);
+			if (history.length >= 1) {
+				// Compare current run with most recent saved
+				const diff = compareReports(report, history[0]);
+				const diffText = formatDiff(diff);
+				if (jsonMode) {
+					console.log(JSON.stringify({ report: formatCompact(report), diff }, null, 2));
+				} else {
+					console.log(formatMarkdown(report));
+					console.log('');
+					console.log(diffText);
+				}
+			} else {
+				console.error('No previous reports to diff against. Run with --save first.');
+				if (jsonMode) {
+					console.log(JSON.stringify(formatCompact(report), null, 2));
+				} else {
+					console.log(formatMarkdown(report));
+				}
+			}
+		} else if (jsonMode) {
+			console.log(JSON.stringify(formatCompact(report), null, 2));
+		} else {
+			console.log(formatMarkdown(report));
+		}
+
+		// Exit with code 1 if critical issues found
+		const hasCritical = report.recommendations.some((r) => r.severity === 'critical');
+		process.exitCode = hasCritical ? 1 : 0;
+	} finally {
+		await closePgPool();
+	}
+}
+
+main().catch((err) => {
+	console.error(`Fatal: ${err instanceof Error ? err.message : String(err)}`);
+	process.exit(2);
+});

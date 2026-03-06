@@ -111,6 +111,12 @@ const envSchema = z.object({
 		.transform((val) => parseFloat(val))
 		.refine((val) => val >= 0 && val <= 1, 'Must be between 0 and 1'),
 
+	// Direct Postgres connection (optional - enables pg:analyze tools)
+	DATABASE_URL: z.string().optional(),
+
+	// Directory for pg-analyze report history (default: ./reports/pg-analysis)
+	PG_REPORT_DIR: z.string().default('./reports/pg-analysis'),
+
 	// Redis (optional - enables shared rate limiting across instances)
 	REDIS_URL: z.string().url().optional(),
 

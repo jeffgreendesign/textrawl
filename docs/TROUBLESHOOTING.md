@@ -10,9 +10,11 @@
 ## No search results / embeddings mismatch
 
 Symptoms:
+
 - upload/search errors referencing vector dimensions or RPC failures.
 
 Fix:
+
 - Ensure schema script matches embedding provider/model dimensions:
   - OpenAI: 1536 (`setup-db.sql`)
   - Ollama v1: 1024 (`setup-db-ollama.sql`)
@@ -38,7 +40,7 @@ Fix:
 
 ## Why
 
-- Supabase troubleshooting and auth key model. https://supabase.com/docs
-- MCP integration/debug behavior in clients. https://modelcontextprotocol.io
-- OpenAI MCP connector setup details. https://platform.openai.com/docs/mcp
-- PostgreSQL + pgvector schema compatibility for vector operations. https://www.postgresql.org/docs/ and https://github.com/pgvector/pgvector
+- Supabase troubleshooting and auth key model. <https://supabase.com/docs>
+- MCP integration/debug behavior in clients. <https://modelcontextprotocol.io>
+- OpenAI MCP connector setup details. <https://platform.openai.com/docs/mcp>
+- PostgreSQL + pgvector schema compatibility for vector operations. <https://www.postgresql.org/docs/> and <https://github.com/pgvector/pgvector>

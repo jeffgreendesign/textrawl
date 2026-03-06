@@ -1401,6 +1401,57 @@
 					}
 				}
 			}
+		},
+		{
+			"name": "pg_analyze",
+			"description": "Run comprehensive Postgres health analysis with table stats, index health, vacuum status, bloat estimates, and Textrawl-specific checks",
+			"featureFlag": "DATABASE_URL",
+			"inputSchema": {
+				"type": "object",
+				"properties": {
+					"save": {
+						"type": "boolean",
+						"description": "Save report to history for future comparison",
+						"default": false
+					}
+				}
+			}
+		},
+		{
+			"name": "pg_recommendations",
+			"description": "Get actionable optimization recommendations for Postgres filtered by severity",
+			"featureFlag": "DATABASE_URL",
+			"inputSchema": {
+				"type": "object",
+				"properties": {
+					"severity": {
+						"type": "string",
+						"enum": ["all", "critical", "warning", "info"],
+						"description": "Filter recommendations by minimum severity",
+						"default": "all"
+					}
+				}
+			}
+		},
+		{
+			"name": "pg_report_history",
+			"description": "View past Postgres analysis reports and compare trends over time",
+			"featureFlag": "DATABASE_URL",
+			"inputSchema": {
+				"type": "object",
+				"properties": {
+					"count": {
+						"type": "number",
+						"description": "Number of past reports to load (1-50)",
+						"default": 5
+					},
+					"diff": {
+						"type": "boolean",
+						"description": "Compare latest two reports and show changes",
+						"default": true
+					}
+				}
+			}
 		}
 	],
 	"capabilities": {

@@ -62,7 +62,6 @@ This file centralizes runtime configuration for Textrawl server, MCP tools, CLI,
 - MCP servers should enforce authentication/authorization at transport boundaries in deployed environments. [mcp]
 - OpenAI MCP integration and client connector behavior are documented in OpenAI MCP docs. [openai-mcp]
 
-
 ## References
 
 [supabase]: https://supabase.com/docs/guides/api/api-keys

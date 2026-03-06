@@ -197,6 +197,29 @@ Dismiss an insight.
 
 - insightId (string, REQUIRED): Insight ID to dismiss
 
+## Postgres Analysis Tools
+
+Enabled when DATABASE_URL is configured. Connects directly to Postgres (independent of Supabase client).
+
+### pg_analyze
+
+Run comprehensive Postgres health analysis. Returns table stats, index health, vacuum status, connection info, bloat estimates, Textrawl-specific checks, and actionable recommendations.
+
+- save (boolean): Save report to history for future comparison, default false
+
+### pg_recommendations
+
+Get actionable optimization recommendations for Postgres.
+
+- severity (enum): 'all' | 'critical' | 'warning' | 'info', default 'all'
+
+### pg_report_history
+
+View past Postgres analysis reports and compare trends.
+
+- count (number): Number of past reports to load 1-50, default 5
+- diff (boolean): Compare latest two reports and show changes, default true
+
 ## Documentation
 
 - /AGENTS.md - Agent conventions and tool selection guide

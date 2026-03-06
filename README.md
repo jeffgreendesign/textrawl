@@ -172,7 +172,7 @@ pnpm upload -- ./converted/
 | `EXTRACTION_MODEL` | No | Model for extraction (default: claude-3-haiku-20240307) |
 | `COMPACT_RESPONSES` | No | Token-efficient responses (default: true) |
 
-## MCP Tools (18 tools)
+## MCP Tools (21 tools)
 
 Read-only tools (`search`, `get_document`, `list_documents`, `query_memory`, `query_conversations`, `get_stats`) include `outputSchema` and return `structuredContent` for programmatic consumption alongside the text `content` response.
 
@@ -228,6 +228,16 @@ Enable with `ENABLE_INSIGHTS=true` (default).
 | Tool | Description |
 |------|-------------|
 | `get_stats` | Statistics across all features (`scope: 'all' \| 'knowledge' \| 'memory' \| 'conversations' \| 'insights'`) |
+
+### Postgres Analysis Tools
+
+Enabled when `DATABASE_URL` is configured. Connects directly to Postgres (independent of Supabase client).
+
+| Tool | Description |
+|------|-------------|
+| `pg_analyze` | Run comprehensive Postgres health analysis with table stats, index health, vacuum status, bloat estimates, and Textrawl-specific checks |
+| `pg_recommendations` | Get actionable optimization recommendations filtered by severity |
+| `pg_report_history` | View past analysis reports and compare trends over time |
 
 ### Search Parameters
 

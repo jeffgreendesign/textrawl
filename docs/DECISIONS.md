@@ -28,5 +28,5 @@
 ## Why
 
 - Keep backward compatibility and avoid unrequested core behavior changes.
-- Align with MCP compatibility expectations and stable tool contracts. https://modelcontextprotocol.io
-- Keep Supabase service-role usage constrained to trusted server contexts. https://supabase.com/docs/guides/api/api-keys
+- Align with MCP compatibility expectations and stable tool contracts. <https://modelcontextprotocol.io>
+- Keep Supabase service-role usage constrained to trusted server contexts. <https://supabase.com/docs/guides/api/api-keys>

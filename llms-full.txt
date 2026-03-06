@@ -398,6 +398,32 @@ Dismiss an insight so it no longer appears in new/seen results.
 Parameters:
 - insightId (string, REQUIRED): The insight ID to dismiss
 
+## Postgres Analysis Tools
+
+Enabled when `DATABASE_URL` is configured. Connects directly to Postgres via `pg` (independent of Supabase client).
+
+### pg_analyze
+
+Run a comprehensive Postgres health analysis. Returns table stats, index health, vacuum status, connection info, bloat estimates, Textrawl-specific checks (HNSW indexes, FTS indexes, orphaned chunks, RLS), and actionable recommendations.
+
+Parameters:
+- save (boolean): Save report to history directory for future comparison, default false
+
+### pg_recommendations
+
+Get actionable optimization recommendations for Postgres. Runs analysis and returns only recommendations.
+
+Parameters:
+- severity (enum): Filter by minimum severity — 'all' | 'critical' | 'warning' | 'info', default 'all'
+
+### pg_report_history
+
+View past Postgres analysis reports and compare trends over time.
+
+Parameters:
+- count (number): Number of past reports to load (1-50), default 5
+- diff (boolean): Compare latest two reports and show changes, default true
+
 ## Environment Variables
 
 Required:

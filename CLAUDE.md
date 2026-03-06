@@ -49,6 +49,25 @@ Claude Code reference for Textrawl.
   - Ollama 768d: `scripts/setup-db-insights-ollama-v2.sql`
 - **Security hardening**: `scripts/security-rls.sql` (+ `scripts/security-rls-memory.sql`)
 
+## MCP tools reference
+
+<!-- Document/search: search, get_document, list_documents, update_document, add_note -->
+<!-- Memory: remember_fact, query_memory, relate_entities, forget_entity, extract_memories -->
+<!-- Conversation: save_conversation_context, query_conversations, delete_conversation -->
+<!-- Stats: get_stats -->
+<!-- Insights: get_insights, discover_connections, dismiss_insight, build_knowledge -->
+<!-- Postgres: pg_analyze, pg_recommendations, pg_report_history -->
+
+Tool implementations: `src/tools/*.ts`. See `README.md` for full tool documentation.
+
+## Postgres analysis tools
+
+- Gated on `DATABASE_URL` env var (direct `pg` connection, independent of Supabase)
+- MCP tools: `src/tools/pg-analyze.ts`
+- Analysis engine: `src/services/pg-analyze/`
+- CLI: `pnpm pg:analyze` (`scripts/cli/pg-analyze.ts`)
+- Reports saved to `PG_REPORT_DIR` (default `./reports/pg-analysis`)
+
 ## Conventions
 
 - ESM imports require explicit `.js` extension.
