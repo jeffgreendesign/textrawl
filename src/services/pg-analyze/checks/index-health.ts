@@ -24,6 +24,7 @@ export async function getIndexHealth(): Promise<IndexStat[]> {
 		FROM pg_stat_user_indexes s
 		JOIN pg_index i ON i.indexrelid = s.indexrelid
 		ORDER BY pg_relation_size(i.indexrelid) DESC
+		LIMIT 500
 	`);
 
 	return rows.map((r) => ({

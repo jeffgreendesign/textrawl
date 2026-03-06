@@ -27,6 +27,7 @@ export async function getVacuumStats(): Promise<VacuumStat[]> {
 			autovacuum_count
 		FROM pg_stat_user_tables
 		ORDER BY n_dead_tup DESC
+		LIMIT 500
 	`);
 
 	return rows.map((r) => ({

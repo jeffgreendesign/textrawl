@@ -29,6 +29,7 @@ export async function getTableStats(): Promise<TableStat[]> {
 		JOIN pg_class c ON c.relname = s.relname
 		JOIN pg_namespace n ON n.oid = c.relnamespace AND n.nspname = s.schemaname
 		ORDER BY pg_total_relation_size(c.oid) DESC
+		LIMIT 500
 	`);
 
 	return rows.map((r) => {

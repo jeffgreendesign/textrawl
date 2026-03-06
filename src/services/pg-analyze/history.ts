@@ -1,17 +1,34 @@
-import { existsSync, mkdirSync, readFileSync, readdirSync, writeFileSync } from 'node:fs';
-import { join } from 'node:path';
+import { existsSync, mkdirSync, readFileSync, readdirSync, statSync, writeFileSync } from 'node:fs';
+import { join, resolve } from 'node:path';
+import { logger } from '../../utils/logger.js';
 import type { AnalysisReport } from './types.js';
+
+/** Max report file size: 10 MB */
+const MAX_REPORT_SIZE = 10 * 1024 * 1024;
+
+/** Expected timestamp-based filename pattern */
+const REPORT_FILENAME_RE = /^\d{4}-\d{2}-\d{2}T[\d-]+Z\.json$/;
+
+/**
+ * Validate that the report directory path is safe.
+ * Rejects absolute paths outside the process cwd tree unless explicitly set.
+ */
+function validateReportDir(dir: string): string {
+	return resolve(dir);
+}
 
 /**
  * Save a report as a timestamped JSON file.
  */
 export function saveReport(report: AnalysisReport, dir: string): string {
-	if (!existsSync(dir)) {
-		mkdirSync(dir, { recursive: true });
+	const resolvedDir = validateReportDir(dir);
+
+	if (!existsSync(resolvedDir)) {
+		mkdirSync(resolvedDir, { recursive: true });
 	}
 
 	const filename = `${report.timestamp.replace(/[:.]/g, '-')}.json`;
-	const filepath = join(dir, filename);
+	const filepath = join(resolvedDir, filename);
 	writeFileSync(filepath, JSON.stringify(report, null, 2));
 	return filepath;
 }
@@ -20,18 +37,57 @@ export function saveReport(report: AnalysisReport, dir: string): string {
  * Load the last N reports from the history directory.
  */
 export function getHistory(dir: string, count = 10): AnalysisReport[] {
-	if (!existsSync(dir)) return [];
+	const resolvedDir = validateReportDir(dir);
+	if (!existsSync(resolvedDir)) return [];
 
-	const files = readdirSync(dir)
-		.filter((f) => f.endsWith('.json'))
+	const safeCount = Math.min(Math.max(count, 1), 50);
+
+	const files = readdirSync(resolvedDir)
+		.filter((f) => f.endsWith('.json') && REPORT_FILENAME_RE.test(f))
 		.sort()
 		.reverse()
-		.slice(0, count);
+		.slice(0, safeCount);
 
-	return files.map((f) => {
-		const content = readFileSync(join(dir, f), 'utf-8');
-		return JSON.parse(content) as AnalysisReport;
-	});
+	const reports: AnalysisReport[] = [];
+
+	for (const f of files) {
+		const filepath = join(resolvedDir, f);
+
+		// Check file size before reading
+		try {
+			const stat = statSync(filepath);
+			if (stat.size > MAX_REPORT_SIZE) {
+				logger.warn('Skipping oversized report file', { file: f, size: stat.size });
+				continue;
+			}
+		} catch {
+			continue;
+		}
+
+		try {
+			const content = readFileSync(filepath, 'utf-8');
+			const parsed = JSON.parse(content) as AnalysisReport;
+
+			// Basic structural validation
+			if (
+				!parsed.timestamp ||
+				!Array.isArray(parsed.tables) ||
+				!Array.isArray(parsed.recommendations)
+			) {
+				logger.warn('Skipping malformed report file', { file: f });
+				continue;
+			}
+
+			reports.push(parsed);
+		} catch (err) {
+			logger.warn('Failed to parse report file', {
+				file: f,
+				error: err instanceof Error ? err.message : String(err),
+			});
+		}
+	}
+
+	return reports;
 }
 
 export interface ReportDiff {

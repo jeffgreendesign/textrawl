@@ -1,6 +1,11 @@
 import { pgQuery } from '../../../db/pg-client.js';
 import type { ConnectionStat } from '../types.js';
 
+/** Redact string literals from SQL to avoid leaking sensitive values in reports. */
+function redactLiterals(sql: string): string {
+	return sql.replace(/'[^']*'/g, "'***'");
+}
+
 export async function getConnectionStats(): Promise<ConnectionStat> {
 	const [activityResult, maxResult] = await Promise.all([
 		pgQuery<{
@@ -62,7 +67,7 @@ export async function getConnectionStats(): Promise<ConnectionStat> {
 			pid: r.pid,
 			duration: String(r.duration),
 			state: r.state,
-			query: r.query,
+			query: redactLiterals(r.query),
 		})),
 	};
 }

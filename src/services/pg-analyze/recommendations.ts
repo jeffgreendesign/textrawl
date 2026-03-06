@@ -9,6 +9,11 @@ import type {
 	VacuumStat,
 } from './types.js';
 
+/** Quote a SQL identifier to prevent injection in suggestion strings. */
+function quoteIdent(name: string): string {
+	return `"${name.replace(/"/g, '""')}"`;
+}
+
 export function generateRecommendations(
 	report: Omit<AnalysisReport, 'recommendations'>,
 ): Recommendation[] {
@@ -38,7 +43,7 @@ function checkMaintenance(vacuum: VacuumStat[], tables: TableStat[]): Recommenda
 				category: 'maintenance',
 				title: `Table "${v.table}" has never been vacuumed`,
 				description: `${v.liveTuples} live rows and no vacuum history. Dead tuples may accumulate.`,
-				suggestion: `VACUUM ANALYZE ${v.schema}.${v.table};`,
+				suggestion: `VACUUM ANALYZE ${quoteIdent(v.schema)}.${quoteIdent(v.table)};`,
 				reference: 'https://www.postgresql.org/docs/current/routine-vacuuming.html',
 			});
 		}
@@ -51,7 +56,7 @@ function checkMaintenance(vacuum: VacuumStat[], tables: TableStat[]): Recommenda
 				category: 'maintenance',
 				title: `High dead tuple ratio on "${t.table}"`,
 				description: `${(t.deadTupleRatio * 100).toFixed(1)}% dead tuples (${t.deadTuples} dead / ${t.liveTuples} live). Table bloat increasing.`,
-				suggestion: `VACUUM (VERBOSE) ${t.schema}.${t.table};`,
+				suggestion: `VACUUM (VERBOSE) ${quoteIdent(t.schema)}.${quoteIdent(t.table)};`,
 				reference: 'https://www.postgresql.org/docs/current/routine-vacuuming.html',
 			});
 		}
@@ -65,7 +70,7 @@ function checkMaintenance(vacuum: VacuumStat[], tables: TableStat[]): Recommenda
 				category: 'maintenance',
 				title: `Table "${v.table}" has never been analyzed`,
 				description: 'Query planner statistics are missing — queries may use suboptimal plans.',
-				suggestion: `ANALYZE ${v.schema}.${v.table};`,
+				suggestion: `ANALYZE ${quoteIdent(v.schema)}.${quoteIdent(v.table)};`,
 				reference: 'https://www.postgresql.org/docs/current/sql-analyze.html',
 			});
 		}
@@ -95,7 +100,7 @@ function checkPerformance(indexes: IndexStat[], queryCount: number): Recommendat
 			description: `Indexes with 0 scans since last stats reset: ${names.join(', ')}${unused.length > 5 ? ` (+${unused.length - 5} more)` : ''}. These consume storage and slow writes.`,
 			suggestion: unused
 				.slice(0, 3)
-				.map((i) => `DROP INDEX IF EXISTS ${i.schema}.${i.index};`)
+				.map((i) => `DROP INDEX IF EXISTS ${quoteIdent(i.schema)}.${quoteIdent(i.index)};`)
 				.join('\n'),
 			reference: 'https://www.postgresql.org/docs/current/indexes-examine.html',
 		});
@@ -123,7 +128,7 @@ function checkPerformance(indexes: IndexStat[], queryCount: number): Recommendat
 					category: 'performance',
 					title: `Duplicate indexes on "${table}"`,
 					description: `Indexes appear equivalent: ${names.join(', ')}. Remove duplicates to save storage and write overhead.`,
-					suggestion: `-- Review and drop duplicate:\nDROP INDEX IF EXISTS ${names[1]};`,
+					suggestion: `-- Review and drop duplicate:\nDROP INDEX IF EXISTS ${quoteIdent(names[1])};`,
 				});
 			}
 		}
@@ -156,8 +161,8 @@ function checkStorage(bloat: BloatEstimate[]): Recommendation[] {
 				description: `Estimated ${b.bloatRatio}% bloat (${b.estimatedBloat} wasted of ${b.currentSize}).`,
 				suggestion:
 					b.type === 'table'
-						? `VACUUM FULL ${b.schema}.${b.table}; -- Requires ACCESS EXCLUSIVE lock`
-						: `REINDEX INDEX CONCURRENTLY ${b.schema}.${b.table};`,
+						? `VACUUM FULL ${quoteIdent(b.schema)}.${quoteIdent(b.table)}; -- Requires ACCESS EXCLUSIVE lock`
+						: `REINDEX INDEX CONCURRENTLY ${quoteIdent(b.schema)}.${quoteIdent(b.table)};`,
 				reference: 'https://www.postgresql.org/docs/current/routine-vacuuming.html',
 			});
 		}
