@@ -433,8 +433,10 @@ Required:
 Conditional:
 - OPENAI_API_KEY: For cloud embeddings (text-embedding-3-small, 1536 dims)
 - OLLAMA_BASE_URL + OLLAMA_MODEL: For local embeddings (nomic-embed-text, 1024 dims)
+- DATABASE_URL: Direct Postgres connection string (required when Postgres analysis tools are enabled)
 
 Optional:
+- PG_REPORT_DIR: Directory for Postgres analysis report files (default ./reports/pg-analysis)
 - API_BEARER_TOKEN: Auth token (min 32 chars, required for production)
 - PORT: Server port (default 3000)
 - LOG_LEVEL: debug/info/warn/error

@@ -3,7 +3,7 @@ import { logger } from '../../../utils/logger.js';
 import type { BloatEstimate } from '../types.js';
 
 /**
- * Estimate table and index bloat using pg_class + pg_stats heuristics.
+ * Estimate table bloat using pg_class + pg_stats heuristics.
  * This does not require pgstattuple extension.
  */
 export async function getBloatEstimates(): Promise<BloatEstimate[]> {
@@ -16,10 +16,7 @@ export async function getBloatEstimates(): Promise<BloatEstimate[]> {
 			bloat_size: string;
 			bloat_ratio: string;
 		}>(`
-			WITH constants AS (
-				SELECT current_setting('block_size')::numeric AS bs
-			),
-			table_bloat AS (
+			WITH table_bloat AS (
 				SELECT
 					schemaname,
 					tablename,
@@ -66,7 +63,7 @@ export async function getBloatEstimates(): Promise<BloatEstimate[]> {
 		return rows.map((r) => ({
 			schema: r.schemaname,
 			table: r.tablename,
-			type: r.type as 'table' | 'index',
+			type: 'table' as const,
 			currentSize: r.current_size,
 			estimatedBloat: r.bloat_size,
 			bloatRatio: Number(r.bloat_ratio),

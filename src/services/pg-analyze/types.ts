@@ -66,7 +66,7 @@ export interface QueryStat {
 export interface BloatEstimate {
 	schema: string;
 	table: string;
-	type: 'table' | 'index';
+	type: 'table';
 	currentSize: string;
 	estimatedBloat: string;
 	bloatRatio: number;
@@ -96,6 +96,7 @@ export interface AnalysisReport {
 	vacuum: VacuumStat[];
 	connections: ConnectionStat;
 	queries: QueryStat[];
+	pgStatStatementsAvailable: boolean;
 	bloat: BloatEstimate[];
 	textrawl: TextrawlCheck[];
 	recommendations: Recommendation[];

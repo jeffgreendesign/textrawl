@@ -1441,9 +1441,11 @@
 				"type": "object",
 				"properties": {
 					"count": {
-						"type": "number",
+						"type": "integer",
 						"description": "Number of past reports to load (1-50)",
-						"default": 5
+						"default": 5,
+						"minimum": 1,
+						"maximum": 50
 					},
 					"diff": {
 						"type": "boolean",

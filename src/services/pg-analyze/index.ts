@@ -28,7 +28,7 @@ export async function runAnalysis(): Promise<AnalysisReport> {
 	const databaseSize = sizeResult.rows[0]?.size ?? 'unknown';
 
 	// Run all checks in parallel
-	const [tables, indexes, vacuum, connections, queries, bloat, textrawl] = await Promise.all([
+	const [tables, indexes, vacuum, connections, queryResult, bloat, textrawl] = await Promise.all([
 		getTableStats(),
 		getIndexHealth(),
 		getVacuumStats(),
@@ -46,7 +46,8 @@ export async function runAnalysis(): Promise<AnalysisReport> {
 		indexes,
 		vacuum,
 		connections,
-		queries,
+		queries: queryResult.stats,
+		pgStatStatementsAvailable: queryResult.pgStatStatementsAvailable,
 		bloat,
 		textrawl,
 	};

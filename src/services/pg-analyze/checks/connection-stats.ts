@@ -1,9 +1,18 @@
 import { pgQuery } from '../../../db/pg-client.js';
 import type { ConnectionStat } from '../types.js';
 
-/** Redact string literals from SQL to avoid leaking sensitive values in reports. */
+/** Redact literals and sensitive tokens from SQL to avoid leaking values in reports. */
 function redactLiterals(sql: string): string {
-	return sql.replace(/'[^']*'/g, "'***'");
+	return sql
+		.replace(/\$\$[\s\S]*?\$\$/g, "'***'") // dollar-quoted strings
+		.replace(/\$[a-zA-Z_]*\$[\s\S]*?\$[a-zA-Z_]*\$/g, "'***'") // tagged dollar-quoted strings
+		.replace(/'(?:[^']|'')*'/g, "'***'") // single-quoted strings (handles escaped '')
+		.replace(/\b0x[0-9a-fA-F]+\b/g, '***') // hex literals
+		.replace(/\b\d+\.?\d*(?:[eE][+-]?\d+)?\b/g, '***') // numeric literals
+		.replace(/--[^\n]*/g, '-- ***') // inline comments
+		.replace(/\/\*[\s\S]*?\*\//g, '/* *** */') // block comments
+		.replace(/\s+/g, ' ') // collapse whitespace
+		.trim();
 }
 
 export async function getConnectionStats(): Promise<ConnectionStat> {

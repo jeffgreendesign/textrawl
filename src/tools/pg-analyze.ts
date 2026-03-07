@@ -13,6 +13,77 @@ import { configError, toolError, toolResponse } from '../utils/compact.js';
 import { config } from '../utils/config.js';
 import { logger } from '../utils/logger.js';
 
+// --- Output Schemas ---
+
+const PgAnalyzeOutputSchema = {
+	timestamp: z.string(),
+	databaseVersion: z.string(),
+	databaseSize: z.string(),
+	tableCount: z.number(),
+	indexCount: z.number(),
+	recommendationCount: z.number(),
+	tables: z.array(
+		z.object({
+			schema: z.string(),
+			table: z.string(),
+			rowEstimate: z.number(),
+			totalSize: z.string(),
+			deadTuples: z.number(),
+		}),
+	),
+	recommendations: z.array(
+		z.object({
+			severity: z.enum(['info', 'warning', 'critical']),
+			category: z.string(),
+			title: z.string(),
+			suggestion: z.string(),
+		}),
+	),
+};
+
+const PgRecommendationsOutputSchema = {
+	total: z.number(),
+	recommendations: z.array(
+		z.object({
+			severity: z.enum(['info', 'warning', 'critical']),
+			category: z.string(),
+			title: z.string(),
+			description: z.string(),
+			suggestion: z.string(),
+			reference: z.string().optional(),
+		}),
+	),
+};
+
+const PgReportHistoryOutputSchema = {
+	total: z.number(),
+	reports: z.array(
+		z.object({
+			timestamp: z.string(),
+			databaseSize: z.string(),
+			tables: z.number(),
+			critical: z.number(),
+			warnings: z.number(),
+		}),
+	),
+	diff: z
+		.object({
+			tableChanges: z.array(
+				z.object({
+					table: z.string(),
+					rowDelta: z.number(),
+					deadTupleDelta: z.number(),
+					sizeChange: z.string(),
+				}),
+			),
+			newRecommendations: z.array(z.string()),
+			resolvedRecommendations: z.array(z.string()),
+			connectionDelta: z.number(),
+		})
+		.nullable(),
+	diffFormatted: z.string().nullable(),
+};
+
 export function registerPgAnalyzeTools(server: McpServer): void {
 	// pg_analyze — full analysis
 	server.registerTool(
@@ -24,6 +95,7 @@ export function registerPgAnalyzeTools(server: McpServer): void {
 			inputSchema: {
 				save: z.boolean().default(false).describe('Save report to history for future comparison'),
 			},
+			outputSchema: PgAnalyzeOutputSchema,
 			annotations: {
 				readOnlyHint: true,
 				destructiveHint: false,
@@ -73,6 +145,7 @@ export function registerPgAnalyzeTools(server: McpServer): void {
 					.default('all')
 					.describe('Filter recommendations by minimum severity'),
 			},
+			outputSchema: PgRecommendationsOutputSchema,
 			annotations: {
 				readOnlyHint: true,
 				destructiveHint: false,
@@ -139,6 +212,7 @@ export function registerPgAnalyzeTools(server: McpServer): void {
 					.describe('Number of past reports to load'),
 				diff: z.boolean().default(true).describe('Compare latest two reports and show changes'),
 			},
+			outputSchema: PgReportHistoryOutputSchema,
 			annotations: {
 				readOnlyHint: true,
 				destructiveHint: false,
@@ -148,44 +222,57 @@ export function registerPgAnalyzeTools(server: McpServer): void {
 		async ({ count, diff }) => {
 			logger.info('pg_report_history called', { count, diff });
 
-			const history = getHistory(config.PG_REPORT_DIR, count);
+			try {
+				const history = getHistory(config.PG_REPORT_DIR, count);
 
-			if (history.length === 0) {
+				if (history.length === 0) {
+					return toolResponse({
+						compact: { n: 0, msg: 'No saved reports. Run pg_analyze with save=true first.' },
+						verbose: {
+							total: 0,
+							message: 'No saved reports. Run pg_analyze with save=true first.',
+						},
+					});
+				}
+
+				const summaries = history.map((r) => ({
+					timestamp: r.timestamp,
+					databaseSize: r.databaseSize,
+					tables: r.tables.length,
+					critical: r.recommendations.filter((rec) => rec.severity === 'critical').length,
+					warnings: r.recommendations.filter((rec) => rec.severity === 'warning').length,
+				}));
+
+				let diffText = '';
+				let diffData: ReturnType<typeof compareReports> | null = null;
+
+				if (diff && history.length >= 2) {
+					diffData = compareReports(history[0], history[1]);
+					diffText = formatDiff(diffData);
+				}
+
 				return toolResponse({
-					compact: { n: 0, msg: 'No saved reports. Run pg_analyze with save=true first.' },
-					verbose: { total: 0, message: 'No saved reports. Run pg_analyze with save=true first.' },
+					compact: {
+						n: history.length,
+						reports: summaries,
+						diff: diffData,
+					},
+					verbose: {
+						total: history.length,
+						reports: summaries,
+						diff: diffData,
+						diffFormatted: diffText || null,
+					},
 				});
+			} catch (error) {
+				logger.error('pg_report_history failed', {
+					error: error instanceof Error ? error.message : String(error),
+					stack: error instanceof Error ? error.stack : undefined,
+				});
+				return toolError(
+					`Report history failed: ${error instanceof Error ? error.message : 'Unknown error'}`,
+				);
 			}
-
-			const summaries = history.map((r) => ({
-				timestamp: r.timestamp,
-				databaseSize: r.databaseSize,
-				tables: r.tables.length,
-				critical: r.recommendations.filter((rec) => rec.severity === 'critical').length,
-				warnings: r.recommendations.filter((rec) => rec.severity === 'warning').length,
-			}));
-
-			let diffText = '';
-			let diffData: ReturnType<typeof compareReports> | null = null;
-
-			if (diff && history.length >= 2) {
-				diffData = compareReports(history[0], history[1]);
-				diffText = formatDiff(diffData);
-			}
-
-			return toolResponse({
-				compact: {
-					n: history.length,
-					reports: summaries,
-					diff: diffData,
-				},
-				verbose: {
-					total: history.length,
-					reports: summaries,
-					diff: diffData,
-					diffFormatted: diffText || null,
-				},
-			});
 		},
 	);
 

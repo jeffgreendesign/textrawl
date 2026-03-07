@@ -230,7 +230,7 @@ View past Postgres analysis reports and compare trends.
 
 ## Quick Facts
 
-- 18 MCP tools available (5 document/search + 5 memory + 3 conversation + 1 stats + 4 insight)
+- 21 MCP tools available (5 document/search + 5 memory + 3 conversation + 1 stats + 4 insight + 3 Postgres analysis)
 - Embedding: OpenAI (1536 dim) or Ollama (1024 dim)
 - Database: Supabase PostgreSQL with pgvector
 - Chunking: 512 tokens, 50 token overlap, paragraph-aware

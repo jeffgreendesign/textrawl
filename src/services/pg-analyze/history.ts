@@ -1,20 +1,129 @@
 import { existsSync, mkdirSync, readFileSync, readdirSync, statSync, writeFileSync } from 'node:fs';
-import { join, resolve } from 'node:path';
+import { isAbsolute, join, relative, resolve } from 'node:path';
+import { z } from 'zod';
 import { logger } from '../../utils/logger.js';
 import type { AnalysisReport } from './types.js';
 
 /** Max report file size: 10 MB */
 const MAX_REPORT_SIZE = 10 * 1024 * 1024;
 
+/** Zod schema for validating persisted AnalysisReport objects. */
+export const AnalysisReportSchema = z.object({
+	timestamp: z.string(),
+	databaseVersion: z.string(),
+	databaseSize: z.string(),
+	tables: z.array(
+		z.object({
+			schema: z.string(),
+			table: z.string(),
+			rowEstimate: z.number(),
+			totalSize: z.string(),
+			tableSize: z.string(),
+			indexSize: z.string(),
+			toastSize: z.string(),
+			deadTuples: z.number(),
+			liveTuples: z.number(),
+			deadTupleRatio: z.number(),
+		}),
+	),
+	indexes: z.array(
+		z.object({
+			schema: z.string(),
+			table: z.string(),
+			index: z.string(),
+			size: z.string(),
+			scans: z.number(),
+			tuplesRead: z.number(),
+			tuplesFetched: z.number(),
+			indexDef: z.string(),
+		}),
+	),
+	vacuum: z.array(
+		z.object({
+			schema: z.string(),
+			table: z.string(),
+			lastVacuum: z.string().nullable(),
+			lastAutovacuum: z.string().nullable(),
+			lastAnalyze: z.string().nullable(),
+			lastAutoanalyze: z.string().nullable(),
+			deadTuples: z.number(),
+			liveTuples: z.number(),
+			vacuumCount: z.number(),
+			autovacuumCount: z.number(),
+		}),
+	),
+	connections: z.object({
+		totalConnections: z.number(),
+		activeConnections: z.number(),
+		idleConnections: z.number(),
+		idleInTransaction: z.number(),
+		maxConnections: z.number(),
+		connectionUsagePercent: z.number(),
+		longRunningQueries: z.array(
+			z.object({
+				pid: z.number(),
+				duration: z.string(),
+				state: z.string(),
+				query: z.string(),
+			}),
+		),
+	}),
+	queries: z.array(
+		z.object({
+			queryId: z.string(),
+			query: z.string(),
+			calls: z.number(),
+			totalTime: z.number(),
+			meanTime: z.number(),
+			minTime: z.number(),
+			maxTime: z.number(),
+			rows: z.number(),
+		}),
+	),
+	pgStatStatementsAvailable: z.boolean().default(false),
+	bloat: z.array(
+		z.object({
+			schema: z.string(),
+			table: z.string(),
+			type: z.enum(['table']),
+			currentSize: z.string(),
+			estimatedBloat: z.string(),
+			bloatRatio: z.number(),
+		}),
+	),
+	textrawl: z.array(
+		z.object({
+			name: z.string(),
+			status: z.enum(['ok', 'warning', 'missing', 'error']),
+			detail: z.string(),
+		}),
+	),
+	recommendations: z.array(
+		z.object({
+			severity: z.enum(['info', 'warning', 'critical']),
+			category: z.enum(['maintenance', 'performance', 'storage', 'security', 'textrawl']),
+			title: z.string(),
+			description: z.string(),
+			suggestion: z.string(),
+			reference: z.string().optional(),
+		}),
+	),
+});
+
 /** Expected timestamp-based filename pattern */
 const REPORT_FILENAME_RE = /^\d{4}-\d{2}-\d{2}T[\d-]+Z\.json$/;
 
 /**
  * Validate that the report directory path is safe.
- * Rejects absolute paths outside the process cwd tree unless explicitly set.
+ * Rejects absolute paths outside the process cwd tree.
  */
 function validateReportDir(dir: string): string {
-	return resolve(dir);
+	const full = resolve(dir);
+	const rel = relative(process.cwd(), full);
+	if (rel.startsWith('..') || isAbsolute(rel)) {
+		throw new Error(`Report directory "${dir}" is outside the project root`);
+	}
+	return full;
 }
 
 /**
@@ -66,19 +175,15 @@ export function getHistory(dir: string, count = 10): AnalysisReport[] {
 
 		try {
 			const content = readFileSync(filepath, 'utf-8');
-			const parsed = JSON.parse(content) as AnalysisReport;
+			const raw = JSON.parse(content);
+			const result = AnalysisReportSchema.safeParse(raw);
 
-			// Basic structural validation
-			if (
-				!parsed.timestamp ||
-				!Array.isArray(parsed.tables) ||
-				!Array.isArray(parsed.recommendations)
-			) {
-				logger.warn('Skipping malformed report file', { file: f });
+			if (!result.success) {
+				logger.warn('Skipping malformed report file', { file: f, error: result.error.message });
 				continue;
 			}
 
-			reports.push(parsed);
+			reports.push(result.data as AnalysisReport);
 		} catch (err) {
 			logger.warn('Failed to parse report file', {
 				file: f,
@@ -109,10 +214,10 @@ export function compareReports(current: AnalysisReport, previous: AnalysisReport
 	const tableChanges: ReportDiff['tableChanges'] = [];
 
 	for (const ct of current.tables) {
-		const pt = previous.tables.find((t) => t.table === ct.table);
+		const pt = previous.tables.find((t) => t.schema === ct.schema && t.table === ct.table);
 		if (pt) {
 			tableChanges.push({
-				table: ct.table,
+				table: `${ct.schema}.${ct.table}`,
 				rowDelta: ct.rowEstimate - pt.rowEstimate,
 				deadTupleDelta: ct.deadTuples - pt.deadTuples,
 				sizeChange: `${pt.totalSize} -> ${ct.totalSize}`,

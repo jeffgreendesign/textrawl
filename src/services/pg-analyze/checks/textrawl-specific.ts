@@ -141,7 +141,7 @@ export async function getTextrawlChecks(): Promise<TextrawlCheck[]> {
 						: 'No orphaned chunks',
 			});
 		} catch (err) {
-			logger.warn('Orphaned chunk check failed', {
+			logger.error('Orphaned chunk check failed', {
 				error: err instanceof Error ? err.message : String(err),
 			});
 		}
@@ -170,7 +170,7 @@ export async function getTextrawlChecks(): Promise<TextrawlCheck[]> {
 				});
 			}
 		} catch (err) {
-			logger.warn('Insight queue check failed', {
+			logger.error('Insight queue check failed', {
 				error: err instanceof Error ? err.message : String(err),
 			});
 		}
@@ -200,7 +200,7 @@ export async function getTextrawlChecks(): Promise<TextrawlCheck[]> {
 				});
 			}
 		} catch (err) {
-			logger.warn(`RLS check failed for ${table}`, {
+			logger.error(`RLS check failed for ${table}`, {
 				error: err instanceof Error ? err.message : String(err),
 			});
 		}

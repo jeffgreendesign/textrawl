@@ -20,7 +20,9 @@ export function generateRecommendations(
 	const recs: Recommendation[] = [];
 
 	recs.push(...checkMaintenance(report.vacuum, report.tables));
-	recs.push(...checkPerformance(report.indexes, report.queries.length));
+	recs.push(
+		...checkPerformance(report.indexes, report.queries.length, report.pgStatStatementsAvailable),
+	);
 	recs.push(...checkStorage(report.bloat));
 	recs.push(...checkConnections(report.connections));
 	recs.push(...checkTextrawl(report.textrawl));
@@ -79,7 +81,11 @@ function checkMaintenance(vacuum: VacuumStat[], tables: TableStat[]): Recommenda
 	return recs;
 }
 
-function checkPerformance(indexes: IndexStat[], queryCount: number): Recommendation[] {
+function checkPerformance(
+	indexes: IndexStat[],
+	queryCount: number,
+	pgStatStatementsAvailable: boolean,
+): Recommendation[] {
 	const recs: Recommendation[] = [];
 
 	// Unused indexes (>0 size, 0 scans, not unique/primary)
@@ -114,27 +120,28 @@ function checkPerformance(indexes: IndexStat[], queryCount: number): Recommendat
 		byTable.get(key)?.push(idx);
 	}
 	for (const [table, tableIndexes] of byTable) {
-		const defs = new Map<string, string[]>();
+		const defs = new Map<string, { name: string; schema: string }[]>();
 		for (const idx of tableIndexes) {
 			// Normalize: strip index name to compare definitions
 			const normalized = idx.indexDef.replace(/INDEX\s+\S+\s+ON/, 'INDEX _ ON');
 			if (!defs.has(normalized)) defs.set(normalized, []);
-			defs.get(normalized)?.push(idx.index);
+			defs.get(normalized)?.push({ name: idx.index, schema: idx.schema });
 		}
-		for (const [, names] of defs) {
-			if (names.length > 1) {
+		for (const [, entries] of defs) {
+			if (entries.length > 1) {
+				const dup = entries[1];
 				recs.push({
 					severity: 'warning',
 					category: 'performance',
 					title: `Duplicate indexes on "${table}"`,
-					description: `Indexes appear equivalent: ${names.join(', ')}. Remove duplicates to save storage and write overhead.`,
-					suggestion: `-- Review and drop duplicate:\nDROP INDEX IF EXISTS ${quoteIdent(names[1])};`,
+					description: `Indexes appear equivalent: ${entries.map((e) => e.name).join(', ')}. Remove duplicates to save storage and write overhead.`,
+					suggestion: `-- Review and drop duplicate:\nDROP INDEX IF EXISTS ${quoteIdent(dup.schema)}.${quoteIdent(dup.name)};`,
 				});
 			}
 		}
 	}
 
-	if (queryCount === 0) {
+	if (!pgStatStatementsAvailable) {
 		recs.push({
 			severity: 'info',
 			category: 'performance',

@@ -45,16 +45,18 @@ async function main(): Promise<void> {
 	try {
 		const report = await runAnalysis();
 
+		// Grab previous report before saving so diff compares against the prior run
+		const previousHistory = showDiff ? getHistory(reportDir, 1) : [];
+
 		if (shouldSave) {
 			const path = saveReport(report, reportDir);
 			console.error(`Report saved: ${path}`);
 		}
 
 		if (showDiff) {
-			const history = getHistory(reportDir, 2);
-			if (history.length >= 1) {
+			if (previousHistory.length >= 1) {
 				// Compare current run with most recent saved
-				const diff = compareReports(report, history[0]);
+				const diff = compareReports(report, previousHistory[0]);
 				const diffText = formatDiff(diff);
 				if (jsonMode) {
 					console.log(JSON.stringify({ report: formatCompact(report), diff }, null, 2));

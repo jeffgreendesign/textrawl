@@ -116,7 +116,8 @@ export function formatMarkdown(report: AnalysisReport): string {
 		lines.push('## Textrawl Checks');
 		lines.push('');
 		for (const tc of report.textrawl) {
-			const icon = tc.status === 'ok' ? '[OK]' : tc.status === 'warning' ? '[WARN]' : '[MISS]';
+			const icon =
+				{ ok: '[OK]', warning: '[WARN]', missing: '[MISS]', error: '[ERR]' }[tc.status] ?? '[??]';
 			lines.push(`- ${icon} **${tc.name}**: ${tc.detail}`);
 		}
 		lines.push('');
