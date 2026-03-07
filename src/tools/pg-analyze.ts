@@ -117,10 +117,32 @@ export function registerPgAnalyzeTools(server: McpServer): void {
 					logger.info('Report saved', { path });
 				}
 
+				const structuredContent = {
+					timestamp: report.timestamp,
+					databaseVersion: report.databaseVersion,
+					databaseSize: report.databaseSize,
+					tableCount: report.tables.length,
+					indexCount: report.indexes.length,
+					recommendationCount: report.recommendations.length,
+					tables: report.tables.map((t) => ({
+						schema: t.schema,
+						table: t.table,
+						rowEstimate: t.rowEstimate,
+						totalSize: t.totalSize,
+						deadTuples: t.deadTuples,
+					})),
+					recommendations: report.recommendations.map((r) => ({
+						severity: r.severity,
+						category: r.category,
+						title: r.title,
+						suggestion: r.suggestion,
+					})),
+				};
+
 				return toolResponse({
 					compact: formatCompact(report),
 					verbose: report,
-					structuredContent: report as unknown as Record<string, unknown>,
+					structuredContent,
 				});
 			} catch (error) {
 				logger.error('pg_analyze failed', {
@@ -235,6 +257,12 @@ export function registerPgAnalyzeTools(server: McpServer): void {
 						verbose: {
 							total: 0,
 							message: 'No saved reports. Run pg_analyze with save=true first.',
+						},
+						structuredContent: {
+							total: 0,
+							reports: [],
+							diff: null,
+							diffFormatted: null,
 						},
 					});
 				}

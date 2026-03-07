@@ -5,7 +5,7 @@ import type { ConnectionStat } from '../types.js';
 function redactLiterals(sql: string): string {
 	return sql
 		.replace(/\$\$[\s\S]*?\$\$/g, "'***'") // dollar-quoted strings
-		.replace(/\$[a-zA-Z_]*\$[\s\S]*?\$[a-zA-Z_]*\$/g, "'***'") // tagged dollar-quoted strings
+		.replace(/\$([A-Za-z_][A-Za-z0-9_]*)\$[\s\S]*?\$\1\$/g, "'***'") // tagged dollar-quoted strings (backreference ensures matching tags)
 		.replace(/'(?:[^']|'')*'/g, "'***'") // single-quoted strings (handles escaped '')
 		.replace(/\b0x[0-9a-fA-F]+\b/g, '***') // hex literals
 		.replace(/(?<![a-zA-Z_])\d+\.?\d*(?:[eE][+-]?\d+)?(?![a-zA-Z_])/g, '***') // numeric literals (preserve identifiers like users_v2)
@@ -56,7 +56,7 @@ export async function getConnectionStats(): Promise<ConnectionStat> {
 			pid,
 			now() - pg_stat_activity.query_start AS duration,
 			state,
-			LEFT(query, 200) AS query
+			query
 		FROM pg_stat_activity
 		WHERE state != 'idle'
 			AND query NOT ILIKE '%pg_stat_activity%'
@@ -76,7 +76,7 @@ export async function getConnectionStats(): Promise<ConnectionStat> {
 			pid: r.pid,
 			duration: String(r.duration),
 			state: r.state,
-			query: redactLiterals(r.query),
+			query: redactLiterals(r.query).slice(0, 200),
 		})),
 	};
 }

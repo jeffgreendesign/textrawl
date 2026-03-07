@@ -29,9 +29,9 @@ const reportDir = process.env.PG_REPORT_DIR ?? './reports/pg-analysis';
 
 async function main(): Promise<void> {
 	if (!process.env.DATABASE_URL) {
-		console.error('Error: DATABASE_URL environment variable is required.');
-		console.error('Set it in your .env file or pass it inline:');
-		console.error('  DATABASE_URL=postgres://... pnpm pg:analyze');
+		logger.error('DATABASE_URL environment variable is required', {
+			hint: 'Set it in your .env file or pass it inline: DATABASE_URL=postgres://... pnpm pg:analyze',
+		});
 		process.exit(1);
 	}
 
@@ -55,7 +55,7 @@ async function main(): Promise<void> {
 
 		if (shouldSave) {
 			const path = saveReport(report, reportDir);
-			console.error(`Report saved: ${path}`);
+			logger.info('Report saved', { path });
 		}
 
 		if (showDiff) {
@@ -71,7 +71,7 @@ async function main(): Promise<void> {
 					console.log(diffText);
 				}
 			} else {
-				console.error('No previous reports to diff against. Run with --save first.');
+				logger.warn('No previous reports to diff against. Run with --save first.');
 				if (jsonMode) {
 					console.log(JSON.stringify(formatCompact(report), null, 2));
 				} else {
@@ -93,6 +93,6 @@ async function main(): Promise<void> {
 }
 
 main().catch((err) => {
-	console.error(`Fatal: ${err instanceof Error ? err.message : String(err)}`);
+	logger.error('Fatal', { error: err instanceof Error ? err.message : String(err) });
 	process.exit(2);
 });
