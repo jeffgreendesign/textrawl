@@ -18,6 +18,7 @@ import {
 	saveReport,
 } from '../../src/services/pg-analyze/history.js';
 import { runAnalysis } from '../../src/services/pg-analyze/index.js';
+import { logger } from '../../src/utils/logger.js';
 
 const args = process.argv.slice(2);
 const jsonMode = args.includes('--json');
@@ -34,11 +35,15 @@ async function main(): Promise<void> {
 		process.exit(1);
 	}
 
-	// Validate connection
+	// Validate connection with a real network round-trip
 	try {
-		getPgPool(process.env.DATABASE_URL);
+		const pool = getPgPool(process.env.DATABASE_URL);
+		const client = await pool.connect();
+		client.release();
 	} catch (err) {
-		console.error(`Connection failed: ${err instanceof Error ? err.message : String(err)}`);
+		logger.error('Connection failed', {
+			error: err instanceof Error ? err.message : String(err),
+		});
 		process.exit(1);
 	}
 

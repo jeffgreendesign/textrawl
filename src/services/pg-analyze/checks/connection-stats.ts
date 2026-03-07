@@ -8,7 +8,7 @@ function redactLiterals(sql: string): string {
 		.replace(/\$[a-zA-Z_]*\$[\s\S]*?\$[a-zA-Z_]*\$/g, "'***'") // tagged dollar-quoted strings
 		.replace(/'(?:[^']|'')*'/g, "'***'") // single-quoted strings (handles escaped '')
 		.replace(/\b0x[0-9a-fA-F]+\b/g, '***') // hex literals
-		.replace(/\b\d+\.?\d*(?:[eE][+-]?\d+)?\b/g, '***') // numeric literals
+		.replace(/(?<![a-zA-Z_])\d+\.?\d*(?:[eE][+-]?\d+)?(?![a-zA-Z_])/g, '***') // numeric literals (preserve identifiers like users_v2)
 		.replace(/--[^\n]*/g, '-- ***') // inline comments
 		.replace(/\/\*[\s\S]*?\*\//g, '/* *** */') // block comments
 		.replace(/\s+/g, ' ') // collapse whitespace

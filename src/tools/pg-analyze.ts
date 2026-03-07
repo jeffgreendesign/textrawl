@@ -120,6 +120,7 @@ export function registerPgAnalyzeTools(server: McpServer): void {
 				return toolResponse({
 					compact: formatCompact(report),
 					verbose: report,
+					structuredContent: report as unknown as Record<string, unknown>,
 				});
 			} catch (error) {
 				logger.error('pg_analyze failed', {
@@ -169,6 +170,11 @@ export function registerPgAnalyzeTools(server: McpServer): void {
 					recs = recs.filter((r) => order[r.severity] <= minLevel);
 				}
 
+				const verboseRecs = {
+					total: recs.length,
+					recommendations: recs,
+				};
+
 				return toolResponse({
 					compact: {
 						n: recs.length,
@@ -179,10 +185,8 @@ export function registerPgAnalyzeTools(server: McpServer): void {
 							fix: r.suggestion,
 						})),
 					},
-					verbose: {
-						total: recs.length,
-						recommendations: recs,
-					},
+					verbose: verboseRecs,
+					structuredContent: verboseRecs,
 				});
 			} catch (error) {
 				logger.error('pg_recommendations failed', {
@@ -251,18 +255,21 @@ export function registerPgAnalyzeTools(server: McpServer): void {
 					diffText = formatDiff(diffData);
 				}
 
+				const verboseHistory = {
+					total: history.length,
+					reports: summaries,
+					diff: diffData,
+					diffFormatted: diffText || null,
+				};
+
 				return toolResponse({
 					compact: {
 						n: history.length,
 						reports: summaries,
 						diff: diffData,
 					},
-					verbose: {
-						total: history.length,
-						reports: summaries,
-						diff: diffData,
-						diffFormatted: diffText || null,
-					},
+					verbose: verboseHistory,
+					structuredContent: verboseHistory,
 				});
 			} catch (error) {
 				logger.error('pg_report_history failed', {

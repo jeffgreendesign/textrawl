@@ -166,7 +166,7 @@ export function getHistory(dir: string, count = 10): AnalysisReport[] {
 		try {
 			const stat = statSync(filepath);
 			if (stat.size > MAX_REPORT_SIZE) {
-				logger.warn('Skipping oversized report file', { file: f, size: stat.size });
+				logger.debug('Skipping oversized report file', { file: f, size: stat.size });
 				continue;
 			}
 		} catch {
@@ -179,13 +179,13 @@ export function getHistory(dir: string, count = 10): AnalysisReport[] {
 			const result = AnalysisReportSchema.safeParse(raw);
 
 			if (!result.success) {
-				logger.warn('Skipping malformed report file', { file: f, error: result.error.message });
+				logger.debug('Skipping malformed report file', { file: f, error: result.error.message });
 				continue;
 			}
 
 			reports.push(result.data as AnalysisReport);
 		} catch (err) {
-			logger.warn('Failed to parse report file', {
+			logger.error('Failed to parse report file', {
 				file: f,
 				error: err instanceof Error ? err.message : String(err),
 			});
