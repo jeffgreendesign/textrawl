@@ -28,7 +28,84 @@ const PgAnalyzeOutputSchema = {
 			table: z.string(),
 			rowEstimate: z.number(),
 			totalSize: z.string(),
+			tableSize: z.string(),
+			indexSize: z.string(),
+			toastSize: z.string(),
 			deadTuples: z.number(),
+			liveTuples: z.number(),
+			deadTupleRatio: z.number(),
+		}),
+	),
+	indexes: z.array(
+		z.object({
+			schema: z.string(),
+			table: z.string(),
+			index: z.string(),
+			size: z.string(),
+			scans: z.number(),
+			tuplesRead: z.number(),
+			tuplesFetched: z.number(),
+			indexDef: z.string(),
+		}),
+	),
+	vacuum: z.array(
+		z.object({
+			schema: z.string(),
+			table: z.string(),
+			lastVacuum: z.string().nullable(),
+			lastAutovacuum: z.string().nullable(),
+			lastAnalyze: z.string().nullable(),
+			lastAutoanalyze: z.string().nullable(),
+			deadTuples: z.number(),
+			liveTuples: z.number(),
+			vacuumCount: z.number(),
+			autovacuumCount: z.number(),
+		}),
+	),
+	connections: z.object({
+		totalConnections: z.number(),
+		activeConnections: z.number(),
+		idleConnections: z.number(),
+		idleInTransaction: z.number(),
+		maxConnections: z.number(),
+		connectionUsagePercent: z.number(),
+		longRunningQueries: z.array(
+			z.object({
+				pid: z.number(),
+				duration: z.string(),
+				state: z.string(),
+				query: z.string(),
+			}),
+		),
+	}),
+	queries: z.array(
+		z.object({
+			queryId: z.string(),
+			query: z.string(),
+			calls: z.number(),
+			totalTime: z.number(),
+			meanTime: z.number(),
+			minTime: z.number(),
+			maxTime: z.number(),
+			rows: z.number(),
+		}),
+	),
+	pgStatStatementsAvailable: z.boolean(),
+	bloat: z.array(
+		z.object({
+			schema: z.string(),
+			table: z.string(),
+			type: z.literal('table'),
+			currentSize: z.string(),
+			estimatedBloat: z.string(),
+			bloatRatio: z.number(),
+		}),
+	),
+	textrawl: z.array(
+		z.object({
+			name: z.string(),
+			status: z.enum(['ok', 'warning', 'missing', 'error']),
+			detail: z.string(),
 		}),
 	),
 	recommendations: z.array(
@@ -36,7 +113,9 @@ const PgAnalyzeOutputSchema = {
 			severity: z.enum(['info', 'warning', 'critical']),
 			category: z.string(),
 			title: z.string(),
+			description: z.string(),
 			suggestion: z.string(),
+			reference: z.string().optional(),
 		}),
 	),
 };
@@ -118,25 +197,10 @@ export function registerPgAnalyzeTools(server: McpServer): void {
 				}
 
 				const structuredContent = {
-					timestamp: report.timestamp,
-					databaseVersion: report.databaseVersion,
-					databaseSize: report.databaseSize,
+					...report,
 					tableCount: report.tables.length,
 					indexCount: report.indexes.length,
 					recommendationCount: report.recommendations.length,
-					tables: report.tables.map((t) => ({
-						schema: t.schema,
-						table: t.table,
-						rowEstimate: t.rowEstimate,
-						totalSize: t.totalSize,
-						deadTuples: t.deadTuples,
-					})),
-					recommendations: report.recommendations.map((r) => ({
-						severity: r.severity,
-						category: r.category,
-						title: r.title,
-						suggestion: r.suggestion,
-					})),
 				};
 
 				return toolResponse({
