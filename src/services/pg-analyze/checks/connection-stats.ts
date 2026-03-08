@@ -1,0 +1,82 @@
+import { pgQuery } from '../../../db/pg-client.js';
+import type { ConnectionStat } from '../types.js';
+
+/** Redact literals and sensitive tokens from SQL to avoid leaking values in reports. */
+function redactLiterals(sql: string): string {
+	return sql
+		.replace(/\$\$[\s\S]*?\$\$/g, "'***'") // dollar-quoted strings
+		.replace(/\$([A-Za-z_][A-Za-z0-9_]*)\$[\s\S]*?\$\1\$/g, "'***'") // tagged dollar-quoted strings (backreference ensures matching tags)
+		.replace(/'(?:[^']|'')*'/g, "'***'") // single-quoted strings (handles escaped '')
+		.replace(/\b0x[0-9a-fA-F]+\b/g, '***') // hex literals
+		.replace(/(?<![a-zA-Z_])\d+\.?\d*(?:[eE][+-]?\d+)?(?![a-zA-Z_])/g, '***') // numeric literals (preserve identifiers like users_v2)
+		.replace(/--[^\n]*/g, '-- ***') // inline comments
+		.replace(/\/\*[\s\S]*?\*\//g, '/* *** */') // block comments
+		.replace(/\s+/g, ' ') // collapse whitespace
+		.trim();
+}
+
+export async function getConnectionStats(): Promise<ConnectionStat> {
+	const [activityResult, maxResult] = await Promise.all([
+		pgQuery<{
+			state: string | null;
+			count: string;
+		}>(`
+			SELECT state, COUNT(*) as count
+			FROM pg_stat_activity
+			WHERE backend_type = 'client backend'
+			GROUP BY state
+		`),
+		pgQuery<{ setting: string }>(`
+			SELECT setting FROM pg_settings WHERE name = 'max_connections'
+		`),
+	]);
+
+	const maxConnections = Number(maxResult.rows[0]?.setting ?? 100);
+	let total = 0;
+	let active = 0;
+	let idle = 0;
+	let idleInTransaction = 0;
+
+	for (const row of activityResult.rows) {
+		const count = Number(row.count);
+		total += count;
+		if (row.state === 'active') active = count;
+		else if (row.state === 'idle') idle = count;
+		else if (row.state === 'idle in transaction') idleInTransaction = count;
+	}
+
+	// Long-running queries (>30 seconds)
+	const longRunning = await pgQuery<{
+		pid: number;
+		duration: string;
+		state: string;
+		query: string;
+	}>(`
+		SELECT
+			pid,
+			now() - pg_stat_activity.query_start AS duration,
+			state,
+			query
+		FROM pg_stat_activity
+		WHERE state != 'idle'
+			AND query NOT ILIKE '%pg_stat_activity%'
+			AND now() - pg_stat_activity.query_start > interval '30 seconds'
+		ORDER BY duration DESC
+		LIMIT 10
+	`);
+
+	return {
+		totalConnections: total,
+		activeConnections: active,
+		idleConnections: idle,
+		idleInTransaction,
+		maxConnections,
+		connectionUsagePercent: (total / maxConnections) * 100,
+		longRunningQueries: longRunning.rows.map((r) => ({
+			pid: r.pid,
+			duration: String(r.duration),
+			state: r.state,
+			query: redactLiterals(r.query).slice(0, 200),
+		})),
+	};
+}

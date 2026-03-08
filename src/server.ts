@@ -5,6 +5,7 @@ import { registerDocumentTools } from './tools/document.js';
 import { registerInsightTools } from './tools/insights.js';
 import { registerMemoryTools } from './tools/memory.js';
 import { registerNoteTool } from './tools/note.js';
+import { registerPgAnalyzeTools } from './tools/pg-analyze.js';
 import { registerSearchTool } from './tools/search.js';
 import { registerStatsTools } from './tools/stats.js';
 import { getKnowledgeStatsHTML, getSearchResultsHTML } from './ui/index.js';
@@ -105,12 +106,21 @@ export function createMcpServer(): McpServer {
 		logger.info('Insight tools disabled (ENABLE_INSIGHTS=false)');
 	}
 
+	// Register Postgres analysis tools (gated on DATABASE_URL)
+	if (config.DATABASE_URL) {
+		registerPgAnalyzeTools(server);
+		logger.info('Postgres analysis tools enabled');
+	} else {
+		logger.info('Postgres analysis tools disabled (DATABASE_URL not set)');
+	}
+
 	logger.info('MCP server created', {
 		name: 'textrawl',
 		version: PKG_VERSION,
 		memoryEnabled: config.ENABLE_MEMORY,
 		conversationsEnabled: config.ENABLE_CONVERSATIONS,
 		insightsEnabled: config.ENABLE_INSIGHTS,
+		pgAnalyzeEnabled: !!config.DATABASE_URL,
 	});
 
 	return server;

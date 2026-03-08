@@ -190,7 +190,6 @@ Expected:
 3. Add contract tests for read-only tool `structuredContent` schemas.
 4. Consider documenting Supabase Vercel integration only if/when Vercel deployment is officially supported in this repo.
 
-
 ## References
 
 [supabase]: https://supabase.com/docs/guides/api/api-keys
