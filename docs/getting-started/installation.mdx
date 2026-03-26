@@ -81,11 +81,15 @@ For compute tier recommendations and storage estimates, see the
 -- For Google AI embeddings (768 dimensions)
 -- Copy contents of scripts/setup-db-google.sql
 
--- For Ollama embeddings (1024 dimensions)
+-- For Ollama embeddings (1024 dimensions, nomic-embed-text)
 -- Copy contents of scripts/setup-db-ollama.sql
 
 -- For Ollama v2 embeddings (768 dimensions, nomic-embed-text-v2-moe)
 -- Copy contents of scripts/setup-db-ollama-v2.sql
+-- ⚠️ You MUST match the schema to your OLLAMA_MODEL:
+--   nomic-embed-text       → setup-db-ollama.sql    (1024d)
+--   nomic-embed-text-v2-moe → setup-db-ollama-v2.sql (768d)
+-- Using the wrong schema causes dimension mismatch errors.
 ```
 
 1. Run security hardening:

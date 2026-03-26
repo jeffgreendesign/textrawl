@@ -9,8 +9,8 @@ View past Postgres analysis reports and compare trends. Shows changes in table s
 
 | Parameter | Type | Required | Default | Description |
 |-----------|------|----------|---------|-------------|
-| `count` | number | No | `5` | Number of past reports to load (1-50) |
-| `diff` | boolean | No | `true` | Compare latest two reports and show changes |
+| `count` | number | OPTIONAL | `5` | Number of past reports to load (1-50) |
+| `diff` | boolean | OPTIONAL | `true` | Compare latest two reports and show changes |
 
 ## Example Request
 
@@ -38,12 +38,56 @@ View past Postgres analysis reports and compare trends. Shows changes in table s
 }
 ```
 
+## Response
+
+```json
+{
+  "total": 5,
+  "reports": [
+    {
+      "timestamp": "2026-03-26T09:00:00.000Z",
+      "databaseSize": "256 MB",
+      "tables": 12,
+      "critical": 0,
+      "warnings": 2
+    },
+    {
+      "timestamp": "2026-03-19T09:00:00.000Z",
+      "databaseSize": "248 MB",
+      "tables": 12,
+      "critical": 1,
+      "warnings": 3
+    }
+  ],
+  "diff": {
+    "tableChanges": [
+      {
+        "table": "document_chunks",
+        "rowDelta": 500,
+        "deadTupleDelta": -200,
+        "sizeChange": "+8 MB"
+      }
+    ],
+    "newRecommendations": [],
+    "resolvedRecommendations": ["Table needs immediate vacuum"],
+    "connectionDelta": -2
+  }
+}
+```
+
+When `diff` is `false` or only one report exists, the `diff` field is `null`.
+
+## Error Responses
+
+| Error | Cause | Fix |
+|-------|-------|-----|
+| `No saved reports` | No reports in `PG_REPORT_DIR` | Run `pg_analyze` with `save: true` first |
+| `Report history failed` | File read error | Check `PG_REPORT_DIR` permissions and path |
+
 ## Notes
 
 - This tool is **read-only** and **not destructive** — it only reads saved report files.
-- Requires the `DATABASE_URL` environment variable to be set (direct `pg` connection, independent of Supabase).
-- Reports must have been previously saved using [`pg_analyze`](/docs/mcp-tools/pg-analyze) with `save: true`.
-- Reports are loaded from the report directory (`PG_REPORT_DIR`, default `./reports/pg-analysis`).
+- This tool does **not** require `DATABASE_URL`. It reads previously saved report files from `PG_REPORT_DIR` (default `./reports/pg-analysis`). Reports are created by running [`pg_analyze`](/docs/mcp-tools/pg-analyze) with `save: true` (which does require `DATABASE_URL`).
 - When `diff` is `true`, the comparison highlights:
   - **Table size changes**: growth or shrinkage since the previous report
   - **Dead tuple changes**: increases or decreases in dead tuples

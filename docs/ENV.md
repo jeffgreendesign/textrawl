@@ -54,7 +54,8 @@ This file centralizes runtime configuration for Textrawl server, MCP tools, CLI,
 | `CHUNKING_MODE`, `SEMANTIC_SIMILARITY_THRESHOLD` | Chunking strategy tuning |
 | `DATABASE_URL` | Direct Postgres connection for pg_analyze tools |
 | `PG_REPORT_DIR` | Directory for analysis reports (default: `./reports/pg-analysis`) |
-| `INSIGHT_BATCH_THRESHOLD`, `INSIGHT_DEBOUNCE_SECONDS` | Insight scan tuning |
+| `INSIGHT_BATCH_THRESHOLD` | Insight scan tuning (default: `50`) |
+| `INSIGHT_DEBOUNCE_SECONDS` | Insight scan debounce (default: `300`) |
 | `MAX_SINGLE_FILE_SIZE`, `WARN_FILE_SIZE_MB`, `MAX_CHUNKS_PER_FILE` | Upload/chunking guardrails |
 
 ## Security notes

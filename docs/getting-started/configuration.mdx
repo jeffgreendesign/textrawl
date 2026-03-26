@@ -138,12 +138,27 @@ Required only when `ENABLE_MEMORY_EXTRACTION=true`:
 |----------|----------|---------|-------------|
 | `ANTHROPIC_API_KEY` | If extraction | - | Anthropic API key for Claude |
 | `EXTRACTION_MODEL` | No | `claude-haiku-4-5-20250501` | Model for entity extraction |
-| `INSIGHT_MODEL` | No | `claude-sonnet-4-6-20250514` | Model for insight synthesis |
 
 ```bash
 ENABLE_MEMORY_EXTRACTION=true
 ANTHROPIC_API_KEY=sk-ant-...
 EXTRACTION_MODEL=claude-haiku-4-5-20250501
+```
+
+### Insight Configuration
+
+Controls the LLM model used for proactive insight synthesis (`discover_connections` and the background insight scheduler). Independent of `EXTRACTION_MODEL`.
+
+| Variable | Required | Default | Description |
+|----------|----------|---------|-------------|
+| `INSIGHT_MODEL` | No | `claude-sonnet-4-6-20250514` | Model for insight synthesis |
+| `INSIGHT_BATCH_THRESHOLD` | No | `50` | Minimum new chunks before triggering an insight scan |
+| `INSIGHT_DEBOUNCE_SECONDS` | No | `300` | Cooldown between automatic insight scans (seconds) |
+
+```bash
+INSIGHT_MODEL=claude-sonnet-4-6-20250514
+INSIGHT_BATCH_THRESHOLD=50
+INSIGHT_DEBOUNCE_SECONDS=300
 ```
 
 ### Chunking

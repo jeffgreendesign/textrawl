@@ -9,8 +9,8 @@ Get a personalized briefing of your knowledge base: recent additions, new insigh
 
 | Parameter | Type | Required | Default | Description |
 |-----------|------|----------|---------|-------------|
-| `includeOnThisDay` | boolean | No | `true` | Include documents from this date in previous years |
-| `recentDays` | number | No | `7` | Number of days to look back for recent additions (1-30) |
+| `includeOnThisDay` | boolean | OPTIONAL | `true` | Include documents from this date in previous years |
+| `recentDays` | number | OPTIONAL | `7` | Number of days to look back for recent additions (1-30) |
 
 ## Example Request
 
@@ -36,6 +36,57 @@ Get a personalized briefing of your knowledge base: recent additions, new insigh
   "recentDays": 30
 }
 ```
+
+## Response
+
+```json
+{
+  "recentAdditions": {
+    "count": 5,
+    "documents": [
+      {
+        "id": "abc-123",
+        "title": "API Design Notes",
+        "sourceType": "note",
+        "createdAt": "2026-03-25T14:30:00.000Z"
+      }
+    ]
+  },
+  "newInsights": {
+    "count": 2,
+    "insights": [
+      {
+        "id": "ins-456",
+        "type": "connection",
+        "title": "Shared pattern between Auth and Payments",
+        "summary": "Both modules use the same retry logic..."
+      }
+    ]
+  },
+  "onThisDay": {
+    "count": 1,
+    "documents": [
+      {
+        "id": "doc-789",
+        "title": "Project Kickoff Notes",
+        "sourceType": "note",
+        "createdAt": "2025-03-26T10:00:00.000Z",
+        "yearsAgo": 1
+      }
+    ]
+  },
+  "generatedAt": "2026-03-26T09:00:00.000Z"
+}
+```
+
+Insight summaries are truncated to 200 characters.
+
+## Error Responses
+
+| Error | Cause | Fix |
+|-------|-------|-----|
+| `Database not configured` | Missing Supabase credentials | Set `SUPABASE_URL` and `SUPABASE_SERVICE_KEY` |
+| `Failed to generate briefing` | Database or query error | Check connectivity and logs |
 
 ## Notes
 

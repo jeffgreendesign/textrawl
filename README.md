@@ -76,7 +76,7 @@ pnpm dev      # Start the server
 ### 2. Set Up Supabase
 
 1. Create a free project at [supabase.com](https://supabase.com)
-2. Run `scripts/setup-db.sql` in the SQL Editor (or `setup-db-ollama.sql` for Ollama)
+2. Run `scripts/setup-db.sql` in the SQL Editor (or `setup-db-ollama.sql` for Ollama with `nomic-embed-text`, or `setup-db-ollama-v2.sql` for `nomic-embed-text-v2-moe`)
 3. (Optional) For memory tools, also run `scripts/setup-db-memory.sql` (or `setup-db-memory-ollama.sql`)
 4. (Optional) For conversation tools, also run `scripts/setup-db-conversation.sql` (or `setup-db-conversation-ollama.sql` / `setup-db-conversation-ollama-v2.sql`)
 5. Run `scripts/security-rls.sql` for security hardening

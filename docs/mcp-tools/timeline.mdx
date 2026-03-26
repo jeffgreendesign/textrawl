@@ -3,16 +3,16 @@ title: timeline
 description: View your knowledge chronologically with optional topic filtering
 ---
 
-View your knowledge chronologically. Filter by date range and optionally by topic. Returns documents in chronological order, making it easy to review what was added over a period of time.
+View your knowledge chronologically. Filter by date range and optionally by topic. Returns documents ordered by date, making it easy to review what was added over a period of time.
 
 ## Parameters
 
 | Parameter | Type | Required | Default | Description |
 |-----------|------|----------|---------|-------------|
-| `startDate` | string | Yes | - | Start date in ISO 8601 format (e.g. `"2025-01-01"`) |
-| `endDate` | string | Yes | - | End date in ISO 8601 format (e.g. `"2025-12-31"`) |
-| `topic` | string | No | - | Optional topic to filter by (uses semantic search within date range) |
-| `limit` | number | No | `20` | Maximum results (1-100) |
+| `startDate` | string | REQUIRED | - | Start date in ISO 8601 format (e.g. `"2025-01-01"`) |
+| `endDate` | string | REQUIRED | - | End date in ISO 8601 format (e.g. `"2025-12-31"`) |
+| `topic` | string | OPTIONAL | - | Optional topic to filter by (uses semantic search within date range) |
+| `limit` | number | OPTIONAL | `20` | Maximum results (1-100) |
 
 ## Example Request
 
@@ -40,18 +40,83 @@ View your knowledge chronologically. Filter by date range and optionally by topi
 
 ```json
 {
-  "startDate": "2025-03-19",
-  "endDate": "2025-03-26",
+  "startDate": "2026-03-19",
+  "endDate": "2026-03-26",
   "limit": 100
 }
 ```
+
+## Response
+
+### Without Topic (Chronological)
+
+```json
+{
+  "startDate": "2025-01-01",
+  "endDate": "2025-03-31",
+  "topic": null,
+  "totalResults": 15,
+  "results": [
+    {
+      "documentId": "abc-123",
+      "title": "January Planning Notes",
+      "sourceType": "note",
+      "createdAt": "2025-01-05T10:00:00.000Z"
+    },
+    {
+      "documentId": "def-456",
+      "title": "API Design Doc",
+      "sourceType": "url",
+      "createdAt": "2025-02-12T14:30:00.000Z"
+    }
+  ]
+}
+```
+
+### With Topic (Relevance-Ranked)
+
+```json
+{
+  "startDate": "2025-01-01",
+  "endDate": "2025-12-31",
+  "topic": "database migrations",
+  "totalResults": 5,
+  "results": [
+    {
+      "documentId": "ghi-789",
+      "documentTitle": "Migration Playbook",
+      "sourceType": "note",
+      "content": "Step-by-step guide for the database migration...",
+      "score": 0.91
+    },
+    {
+      "documentId": "jkl-012",
+      "documentTitle": "Post-Migration Review",
+      "sourceType": "note",
+      "content": "After completing the migration we observed...",
+      "score": 0.84
+    }
+  ]
+}
+```
+
+Document content in topic-filtered results is truncated to 300 characters.
+
+## Error Responses
+
+| Error | Cause | Fix |
+|-------|-------|-----|
+| `Database not configured` | Missing Supabase credentials | Set `SUPABASE_URL` and `SUPABASE_SERVICE_KEY` |
+| `Invalid date format` | Date not in ISO 8601 | Use `YYYY-MM-DD` format (e.g. `"2025-01-01"`) |
+| `Failed to build timeline` | Database or embedding error | Check connectivity and logs |
 
 ## Notes
 
 - This tool is **read-only** and **idempotent** — it does not modify any data.
 - Dates must be in ISO 8601 format (`YYYY-MM-DD`).
-- When a `topic` is provided, results are filtered using semantic search within the specified date range, so only documents relevant to that topic are returned.
-- Results are ordered chronologically, making this tool ideal for reviewing activity over a time period.
+- **Without a topic**: Results are sorted chronologically by `created_at` date.
+- **With a topic**: Results are ranked by semantic relevance to the topic within the date range. This uses semantic search, not strict chronological ordering. Documents without a `content_date` field may still appear in topic-filtered results.
+- For non-topic queries, only the date range and `created_at` timestamp are used for filtering.
 
 ## Related Tools
 

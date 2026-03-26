@@ -3,13 +3,13 @@ title: pg_recommendations
 description: Get actionable optimization recommendations for Postgres
 ---
 
-Get actionable optimization recommendations for Postgres. Runs analysis and returns only the categorized recommendations with severity, descriptions, and suggested SQL fixes.
+Get actionable optimization recommendations for Postgres. Runs analysis and returns only the categorized recommendations with severity, descriptions, and suggested fixes.
 
 ## Parameters
 
 | Parameter | Type | Required | Default | Description |
 |-----------|------|----------|---------|-------------|
-| `severity` | enum | No | `all` | Filter recommendations by minimum severity: `all`, `critical`, `warning`, `info` |
+| `severity` | enum | OPTIONAL | `all` | Filter recommendations by minimum severity: `all`, `critical`, `warning`, `info` |
 
 ## Example Request
 
@@ -35,14 +35,63 @@ Get actionable optimization recommendations for Postgres. Runs analysis and retu
 }
 ```
 
+## Response
+
+```json
+{
+  "total": 4,
+  "recommendations": [
+    {
+      "severity": "critical",
+      "category": "vacuum",
+      "title": "Table needs immediate vacuum",
+      "description": "Table document_chunks has 50000 dead tuples (25% dead tuple ratio), significantly impacting query performance.",
+      "suggestion": "VACUUM ANALYZE public.document_chunks;",
+      "reference": "https://www.postgresql.org/docs/current/routine-vacuuming.html"
+    },
+    {
+      "severity": "warning",
+      "category": "index",
+      "title": "Unused index detected",
+      "description": "Index idx_old_search on document_chunks has 0 scans since last stats reset.",
+      "suggestion": "DROP INDEX idx_old_search;"
+    },
+    {
+      "severity": "info",
+      "category": "configuration",
+      "title": "Consider enabling pg_stat_statements",
+      "description": "pg_stat_statements extension is not enabled. Query performance tracking is unavailable.",
+      "suggestion": "CREATE EXTENSION IF NOT EXISTS pg_stat_statements;",
+      "reference": "https://www.postgresql.org/docs/current/pgstatstatements.html"
+    }
+  ]
+}
+```
+
+## Recommendation Fields
+
+Each recommendation includes:
+
+| Field | Type | Description |
+|-------|------|-------------|
+| `severity` | enum | `critical`, `warning`, or `info` |
+| `category` | string | Classification (e.g. `vacuum`, `index`, `configuration`, `bloat`) |
+| `title` | string | Brief summary of the issue |
+| `description` | string | What the issue is and why it matters |
+| `suggestion` | string | Ready-to-run SQL or actionable fix |
+| `reference` | string (optional) | Link to relevant documentation |
+
+## Error Responses
+
+| Error | Cause | Fix |
+|-------|-------|-----|
+| `DATABASE_URL not configured` | Missing Postgres connection string | Set `DATABASE_URL` environment variable |
+| `Recommendations failed` | Database connection or query error | Verify `DATABASE_URL` and database connectivity |
+
 ## Notes
 
 - This tool is **read-only** and **not destructive** — it does not modify your database.
 - Requires the `DATABASE_URL` environment variable to be set (direct `pg` connection, independent of Supabase).
-- Each recommendation includes:
-  - **Severity**: `critical`, `warning`, or `info`
-  - **Description**: What the issue is and why it matters
-  - **Suggested SQL**: Ready-to-run SQL to address the issue
 - Use `severity` filtering to focus on the most impactful issues first.
 - For the full analysis report (table stats, index health, etc.), use [`pg_analyze`](/docs/mcp-tools/pg-analyze) instead.
 
