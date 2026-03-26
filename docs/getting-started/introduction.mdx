@@ -3,7 +3,7 @@ title: Introduction
 description: What is textrawl and why you need it
 ---
 
-textrawl is a **Personal Knowledge MCP Server** that gives Claude access to your documents, emails, notes, and other knowledge. It uses hybrid search combining semantic understanding with keyword matching to find the most relevant content.
+textrawl is a **personal knowledge server** — a second brain that stores your documents, remembers facts across conversations, and proactively discovers connections in your knowledge. Use it through the web dashboard, connect it to AI assistants via MCP, or integrate it into your own tools with the REST API.
 
 ## What is MCP?
 
@@ -58,6 +58,31 @@ Large documents are split into searchable chunks:
 - 50 token overlap for context preservation
 - Paragraph-aware splitting (or semantic chunking with `CHUNKING_MODE=semantic`)
 
+### Web Dashboard
+
+A full-featured command center for managing your knowledge base:
+
+- **Knowledge Explorer**: Browse documents in card, table, or timeline views
+- **Agent Orchestration**: Trigger insight scans, memory extraction, and briefings
+- **Applets**: Build custom UIs powered by your knowledge using AI-generated code
+- **Upload**: Drag-and-drop file upload with progress tracking and tag management
+
+### Multimodal Processing
+
+Go beyond text documents:
+
+- **Image Descriptions**: Automatically describe images using Claude vision
+- **Audio Transcription**: Transcribe audio files using OpenAI Whisper
+- **Supported Formats**: PNG, JPEG, WebP, GIF, MP3, WAV, M4A, OGG, WebM
+
+### REST API & WebSocket
+
+Access your knowledge base beyond MCP clients:
+
+- **REST Endpoints**: Search, list documents, upload files over HTTP
+- **WebSocket Events**: Real-time notifications for ingestion, extraction, and insight discovery
+- **Agent Discovery**: A2A protocol at `/.well-known/agent.json` for agent-to-agent interaction
+
 ### Self-Hosted
 
 Run textrawl on your infrastructure:
@@ -91,6 +116,28 @@ Import research papers and documentation:
 Import your project's documentation and ask Claude for help:
 
 > "How do I configure authentication based on our security docs?"
+
+### Persistent Memory
+
+Tell your AI facts it should remember across conversations:
+
+> "Remember that the Q3 budget was approved at $2.4M and Sarah is leading the rollout."
+
+Next time you ask, it already knows.
+
+### Daily Briefing
+
+Start each day with a summary of what changed:
+
+> "Give me my daily briefing."
+
+Get recent documents, new insights, and resurfaced knowledge in one view.
+
+### Discovering Connections
+
+Let your AI find patterns you missed:
+
+> "Are there any connections between my research notes and last week's meeting emails?"
 
 ## Next Steps
 

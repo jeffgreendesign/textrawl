@@ -1,4 +1,13 @@
-import { Brain, Cpu, FileText, Lightbulb, Lock, Search } from 'lucide-react';
+import {
+	Brain,
+	Cpu,
+	FileText,
+	Image,
+	LayoutDashboard,
+	Lightbulb,
+	Lock,
+	Search,
+} from 'lucide-react';
 import type { ReactNode } from 'react';
 
 const features = [
@@ -24,6 +33,18 @@ const features = [
 		title: 'Proactive Insights',
 		description:
 			'Automatically discover connections, patterns, and outliers across your knowledge base.',
+	},
+	{
+		icon: LayoutDashboard,
+		title: 'Web Dashboard',
+		description:
+			'Command center for your knowledge. Browse, upload, explore timelines, and build custom applets.',
+	},
+	{
+		icon: Image,
+		title: 'Multimodal',
+		description:
+			'Process images and audio alongside documents. Vision descriptions and speech transcription built in.',
 	},
 	{
 		icon: Cpu,
