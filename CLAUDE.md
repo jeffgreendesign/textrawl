@@ -56,6 +56,7 @@ Claude Code reference for Textrawl.
 <!-- Conversation: save_conversation_context, query_conversations, delete_conversation -->
 <!-- Stats: get_stats -->
 <!-- Insights: get_insights, discover_connections, dismiss_insight, build_knowledge -->
+<!-- Unified: ask, daily_briefing, save_url, timeline -->
 <!-- Postgres: pg_analyze, pg_recommendations, pg_report_history -->
 
 Tool implementations: `src/tools/*.ts`. See `README.md` for full tool documentation.

@@ -1403,6 +1403,93 @@
 			}
 		},
 		{
+			"name": "ask",
+			"description": "Unified RAG search across all knowledge sources (documents, memory, conversations, insights)",
+			"inputSchema": {
+				"type": "object",
+				"required": ["query"],
+				"properties": {
+					"query": {
+						"type": "string",
+						"description": "Natural language search query"
+					},
+					"scope": {
+						"type": "string",
+						"enum": ["auto", "documents", "memory", "conversations", "insights"],
+						"default": "auto",
+						"description": "Knowledge source scope"
+					},
+					"limit": {
+						"type": "integer",
+						"minimum": 1,
+						"maximum": 50,
+						"default": 10,
+						"description": "Maximum results to return"
+					}
+				}
+			}
+		},
+		{
+			"name": "daily_briefing",
+			"description": "Generate a daily briefing with recent additions, new insights, and resurfaced knowledge",
+			"inputSchema": {
+				"type": "object",
+				"properties": {}
+			}
+		},
+		{
+			"name": "save_url",
+			"description": "Fetch a URL, convert HTML to markdown, extract metadata, and save as a document",
+			"inputSchema": {
+				"type": "object",
+				"required": ["url"],
+				"properties": {
+					"url": {
+						"type": "string",
+						"description": "URL to fetch and save"
+					},
+					"tags": {
+						"type": "array",
+						"items": {
+							"type": "string"
+						},
+						"description": "Tags for organization"
+					},
+					"extract_memories": {
+						"type": "boolean",
+						"description": "Extract memories from content"
+					}
+				}
+			}
+		},
+		{
+			"name": "timeline",
+			"description": "Browse knowledge chronologically within a date range, optionally filtered by topic",
+			"inputSchema": {
+				"type": "object",
+				"required": ["start_date", "end_date"],
+				"properties": {
+					"start_date": {
+						"type": "string",
+						"description": "Start of date range (ISO date)"
+					},
+					"end_date": {
+						"type": "string",
+						"description": "End of date range (ISO date)"
+					},
+					"topic": {
+						"type": "string",
+						"description": "Filter by topic"
+					},
+					"limit": {
+						"type": "integer",
+						"minimum": 1,
+						"description": "Maximum results to return"
+					}
+				}
+			}
+		},
+		{
 			"name": "pg_analyze",
 			"description": "Run comprehensive Postgres health analysis with table stats, index health, vacuum status, bloat estimates, and Textrawl-specific checks",
 			"featureFlag": "DATABASE_URL",

@@ -45,13 +45,14 @@ pnpm inspector
 - Canonical full gate: `pnpm verify`
 - Fast local gate: `pnpm verify:fast`
 
-## MCP Tools (21 tools)
+## MCP Tools (25 tools)
 
 <!-- search, get_document, list_documents, update_document, add_note (document/search) -->
 <!-- remember_fact, query_memory, relate_entities, forget_entity, extract_memories (memory) -->
 <!-- save_conversation_context, query_conversations, delete_conversation (conversation) -->
 <!-- get_stats (stats) -->
 <!-- get_insights, discover_connections, dismiss_insight, build_knowledge (insight) -->
+<!-- ask, daily_briefing, save_url, timeline (unified) -->
 <!-- pg_analyze, pg_recommendations, pg_report_history (postgres analysis) -->
 
 See `src/tools/*.ts` for full tool schemas and `README.md` for user-facing documentation.

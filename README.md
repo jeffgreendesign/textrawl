@@ -172,7 +172,7 @@ pnpm upload -- ./converted/
 | `EXTRACTION_MODEL` | No | Model for extraction (default: claude-3-haiku-20240307) |
 | `COMPACT_RESPONSES` | No | Token-efficient responses (default: true) |
 
-## MCP Tools (21 tools)
+## MCP Tools (25 tools)
 
 Read-only tools (`search`, `get_document`, `list_documents`, `query_memory`, `query_conversations`, `get_stats`) include `outputSchema` and return `structuredContent` for programmatic consumption alongside the text `content` response.
 
@@ -228,6 +228,15 @@ Enable with `ENABLE_INSIGHTS=true` (default).
 | Tool | Description |
 |------|-------------|
 | `get_stats` | Statistics across all features (`scope: 'all' \| 'knowledge' \| 'memory' \| 'conversations' \| 'insights'`) |
+
+### Unified Tools
+
+| Tool | Description |
+|------|-------------|
+| `ask` | Unified RAG search across all knowledge sources (documents, memory, conversations, insights) |
+| `daily_briefing` | Generate a daily briefing with recent additions, new insights, and resurfaced knowledge |
+| `save_url` | Fetch a URL, convert HTML to markdown, extract metadata, and save as a document |
+| `timeline` | Browse knowledge chronologically within a date range, optionally filtered by topic |
 
 ### Postgres Analysis Tools
 
