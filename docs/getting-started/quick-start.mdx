@@ -81,10 +81,10 @@ Restart Claude Desktop to connect.
 
 ### REST API
 
-Query textrawl directly over HTTP:
+Query textrawl directly over HTTP (the setup script generates `API_BEARER_TOKEN` in your `.env`):
 
 ```bash
-curl http://localhost:3000/api/documents
+curl -H "Authorization: Bearer $API_BEARER_TOKEN" http://localhost:3000/api/documents
 ```
 
 ## Verify It Works
@@ -96,11 +96,12 @@ Open `http://localhost:3000`. Try uploading a document or creating a note from t
 ### Using the REST API
 
 ```bash
-# Check health
+# Check health (no auth required)
 curl http://localhost:3000/health
 
 # Search for documents
-curl "http://localhost:3000/api/search?q=test&limit=5"
+curl -H "Authorization: Bearer $API_BEARER_TOKEN" \
+  "http://localhost:3000/api/search?q=test&limit=5"
 ```
 
 ### Using MCP Inspector
