@@ -20,7 +20,7 @@ export function Hero(): ReactNode {
 					Get Started
 				</Link>
 				<Link href="/docs/mcp-tools" className="btn-secondary">
-					MCP Tools →
+					Explore the API →
 				</Link>
 			</div>
 		</section>

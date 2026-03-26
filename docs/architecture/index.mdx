@@ -11,38 +11,35 @@ textrawl is built on a modern stack optimized for semantic search:
 
 - **Runtime:** Node.js 22+ with ES modules
 - **Database:** Supabase PostgreSQL with pgvector extension
-- **Transport:** MCP over HTTP (StreamableHTTPServerTransport)
+- **Transport:** HTTP (REST API, MCP over StreamableHTTP, WebSocket events)
 - **Embeddings:** OpenAI, Google AI, or Ollama (configurable)
 
 ## Request Flow
 
 ```text
-Claude Desktop / MCP Client
-         │
-         ▼ POST /mcp (JSON-RPC)
-    ┌─────────────┐
-    │   Express   │
-    │   Server    │
-    └──────┬──────┘
-           │
-           ▼
-    ┌─────────────┐
-    │    MCP      │
-    │  Transport  │
-    └──────┬──────┘
-           │
-           ▼
-    ┌─────────────┐
-    │    Tool     │
-    │  Handlers   │
-    └──────┬──────┘
-           │
-     ┌─────┴─────┐
-     ▼           ▼
-┌─────────┐ ┌─────────┐
-│ Supabase│ │ OpenAI/ │
-│   DB    │ │ Ollama  │
-└─────────┘ └─────────┘
+ MCP Client       Dashboard      REST Client       CLI
+     │                │               │              │
+     ▼                ▼               ▼              ▼
+ POST /mcp      GET/POST /api   GET/POST /api   POST /api
+     └────────────────┼───────────────┘──────────────┘
+                      ▼
+               ┌─────────────┐
+               │   Express   │
+               │   Server    │
+               └──────┬──────┘
+                      │
+                      ▼
+               ┌─────────────┐
+               │    Tool     │
+               │  Handlers   │
+               └──────┬──────┘
+                      │
+                ┌─────┴─────┐
+                ▼           ▼
+           ┌─────────┐ ┌─────────┐
+           │ Supabase│ │ OpenAI/ │
+           │   DB    │ │ Ollama  │
+           └─────────┘ └─────────┘
 ```
 
 ## Core Components
@@ -101,13 +98,29 @@ Vector representations that capture semantic meaning, enabling similarity search
 | `chunks.embedding` | HNSW | Vector similarity |
 | `memory_observations.embedding` | HNSW | Memory search |
 
-## MCP Transport
+## Transport Layer
 
-textrawl uses `StreamableHTTPServerTransport` for stateless HTTP operation:
+textrawl exposes three transport interfaces: MCP (for AI assistants), REST API (for programmatic access), and WebSocket (for real-time events).
+
+### MCP
+
+Uses `StreamableHTTPServerTransport` for stateless HTTP operation:
 
 - **Stateless:** Each request creates a fresh MCP server instance
 - **Serverless-compatible:** Works with Cloud Run, Lambda, etc.
 - **Single endpoint:** `POST /mcp` handles all MCP operations
+
+### REST API
+
+Standard HTTP endpoints for direct integration:
+
+- **Search:** `GET /api/search?q=query&limit=10`
+- **Documents:** `GET /api/documents`, `GET /api/documents/:id`
+- **Upload:** `POST /api/upload`
+
+### WebSocket
+
+Real-time event streaming for document ingestion, insight discovery, and other background operations.
 
 ## Rate Limiting
 

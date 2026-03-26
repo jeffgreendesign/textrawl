@@ -1,13 +1,14 @@
 # Textrawl
 
-> Personal Knowledge MCP Server - Turn your documents into Claude's memory
+> Personal knowledge server — your documents, searchable and AI-ready
 
-Textrawl provides hybrid semantic + full-text search over documents via the Model Context Protocol (MCP). Connect Claude to your personal knowledge base backed by Supabase PostgreSQL with vector embeddings.
+Textrawl is a personal knowledge server with persistent memory, searchable documents, and proactive insights. Access it through the web dashboard, MCP for AI assistants, or the REST API. Backed by Supabase PostgreSQL with vector embeddings.
 
-## MCP Server
+## Server Interfaces
 
-- Protocol: Model Context Protocol (MCP)
-- Transport: StreamableHTTPServerTransport (stateless HTTP)
+- MCP: Model Context Protocol via StreamableHTTPServerTransport (stateless HTTP)
+- REST API: Standard HTTP endpoints for search, documents, and upload
+- WebSocket: Real-time event streaming
 - Endpoint: POST /mcp
 - Authentication: Bearer token (API_BEARER_TOKEN)
 - Rate Limits: API 100/min, Upload 10/min

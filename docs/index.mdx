@@ -1,23 +1,15 @@
 ---
 title: Introduction
-description: Personal Knowledge MCP Server - Turn your documents into Claude's memory
+description: Personal Knowledge Server — your documents, searchable and AI-ready
 ---
 
 # textrawl
 
-**textrawl** is a Personal Knowledge MCP Server that gives Claude access to your documents, emails, notes, and other knowledge. It uses hybrid search combining semantic understanding with keyword matching to find the most relevant content.
-
-## What is MCP?
-
-The **Model Context Protocol (MCP)** is an open standard for connecting AI assistants to external data sources and tools. Adopted by Anthropic for Claude and donated to the Linux Foundation's Agentic AI Foundation, MCP enables:
-
-- **Tool Use**: Claude can call functions to search, retrieve, and create content
-- **Context Sharing**: Your documents become part of Claude's working knowledge
-- **Privacy**: Data stays on your infrastructure, not uploaded to the cloud
+**textrawl** is a personal knowledge server — a second brain that stores your documents, emails, notes, and other knowledge. Use it through the web dashboard, connect it to AI assistants via MCP, or integrate it into your own tools with the REST API. It uses hybrid search combining semantic understanding with keyword matching to find the most relevant content.
 
 ## Why textrawl?
 
-Give Claude access to your personal documents, emails, notes, and knowledge. textrawl combines **semantic understanding** with **keyword precision** using Reciprocal Rank Fusion to deliver the most relevant results.
+Bring all your personal documents, emails, notes, and knowledge into one searchable place. textrawl combines **semantic understanding** with **keyword precision** using Reciprocal Rank Fusion to deliver the most relevant results.
 
 ### Hybrid Search
 
@@ -35,13 +27,21 @@ Automatically discover cross-source connections, recurring themes, and outliers 
 
 Import MBOX emails, HTML pages, PDFs, DOCX files, and more. Convert once, search forever.
 
-### MCP Native
+### Multiple Interfaces
 
-Native Model Context Protocol integration. Works with Claude Desktop, Cursor IDE, and any MCP client.
+Access your knowledge via the web dashboard, MCP for AI assistants, REST API, CLI tools, or the desktop app.
 
 ### Privacy First
 
 Self-hosted on your infrastructure. Your documents never leave your control.
+
+## What is MCP?
+
+The **Model Context Protocol (MCP)** is an open standard for connecting AI assistants to external data sources and tools. Adopted by Anthropic for Claude and donated to the Linux Foundation's Agentic AI Foundation, MCP enables:
+
+- **Tool Use**: Claude can call functions to search, retrieve, and create content
+- **Context Sharing**: Your documents become part of Claude's working knowledge
+- **Privacy**: Data stays on your infrastructure, not uploaded to the cloud
 
 ## Quick Start
 
@@ -54,13 +54,12 @@ pnpm setup
 # Start the server
 pnpm dev
 
-# Test with MCP Inspector
-pnpm inspector
+# Server runs at http://localhost:3000
 ```
 
-## MCP Tools
+## Tools
 
-textrawl exposes 25 tools via MCP:
+textrawl exposes 25 tools, available via MCP and REST API:
 
 ### Document Tools
 
@@ -127,12 +126,14 @@ textrawl exposes 25 tools via MCP:
 ## Architecture
 
 ```text
-┌─────────────────────────────────────────────────────────┐
-│                    Claude Desktop                        │
-│                    or Cursor IDE                         │
-└────────────────────────┬────────────────────────────────┘
-                         │ MCP Protocol
-                         ▼
+ MCP Client       Dashboard      REST Client       CLI
+ (Claude,         (Web UI)       (curl, apps)    (batch)
+  Cursor)
+     │                │               │              │
+     ▼                ▼               ▼              ▼
+ POST /mcp      GET/POST /api   GET/POST /api   POST /api
+     └────────────────┼───────────────┘──────────────┘
+                      ▼
 ┌─────────────────────────────────────────────────────────┐
 │                    textrawl Server                       │
 │  ┌───────────┐ ┌───────────┐ ┌────────┐ ┌───────────┐  │

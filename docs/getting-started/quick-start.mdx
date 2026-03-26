@@ -3,7 +3,7 @@ title: Quick Start
 description: Get textrawl running in 5 minutes
 ---
 
-Get textrawl running and connected to Claude Desktop in 5 minutes.
+Get textrawl running in 5 minutes.
 
 ## Prerequisites
 
@@ -55,7 +55,15 @@ pnpm run dev
 
 Server runs at `http://localhost:3000`
 
-## Step 5: Configure Claude Desktop
+## Step 5: Connect a Client
+
+textrawl supports multiple access methods. Choose whichever suits your workflow:
+
+### Web Dashboard
+
+Open `http://localhost:3000` in your browser. You should see the knowledge explorer where you can browse documents, upload files, and explore your knowledge base.
+
+### Claude Desktop (MCP)
 
 Edit `~/Library/Application Support/Claude/claude_desktop_config.json`:
 
@@ -71,7 +79,30 @@ Edit `~/Library/Application Support/Claude/claude_desktop_config.json`:
 
 Restart Claude Desktop to connect.
 
+### REST API
+
+Query textrawl directly over HTTP (the setup script generates `API_BEARER_TOKEN` in your `.env`):
+
+```bash
+curl -H "Authorization: Bearer $API_BEARER_TOKEN" http://localhost:3000/api/documents
+```
+
 ## Verify It Works
+
+### Using the Dashboard
+
+Open `http://localhost:3000`. Try uploading a document or creating a note from the dashboard.
+
+### Using the REST API
+
+```bash
+# Check health (no auth required)
+curl http://localhost:3000/health
+
+# Search for documents
+curl -H "Authorization: Bearer $API_BEARER_TOKEN" \
+  "http://localhost:3000/api/search?q=test&limit=5"
+```
 
 ### Using MCP Inspector
 
@@ -79,7 +110,7 @@ Restart Claude Desktop to connect.
 pnpm run inspector
 ```
 
-Opens a web UI at `http://localhost:5173` to test MCP tools.
+Opens a web UI at `http://localhost:5173` to test tools interactively.
 
 ### In Claude Desktop
 
