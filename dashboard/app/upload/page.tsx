@@ -28,6 +28,7 @@ export default function UploadPage() {
 	const [files, setFiles] = useState<UploadFile[]>([]);
 	const [isDragging, setIsDragging] = useState(false);
 	const [tags, setTags] = useState('');
+	const [isUploading, setIsUploading] = useState(false);
 
 	const addFiles = useCallback((fileList: FileList) => {
 		const newFiles: UploadFile[] = Array.from(fileList).map((file) => ({
@@ -53,56 +54,63 @@ export default function UploadPage() {
 	);
 
 	const handleUploadAll = useCallback(async () => {
-		const pending = files.filter((f) => f.status === 'pending');
-		const tagList = tags
-			.split(',')
-			.map((t) => t.trim())
-			.filter(Boolean);
+		if (isUploading) return;
+		setIsUploading(true);
+		try {
+			const pending = files.filter((f) => f.status === 'pending');
+			const tagList = tags
+				.split(',')
+				.map((t) => t.trim())
+				.filter(Boolean);
 
-		for (const uploadFile of pending) {
-			setFiles((prev) =>
-				prev.map((f) =>
-					f.id === uploadFile.id ? { ...f, status: 'uploading' as const, progress: 30 } : f,
-				),
-			);
-
-			try {
-				const formData = new FormData();
-				formData.append('file', uploadFile.file);
-				if (tagList.length) formData.append('tags', JSON.stringify(tagList));
-
-				const token = typeof window !== 'undefined' ? localStorage.getItem('textrawl_token') : null;
-				const baseUrl =
-					typeof window !== 'undefined' ? localStorage.getItem('textrawl_server') || '' : '';
-
-				const res = await fetch(`${baseUrl}/api/upload`, {
-					method: 'POST',
-					headers: token ? { Authorization: `Bearer ${token}` } : {},
-					body: formData,
-				});
-
-				if (!res.ok) throw new Error(`Upload failed: ${res.statusText}`);
-
+			for (const uploadFile of pending) {
 				setFiles((prev) =>
 					prev.map((f) =>
-						f.id === uploadFile.id ? { ...f, status: 'complete' as const, progress: 100 } : f,
+						f.id === uploadFile.id ? { ...f, status: 'uploading' as const, progress: 30 } : f,
 					),
 				);
-			} catch (err) {
-				setFiles((prev) =>
-					prev.map((f) =>
-						f.id === uploadFile.id
-							? {
-									...f,
-									status: 'error' as const,
-									error: err instanceof Error ? err.message : 'Upload failed',
-								}
-							: f,
-					),
-				);
+
+				try {
+					const formData = new FormData();
+					formData.append('file', uploadFile.file);
+					if (tagList.length) formData.append('tags', JSON.stringify(tagList));
+
+					const token =
+						typeof window !== 'undefined' ? localStorage.getItem('textrawl_token') : null;
+					const baseUrl =
+						typeof window !== 'undefined' ? localStorage.getItem('textrawl_server') || '' : '';
+
+					const res = await fetch(`${baseUrl}/api/upload`, {
+						method: 'POST',
+						headers: token ? { Authorization: `Bearer ${token}` } : {},
+						body: formData,
+					});
+
+					if (!res.ok) throw new Error(`Upload failed: ${res.statusText}`);
+
+					setFiles((prev) =>
+						prev.map((f) =>
+							f.id === uploadFile.id ? { ...f, status: 'complete' as const, progress: 100 } : f,
+						),
+					);
+				} catch (err) {
+					setFiles((prev) =>
+						prev.map((f) =>
+							f.id === uploadFile.id
+								? {
+										...f,
+										status: 'error' as const,
+										error: err instanceof Error ? err.message : 'Upload failed',
+									}
+								: f,
+						),
+					);
+				}
 			}
+		} finally {
+			setIsUploading(false);
 		}
-	}, [files, tags]);
+	}, [files, tags, isUploading]);
 
 	const getIcon = (mimeType: string) => FILE_ICONS[mimeType] || FileText;
 

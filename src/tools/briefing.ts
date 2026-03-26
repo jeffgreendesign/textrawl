@@ -46,7 +46,7 @@ export function registerBriefingTool(server: McpServer): void {
 			try {
 				const briefing: Record<string, unknown> = {};
 
-				// Recent additions
+				// Recent additions (limited to 10 — briefing shows highlights, not a full listing)
 				const recentDocs = await listDocuments({
 					limit: 10,
 					offset: 0,
@@ -83,6 +83,7 @@ export function registerBriefingTool(server: McpServer): void {
 
 				// "On this day" — resurface content from same date in past years
 				if (includeOnThisDay) {
+					// Limit of 100 is sufficient for on-this-day matching in most deployments
 					const allDocs = await listDocuments({ limit: 100, offset: 0 });
 					const today = new Date();
 					const onThisDay = allDocs.documents.filter((d) => {

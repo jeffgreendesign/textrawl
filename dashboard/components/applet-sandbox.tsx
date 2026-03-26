@@ -55,6 +55,8 @@ export default function AppletSandbox({ code, title = 'Applet', style }: AppletS
 
 	const handleMessage = useCallback(async (event: MessageEvent) => {
 		if (event.data?.type !== 'textrawl_api') return;
+		// Verify message comes from our iframe, not other windows
+		if (event.source !== iframeRef.current?.contentWindow) return;
 
 		const { method, args, id } = event.data;
 		const iframe = iframeRef.current;
@@ -73,21 +75,25 @@ export default function AppletSandbox({ code, title = 'Applet', style }: AppletS
 					const res = await fetch(`${baseUrl}/api/search?q=${encodeURIComponent(args[0] || '')}`, {
 						headers,
 					});
+					if (!res.ok) throw new Error(`API error: ${res.status}`);
 					result = await res.json();
 					break;
 				}
 				case 'documents': {
 					const res = await fetch(`${baseUrl}/api/documents`, { headers });
+					if (!res.ok) throw new Error(`API error: ${res.status}`);
 					result = await res.json();
 					break;
 				}
 				case 'memory': {
 					const res = await fetch(`${baseUrl}/api/memory/entities`, { headers });
+					if (!res.ok) throw new Error(`API error: ${res.status}`);
 					result = await res.json();
 					break;
 				}
 				case 'stats': {
 					const res = await fetch(`${baseUrl}/api/stats`, { headers });
+					if (!res.ok) throw new Error(`API error: ${res.status}`);
 					result = await res.json();
 					break;
 				}

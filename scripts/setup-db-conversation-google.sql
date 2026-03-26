@@ -1,5 +1,5 @@
 -- Textrawl Conversation Memory Schema (Google AI Version)
--- Use this when using Ollama embeddings with 768 dimensions (text-embedding-004)
+-- Use this when using Google AI embeddings with 768 dimensions (text-embedding-004)
 -- For OpenAI users: use setup-db-conversation.sql
 -- For Google AI users: use this file
 -- For Ollama v1 users: use setup-db-conversation-ollama.sql

@@ -56,11 +56,11 @@ export function registerTimelineTool(server: McpServer): void {
 						limit: limit * 2,
 					});
 
-					// Filter by date range
+					// Filter by date range. Documents without content_date pass through
+					// intentionally — excluding them would hide content that lacks date metadata.
 					const filtered = searchResults.filter((r) => {
 						const meta = r.document_metadata as Record<string, unknown> | null;
 						const docDate = meta?.content_date ? new Date(meta.content_date as string) : null;
-						// We don't have created_at on search results directly, so rely on metadata
 						return !docDate || (docDate >= start && docDate <= end);
 					});
 

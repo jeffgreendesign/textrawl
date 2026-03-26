@@ -25,4 +25,5 @@ CREATE TABLE IF NOT EXISTS applet_versions (
   created_at timestamptz NOT NULL DEFAULT now()
 );
 
+CREATE UNIQUE INDEX IF NOT EXISTS applet_versions_applet_version_idx ON applet_versions (applet_id, version);
 CREATE INDEX IF NOT EXISTS applet_versions_applet_id_idx ON applet_versions (applet_id);

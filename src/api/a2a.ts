@@ -90,7 +90,7 @@ a2aRoutes.post('/.well-known/agent/tasks', bearerAuth, async (req, res) => {
 			return;
 		}
 
-		// Route through search pipeline
+		// TODO: Consider using the unified ask tool for multi-source search (documents + memory + conversations)
 		const queryEmbedding = await generateEmbedding(query);
 		const results = await hybridSearch({
 			queryText: query,

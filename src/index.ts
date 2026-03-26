@@ -90,8 +90,8 @@ app.get('/health/live', healthLimiter, (_req, res) => {
 	res.json({ status: 'live' });
 });
 
-// A2A Agent-to-Agent protocol routes
-app.use(a2aRoutes);
+// A2A Agent-to-Agent protocol routes (rate-limited since not under /api)
+app.use(apiLimiter, a2aRoutes);
 
 // Service monitoring dashboard (rate-limited, no auth)
 app.use(healthLimiter, statusRouter);
@@ -149,6 +149,12 @@ const server = app.listen(port, async () => {
 	});
 
 	// Set up WebSocket for real-time events
-	const { setupWebSocket } = await import('./api/websocket.js');
-	setupWebSocket(server);
+	try {
+		const { setupWebSocket } = await import('./api/websocket.js');
+		setupWebSocket(server);
+	} catch (error) {
+		logger.error('WebSocket setup failed', {
+			error: error instanceof Error ? error.message : String(error),
+		});
+	}
 });

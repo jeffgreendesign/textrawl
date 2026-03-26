@@ -1,3 +1,4 @@
+import { isSupabaseConfigured } from '../db/client.js';
 import { shouldRunInsightScan } from '../db/insights.js';
 import { config } from '../utils/config.js';
 import { logger } from '../utils/logger.js';
@@ -5,11 +6,24 @@ import { events } from './events.js';
 
 const HOUR_MS = 60 * 60 * 1000;
 
+let started = false;
+
 /**
  * Background scheduler for autonomous tasks.
  * Runs periodic checks for insight scans and knowledge maintenance.
  */
 export function startScheduler(): void {
+	if (started) {
+		logger.warn('Scheduler already started, skipping duplicate init');
+		return;
+	}
+	started = true;
+
+	if (!isSupabaseConfigured()) {
+		logger.info('Scheduler skipped: database not configured');
+		return;
+	}
+
 	logger.info('Scheduler started', {
 		insightIntervalHours: 6,
 	});

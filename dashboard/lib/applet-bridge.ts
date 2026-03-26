@@ -24,14 +24,16 @@ export interface AppletResponse {
  * Generate the JavaScript bridge code that gets injected into the applet iframe.
  * This creates a `window.textrawl` object inside the sandbox.
  */
-export function generateBridgeScript(): string {
+export function generateBridgeScript(parentOrigin = '*'): string {
 	return `
 <script>
 (function() {
   const pending = new Map();
   let nextId = 0;
 
+  var expectedOrigin = '${parentOrigin}';
   window.addEventListener('message', function(e) {
+    if (expectedOrigin !== '*' && e.origin !== expectedOrigin) return;
     if (e.data && e.data.type === 'textrawl_response') {
       const resolve = pending.get(e.data.id);
       if (resolve) {
@@ -54,7 +56,7 @@ export function generateBridgeScript(): string {
         id: id,
         method: method,
         params: params || {}
-      }, '*');
+      }, expectedOrigin);
       setTimeout(function() {
         if (pending.has(id)) {
           pending.delete(id);

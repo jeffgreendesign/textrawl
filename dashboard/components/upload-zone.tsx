@@ -4,7 +4,7 @@
 'use client';
 
 import { Upload } from 'lucide-react';
-import { useCallback, useState } from 'react';
+import { useCallback, useId, useState } from 'react';
 
 interface UploadZoneProps {
 	onFiles: (files: File[]) => void;
@@ -14,6 +14,7 @@ interface UploadZoneProps {
 
 export default function UploadZone({ onFiles, accept, compact = false }: UploadZoneProps) {
 	const [isDragging, setIsDragging] = useState(false);
+	const inputId = useId();
 
 	const handleDrop = useCallback(
 		(e: React.DragEvent) => {
@@ -34,7 +35,7 @@ export default function UploadZone({ onFiles, accept, compact = false }: UploadZ
 			onKeyDown={(e) => {
 				if (e.key === 'Enter' || e.key === ' ') {
 					e.preventDefault();
-					document.getElementById('upload-zone-input')?.click();
+					document.getElementById(inputId)?.click();
 				}
 			}}
 			onDragOver={(e) => {
@@ -43,7 +44,7 @@ export default function UploadZone({ onFiles, accept, compact = false }: UploadZ
 			}}
 			onDragLeave={() => setIsDragging(false)}
 			onDrop={handleDrop}
-			onClick={() => document.getElementById('upload-zone-input')?.click()}
+			onClick={() => document.getElementById(inputId)?.click()}
 			style={{
 				border: `2px dashed ${isDragging ? 'var(--text-accent)' : 'var(--border-default)'}`,
 				borderRadius: '0.75rem',
@@ -73,11 +74,14 @@ export default function UploadZone({ onFiles, accept, compact = false }: UploadZ
 				</p>
 			)}
 			<input
-				id="upload-zone-input"
+				id={inputId}
 				type="file"
 				multiple
 				accept={accept}
-				onChange={(e) => e.target.files && onFiles(Array.from(e.target.files))}
+				onChange={(e) => {
+					if (e.target.files) onFiles(Array.from(e.target.files));
+					e.target.value = '';
+				}}
 				style={{ display: 'none' }}
 			/>
 		</div>

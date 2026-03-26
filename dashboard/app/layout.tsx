@@ -138,6 +138,7 @@ export default function RootLayout({ children }: { children: React.ReactNode }) 
 								<input
 									type="text"
 									placeholder="Search your knowledge..."
+									aria-label="Search your knowledge"
 									style={{
 										background: 'none',
 										border: 'none',

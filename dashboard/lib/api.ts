@@ -95,10 +95,11 @@ export type EventHandler = (event: { event: string; data: unknown }) => void;
 export function connectWebSocket(onEvent: EventHandler): WebSocket | null {
 	const token = typeof window !== 'undefined' ? localStorage.getItem('textrawl_token') : null;
 
-	const url = token ? `${WS_BASE}?token=${token}` : WS_BASE;
+	const url = WS_BASE;
 
 	try {
-		const ws = new WebSocket(url);
+		// Auth via subprotocol to avoid exposing token in URL/logs
+		const ws = token ? new WebSocket(url, ['textrawl', token]) : new WebSocket(url);
 		ws.onmessage = (msg) => {
 			try {
 				const parsed = JSON.parse(msg.data as string);

@@ -76,6 +76,29 @@ export function registerUrlTool(server: McpServer): void {
 			}
 
 			try {
+				// SSRF protection: block private/internal addresses
+				const parsedUrl = new URL(url);
+				if (parsedUrl.protocol !== 'http:' && parsedUrl.protocol !== 'https:') {
+					return toolError('Only http and https URLs are supported');
+				}
+				const hostname = parsedUrl.hostname.toLowerCase();
+				const blockedPatterns = [
+					/^localhost$/i,
+					/^127\./,
+					/^10\./,
+					/^172\.(1[6-9]|2\d|3[01])\./,
+					/^192\.168\./,
+					/^169\.254\./,
+					/^0\.0\.0\.0$/,
+					/^::1$/,
+					/^fc00:/i,
+					/^fe80:/i,
+					/\.local$/i,
+				];
+				if (blockedPatterns.some((p) => p.test(hostname))) {
+					return toolError('URL targets a private or internal address');
+				}
+
 				// Fetch the page
 				const response = await fetch(url, {
 					headers: {

@@ -67,7 +67,7 @@ export default function SettingsPage() {
 							type="text"
 							value={serverUrl}
 							onChange={(e) => setServerUrl(e.target.value)}
-							placeholder="http://localhost:3100"
+							placeholder="http://localhost:3000"
 							style={fieldStyle}
 						/>
 					</div>

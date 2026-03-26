@@ -6,6 +6,15 @@
 import { Code, Eye, Send, Sparkles } from 'lucide-react';
 import { useState } from 'react';
 
+function escapeHtml(str: string): string {
+	return str
+		.replaceAll('&', '&amp;')
+		.replaceAll('<', '&lt;')
+		.replaceAll('>', '&gt;')
+		.replaceAll('"', '&quot;')
+		.replaceAll("'", '&#39;');
+}
+
 export default function NewAppletPage() {
 	const [prompt, setPrompt] = useState('');
 	const [messages, setMessages] = useState<{ role: 'user' | 'assistant'; content: string }[]>([]);
@@ -34,7 +43,7 @@ export default function NewAppletPage() {
 			]);
 			setGeneratedCode(`<div style="padding: 24px; font-family: system-ui;">
   <h2 style="margin-bottom: 16px;">Custom Applet</h2>
-  <p style="color: #888;">Generated from: "${userMsg}"</p>
+  <p style="color: #888;">Generated from: "${escapeHtml(userMsg)}"</p>
   <p style="margin-top: 12px;">Connect to your Textrawl server to generate live applets with AI.</p>
 </div>`);
 			setIsGenerating(false);

@@ -8,8 +8,8 @@ import { logger } from '../utils/logger.js';
  * Set up WebSocket server for real-time event streaming.
  * Clients connect and receive events as they happen.
  *
- * Authentication: pass the bearer token as a query parameter.
- * Example: ws://localhost:3000/ws?token=YOUR_TOKEN
+ * Authentication: pass the bearer token as a WebSocket subprotocol.
+ * Example: new WebSocket('ws://localhost:3000/ws', ['textrawl', 'YOUR_TOKEN'])
  */
 export function setupWebSocket(server: Server): void {
 	const wss = new WebSocketServer({ noServer: true });
@@ -22,12 +22,16 @@ export function setupWebSocket(server: Server): void {
 			return;
 		}
 
-		// Authenticate via query param token
-		const token = url.searchParams.get('token');
-		if (config.API_BEARER_TOKEN && token !== config.API_BEARER_TOKEN) {
-			socket.write('HTTP/1.1 401 Unauthorized\r\n\r\n');
-			socket.destroy();
-			return;
+		// Authenticate via Sec-WebSocket-Protocol header (avoids token in URL/logs)
+		if (config.API_BEARER_TOKEN) {
+			const protocols = (request.headers['sec-websocket-protocol'] || '')
+				.split(',')
+				.map((p) => p.trim());
+			if (!protocols.includes(config.API_BEARER_TOKEN)) {
+				socket.write('HTTP/1.1 401 Unauthorized\r\n\r\n');
+				socket.destroy();
+				return;
+			}
 		}
 
 		wss.handleUpgrade(request, socket, head, (ws) => {

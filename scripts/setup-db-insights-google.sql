@@ -40,7 +40,7 @@ CREATE TABLE IF NOT EXISTS proactive_insights (
   summary       TEXT NOT NULL,
   evidence      JSONB NOT NULL DEFAULT '[]',   -- array of {chunkId, documentId, content, score}
   entities      JSONB DEFAULT '[]',            -- related entity names
-  embedding     vector(768),                  -- for semantic retrieval (nomic-embed-text-v2 768d)
+  embedding     vector(768),                  -- for semantic retrieval (Google text-embedding-004 768d)
   batch_id      UUID,                          -- groups insights from the same scan
   status        TEXT NOT NULL DEFAULT 'new' CHECK (status IN ('new', 'seen', 'dismissed')),
   created_at    TIMESTAMPTZ DEFAULT now()

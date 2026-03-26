@@ -6,10 +6,16 @@
 import { useState } from 'react';
 
 export default function LoginPage() {
-	const [serverUrl, setServerUrl] = useState('http://localhost:3100');
+	const [serverUrl, setServerUrl] = useState('http://localhost:3000');
 
 	const handleGoogleLogin = () => {
-		window.location.href = `${serverUrl}/auth/google`;
+		try {
+			const parsed = new URL(serverUrl);
+			if (parsed.protocol !== 'http:' && parsed.protocol !== 'https:') return;
+			window.location.href = `${parsed.origin}/auth/google`;
+		} catch {
+			// Invalid URL — don't navigate
+		}
 	};
 
 	return (
