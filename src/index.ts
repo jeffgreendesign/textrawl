@@ -2,6 +2,7 @@ import { StreamableHTTPServerTransport } from '@modelcontextprotocol/sdk/server/
 import cors from 'cors';
 import express from 'express';
 import helmet from 'helmet';
+import { a2aRoutes } from './api/a2a.js';
 import { bearerAuth } from './api/middleware/auth.js';
 import { errorHandler } from './api/middleware/error.js';
 import { apiLimiter, healthLimiter } from './api/middleware/rateLimit.js';
@@ -89,6 +90,9 @@ app.get('/health/live', healthLimiter, (_req, res) => {
 	res.json({ status: 'live' });
 });
 
+// A2A Agent-to-Agent protocol routes
+app.use(a2aRoutes);
+
 // Service monitoring dashboard (rate-limited, no auth)
 app.use(healthLimiter, statusRouter);
 
@@ -137,10 +141,14 @@ app.use(errorHandler);
 // Start server
 const port = config.PORT;
 
-app.listen(port, () => {
+const server = app.listen(port, async () => {
 	logger.info('Textrawl server started', {
 		port,
 		env: config.NODE_ENV,
 		mcpEndpoint: '/mcp',
 	});
+
+	// Set up WebSocket for real-time events
+	const { setupWebSocket } = await import('./api/websocket.js');
+	setupWebSocket(server);
 });

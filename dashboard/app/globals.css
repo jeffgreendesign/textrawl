@@ -1,0 +1,48 @@
+@import "tailwindcss";
+@import url("https://fonts.googleapis.com/css2?family=JetBrains+Mono:wght@400;500;600;700&display=swap");
+@import url("https://api.fontshare.com/v2/css?f[]=switzer@300,400,500,600&display=swap");
+
+:root {
+	--font-sans: "Switzer", system-ui, -apple-system, "Segoe UI", Roboto, sans-serif;
+	--font-mono: "JetBrains Mono", ui-monospace, "SF Mono", Menlo, monospace;
+	--brand-lime: #c8ff00;
+	--brand-lime-dim: #a3cc00;
+	--brand-dark: #0a0a0a;
+}
+
+.dark,
+:root {
+	--bg-primary: #0a0a0a;
+	--bg-secondary: #111111;
+	--bg-tertiary: #1a1a1a;
+	--bg-hover: #222222;
+	--text-primary: #fafafa;
+	--text-secondary: #a1a1aa;
+	--text-muted: #71717a;
+	--text-accent: #c8ff00;
+	--border-default: #27272a;
+	--border-strong: #3f3f46;
+}
+
+.light {
+	--bg-primary: #fafafa;
+	--bg-secondary: #f4f4f5;
+	--bg-tertiary: #e4e4e7;
+	--bg-hover: #d4d4d8;
+	--text-primary: #09090b;
+	--text-secondary: #52525b;
+	--text-muted: #71717a;
+	--text-accent: #65a30d;
+	--border-default: #e4e4e7;
+	--border-strong: #d4d4d8;
+}
+
+html {
+	font-family: var(--font-sans);
+}
+
+body {
+	background-color: var(--bg-primary);
+	color: var(--text-primary);
+	min-height: 100vh;
+}

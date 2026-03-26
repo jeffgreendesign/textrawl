@@ -1,3 +1,4 @@
+import { GoogleGenerativeAI } from '@google/generative-ai';
 import OpenAI from 'openai';
 import { config } from '../utils/config.js';
 import { ExternalServiceError } from '../utils/errors.js';
@@ -70,12 +71,18 @@ function getOllamaDimensions(model: string): number {
 	return OLLAMA_MODEL_DIMENSIONS.default;
 }
 
+// Google AI constants
+const GOOGLE_DIMENSIONS = 768;
+const GOOGLE_MAX_BATCH_SIZE = 100;
+const GOOGLE_MAX_INPUT_CHARS = 10_000; // ~2500 tokens conservative limit
+
 // Ollama API response type
 interface OllamaEmbedResponse {
 	embeddings?: number[][];
 }
 
 let openai: OpenAI | null = null;
+let googleAI: GoogleGenerativeAI | null = null;
 
 /**
  * Get embedding dimensions for the configured provider
@@ -83,6 +90,9 @@ let openai: OpenAI | null = null;
 export function getEmbeddingDimensions(): number {
 	if (config.EMBEDDING_PROVIDER === 'ollama') {
 		return getOllamaDimensions(config.OLLAMA_MODEL);
+	}
+	if (config.EMBEDDING_PROVIDER === 'google') {
+		return GOOGLE_DIMENSIONS;
 	}
 	return OPENAI_DIMENSIONS;
 }
@@ -104,11 +114,30 @@ function getOpenAIClient(): OpenAI {
 }
 
 /**
- * Check if embeddings are configured (either OpenAI or Ollama)
+ * Get the Google AI client instance (singleton pattern)
+ */
+function getGoogleClient(): GoogleGenerativeAI {
+	if (!config.GOOGLE_AI_API_KEY) {
+		throw new ExternalServiceError('Google AI API key not configured. Set GOOGLE_AI_API_KEY.');
+	}
+
+	if (!googleAI) {
+		googleAI = new GoogleGenerativeAI(config.GOOGLE_AI_API_KEY);
+		logger.info('Google AI client initialized');
+	}
+
+	return googleAI;
+}
+
+/**
+ * Check if embeddings are configured (OpenAI, Ollama, or Google)
  */
 export function isEmbeddingsConfigured(): boolean {
 	if (config.EMBEDDING_PROVIDER === 'ollama') {
 		return true; // Ollama just needs to be running
+	}
+	if (config.EMBEDDING_PROVIDER === 'google') {
+		return !!config.GOOGLE_AI_API_KEY;
 	}
 	return !!config.OPENAI_API_KEY;
 }
@@ -290,6 +319,61 @@ async function generateOpenAIEmbeddings(texts: string[]): Promise<number[][]> {
 }
 
 /**
+ * Generate embedding using Google AI
+ */
+async function generateGoogleEmbedding(text: string): Promise<number[]> {
+	const client = getGoogleClient();
+	const model = client.getGenerativeModel({ model: config.GOOGLE_EMBEDDING_MODEL });
+	const input = text.length > GOOGLE_MAX_INPUT_CHARS ? text.slice(0, GOOGLE_MAX_INPUT_CHARS) : text;
+
+	try {
+		const result = await model.embedContent(input);
+		return result.embedding.values;
+	} catch (error) {
+		throw new ExternalServiceError(
+			`Google AI embedding failed: ${error instanceof Error ? error.message : String(error)}`,
+		);
+	}
+}
+
+/**
+ * Generate embeddings for multiple texts using Google AI
+ */
+async function generateGoogleEmbeddings(texts: string[]): Promise<number[][]> {
+	const client = getGoogleClient();
+	const model = client.getGenerativeModel({ model: config.GOOGLE_EMBEDDING_MODEL });
+
+	// Truncate oversized inputs
+	const safeTexts = texts.map((t) =>
+		t.length > GOOGLE_MAX_INPUT_CHARS ? t.slice(0, GOOGLE_MAX_INPUT_CHARS) : t,
+	);
+
+	const batches: string[][] = [];
+	for (let i = 0; i < safeTexts.length; i += GOOGLE_MAX_BATCH_SIZE) {
+		batches.push(safeTexts.slice(i, i + GOOGLE_MAX_BATCH_SIZE));
+	}
+
+	try {
+		const allEmbeddings: number[][] = [];
+
+		for (const batch of batches) {
+			const result = await model.batchEmbedContents({
+				requests: batch.map((text) => ({
+					content: { role: 'user', parts: [{ text }] },
+				})),
+			});
+			allEmbeddings.push(...result.embeddings.map((e) => e.values));
+		}
+
+		return allEmbeddings;
+	} catch (error) {
+		throw new ExternalServiceError(
+			`Google AI batch embedding failed: ${error instanceof Error ? error.message : String(error)}`,
+		);
+	}
+}
+
+/**
  * Generate embedding for a single text (uses configured provider)
  */
 export async function generateEmbedding(text: string): Promise<number[]> {
@@ -300,6 +384,9 @@ export async function generateEmbedding(text: string): Promise<number[]> {
 
 	if (config.EMBEDDING_PROVIDER === 'ollama') {
 		return generateOllamaEmbedding(text);
+	}
+	if (config.EMBEDDING_PROVIDER === 'google') {
+		return generateGoogleEmbedding(text);
 	}
 
 	return generateOpenAIEmbedding(text);
@@ -322,6 +409,8 @@ export async function generateEmbeddings(texts: string[]): Promise<number[][]> {
 
 	if (config.EMBEDDING_PROVIDER === 'ollama') {
 		embeddings = await generateOllamaEmbeddings(texts);
+	} else if (config.EMBEDDING_PROVIDER === 'google') {
+		embeddings = await generateGoogleEmbeddings(texts);
 	} else {
 		embeddings = await generateOpenAIEmbeddings(texts);
 	}

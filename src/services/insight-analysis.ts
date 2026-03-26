@@ -396,7 +396,7 @@ async function synthesizeInsights(
 
 	try {
 		const response = await anthropic.messages.create({
-			model: config.EXTRACTION_MODEL,
+			model: config.INSIGHT_MODEL,
 			max_tokens: 2000,
 			system: INSIGHT_SYNTHESIS_PROMPT,
 			messages: [{ role: 'user', content: parts.join('\n') }],

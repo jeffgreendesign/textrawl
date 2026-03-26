@@ -197,6 +197,37 @@ Dismiss an insight.
 
 - insightId (string, REQUIRED): Insight ID to dismiss
 
+## Unified Tools
+
+### ask
+
+Unified RAG search across all knowledge sources (documents, memory, conversations, insights).
+
+- query (string, REQUIRED): Natural language search query
+- scope (enum): auto | documents | memory | conversations | insights, default auto
+- limit (number): Max results 1-50, default 10
+
+### daily_briefing
+
+Generate a daily briefing with recent additions, new insights, and resurfaced "on this day" knowledge. No required parameters.
+
+### save_url
+
+Fetch a URL, convert HTML to markdown, extract metadata (title, author, date), and save as a document.
+
+- url (string, REQUIRED): URL to fetch and save
+- tags (string[]): Tags for organization
+- extract_memories (boolean): Extract memories from content
+
+### timeline
+
+Browse knowledge chronologically within a date range, optionally filtered by topic.
+
+- start_date (string, REQUIRED): Start of date range (ISO date)
+- end_date (string, REQUIRED): End of date range (ISO date)
+- topic (string): Filter by topic
+- limit (number): Max results to return
+
 ## Postgres Analysis Tools
 
 Enabled when DATABASE_URL is configured. Connects directly to Postgres (independent of Supabase client).
@@ -230,7 +261,7 @@ View past Postgres analysis reports and compare trends.
 
 ## Quick Facts
 
-- 21 MCP tools available (5 document/search + 5 memory + 3 conversation + 1 stats + 4 insight + 3 Postgres analysis)
+- 25 MCP tools available (5 document/search + 5 memory + 3 conversation + 1 stats + 4 insight + 4 unified + 3 Postgres analysis)
 - Embedding: OpenAI (1536 dim) or Ollama (1024 dim)
 - Database: Supabase PostgreSQL with pgvector
 - Chunking: 512 tokens, 50 token overlap, paragraph-aware

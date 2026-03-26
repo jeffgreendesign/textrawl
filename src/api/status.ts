@@ -225,6 +225,14 @@ statusRouter.get('/status', async (_req, res) => {
 					});
 				}
 			}
+		} else if (config.EMBEDDING_PROVIDER === 'google') {
+			services.push({
+				name: 'Embeddings',
+				status: embeddingsConfigured ? 'operational' : 'down',
+				message: embeddingsConfigured
+					? `Google AI (${config.GOOGLE_EMBEDDING_MODEL})`
+					: 'Google AI API key not set',
+			});
 		} else {
 			services.push({
 				name: 'Embeddings',
@@ -396,10 +404,14 @@ statusRouter.get('/status', async (_req, res) => {
 		};
 
 		// --- Embedding info ---
+		const embeddingModelMap: Record<string, string> = {
+			ollama: config.OLLAMA_MODEL,
+			google: config.GOOGLE_EMBEDDING_MODEL,
+			openai: 'text-embedding-3-small',
+		};
 		const embedding = {
 			provider: config.EMBEDDING_PROVIDER,
-			model:
-				config.EMBEDDING_PROVIDER === 'ollama' ? config.OLLAMA_MODEL : 'text-embedding-3-small',
+			model: embeddingModelMap[config.EMBEDDING_PROVIDER] ?? 'unknown',
 			configured: embeddingsConfigured,
 		};
 

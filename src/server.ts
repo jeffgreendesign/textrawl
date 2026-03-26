@@ -1,5 +1,7 @@
 import { createRequire } from 'node:module';
 import { McpServer } from '@modelcontextprotocol/sdk/server/mcp.js';
+import { registerAskTool } from './tools/ask.js';
+import { registerBriefingTool } from './tools/briefing.js';
 import { registerConversationTools } from './tools/conversation.js';
 import { registerDocumentTools } from './tools/document.js';
 import { registerInsightTools } from './tools/insights.js';
@@ -8,6 +10,8 @@ import { registerNoteTool } from './tools/note.js';
 import { registerPgAnalyzeTools } from './tools/pg-analyze.js';
 import { registerSearchTool } from './tools/search.js';
 import { registerStatsTools } from './tools/stats.js';
+import { registerTimelineTool } from './tools/timeline.js';
+import { registerUrlTool } from './tools/url.js';
 import { getKnowledgeStatsHTML, getSearchResultsHTML } from './ui/index.js';
 import { config } from './utils/config.js';
 import { logger } from './utils/logger.js';
@@ -77,9 +81,13 @@ export function createMcpServer(): McpServer {
 	registerUIResources(server);
 
 	// Register core tools (always available)
+	registerAskTool(server);
 	registerSearchTool(server);
 	registerDocumentTools(server);
 	registerNoteTool(server);
+	registerUrlTool(server);
+	registerBriefingTool(server);
+	registerTimelineTool(server);
 	registerStatsTools(server);
 
 	// Register memory tools (feature flagged)

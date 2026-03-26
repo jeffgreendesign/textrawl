@@ -28,10 +28,14 @@ const envSchema = z.object({
 	SUPABASE_SERVICE_KEY: z.string().optional(),
 
 	// Embeddings
-	EMBEDDING_PROVIDER: z.enum(['openai', 'ollama']).default('openai'),
+	EMBEDDING_PROVIDER: z.enum(['openai', 'ollama', 'google']).default('openai'),
 
 	// OpenAI
 	OPENAI_API_KEY: z.string().startsWith('sk-').optional(),
+
+	// Google AI
+	GOOGLE_AI_API_KEY: z.string().optional(),
+	GOOGLE_EMBEDDING_MODEL: z.string().default('text-embedding-004'),
 
 	// Ollama
 	OLLAMA_BASE_URL: z.string().url().default('http://localhost:11434'),
@@ -63,7 +67,10 @@ const envSchema = z.object({
 	ANTHROPIC_API_KEY: z.string().startsWith('sk-ant-').optional(),
 
 	// Model for memory extraction (fast, cheap model recommended)
-	EXTRACTION_MODEL: z.string().default('claude-3-haiku-20240307'),
+	EXTRACTION_MODEL: z.string().default('claude-haiku-4-5-20250501'),
+
+	// Model for insight synthesis (benefits from more capable reasoning)
+	INSIGHT_MODEL: z.string().default('claude-sonnet-4-6-20250514'),
 
 	// Response format - compact saves 40-60% tokens but uses short keys
 	COMPACT_RESPONSES: z
@@ -204,6 +211,12 @@ export function loadConfig(): Config {
 			logger.info(
 				`Using Ollama embeddings: ${result.data.OLLAMA_MODEL} at ${result.data.OLLAMA_BASE_URL}`,
 			);
+		}
+		if (result.data.EMBEDDING_PROVIDER === 'google' && !result.data.GOOGLE_AI_API_KEY) {
+			logger.warn('GOOGLE_AI_API_KEY not set - embeddings disabled');
+		}
+		if (result.data.EMBEDDING_PROVIDER === 'google') {
+			logger.info(`Using Google AI embeddings: ${result.data.GOOGLE_EMBEDDING_MODEL}`);
 		}
 	}
 
