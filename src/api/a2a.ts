@@ -3,6 +3,7 @@ import { isSupabaseConfigured } from '../db/client.js';
 import { hybridSearch } from '../db/search.js';
 import { generateEmbedding, isEmbeddingsConfigured } from '../services/embeddings.js';
 import { config } from '../utils/config.js';
+import { TextrawlError } from '../utils/errors.js';
 import { logger } from '../utils/logger.js';
 import { bearerAuth } from './middleware/auth.js';
 
@@ -71,7 +72,9 @@ a2aRoutes.post('/.well-known/agent/tasks', bearerAuth, async (req, res) => {
 		}
 
 		// Extract text from the first text part
-		const textPart = message.parts.find((p: { type?: string }) => !p.type || p.type === 'text');
+		const textPart = message.parts.find(
+			(p: { type?: string }) => p != null && (!p.type || p.type === 'text'),
+		);
 		const query = textPart?.text ?? textPart?.content;
 
 		if (!query || typeof query !== 'string') {
@@ -125,11 +128,13 @@ a2aRoutes.post('/.well-known/agent/tasks', bearerAuth, async (req, res) => {
 			},
 		});
 	} catch (error) {
+		const statusCode = error instanceof TextrawlError ? error.statusCode : 500;
 		logger.error('A2A task failed', {
 			error: error instanceof Error ? error.message : String(error),
+			statusCode,
 		});
-		res.status(500).json({
-			error: 'Task processing failed',
+		res.status(statusCode).json({
+			error: error instanceof TextrawlError ? error.message : 'Task processing failed',
 		});
 	}
 });

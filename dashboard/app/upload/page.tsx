@@ -67,6 +67,10 @@ export default function UploadPage() {
 				.map((t) => t.trim())
 				.filter(Boolean);
 
+			const token = typeof window !== 'undefined' ? localStorage.getItem('textrawl_token') : null;
+			const baseUrl =
+				typeof window !== 'undefined' ? localStorage.getItem('textrawl_server') || '' : '';
+
 			for (const uploadFile of pending) {
 				setFiles((prev) =>
 					prev.map((f) =>
@@ -78,11 +82,6 @@ export default function UploadPage() {
 					const formData = new FormData();
 					formData.append('file', uploadFile.file);
 					if (tagList.length) formData.append('tags', JSON.stringify(tagList));
-
-					const token =
-						typeof window !== 'undefined' ? localStorage.getItem('textrawl_token') : null;
-					const baseUrl =
-						typeof window !== 'undefined' ? localStorage.getItem('textrawl_server') || '' : '';
 
 					const res = await fetch(`${baseUrl}/api/upload`, {
 						method: 'POST',
@@ -245,6 +244,11 @@ export default function UploadPage() {
 									<p style={{ fontSize: '0.75rem', color: 'var(--text-muted)' }}>
 										{(f.file.size / 1024).toFixed(1)} KB
 									</p>
+									{f.error && (
+										<p style={{ fontSize: '0.75rem', color: '#ef4444', marginTop: '0.125rem' }}>
+											{f.error}
+										</p>
+									)}
 								</div>
 								{f.status === 'complete' && (
 									<CheckCircle size={18} style={{ color: '#22c55e', flexShrink: 0 }} />
