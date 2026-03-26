@@ -9,54 +9,64 @@
 [![Ollama](https://img.shields.io/badge/Ollama-000000?logo=ollama&logoColor=white)](https://ollama.com)
 [![MCP](https://img.shields.io/badge/MCP-Compatible-8A2BE2)](https://modelcontextprotocol.io)
 
-**Turn your documents into Claude's memory.**
+**Your second brain, wired for AI.**
 
-Textrawl is a personal knowledge base that lets Claude search through your emails, PDFs, notes, and web pages. Ask questions about your own documents right from Claude Desktop - no copy-pasting, no context limits.
+Textrawl is a personal knowledge server with persistent memory, searchable documents, and proactive insights. Import your emails, PDFs, and notes — then ask questions, recall past conversations, and discover connections you missed. Access it all through MCP, the web dashboard, or the REST API.
 
 ## How It Works
 
 ```text
-                                    Your Knowledge Base
-                                    ┌─────────────────────────────────┐
-┌──────────────┐                    │                                 │
-│              │                    │   Emails      PDFs      Notes   │
-│    Claude    │◄───── search ─────►│     │          │          │     │
-│   Desktop    │                    │     ▼          ▼          ▼     │
-│              │                    │  ┌──────────────────────────┐   │
-└──────────────┘                    │  │   Hybrid Search Engine   │   │
-       │                            │  │  (semantic + keywords)   │   │
-       │                            │  └──────────────────────────┘   │
-       ▼                            │              │                  │
-  "What did                         │              ▼                  │
-   Sarah say                        │     PostgreSQL + pgvector       │
-   about the                        │         (Supabase)              │
-   project?"                        │                                 │
-                                    └─────────────────────────────────┘
-                                                   ▲
-                                                   │
-                                        ┌──────────┴──────────┐
-                                        │                     │
-                                   Desktop App            CLI Tools
-                                  (drag & drop)        (batch import)
+┌──────────────┐         ┌───────────────────────────────────────────┐
+│              │         │           Your Second Brain               │
+│  MCP Client  │◄───────►│                                           │
+│  (Claude,    │   MCP   │   Documents    Memory     Conversations   │
+│   ChatGPT)   │         │   ┌────────┐  ┌───────┐  ┌────────────┐  │
+└──────────────┘         │   │ Emails │  │ Facts │  │Past sessions│  │
+                         │   │ PDFs   │  │People │  │ Summaries  │  │
+┌──────────────┐         │   │ Notes  │  │ Links │  │ Context    │  │
+│   Dashboard  │◄───────►│   └───┬────┘  └──┬────┘  └─────┬──────┘  │
+│  (Web UI)    │  REST   │       └──────────┼──────────────┘         │
+└──────────────┘         │                  ▼                        │
+                         │     ┌───────────────────────────┐         │
+                         │     │  Hybrid Search + Fusion   │         │
+                         │     └───────────────────────────┘         │
+                         │                  │                        │
+                         │                  ▼                        │
+                         │      Insights · Daily Briefing            │
+                         └───────────────────────────────────────────┘
+                                            ▲
+                                            │
+                                 ┌──────────┴──────────┐
+                                 │                     │
+                            Desktop App            CLI Tools
+                           (drag & drop)        (batch import)
 ```
 
 ## Why Textrawl?
 
-**Beyond keyword search.** Most search tools only match exact words. Textrawl combines semantic understanding (finds "automobile" when you search "car") with traditional keyword matching - so you get relevant results without missing exact phrases.
+**Beyond keyword search.** Most search tools only match exact words. Textrawl combines semantic understanding (finds "automobile" when you search "car") with traditional keyword matching — so you get relevant results without missing exact phrases.
 
-**Your data, your choice.** Use OpenAI's embeddings for best accuracy, or run completely locally with Ollama - no API costs, no data leaving your machine.
+**Your data, your choice.** Use OpenAI's embeddings for best accuracy, Google AI for multimodal support, or run completely locally with Ollama — no API costs, no data leaving your machine.
 
-**Import everything.** Emails from Gmail exports, PDFs from your research, saved web pages, Google Takeout archives - Textrawl converts them all into searchable knowledge.
+**Import everything.** Emails from Gmail exports, PDFs from your research, saved web pages, images, audio files, Google Takeout archives — Textrawl converts them all into searchable knowledge.
 
 ## Features
 
 | Feature | Description |
 |---------|-------------|
 | **Hybrid Search** | Vector similarity + full-text search with Reciprocal Rank Fusion |
+| **Persistent Memory** | Remember facts about people, projects, and concepts across sessions |
+| **Conversation Recall** | Save and query past conversation context across sessions |
+| **Proactive Insights** | Automatically discover connections, patterns, and outliers in your knowledge |
+| **Daily Briefing** | Summary of recent additions, new insights, and resurfaced knowledge |
+| **Unified RAG** | `ask` tool searches documents, memory, and conversations in one query |
+| **Web Dashboard** | Command center with knowledge explorer, timeline, agent orchestration, and applets |
+| **Multimodal** | Process images (Claude vision) and audio (Whisper transcription) alongside documents |
 | **Desktop App** | Drag-and-drop file conversion and upload (macOS, Windows, Linux) |
 | **Multi-Format** | PDF, DOCX, XLSX, PPTX, HTML, MBOX/EML emails, Google Takeout |
-| **MCP Integration** | Works natively with Claude Desktop and other MCP clients |
-| **Flexible Embeddings** | OpenAI (cloud), Google AI (cloud), or Ollama (free, local) |
+| **MCP + REST + WebSocket** | MCP tools, REST API, and real-time WebSocket events |
+| **Agent Discovery** | A2A protocol at `/.well-known/agent.json` for agent-to-agent interaction |
+| **Flexible Embeddings** | OpenAI, Google AI, or Ollama (free, local) |
 | **Smart Chunking** | Paragraph-aware splitting with overlap for context |
 | **CLI Tools** | Batch processing for large archives |
 | **Cloud Ready** | Deploy to Docker, Cloud Run, or any container platform |

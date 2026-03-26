@@ -9,7 +9,8 @@ export function Hero(): ReactNode {
 			<OSSBadge />
 			<h1 className="hero-title">textrawl</h1>
 			<p className="hero-subtitle">
-				Personal knowledge base for AI. Crawl your documents, search with meaning.
+				Your second brain, wired for AI. Search documents, remember conversations, discover
+				connections.
 			</p>
 			<div className="hero-meta">
 				<AuthorBadge />
