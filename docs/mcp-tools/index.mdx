@@ -1,9 +1,9 @@
 ---
 title: MCP Tools Overview
-description: Complete reference for textrawl's 18 MCP tools
+description: Complete reference for textrawl's 25 MCP tools
 ---
 
-textrawl exposes 18 tools via the Model Context Protocol (MCP). These tools allow Claude and other MCP clients to search, retrieve, create, and manage documents, memories, conversations, and insights in your knowledge base.
+textrawl exposes 25 tools via the Model Context Protocol (MCP). These tools allow Claude and other MCP clients to search, retrieve, create, and manage documents, memories, conversations, and insights in your knowledge base.
 
 ## Document Tools
 
@@ -128,6 +128,54 @@ Dismiss an insight so it no longer appears in results.
 Get statistics across all features with scope selection: `all`, `knowledge`, `memory`, `conversations`, `insights`.
 
 [View documentation →](/docs/mcp-tools/get-stats)
+
+## Unified Tools
+
+### ask
+
+Search across all knowledge sources — documents, memories, conversations, and insights — with a single natural language question. The recommended entry point for querying Textrawl.
+
+[View documentation →](/docs/mcp-tools/ask)
+
+### daily_briefing
+
+Get a personalized briefing: recent additions, new insights, and "on this day" resurfacing of older content.
+
+[View documentation →](/docs/mcp-tools/daily-briefing)
+
+### save_url
+
+Fetch a web page, convert to markdown, and save to the knowledge base with automatic chunking and embedding.
+
+[View documentation →](/docs/mcp-tools/save-url)
+
+### timeline
+
+View knowledge chronologically within a date range, optionally filtered by topic.
+
+[View documentation →](/docs/mcp-tools/timeline)
+
+## Postgres Analysis Tools
+
+Enabled when `DATABASE_URL` is configured. Connects directly to Postgres (independent of Supabase client).
+
+### pg_analyze
+
+Run comprehensive Postgres health analysis with table stats, index health, vacuum status, bloat estimates, and actionable recommendations.
+
+[View documentation →](/docs/mcp-tools/pg-analyze)
+
+### pg_recommendations
+
+Get actionable optimization recommendations filtered by severity.
+
+[View documentation →](/docs/mcp-tools/pg-recommendations)
+
+### pg_report_history
+
+View past analysis reports and compare trends over time.
+
+[View documentation →](/docs/mcp-tools/pg-report-history)
 
 ## Tool Selection Guide
 
@@ -299,7 +347,7 @@ Common errors:
 | Error | Cause | Fix |
 |-------|-------|-----|
 | `Database not configured` | Missing Supabase credentials | Set `SUPABASE_URL` and `SUPABASE_SERVICE_KEY` |
-| `Embedding provider not configured` | Missing embedding API | Set `OPENAI_API_KEY` or configure Ollama |
+| `Embedding provider not configured` | Missing embedding API | Set `OPENAI_API_KEY`, configure Ollama, or set `GOOGLE_AI_API_KEY` |
 | `Document not found` | Invalid documentId | Verify UUID from search results |
 | `No updates provided` | Empty update request | Provide `title` or `tags` |
 | `Entity not found` | forget_entity with unknown name | Check entity name with `query_memory` mode=list |

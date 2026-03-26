@@ -1,0 +1,102 @@
+---
+title: daily_briefing
+description: Get a personalized briefing of your knowledge base
+---
+
+Get a personalized briefing of your knowledge base: recent additions, new insights, and "on this day" resurfacing of older content. Useful for staying on top of what has been added and rediscovering past knowledge.
+
+## Parameters
+
+| Parameter | Type | Required | Default | Description |
+|-----------|------|----------|---------|-------------|
+| `includeOnThisDay` | boolean | OPTIONAL | `true` | Include documents from this date in previous years |
+| `recentDays` | number | OPTIONAL | `7` | Number of days to look back for recent additions (1-30) |
+
+## Example Request
+
+### Default Briefing
+
+```json
+{}
+```
+
+### Last 3 Days Without Historical Resurfacing
+
+```json
+{
+  "includeOnThisDay": false,
+  "recentDays": 3
+}
+```
+
+### Extended Lookback
+
+```json
+{
+  "recentDays": 30
+}
+```
+
+## Response
+
+```json
+{
+  "recentAdditions": {
+    "count": 5,
+    "documents": [
+      {
+        "id": "abc-123",
+        "title": "API Design Notes",
+        "sourceType": "note",
+        "createdAt": "2026-03-25T14:30:00.000Z"
+      }
+    ]
+  },
+  "newInsights": {
+    "count": 2,
+    "insights": [
+      {
+        "id": "ins-456",
+        "type": "connection",
+        "title": "Shared pattern between Auth and Payments",
+        "summary": "Both modules use the same retry logic..."
+      }
+    ]
+  },
+  "onThisDay": {
+    "count": 1,
+    "documents": [
+      {
+        "id": "doc-789",
+        "title": "Project Kickoff Notes",
+        "sourceType": "note",
+        "createdAt": "2025-03-26T10:00:00.000Z",
+        "yearsAgo": 1
+      }
+    ]
+  },
+  "generatedAt": "2026-03-26T09:00:00.000Z"
+}
+```
+
+Insight summaries are truncated to 200 characters.
+
+## Error Responses
+
+| Error | Cause | Fix |
+|-------|-------|-----|
+| `Database not configured` | Missing Supabase credentials | Set `SUPABASE_URL` and `SUPABASE_SERVICE_KEY` |
+| `Failed to generate briefing` | Database or query error | Check connectivity and logs |
+
+## Notes
+
+- This tool is **read-only** and **idempotent** — it does not modify any data.
+- The "on this day" feature surfaces documents that were added on the same calendar date in previous years, helping you rediscover older content.
+- The briefing includes recent additions, new insights discovered since your last check, and historical content.
+- Best used at the start of a session to get oriented with your knowledge base.
+
+## Related Tools
+
+- [`get_insights`](/docs/mcp-tools/get-insights) - View all discovered insights
+- [`search`](/docs/mcp-tools/search) - Search for specific content
+- [`list_documents`](/docs/mcp-tools/list-documents) - Browse documents by date or tag

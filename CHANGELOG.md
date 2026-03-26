@@ -4,6 +4,44 @@ All notable changes to Textrawl are documented in this file.
 
 The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.1.0/).
 
+## [0.3.0] - 2026-03-26
+
+### Added
+
+- **Unified tools**: `ask` (RAG search across all sources), `daily_briefing` (personalized knowledge briefing), `save_url` (web clipping with auto-embedding), `timeline` (chronological knowledge browsing)
+- **Google AI embedding provider**: `text-embedding-004` (768d) with `setup-db-google.sql` and `setup-db-insights-google.sql` schemas
+- **Dashboard app** (`dashboard/`): Next.js-based knowledge base management UI with React Query, XYFlow, CodeMirror, and Recharts
+- **Agent-to-Agent (A2A) protocol**: Discovery at `/.well-known/agent.json` with task acceptance at `/.well-known/agent/tasks`
+- **`INSIGHT_MODEL` configuration**: Separate model for insight synthesis (default: `claude-sonnet-4-6-20250514`)
+- **Status dashboard**: Interactive HTML dashboard at `/status/dashboard` with service health, tool status, and real-time metrics
+
+### Changed
+
+- **Tool count**: 18 → 25 (added 4 unified tools, kept 3 Postgres analysis tools as documented)
+- **Default `EXTRACTION_MODEL`**: Updated from `claude-3-haiku-20240307` to `claude-haiku-4-5-20250501`
+- **Default `INSIGHT_DEBOUNCE_SECONDS`**: Changed from 10 to 300
+- **`@modelcontextprotocol/sdk`**: Updated to ^1.26.0
+- **MCP Apps support**: Added `@modelcontextprotocol/ext-apps` for search and stats UI resources
+
+### Documentation
+
+- Synced all documentation with 25 MCP tools across website, README, AGENTS.md, llms.txt, docs site
+- Added Google AI embedding provider to all configuration docs (.env.example, README, configuration.mdx, architecture, concepts, embeddings)
+- Created 7 new tool reference pages (ask, daily-briefing, save-url, timeline, pg-analyze, pg-recommendations, pg-report-history)
+- Rewrote website MCP showcase with current tool names (replaced all deprecated names)
+- Updated model references from Claude 3 to Claude 4.5/4.6 family across all docs
+- Added missing env vars to .env.example (ENABLE_INSIGHTS, INSIGHT_MODEL, DATABASE_URL, PG_REPORT_DIR, Google AI vars)
+- Fixed website tool count from 22 to 25
+- Fixed docs site tool count from 18 to 25
+
+### Dependencies
+
+- Add `@modelcontextprotocol/ext-apps@^1.0.0` for MCP Apps support
+- Add `@google/generative-ai@^0.24.1` for Google AI embeddings
+- Add `hono@^4.11.7` web framework
+- Update Next.js to 15.5.10, React to 19.0.3 in website
+- Add dashboard workspace with Next.js 16, React Query, XYFlow, Recharts
+
 ## [0.2.0] - 2026-01-31
 
 ### Added

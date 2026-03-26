@@ -24,6 +24,15 @@
 		"discover-connections",
 		"dismiss-insight",
 		"---Stats---",
-		"get-stats"
+		"get-stats",
+		"---Unified Tools---",
+		"ask",
+		"daily-briefing",
+		"save-url",
+		"timeline",
+		"---Postgres Analysis---",
+		"pg-analyze",
+		"pg-recommendations",
+		"pg-report-history"
 	]
 }

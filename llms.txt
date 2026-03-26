@@ -262,7 +262,7 @@ View past Postgres analysis reports and compare trends.
 ## Quick Facts
 
 - 25 MCP tools available (5 document/search + 6 memory + 3 conversation + 1 stats + 3 insight + 4 unified + 3 Postgres analysis)
-- Embedding: OpenAI (1536 dim) or Ollama (1024 dim)
+- Embedding: OpenAI (1536 dim), Google AI (768 dim), or Ollama (1024 dim / 768 dim)
 - Database: Supabase PostgreSQL with pgvector
 - Chunking: 512 tokens, 50 token overlap, paragraph-aware
 - Node.js >= 22.0.0 required
@@ -271,7 +271,7 @@ View past Postgres analysis reports and compare trends.
 
 - note: Created via add_note tool
 - file: Uploaded via CLI or Web UI (PDF, DOCX, MBOX, EML, HTML, TXT, MD)
-- url: Web content (future feature)
+- url: Web content saved via save_url tool
 
 ## Optional
 

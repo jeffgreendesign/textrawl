@@ -1,0 +1,117 @@
+---
+title: ask
+description: Search across all your knowledge with a single natural language question
+---
+
+Search across all your knowledge — documents, memories, conversations, and insights — with a single natural language question. Returns structured results with citations. This is the recommended entry point for querying Textrawl.
+
+## Parameters
+
+| Parameter | Type | Required | Default | Description |
+|-----------|------|----------|---------|-------------|
+| `question` | string | REQUIRED | - | Natural language question to search your knowledge base (1-10000 chars) |
+| `scope` | enum | OPTIONAL | `auto` | Which sources to search: `auto`, `documents`, `memory`, `conversations`, `insights` |
+| `limit` | number | OPTIONAL | `10` | Maximum results per source (1-50) |
+
+## Example Request
+
+### Auto Scope (Default)
+
+```json
+{
+  "question": "What did we decide about the migration strategy?"
+}
+```
+
+### Scoped to Documents
+
+```json
+{
+  "question": "API rate limiting best practices",
+  "scope": "documents",
+  "limit": 5
+}
+```
+
+### Scoped to Memory
+
+```json
+{
+  "question": "What do I know about Alice's role?",
+  "scope": "memory",
+  "limit": 20
+}
+```
+
+## Response
+
+```json
+{
+  "question": "What did we decide about the migration strategy?",
+  "totalResults": 8,
+  "counts": {
+    "documents": 3,
+    "memories": 2,
+    "conversations": 2,
+    "insights": 1
+  },
+  "results": [
+    {
+      "type": "document",
+      "score": 0.89,
+      "documentId": "abc-123",
+      "documentTitle": "Migration Plan Q1",
+      "content": "We decided to use a phased migration...",
+      "sourceType": "note"
+    },
+    {
+      "type": "memory",
+      "score": 0.82,
+      "entityId": "ent-456",
+      "entityName": "Database Migration",
+      "entityType": "project",
+      "content": "Phased approach approved in January review",
+      "source": "conversation"
+    },
+    {
+      "type": "conversation",
+      "score": 0.78,
+      "sessionId": "sess-789",
+      "sessionKey": "migration-planning",
+      "title": "Migration Planning Session",
+      "summary": "Discussed phased migration strategy..."
+    },
+    {
+      "type": "insight",
+      "score": 0.71,
+      "insightId": "ins-012",
+      "insightType": "connection",
+      "entities": ["Database Migration", "Infrastructure Team"]
+    }
+  ]
+}
+```
+
+Results are truncated: document content to 500 characters, conversation summaries to 300 characters.
+
+## Error Responses
+
+| Error | Cause | Fix |
+|-------|-------|-----|
+| `Database not configured` | Missing Supabase credentials | Set `SUPABASE_URL` and `SUPABASE_SERVICE_KEY` |
+| `Embedding provider not configured` | Missing embedding API key | Set `OPENAI_API_KEY`, configure Ollama, or set `GOOGLE_AI_API_KEY` |
+| `Failed to search knowledge base` | Database or embedding error | Check connectivity and logs |
+
+## Notes
+
+- This tool is **read-only** and **idempotent** — it does not modify any data.
+- When `scope` is set to `auto`, Textrawl searches all enabled sources automatically (documents, plus memory, conversations, and insights if their respective feature flags are enabled). It does not rank or limit to a smaller subset.
+- Results include citations back to the original source, making it easy to verify or dive deeper.
+- For more control over search weights and filtering, use the [`search`](/docs/mcp-tools/search) tool directly.
+
+## Related Tools
+
+- [`search`](/docs/mcp-tools/search) - Advanced hybrid search with weight tuning and filters
+- [`query_memory`](/docs/mcp-tools/query-memory) - Search entity memories directly
+- [`query_conversations`](/docs/mcp-tools/query-conversations) - Search past conversations directly
+- [`get_insights`](/docs/mcp-tools/get-insights) - View discovered insights

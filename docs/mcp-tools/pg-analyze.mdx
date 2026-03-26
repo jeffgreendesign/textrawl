@@ -1,0 +1,112 @@
+---
+title: pg_analyze
+description: Run a comprehensive Postgres health analysis
+---
+
+Run a comprehensive Postgres health analysis. Returns table stats, index health, vacuum status, connection info, bloat estimates, Textrawl-specific checks, and actionable recommendations. Optionally saves the report for trend tracking.
+
+## Parameters
+
+| Parameter | Type | Required | Default | Description |
+|-----------|------|----------|---------|-------------|
+| `save` | boolean | OPTIONAL | `false` | Save report to history for future comparison |
+
+## Example Request
+
+### Quick Health Check
+
+```json
+{}
+```
+
+### Analyze and Save Report
+
+```json
+{
+  "save": true
+}
+```
+
+## Response
+
+```json
+{
+  "timestamp": "2026-03-26T09:00:00.000Z",
+  "databaseVersion": "PostgreSQL 15.4",
+  "databaseSize": "256 MB",
+  "tableCount": 12,
+  "indexCount": 24,
+  "recommendationCount": 3,
+  "tables": [
+    {
+      "schema": "public",
+      "table": "document_chunks",
+      "rowEstimate": 15000,
+      "totalSize": "128 MB",
+      "tableSize": "96 MB",
+      "indexSize": "32 MB",
+      "deadTuples": 120,
+      "liveTuples": 15000,
+      "deadTupleRatio": 0.008
+    }
+  ],
+  "indexes": [
+    {
+      "schema": "public",
+      "table": "document_chunks",
+      "index": "document_chunks_embedding_idx",
+      "size": "24 MB",
+      "scans": 4521,
+      "tuplesRead": 90420,
+      "tuplesFetched": 45210
+    }
+  ],
+  "vacuum": [
+    {
+      "schema": "public",
+      "table": "document_chunks",
+      "lastVacuum": "2026-03-25T02:00:00.000Z",
+      "lastAutovacuum": "2026-03-26T03:00:00.000Z",
+      "deadTuples": 120,
+      "liveTuples": 15000
+    }
+  ],
+  "recommendations": [
+    {
+      "severity": "warning",
+      "category": "index",
+      "title": "Unused index detected",
+      "description": "Index idx_old_search has 0 scans since last stats reset",
+      "suggestion": "DROP INDEX idx_old_search;",
+      "reference": "https://www.postgresql.org/docs/current/monitoring-stats.html"
+    }
+  ]
+}
+```
+
+When `save` is `true`, the report is persisted to `PG_REPORT_DIR` (default `./reports/pg-analysis`) for future trend comparison via `pg_report_history`.
+
+## Error Responses
+
+| Error | Cause | Fix |
+|-------|-------|-----|
+| `DATABASE_URL not configured` | Missing Postgres connection string | Set `DATABASE_URL` environment variable |
+| `Analysis failed` | Database connection or query error | Verify `DATABASE_URL` and database connectivity |
+
+## Notes
+
+- This tool is **read-only** and **not destructive** — it only reads database statistics and metadata.
+- Requires the `DATABASE_URL` environment variable to be set (direct `pg` connection, independent of Supabase).
+- The analysis covers:
+  - **Table stats**: row counts, sizes, growth
+  - **Index health**: unused indexes, duplicate indexes, missing indexes
+  - **Vacuum status**: dead tuples, last vacuum/analyze times
+  - **Connection info**: active connections, idle connections
+  - **Bloat estimates**: table and index bloat
+  - **Textrawl-specific checks**: embedding dimensions, RLS policies, function health
+  - **Recommendations**: actionable suggestions with severity levels
+
+## Related Tools
+
+- [`pg_recommendations`](/docs/mcp-tools/pg-recommendations) - Get only the optimization recommendations
+- [`pg_report_history`](/docs/mcp-tools/pg-report-history) - View and compare past reports

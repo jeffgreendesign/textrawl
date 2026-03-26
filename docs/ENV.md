@@ -14,8 +14,10 @@ This file centralizes runtime configuration for Textrawl server, MCP tools, CLI,
 |---|---|---|
 | `SUPABASE_URL` | Yes (DB features) | Supabase project URL |
 | `SUPABASE_SERVICE_KEY` | Yes (DB features) | Service-role key used by server/CLI |
-| `EMBEDDING_PROVIDER` | No | `openai` (default) or `ollama` |
+| `EMBEDDING_PROVIDER` | No | `openai` (default), `ollama`, or `google` |
 | `OPENAI_API_KEY` | Required for OpenAI | Embedding API key (`text-embedding-3-small`, 1536d) |
+| `GOOGLE_AI_API_KEY` | Required for Google | Google AI API key (`text-embedding-004`, 768d) |
+| `GOOGLE_EMBEDDING_MODEL` | No | Google embedding model (default: `text-embedding-004`) |
 | `OLLAMA_BASE_URL` | Required for Ollama | Local/remote Ollama base URL |
 | `OLLAMA_MODEL` | Required for Ollama | Embedding model (e.g. `nomic-embed-text`) |
 | `API_BEARER_TOKEN` | Strongly recommended; required in prod unless OAuth | Bearer auth for `/mcp` and `/api/upload` |
@@ -39,7 +41,8 @@ This file centralizes runtime configuration for Textrawl server, MCP tools, CLI,
 | Variable | Required | Notes |
 |---|---|---|
 | `ANTHROPIC_API_KEY` | If extraction enabled | Key for `extract_memories` |
-| `EXTRACTION_MODEL` | No | Default: `claude-3-haiku-20240307` |
+| `EXTRACTION_MODEL` | No | Default: `claude-haiku-4-5-20250501` |
+| `INSIGHT_MODEL` | No | Default: `claude-sonnet-4-6-20250514` |
 
 ## Optional / advanced
 
@@ -49,6 +52,10 @@ This file centralizes runtime configuration for Textrawl server, MCP tools, CLI,
 | `GOOGLE_CLIENT_ID`, `GOOGLE_CLIENT_SECRET`, `OAUTH_JWT_SECRET`, `OAUTH_SERVER_URL` | OAuth support |
 | `OAUTH_ALLOWED_EMAILS` | Optional OAuth email allowlist |
 | `CHUNKING_MODE`, `SEMANTIC_SIMILARITY_THRESHOLD` | Chunking strategy tuning |
+| `DATABASE_URL` | Direct Postgres connection for pg_analyze tools |
+| `PG_REPORT_DIR` | Directory for analysis reports (default: `./reports/pg-analysis`) |
+| `INSIGHT_BATCH_THRESHOLD` | Insight scan tuning (default: `50`) |
+| `INSIGHT_DEBOUNCE_SECONDS` | Insight scan debounce (default: `300`) |
 | `MAX_SINGLE_FILE_SIZE`, `WARN_FILE_SIZE_MB`, `MAX_CHUNKS_PER_FILE` | Upload/chunking guardrails |
 
 ## Security notes
