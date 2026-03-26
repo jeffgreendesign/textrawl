@@ -2,7 +2,7 @@
 	"$schema": "https://json-schema.org/draft/2020-12/schema",
 	"name": "textrawl",
 	"version": "0.2.0",
-	"description": "Personal Knowledge MCP Server - Hybrid semantic + full-text search over documents",
+	"description": "Personal knowledge server - Hybrid semantic + full-text search over documents, memory, and conversations",
 	"homepage": "https://github.com/jeffgreendesign/textrawl",
 	"documentation": "/AGENTS.md",
 	"transport": {

@@ -3,9 +3,10 @@ import type { ReactNode } from 'react';
 export function MCPShowcase(): ReactNode {
 	return (
 		<section className="mcp-showcase">
-			<h2 className="section-title">MCP Tools</h2>
+			<h2 className="section-title">Tools & API</h2>
 			<p className="section-subtitle">
-				Twenty-five tools that give your AI access to everything you know.
+				Twenty-five tools that give you — and your AI — access to everything you know. Available via
+				MCP, REST API, or the dashboard.
 			</p>
 
 			<h3 className="tools-category">Document Tools</h3>

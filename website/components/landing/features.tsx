@@ -48,9 +48,9 @@ const features = [
 	},
 	{
 		icon: Cpu,
-		title: 'MCP Native',
+		title: 'Multiple Interfaces',
 		description:
-			'Built for Claude and other MCP clients. 25 tools for your knowledge in every chat.',
+			'Web dashboard, MCP for AI assistants, REST API, CLI, and desktop app. Your knowledge, however you want it.',
 	},
 	{
 		icon: Lock,

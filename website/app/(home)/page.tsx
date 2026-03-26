@@ -31,8 +31,8 @@ function WhyIBuiltThis(): ReactNode {
 				searchable with <em>semantic understanding</em>, not just keyword matching.
 			</p>
 			<p className="maker-note-text">
-				Now it's an MCP server that gives AI assistants access to your knowledge. Your second brain,
-				available in every conversation.
+				Now it's a personal knowledge server — accessible through a dashboard, AI assistants via
+				MCP, or the REST API. Your second brain, available everywhere.
 			</p>
 		</MakerNote>
 	);

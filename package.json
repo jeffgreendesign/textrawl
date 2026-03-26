@@ -1,7 +1,7 @@
 {
 	"name": "textrawl",
 	"version": "0.3.0",
-	"description": "Personal Knowledge MCP Server - semantic search over your documents from Claude",
+	"description": "Personal knowledge server - semantic search, persistent memory, and proactive insights for your documents",
 	"type": "module",
 	"engines": {
 		"node": ">=22.0.0"

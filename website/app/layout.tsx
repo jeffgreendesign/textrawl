@@ -11,7 +11,7 @@ export const metadata: Metadata = {
 		default: 'textrawl - Personal Knowledge Base for AI',
 	},
 	description:
-		'Crawl your documents, create embeddings, and search with semantic understanding. MCP server for Claude and other AI assistants.',
+		'Crawl your documents, create embeddings, and search with semantic understanding. Personal knowledge server with dashboard, MCP, REST API, and more.',
 	metadataBase: new URL('https://textrawl.com'),
 	icons: {
 		icon: [

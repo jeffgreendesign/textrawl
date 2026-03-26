@@ -20,7 +20,7 @@ export function QuickStart(): ReactNode {
 				<div className="quickstart-step">
 					<span className="step-number">3</span>
 					<code className="step-code">pnpm run dev</code>
-					<p className="step-description">Start the MCP server</p>
+					<p className="step-description">Start the server</p>
 				</div>
 			</div>
 		</section>
