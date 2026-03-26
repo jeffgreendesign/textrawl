@@ -63,7 +63,7 @@ a2aRoutes.post('/.well-known/agent/tasks', bearerAuth, async (req, res) => {
 	try {
 		const { message } = req.body ?? {};
 
-		if (!message?.parts?.length) {
+		if (!message?.parts || !Array.isArray(message.parts) || message.parts.length === 0) {
 			res.status(400).json({
 				error: 'Invalid A2A task: message with parts is required',
 			});
@@ -81,7 +81,7 @@ a2aRoutes.post('/.well-known/agent/tasks', bearerAuth, async (req, res) => {
 			return;
 		}
 
-		logger.info('A2A task received', { query: query.slice(0, 100) });
+		logger.info('A2A task received', { queryLength: query.length });
 
 		if (!isSupabaseConfigured() || !isEmbeddingsConfigured()) {
 			res.status(503).json({

@@ -46,9 +46,9 @@ export function registerBriefingTool(server: McpServer): void {
 			try {
 				const briefing: Record<string, unknown> = {};
 
-				// Recent additions (limited to 10 — briefing shows highlights, not a full listing)
+				// Recent additions — fetch wider window so client-side date filter has enough data
 				const recentDocs = await listDocuments({
-					limit: 10,
+					limit: 50,
 					offset: 0,
 				});
 				const cutoff = new Date();

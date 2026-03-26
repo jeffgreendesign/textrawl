@@ -7,6 +7,7 @@ import { events } from './events.js';
 const HOUR_MS = 60 * 60 * 1000;
 
 let started = false;
+let intervalHandle: ReturnType<typeof setInterval> | null = null;
 
 /**
  * Background scheduler for autonomous tasks.
@@ -29,7 +30,7 @@ export function startScheduler(): void {
 	});
 
 	// Auto-insights: check every 6 hours
-	setInterval(async () => {
+	intervalHandle = setInterval(async () => {
 		if (!config.ENABLE_INSIGHTS) return;
 
 		try {
@@ -56,4 +57,16 @@ export function startScheduler(): void {
 			});
 		}
 	}, 6 * HOUR_MS);
+}
+
+/**
+ * Stop the background scheduler and clear the interval.
+ */
+export function stopScheduler(): void {
+	if (intervalHandle) {
+		clearInterval(intervalHandle);
+		intervalHandle = null;
+	}
+	started = false;
+	logger.info('Scheduler stopped');
 }

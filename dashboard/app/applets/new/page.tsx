@@ -5,6 +5,7 @@
 
 import { Code, Eye, Send, Sparkles } from 'lucide-react';
 import { useState } from 'react';
+import AppletSandbox from '../../../components/applet-sandbox.js';
 
 function escapeHtml(str: string): string {
 	return str
@@ -233,11 +234,10 @@ export default function NewAppletPage() {
 				<div style={{ flex: 1, overflow: 'auto' }}>
 					{activeTab === 'preview' &&
 						(generatedCode ? (
-							<iframe
-								sandbox="allow-scripts"
-								srcDoc={`<!DOCTYPE html><html><head><style>body{margin:0;font-family:system-ui,-apple-system,sans-serif;color:#e5e5e5;background:#1a1a1a;}</style></head><body>${generatedCode}</body></html>`}
-								style={{ width: '100%', height: '100%', border: 'none' }}
+							<AppletSandbox
+								code={generatedCode}
 								title="Applet Preview"
+								style={{ width: '100%', height: '100%' }}
 							/>
 						) : (
 							<div

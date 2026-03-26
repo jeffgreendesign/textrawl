@@ -12,6 +12,18 @@ import { configError, toolError } from '../utils/compact.js';
 import { config } from '../utils/config.js';
 import { logger } from '../utils/logger.js';
 
+const MAX_RESPONSE_BYTES = 5 * 1024 * 1024; // 5 MB
+
+/** Strip query, hash, and userinfo from a URL for safe logging. */
+function redactUrl(raw: string): string {
+	try {
+		const u = new URL(raw);
+		return u.origin + u.pathname;
+	} catch {
+		return '<invalid-url>';
+	}
+}
+
 const turndown = new TurndownService({
 	headingStyle: 'atx',
 	codeBlockStyle: 'fenced',
@@ -66,7 +78,7 @@ export function registerUrlTool(server: McpServer): void {
 			},
 		},
 		async ({ url, title, tags, extractMemories }) => {
-			logger.info('save_url called', { url, title, tags, extractMemories });
+			logger.info('save_url called', { url: redactUrl(url), title, tags, extractMemories });
 
 			if (!isSupabaseConfigured()) {
 				return configError('Database', 'Set SUPABASE_URL and SUPABASE_SERVICE_KEY');
@@ -112,7 +124,26 @@ export function registerUrlTool(server: McpServer): void {
 					return toolError(`Failed to fetch URL: HTTP ${response.status}`);
 				}
 
+				// Reject non-HTML content types
+				const contentType = (response.headers.get('content-type') ?? '').toLowerCase();
+				if (!contentType.includes('text/html') && !contentType.includes('application/xhtml+xml')) {
+					return toolError(
+						`Unsupported content type: ${contentType || 'unknown'}. Only HTML pages are supported.`,
+					);
+				}
+
+				// Enforce byte limit to prevent OOM on large responses
+				const contentLength = response.headers.get('content-length');
+				if (contentLength && parseInt(contentLength, 10) > MAX_RESPONSE_BYTES) {
+					return toolError(
+						`Response too large (${contentLength} bytes). Maximum is ${MAX_RESPONSE_BYTES} bytes.`,
+					);
+				}
+
 				const html = await response.text();
+				if (html.length > MAX_RESPONSE_BYTES) {
+					return toolError(`Response body too large. Maximum is ${MAX_RESPONSE_BYTES} bytes.`);
+				}
 				const dom = new JSDOM(html, { url });
 				const doc = dom.window.document;
 
@@ -149,22 +180,33 @@ export function registerUrlTool(server: McpServer): void {
 					},
 				});
 
-				// Chunk and embed
-				const chunks = await smartChunk(markdown, generateEmbeddings);
-				const chunkContents = chunks.map((c) => c.content);
-				const embeddings = await generateEmbeddings(chunkContents);
+				// Chunk and embed — clean up orphaned document on failure
+				let chunks: Awaited<ReturnType<typeof smartChunk>>;
+				try {
+					chunks = await smartChunk(markdown, generateEmbeddings);
+					const chunkContents = chunks.map((c) => c.content);
+					const embeddings = await generateEmbeddings(chunkContents);
 
-				const chunkInputs = chunks.map((chunk, i) => ({
-					documentId: document.id,
-					content: chunk.content,
-					chunkIndex: chunk.index,
-					startOffset: chunk.startOffset,
-					endOffset: chunk.endOffset,
-					embedding: embeddings[i],
-					metadata: { tokenCount: chunk.tokenCount },
-				}));
+					const chunkInputs = chunks.map((chunk, i) => ({
+						documentId: document.id,
+						content: chunk.content,
+						chunkIndex: chunk.index,
+						startOffset: chunk.startOffset,
+						endOffset: chunk.endOffset,
+						embedding: embeddings[i],
+						metadata: { tokenCount: chunk.tokenCount },
+					}));
 
-				await createChunks(chunkInputs);
+					await createChunks(chunkInputs);
+				} catch (chunkError) {
+					logger.error('Chunking/embedding failed, orphaned document', {
+						documentId: document.id,
+						error: chunkError instanceof Error ? chunkError.message : String(chunkError),
+					});
+					return toolError(
+						`Document created but chunking failed (doc: ${document.id}). ${chunkError instanceof Error ? chunkError.message : 'Unknown error'}`,
+					);
+				}
 
 				// Optional memory extraction
 				let memoryResult = null;
@@ -192,7 +234,7 @@ export function registerUrlTool(server: McpServer): void {
 				logger.info('URL saved successfully', {
 					documentId: document.id,
 					chunkCount: chunks.length,
-					url,
+					url: redactUrl(url),
 				});
 
 				const result: Record<string, unknown> = {
@@ -211,7 +253,7 @@ export function registerUrlTool(server: McpServer): void {
 			} catch (error) {
 				logger.error('save_url failed', {
 					error: error instanceof Error ? error.message : String(error),
-					url,
+					url: redactUrl(url),
 				});
 				return toolError(error instanceof Error ? error.message : 'Failed to save URL');
 			}

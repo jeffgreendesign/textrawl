@@ -57,7 +57,7 @@ export default function AgentChat({
 				const formatted = results
 					.map(
 						(r: { documentTitle?: string; content?: string; score?: number }, i: number) =>
-							`**${i + 1}. ${r.documentTitle || 'Untitled'}** (${((r.score || 0) * 100).toFixed(0)}% match)\n${(r.content || '').slice(0, 200)}...`,
+							`${i + 1}. ${r.documentTitle || 'Untitled'} (${((r.score || 0) * 100).toFixed(0)}% match)\n${(r.content || '').slice(0, 200)}...`,
 					)
 					.join('\n\n');
 				setMessages((prev) => [...prev, { role: 'assistant', content: formatted }]);

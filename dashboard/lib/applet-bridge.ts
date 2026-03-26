@@ -9,7 +9,7 @@
 export interface AppletMessage {
 	type: 'textrawl_request';
 	id: string;
-	method: 'search' | 'documents' | 'memory' | 'stats';
+	method: 'search' | 'documents';
 	params?: Record<string, unknown>;
 }
 
@@ -69,8 +69,6 @@ export function generateBridgeScript(parentOrigin = '*'): string {
   window.textrawl = {
     search: function(query, limit) { return request('search', { query: query, limit: limit }); },
     documents: function(limit, offset) { return request('documents', { limit: limit, offset: offset }); },
-    memory: function(query) { return request('memory', { query: query }); },
-    stats: function() { return request('stats', {}); }
   };
 })();
 </script>`;

@@ -119,7 +119,7 @@ RETURNS TABLE (
   summary TEXT,
   turn_count INTEGER,
   last_activity TIMESTAMPTZ,
-  similarity FLOAT
+  score FLOAT
 )
 LANGUAGE SQL
 SET search_path = 'public', 'extensions'
@@ -131,7 +131,7 @@ SELECT
   cs.summary,
   cs.turn_count,
   cs.last_activity,
-  1 - (cs.summary_embedding <=> query_embedding) AS similarity
+  1 - (cs.summary_embedding <=> query_embedding) AS score
 FROM public.conversation_sessions cs
 WHERE cs.summary_embedding IS NOT NULL
 ORDER BY cs.summary_embedding <=> query_embedding

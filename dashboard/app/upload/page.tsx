@@ -158,7 +158,10 @@ export default function UploadPage() {
 					id="file-input"
 					type="file"
 					multiple
-					onChange={(e) => e.target.files && addFiles(e.target.files)}
+					onChange={(e) => {
+						if (e.target.files) addFiles(e.target.files);
+						e.target.value = '';
+					}}
 					style={{ display: 'none' }}
 				/>
 			</div>

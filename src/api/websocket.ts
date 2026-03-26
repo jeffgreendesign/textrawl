@@ -1,8 +1,19 @@
+import { timingSafeEqual } from 'node:crypto';
 import type { Server } from 'node:http';
 import { type WebSocket, WebSocketServer } from 'ws';
 import { events, type TextrawlEvents } from '../services/events.js';
 import { config } from '../utils/config.js';
 import { logger } from '../utils/logger.js';
+
+/** Constant-time string comparison to prevent timing attacks. */
+function safeTokenMatch(candidate: string, expected: string): boolean {
+	const a = Buffer.from(candidate);
+	const b = Buffer.from(expected);
+	if (a.length !== b.length) return false;
+	return timingSafeEqual(a, b);
+}
+
+let listenersRegistered = false;
 
 /**
  * Set up WebSocket server for real-time event streaming.
@@ -27,7 +38,9 @@ export function setupWebSocket(server: Server): void {
 			const protocols = (request.headers['sec-websocket-protocol'] || '')
 				.split(',')
 				.map((p) => p.trim());
-			if (!protocols.includes(config.API_BEARER_TOKEN)) {
+			const token = config.API_BEARER_TOKEN;
+			const matched = token ? protocols.some((p) => safeTokenMatch(p, token)) : false;
+			if (!matched) {
 				socket.write('HTTP/1.1 401 Unauthorized\r\n\r\n');
 				socket.destroy();
 				return;
@@ -51,23 +64,27 @@ export function setupWebSocket(server: Server): void {
 		});
 	});
 
-	// Forward all Textrawl events to connected WebSocket clients
-	const eventNames: Array<keyof TextrawlEvents> = [
-		'document_ingested',
-		'upload_progress',
-		'extraction_complete',
-		'insight_discovered',
-	];
+	// Forward all Textrawl events to connected WebSocket clients (register once)
+	if (!listenersRegistered) {
+		listenersRegistered = true;
 
-	for (const eventName of eventNames) {
-		events.on(eventName, (data) => {
-			const message = JSON.stringify({ event: eventName, data });
-			for (const client of wss.clients) {
-				if (client.readyState === client.OPEN) {
-					client.send(message);
+		const eventNames: Array<keyof TextrawlEvents> = [
+			'document_ingested',
+			'upload_progress',
+			'extraction_complete',
+			'insight_discovered',
+		];
+
+		for (const eventName of eventNames) {
+			events.on(eventName, (data) => {
+				const message = JSON.stringify({ event: eventName, data });
+				for (const client of wss.clients) {
+					if (client.readyState === client.OPEN) {
+						client.send(message);
+					}
 				}
-			}
-		});
+			});
+		}
 	}
 
 	logger.info('WebSocket server initialized on /ws');

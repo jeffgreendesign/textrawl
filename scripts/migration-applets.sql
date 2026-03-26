@@ -27,3 +27,18 @@ CREATE TABLE IF NOT EXISTS applet_versions (
 
 CREATE UNIQUE INDEX IF NOT EXISTS applet_versions_applet_version_idx ON applet_versions (applet_id, version);
 CREATE INDEX IF NOT EXISTS applet_versions_applet_id_idx ON applet_versions (applet_id);
+
+-- Auto-update updated_at on applet modifications
+CREATE OR REPLACE FUNCTION set_updated_at()
+RETURNS TRIGGER AS $$
+BEGIN
+  NEW.updated_at = now();
+  RETURN NEW;
+END;
+$$ LANGUAGE plpgsql;
+
+DROP TRIGGER IF EXISTS applets_set_updated_at ON applets;
+CREATE TRIGGER applets_set_updated_at
+  BEFORE UPDATE ON applets
+  FOR EACH ROW
+  EXECUTE FUNCTION set_updated_at();

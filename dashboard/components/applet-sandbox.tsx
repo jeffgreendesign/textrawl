@@ -31,8 +31,6 @@ window.textrawl = {
   },
   search: function(q) { return this._call('search', [q]); },
   documents: function(opts) { return this._call('documents', [opts]); },
-  memory: function(opts) { return this._call('memory', [opts]); },
-  stats: function() { return this._call('stats', []); },
 };
 </script>
 `;
@@ -85,18 +83,7 @@ export default function AppletSandbox({ code, title = 'Applet', style }: AppletS
 					result = await res.json();
 					break;
 				}
-				case 'memory': {
-					const res = await fetch(`${baseUrl}/api/memory/entities`, { headers });
-					if (!res.ok) throw new Error(`API error: ${res.status}`);
-					result = await res.json();
-					break;
-				}
-				case 'stats': {
-					const res = await fetch(`${baseUrl}/api/stats`, { headers });
-					if (!res.ok) throw new Error(`API error: ${res.status}`);
-					result = await res.json();
-					break;
-				}
+
 				default:
 					throw new Error(`Unknown method: ${method}`);
 			}
