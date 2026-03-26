@@ -77,7 +77,7 @@ a2aRoutes.post('/.well-known/agent/tasks', bearerAuth, async (req, res) => {
 		);
 		const query = textPart?.text ?? textPart?.content;
 
-		if (!query || typeof query !== 'string') {
+		if (!query || typeof query !== 'string' || !query.trim()) {
 			res.status(400).json({
 				error: 'No text content found in task message',
 			});

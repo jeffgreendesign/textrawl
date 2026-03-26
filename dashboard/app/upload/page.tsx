@@ -71,6 +71,23 @@ export default function UploadPage() {
 			const baseUrl =
 				typeof window !== 'undefined' ? localStorage.getItem('textrawl_server') || '' : '';
 
+			if (baseUrl) {
+				try {
+					new URL(baseUrl);
+				} catch {
+					for (const f of pending) {
+						setFiles((prev) =>
+							prev.map((p) =>
+								p.id === f.id
+									? { ...p, status: 'error' as const, error: 'Invalid server URL in settings' }
+									: p,
+							),
+						);
+					}
+					return;
+				}
+			}
+
 			for (const uploadFile of pending) {
 				setFiles((prev) =>
 					prev.map((f) =>
@@ -304,23 +321,26 @@ export default function UploadPage() {
 			{/* Upload button */}
 			{(() => {
 				const pendingCount = files.filter((f) => f.status === 'pending').length;
-				if (!pendingCount) return null;
+				if (!pendingCount && !isUploading) return null;
 				return (
 					<button
 						type="button"
 						onClick={handleUploadAll}
+						disabled={isUploading}
 						style={{
 							padding: '0.625rem 1.5rem',
-							backgroundColor: 'var(--text-accent)',
-							color: '#000',
+							backgroundColor: isUploading ? 'var(--bg-tertiary)' : 'var(--text-accent)',
+							color: isUploading ? 'var(--text-muted)' : '#000',
 							border: 'none',
 							borderRadius: '0.5rem',
 							fontWeight: 600,
 							fontSize: '0.875rem',
-							cursor: 'pointer',
+							cursor: isUploading ? 'not-allowed' : 'pointer',
 						}}
 					>
-						Upload {pendingCount} file{pendingCount !== 1 ? 's' : ''}
+						{isUploading
+							? 'Uploading\u2026'
+							: `Upload ${pendingCount} file${pendingCount !== 1 ? 's' : ''}`}
 					</button>
 				);
 			})()}
