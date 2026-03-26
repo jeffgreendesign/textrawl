@@ -78,8 +78,14 @@ For compute tier recommendations and storage estimates, see the
 -- For OpenAI embeddings (1536 dimensions)
 -- Copy contents of scripts/setup-db.sql
 
+-- For Google AI embeddings (768 dimensions)
+-- Copy contents of scripts/setup-db-google.sql
+
 -- For Ollama embeddings (1024 dimensions)
 -- Copy contents of scripts/setup-db-ollama.sql
+
+-- For Ollama v2 embeddings (768 dimensions, nomic-embed-text-v2-moe)
+-- Copy contents of scripts/setup-db-ollama-v2.sql
 ```
 
 1. Run security hardening:
@@ -137,10 +143,14 @@ API_BEARER_TOKEN=your-secure-token-min-32-chars
 # CORS (comma-separated origins)
 ALLOWED_ORIGINS=http://localhost:3000
 
+# Alternative: Use Google AI instead of OpenAI
+# EMBEDDING_PROVIDER=google
+# GOOGLE_AI_API_KEY=your-google-ai-api-key
+
 # Alternative: Use Ollama instead of OpenAI
-EMBEDDING_PROVIDER=ollama
-OLLAMA_BASE_URL=http://localhost:11434
-OLLAMA_MODEL=nomic-embed-text
+# EMBEDDING_PROVIDER=ollama
+# OLLAMA_BASE_URL=http://localhost:11434
+# OLLAMA_MODEL=nomic-embed-text
 ```
 
 ## Verify Installation

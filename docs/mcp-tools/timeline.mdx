@@ -1,0 +1,60 @@
+---
+title: timeline
+description: View your knowledge chronologically with optional topic filtering
+---
+
+View your knowledge chronologically. Filter by date range and optionally by topic. Returns documents in chronological order, making it easy to review what was added over a period of time.
+
+## Parameters
+
+| Parameter | Type | Required | Default | Description |
+|-----------|------|----------|---------|-------------|
+| `startDate` | string | Yes | - | Start date in ISO 8601 format (e.g. `"2025-01-01"`) |
+| `endDate` | string | Yes | - | End date in ISO 8601 format (e.g. `"2025-12-31"`) |
+| `topic` | string | No | - | Optional topic to filter by (uses semantic search within date range) |
+| `limit` | number | No | `20` | Maximum results (1-100) |
+
+## Example Request
+
+### All Documents in a Date Range
+
+```json
+{
+  "startDate": "2025-01-01",
+  "endDate": "2025-03-31"
+}
+```
+
+### Topic-Filtered Timeline
+
+```json
+{
+  "startDate": "2025-01-01",
+  "endDate": "2025-12-31",
+  "topic": "database migrations",
+  "limit": 50
+}
+```
+
+### Recent Week
+
+```json
+{
+  "startDate": "2025-03-19",
+  "endDate": "2025-03-26",
+  "limit": 100
+}
+```
+
+## Notes
+
+- This tool is **read-only** and **idempotent** — it does not modify any data.
+- Dates must be in ISO 8601 format (`YYYY-MM-DD`).
+- When a `topic` is provided, results are filtered using semantic search within the specified date range, so only documents relevant to that topic are returned.
+- Results are ordered chronologically, making this tool ideal for reviewing activity over a time period.
+
+## Related Tools
+
+- [`search`](/docs/mcp-tools/search) - Search by query without date constraints
+- [`list_documents`](/docs/mcp-tools/list-documents) - Browse documents by various filters
+- [`daily_briefing`](/docs/mcp-tools/daily-briefing) - Get a summary of recent knowledge base activity

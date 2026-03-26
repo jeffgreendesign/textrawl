@@ -34,6 +34,7 @@ Claude Code reference for Textrawl.
 
 - **Knowledge search/documents**: one of
   - OpenAI 1536d: `scripts/setup-db.sql`
+  - Google AI 768d: `scripts/setup-db-google.sql`
   - Ollama 1024d: `scripts/setup-db-ollama.sql`
   - Ollama 768d: `scripts/setup-db-ollama-v2.sql`
 - **Memory graph**:
@@ -45,6 +46,7 @@ Claude Code reference for Textrawl.
   - Ollama 768d: `scripts/setup-db-conversation-ollama-v2.sql`
 - **Insights**:
   - OpenAI: `scripts/setup-db-insights.sql`
+  - Google AI 768d: `scripts/setup-db-insights-google.sql`
   - Ollama 1024d: `scripts/setup-db-insights-ollama.sql`
   - Ollama 768d: `scripts/setup-db-insights-ollama-v2.sql`
 - **Security hardening**: `scripts/security-rls.sql` (+ `scripts/security-rls-memory.sql`)

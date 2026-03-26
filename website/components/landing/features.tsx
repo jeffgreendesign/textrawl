@@ -29,7 +29,7 @@ const features = [
 		icon: Cpu,
 		title: 'MCP Native',
 		description:
-			'Built for Claude and other MCP clients. 22 tools for your knowledge in every chat.',
+			'Built for Claude and other MCP clients. 25 tools for your knowledge in every chat.',
 	},
 	{
 		icon: Lock,

@@ -1,0 +1,60 @@
+---
+title: save_url
+description: Fetch a web page and save it to the knowledge base
+---
+
+Fetch a web page, extract its content as markdown, and save it to the knowledge base with automatic chunking, embedding, and optional memory extraction. Use this to capture web content for future search and retrieval.
+
+## Parameters
+
+| Parameter | Type | Required | Default | Description |
+|-----------|------|----------|---------|-------------|
+| `url` | string (URL) | Yes | - | URL of the web page to save |
+| `title` | string | No | auto-detected | Override title (max 500 chars; auto-detected from page if omitted) |
+| `tags` | string[] | No | - | Optional tags for organization |
+| `extractMemories` | boolean | No | `false` | Extract entities and facts from content and store as memories |
+
+## Example Request
+
+### Basic Save
+
+```json
+{
+  "url": "https://example.com/blog/interesting-article"
+}
+```
+
+### Save with Tags and Custom Title
+
+```json
+{
+  "url": "https://example.com/docs/api-reference",
+  "title": "Example API Reference",
+  "tags": ["api", "reference", "example"]
+}
+```
+
+### Save with Memory Extraction
+
+```json
+{
+  "url": "https://example.com/team/alice-bio",
+  "tags": ["people", "team"],
+  "extractMemories": true
+}
+```
+
+## Notes
+
+- This tool **writes data** to your knowledge base — it creates a new document. It is not destructive (it does not overwrite existing documents).
+- The page content is automatically converted to markdown, chunked, and embedded for semantic search.
+- When `extractMemories` is enabled, entities and facts are extracted from the content and stored in the memory graph (requires `ENABLE_MEMORY`).
+- If the title is not provided, it is auto-detected from the page's `<title>` tag or `<h1>` heading.
+- The saved document's `sourceType` will be `url`.
+
+## Related Tools
+
+- [`add_note`](/docs/mcp-tools/add-note) - Add text content directly as a note
+- [`search`](/docs/mcp-tools/search) - Search saved content
+- [`get_document`](/docs/mcp-tools/get-document) - Retrieve a saved document by ID
+- [`extract_memories`](/docs/mcp-tools/extract-memories) - Extract memories from an existing document

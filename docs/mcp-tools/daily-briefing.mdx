@@ -1,0 +1,51 @@
+---
+title: daily_briefing
+description: Get a personalized briefing of your knowledge base
+---
+
+Get a personalized briefing of your knowledge base: recent additions, new insights, and "on this day" resurfacing of older content. Useful for staying on top of what has been added and rediscovering past knowledge.
+
+## Parameters
+
+| Parameter | Type | Required | Default | Description |
+|-----------|------|----------|---------|-------------|
+| `includeOnThisDay` | boolean | No | `true` | Include documents from this date in previous years |
+| `recentDays` | number | No | `7` | Number of days to look back for recent additions (1-30) |
+
+## Example Request
+
+### Default Briefing
+
+```json
+{}
+```
+
+### Last 3 Days Without Historical Resurfacing
+
+```json
+{
+  "includeOnThisDay": false,
+  "recentDays": 3
+}
+```
+
+### Extended Lookback
+
+```json
+{
+  "recentDays": 30
+}
+```
+
+## Notes
+
+- This tool is **read-only** and **idempotent** — it does not modify any data.
+- The "on this day" feature surfaces documents that were added on the same calendar date in previous years, helping you rediscover older content.
+- The briefing includes recent additions, new insights discovered since your last check, and historical content.
+- Best used at the start of a session to get oriented with your knowledge base.
+
+## Related Tools
+
+- [`get_insights`](/docs/mcp-tools/get-insights) - View all discovered insights
+- [`search`](/docs/mcp-tools/search) - Search for specific content
+- [`list_documents`](/docs/mcp-tools/list-documents) - Browse documents by date or tag

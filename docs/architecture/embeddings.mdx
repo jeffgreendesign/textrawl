@@ -1,21 +1,21 @@
 ---
 title: Embedding Providers
-description: OpenAI vs Ollama for vector embeddings
+description: OpenAI, Google AI, and Ollama for vector embeddings
 ---
 
-textrawl supports two embedding providers: OpenAI (cloud) and Ollama (local).
+textrawl supports three embedding providers: OpenAI (cloud), Google AI (cloud), and Ollama (local).
 
 ## Provider Comparison
 
-| Feature | OpenAI | Ollama |
-|---------|--------|--------|
-| Location | Cloud | Local |
-| Privacy | Data sent to API | Data stays local |
-| Dimensions | 1536 | 1024 |
-| Model | text-embedding-3-small | nomic-embed-text |
-| Cost | Pay per token | Free |
-| Speed | ~100ms/request | ~50ms/request |
-| Setup | API key | Docker container |
+| Feature | OpenAI | Google AI | Ollama |
+|---------|--------|-----------|--------|
+| Location | Cloud | Cloud | Local |
+| Privacy | Data sent to API | Data sent to API | Data stays local |
+| Dimensions | 1536 | 768 | 1024 or 768 |
+| Model | text-embedding-3-small | text-embedding-004 | nomic-embed-text / v2-moe |
+| Cost | Pay per token | Free tier available | Free |
+| Speed | ~100ms/request | ~80ms/request | ~50ms/request |
+| Setup | API key | API key | Docker container |
 
 ## OpenAI Setup
 
@@ -30,6 +30,22 @@ Use the database schema for 1536 dimensions:
 ```bash
 # Run in Supabase SQL Editor
 scripts/setup-db.sql
+```
+
+## Google AI Setup
+
+```bash
+# .env
+EMBEDDING_PROVIDER=google
+GOOGLE_AI_API_KEY=your-google-ai-api-key
+GOOGLE_EMBEDDING_MODEL=text-embedding-004
+```
+
+Use the database schema for 768 dimensions:
+
+```bash
+# Run in Supabase SQL Editor
+scripts/setup-db-google.sql
 ```
 
 ## Ollama Setup
@@ -71,7 +87,7 @@ To switch:
 
 ## Quality Comparison
 
-Both providers offer high-quality embeddings suitable for semantic search:
+All providers offer high-quality embeddings suitable for semantic search:
 
 | Benchmark | OpenAI | nomic-embed-text |
 |-----------|--------|------------------|
@@ -79,7 +95,7 @@ Both providers offer high-quality embeddings suitable for semantic search:
 | Retrieval | 54.9 | 52.8 |
 | Clustering | 45.0 | 44.2 |
 
-OpenAI has a slight edge, but Ollama offers privacy and no API costs.
+OpenAI has a slight edge, but Ollama offers privacy and no API costs. Google AI offers a good balance with a free tier.
 
 ## Recommendations
 
@@ -88,6 +104,12 @@ OpenAI has a slight edge, but Ollama offers privacy and no API costs.
 - You need maximum quality
 - Data privacy isn't critical
 - You prefer managed infrastructure
+
+**Choose Google AI if:**
+
+- You want cloud convenience with a free tier
+- 768-dimension embeddings are sufficient
+- You already use Google Cloud
 
 **Choose Ollama if:**
 

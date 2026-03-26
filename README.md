@@ -56,7 +56,7 @@ Textrawl is a personal knowledge base that lets Claude search through your email
 | **Desktop App** | Drag-and-drop file conversion and upload (macOS, Windows, Linux) |
 | **Multi-Format** | PDF, DOCX, XLSX, PPTX, HTML, MBOX/EML emails, Google Takeout |
 | **MCP Integration** | Works natively with Claude Desktop and other MCP clients |
-| **Flexible Embeddings** | OpenAI (cloud) or Ollama (free, local) |
+| **Flexible Embeddings** | OpenAI (cloud), Google AI (cloud), or Ollama (free, local) |
 | **Smart Chunking** | Paragraph-aware splitting with overlap for context |
 | **CLI Tools** | Batch processing for large archives |
 | **Cloud Ready** | Deploy to Docker, Cloud Run, or any container platform |
@@ -102,7 +102,7 @@ Add to your Claude config (`~/Library/Application Support/Claude/claude_desktop_
 }
 ```
 
-**Note:** Requires Node.js 20+. If using nvm, ensure your default is set: `nvm alias default 22`
+**Note:** Requires Node.js 22+. If using nvm, ensure your default is set: `nvm alias default 22`
 
 If you've set `API_BEARER_TOKEN` in `.env`, add the auth header:
 
@@ -156,10 +156,12 @@ pnpm upload -- ./converted/
 |----------|----------|-------------|
 | `SUPABASE_URL` | Yes | `https://your-project.supabase.co` |
 | `SUPABASE_SERVICE_KEY` | Yes | Service role key |
-| `EMBEDDING_PROVIDER` | No | `openai` (default) or `ollama` |
-| `OPENAI_API_KEY` | If OpenAI | For text-embedding-3-small |
+| `EMBEDDING_PROVIDER` | No | `openai` (default), `ollama`, or `google` |
+| `OPENAI_API_KEY` | If OpenAI | For text-embedding-3-small (1536d) |
 | `OLLAMA_BASE_URL` | If Ollama | Default: `http://localhost:11434` |
 | `OLLAMA_MODEL` | If Ollama | Default: `nomic-embed-text` |
+| `GOOGLE_AI_API_KEY` | If Google | For text-embedding-004 (768d) |
+| `GOOGLE_EMBEDDING_MODEL` | If Google | Default: `text-embedding-004` |
 | `API_BEARER_TOKEN` | Prod only | Min 32 chars (`openssl rand -hex 32`) |
 | `PORT` | No | Default: 3000 |
 | `LOG_LEVEL` | No | debug, info, warn, error |
@@ -169,8 +171,11 @@ pnpm upload -- ./converted/
 | `ENABLE_INSIGHTS` | No | Enable proactive insight tools (default: true) |
 | `ENABLE_MEMORY_EXTRACTION` | No | Enable LLM-based memory extraction (default: false) |
 | `ANTHROPIC_API_KEY` | If extraction | Required for `extract_memories` tool |
-| `EXTRACTION_MODEL` | No | Model for extraction (default: claude-3-haiku-20240307) |
+| `EXTRACTION_MODEL` | No | Model for extraction (default: claude-haiku-4-5-20250501) |
+| `INSIGHT_MODEL` | No | Model for insight synthesis (default: claude-sonnet-4-6-20250514) |
 | `COMPACT_RESPONSES` | No | Token-efficient responses (default: true) |
+| `DATABASE_URL` | No | Direct Postgres connection for pg_analyze tools |
+| `PG_REPORT_DIR` | No | Analysis report directory (default: ./reports/pg-analysis) |
 
 ## MCP Tools (25 tools)
 
@@ -363,9 +368,9 @@ OLLAMA_BASE_URL=http://localhost:11434
 OLLAMA_MODEL=nomic-embed-text
 ```
 
-**Supported Ollama models:** `nomic-embed-text` (recommended), `mxbai-embed-large`
+**Supported Ollama models:** `nomic-embed-text` (1024d), `nomic-embed-text-v2-moe` (768d, recommended for new installs), `mxbai-embed-large` (1024d)
 
-> **Note:** OpenAI uses 1536-dimension embeddings, Ollama models use 1024. Use `setup-db.sql` for OpenAI or `setup-db-ollama.sql` for Ollama. You cannot mix providers without re-embedding all documents.
+> **Note:** Each provider uses different embedding dimensions: OpenAI 1536d, Ollama 1024d (or 768d for v2-moe), Google AI 768d. Use the matching schema: `setup-db.sql` (OpenAI), `setup-db-ollama.sql` (Ollama 1024d), `setup-db-ollama-v2.sql` (Ollama 768d), or `setup-db-google.sql` (Google AI). You cannot mix providers without re-embedding all documents.
 
 ## Troubleshooting
 
