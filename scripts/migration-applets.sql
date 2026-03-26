@@ -42,3 +42,67 @@ CREATE TRIGGER applets_set_updated_at
   BEFORE UPDATE ON applets
   FOR EACH ROW
   EXECUTE FUNCTION set_updated_at();
+
+-- ---------------------------------------------------------------------------
+-- Row Level Security (matches pattern from security-rls.sql)
+-- ---------------------------------------------------------------------------
+
+-- Enable RLS on both tables
+ALTER TABLE public.applets ENABLE ROW LEVEL SECURITY;
+ALTER TABLE public.applets FORCE ROW LEVEL SECURITY;
+
+ALTER TABLE public.applet_versions ENABLE ROW LEVEL SECURITY;
+ALTER TABLE public.applet_versions FORCE ROW LEVEL SECURITY;
+
+-- Drop existing policies for idempotency
+DROP POLICY IF EXISTS "Service role access to applets" ON public.applets;
+DROP POLICY IF EXISTS "Deny anon access to applets" ON public.applets;
+DROP POLICY IF EXISTS "Deny authenticated access to applets" ON public.applets;
+
+DROP POLICY IF EXISTS "Service role access to applet_versions" ON public.applet_versions;
+DROP POLICY IF EXISTS "Deny anon access to applet_versions" ON public.applet_versions;
+DROP POLICY IF EXISTS "Deny authenticated access to applet_versions" ON public.applet_versions;
+
+-- Permissive: allow service_role full access
+CREATE POLICY "Service role access to applets"
+  ON public.applets
+  FOR ALL
+  TO service_role
+  USING (true)
+  WITH CHECK (true);
+
+CREATE POLICY "Service role access to applet_versions"
+  ON public.applet_versions
+  FOR ALL
+  TO service_role
+  USING (true)
+  WITH CHECK (true);
+
+-- Restrictive: deny anon and authenticated
+CREATE POLICY "Deny anon access to applets"
+  ON public.applets AS RESTRICTIVE
+  FOR ALL
+  TO anon
+  USING (false);
+
+CREATE POLICY "Deny authenticated access to applets"
+  ON public.applets AS RESTRICTIVE
+  FOR ALL
+  TO authenticated
+  USING (false);
+
+CREATE POLICY "Deny anon access to applet_versions"
+  ON public.applet_versions AS RESTRICTIVE
+  FOR ALL
+  TO anon
+  USING (false);
+
+CREATE POLICY "Deny authenticated access to applet_versions"
+  ON public.applet_versions AS RESTRICTIVE
+  FOR ALL
+  TO authenticated
+  USING (false);
+
+-- Revoke direct table access from non-service roles
+REVOKE ALL ON TABLE public.applets FROM anon, authenticated;
+REVOKE ALL ON TABLE public.applet_versions FROM anon, authenticated;

@@ -31,7 +31,7 @@ export function generateBridgeScript(parentOrigin = '*'): string {
   const pending = new Map();
   let nextId = 0;
 
-  var expectedOrigin = '${parentOrigin}';
+  var expectedOrigin = ${JSON.stringify(parentOrigin)};
   window.addEventListener('message', function(e) {
     if (expectedOrigin !== '*' && e.origin !== expectedOrigin) return;
     if (e.data && e.data.type === 'textrawl_response') {

@@ -40,9 +40,13 @@ export default function UploadPage() {
 		setFiles((prev) => [...prev, ...newFiles]);
 	}, []);
 
-	const removeFile = useCallback((id: string) => {
-		setFiles((prev) => prev.filter((f) => f.id !== id));
-	}, []);
+	const removeFile = useCallback(
+		(id: string) => {
+			if (isUploading) return;
+			setFiles((prev) => prev.filter((f) => f.id !== id));
+		},
+		[isUploading],
+	);
 
 	const handleDrop = useCallback(
 		(e: React.DragEvent) => {
@@ -86,7 +90,14 @@ export default function UploadPage() {
 						body: formData,
 					});
 
-					if (!res.ok) throw new Error(`Upload failed: ${res.statusText}`);
+					if (!res.ok) {
+						let errorMsg = res.statusText;
+						try {
+							const body = await res.json();
+							errorMsg = body.error || body.message || errorMsg;
+						} catch {}
+						throw new Error(`Upload failed: ${errorMsg}`);
+					}
 
 					setFiles((prev) =>
 						prev.map((f) =>
@@ -264,6 +275,7 @@ export default function UploadPage() {
 								{f.status === 'pending' && (
 									<button
 										type="button"
+										aria-label={`Remove ${f.file.name}`}
 										onClick={(e) => {
 											e.stopPropagation();
 											removeFile(f.id);
@@ -286,25 +298,28 @@ export default function UploadPage() {
 			)}
 
 			{/* Upload button */}
-			{files.some((f) => f.status === 'pending') && (
-				<button
-					type="button"
-					onClick={handleUploadAll}
-					style={{
-						padding: '0.625rem 1.5rem',
-						backgroundColor: 'var(--text-accent)',
-						color: '#000',
-						border: 'none',
-						borderRadius: '0.5rem',
-						fontWeight: 600,
-						fontSize: '0.875rem',
-						cursor: 'pointer',
-					}}
-				>
-					Upload {files.filter((f) => f.status === 'pending').length} file
-					{files.filter((f) => f.status === 'pending').length !== 1 ? 's' : ''}
-				</button>
-			)}
+			{(() => {
+				const pendingCount = files.filter((f) => f.status === 'pending').length;
+				if (!pendingCount) return null;
+				return (
+					<button
+						type="button"
+						onClick={handleUploadAll}
+						style={{
+							padding: '0.625rem 1.5rem',
+							backgroundColor: 'var(--text-accent)',
+							color: '#000',
+							border: 'none',
+							borderRadius: '0.5rem',
+							fontWeight: 600,
+							fontSize: '0.875rem',
+							cursor: 'pointer',
+						}}
+					>
+						Upload {pendingCount} file{pendingCount !== 1 ? 's' : ''}
+					</button>
+				);
+			})()}
 		</div>
 	);
 }

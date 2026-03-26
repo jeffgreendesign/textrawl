@@ -104,7 +104,7 @@ a2aRoutes.post('/.well-known/agent/tasks', bearerAuth, async (req, res) => {
 				? results
 						.map(
 							(r, i) =>
-								`[${i + 1}] ${r.document_title} (${r.source_type}): ${r.content.slice(0, 300)}`,
+								`[${i + 1}] ${r.document_title} (${r.source_type}): ${(r.content ?? '').slice(0, 300)}`,
 						)
 						.join('\n\n')
 				: 'No results found in the knowledge base.';

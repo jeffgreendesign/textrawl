@@ -18,12 +18,13 @@ export function startScheduler(): void {
 		logger.warn('Scheduler already started, skipping duplicate init');
 		return;
 	}
-	started = true;
 
 	if (!isSupabaseConfigured()) {
 		logger.info('Scheduler skipped: database not configured');
 		return;
 	}
+
+	started = true;
 
 	logger.info('Scheduler started', {
 		insightIntervalHours: 6,
