@@ -9,10 +9,7 @@ await esbuild.build({
 	outfile: 'dist/index.js',
 	minify: true,
 	sourcemap: true,
-	external: ['pdf-parse'], // Native module
-	banner: {
-		js: `import { createRequire } from 'module'; const require = createRequire(import.meta.url);`,
-	},
+	packages: 'external',
 });
 
 console.error('Build complete: dist/index.js');

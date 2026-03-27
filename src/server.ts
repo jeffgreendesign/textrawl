@@ -1,4 +1,3 @@
-import { createRequire } from 'node:module';
 import { McpServer } from '@modelcontextprotocol/sdk/server/mcp.js';
 import { registerAskTool } from './tools/ask.js';
 import { registerBriefingTool } from './tools/briefing.js';
@@ -16,8 +15,8 @@ import { getKnowledgeStatsHTML, getSearchResultsHTML } from './ui/index.js';
 import { config } from './utils/config.js';
 import { logger } from './utils/logger.js';
 
-const require = createRequire(import.meta.url);
-const { version: PKG_VERSION } = require('../package.json');
+import pkg from '../package.json' with { type: 'json' };
+const PKG_VERSION: string = pkg.version;
 
 /**
  * Register UI resources for MCP Apps
