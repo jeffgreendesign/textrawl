@@ -8,7 +8,7 @@ export default function InsightsPage() {
 			<div
 				style={{
 					display: 'grid',
-					gridTemplateColumns: 'repeat(auto-fill, minmax(320px, 1fr))',
+					gridTemplateColumns: 'repeat(auto-fill, minmax(var(--grid-min-insight), 1fr))',
 					gap: '1rem',
 				}}
 			>

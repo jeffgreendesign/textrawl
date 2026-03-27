@@ -166,7 +166,7 @@ export default function UploadPage() {
 				style={{
 					border: `2px dashed ${isDragging ? 'var(--text-accent)' : 'var(--border-default)'}`,
 					borderRadius: '0.75rem',
-					padding: '3rem',
+					padding: 'var(--drop-zone-padding)',
 					textAlign: 'center',
 					cursor: 'pointer',
 					backgroundColor: isDragging ? 'var(--bg-tertiary)' : 'var(--bg-secondary)',

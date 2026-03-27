@@ -44,5 +44,179 @@ html {
 body {
 	background-color: var(--bg-primary);
 	color: var(--text-primary);
-	min-height: 100vh;
+	min-height: 100dvh;
+	overflow-x: hidden;
+}
+
+/* ── Responsive layout variables ── */
+:root {
+	--sidebar-width: 240px;
+	--main-padding: 2rem;
+	--grid-min-card: 280px;
+	--grid-min-stat: 200px;
+	--grid-min-insight: 320px;
+	--drop-zone-padding: 3rem;
+}
+
+@media (max-width: 768px) {
+	:root {
+		--sidebar-width: 0px;
+		--main-padding: 1rem;
+		--grid-min-card: 160px;
+		--grid-min-stat: 140px;
+		--grid-min-insight: 200px;
+		--drop-zone-padding: 1.5rem;
+	}
+}
+
+/* ── Sidebar ── */
+.sidebar {
+	position: fixed;
+	top: 0;
+	left: 0;
+	bottom: 0;
+	width: 240px;
+	z-index: 50;
+	transform: translateX(0);
+	transition: transform 300ms cubic-bezier(0.4, 0, 0.2, 1);
+	overscroll-behavior: contain;
+	-webkit-overflow-scrolling: touch;
+	overflow-y: auto;
+}
+
+@media (max-width: 768px) {
+	.sidebar {
+		transform: translateX(-100%);
+	}
+	.sidebar.sidebar-open {
+		transform: translateX(0);
+	}
+}
+
+/* ── Sidebar overlay (Liquid Glass feel) ── */
+.sidebar-overlay {
+	display: none;
+}
+
+.sidebar-overlay.sidebar-overlay-visible {
+	display: block;
+	position: fixed;
+	inset: 0;
+	background: rgba(0, 0, 0, 0.5);
+	backdrop-filter: blur(4px);
+	-webkit-backdrop-filter: blur(4px);
+	z-index: 40;
+}
+
+/* ── Hamburger toggle ── */
+.sidebar-toggle {
+	display: none;
+}
+
+@media (max-width: 768px) {
+	.sidebar-toggle {
+		display: flex;
+		align-items: center;
+		justify-content: center;
+	}
+}
+
+/* ── Sidebar close button (mobile only) ── */
+.sidebar-close {
+	display: none;
+}
+
+@media (max-width: 768px) {
+	.sidebar-close {
+		display: flex;
+		align-items: center;
+		justify-content: center;
+	}
+}
+
+/* ── Main content area ── */
+.main-content {
+	margin-left: 240px;
+	transition: margin-left 300ms cubic-bezier(0.4, 0, 0.2, 1);
+}
+
+@media (max-width: 768px) {
+	.main-content {
+		margin-left: 0;
+	}
+}
+
+/* ── Top bar (sticky for Safari 26 toolbar tinting) ── */
+.top-bar {
+	position: sticky;
+	top: 0;
+	z-index: 30;
+	background-color: var(--bg-primary);
+	padding-top: env(safe-area-inset-top, 0px);
+}
+
+/* ── Search bar ── */
+@media (max-width: 768px) {
+	.top-bar-search {
+		max-width: 100% !important;
+	}
+}
+
+/* ── Page header rows (title + controls) ── */
+.page-header-row {
+	display: flex;
+	align-items: center;
+	justify-content: space-between;
+	margin-bottom: 1.5rem;
+}
+
+@media (max-width: 768px) {
+	.page-header-row {
+		flex-direction: column;
+		align-items: flex-start;
+		gap: 0.75rem;
+	}
+}
+
+/* ── Agent task items ── */
+@media (max-width: 640px) {
+	.task-item {
+		flex-direction: column !important;
+		align-items: flex-start !important;
+	}
+	.task-actions {
+		align-self: flex-end;
+	}
+}
+
+/* ── Table wrapper (horizontal scroll on mobile) ── */
+.table-wrapper {
+	overflow-x: auto;
+	-webkit-overflow-scrolling: touch;
+}
+
+/* ── Graph container ── */
+@media (max-width: 640px) {
+	.graph-container {
+		min-height: 260px !important;
+	}
+}
+
+/* ── Touch targets ── */
+@media (pointer: coarse) {
+	button,
+	[role="button"],
+	a {
+		min-height: 44px;
+	}
+}
+
+/* ── Safe area handling ── */
+@supports (padding: env(safe-area-inset-bottom)) {
+	.main-content {
+		padding-bottom: env(safe-area-inset-bottom);
+	}
+	.sidebar {
+		padding-bottom: env(safe-area-inset-bottom);
+	}
 }

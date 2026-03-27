@@ -6,6 +6,7 @@ export default function MemoryPage() {
 		<div>
 			<h2 style={{ fontSize: '1.5rem', fontWeight: 600, marginBottom: '1.5rem' }}>Memory Graph</h2>
 			<div
+				className="graph-container"
 				style={{
 					backgroundColor: 'var(--bg-secondary)',
 					border: '1px solid var(--border-default)',

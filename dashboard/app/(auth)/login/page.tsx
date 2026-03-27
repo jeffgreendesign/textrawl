@@ -24,7 +24,8 @@ export default function LoginPage() {
 				display: 'flex',
 				alignItems: 'center',
 				justifyContent: 'center',
-				minHeight: '100vh',
+				minHeight: '100dvh',
+				padding: '0 1rem',
 				backgroundColor: 'var(--bg-primary)',
 			}}
 		>
