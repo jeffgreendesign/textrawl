@@ -211,6 +211,41 @@ body {
 	a {
 		min-height: 44px;
 	}
+
+	/* Prevent iOS Safari auto-zoom on input focus (requires >= 16px) */
+	input,
+	textarea,
+	select {
+		font-size: 16px !important;
+	}
+}
+
+/* ── iOS Safari hardening ── */
+
+/* Prevent iOS from inflating text in landscape */
+html {
+	-webkit-text-size-adjust: 100%;
+	text-size-adjust: 100%;
+}
+
+/* Remove iOS tap highlight (grey flash on tap) */
+* {
+	-webkit-tap-highlight-color: transparent;
+}
+
+/* Prevent rubber-band overscroll on the page body */
+html,
+body {
+	overscroll-behavior-y: none;
+}
+
+/* Normalize iOS form element appearance so custom styles are respected */
+input,
+textarea,
+select {
+	-webkit-appearance: none;
+	appearance: none;
+	border-radius: 0;
 }
 
 /* ── Safe area handling ── */
