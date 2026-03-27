@@ -50,6 +50,7 @@ body {
 
 /* ── Responsive layout variables ── */
 :root {
+	--sidebar-drawer-width: 240px;
 	--sidebar-width: 240px;
 	--main-padding: 2rem;
 	--grid-min-card: 280px;
@@ -75,13 +76,14 @@ body {
 	top: 0;
 	left: 0;
 	bottom: 0;
-	width: 240px;
+	width: var(--sidebar-drawer-width);
 	z-index: 50;
 	transform: translateX(0);
 	transition: transform 300ms cubic-bezier(0.4, 0, 0.2, 1);
 	overscroll-behavior: contain;
 	-webkit-overflow-scrolling: touch;
 	overflow-y: auto;
+	padding: calc(1.5rem + env(safe-area-inset-top, 0px)) 0 env(safe-area-inset-bottom, 0px);
 }
 
 @media (max-width: 768px) {
@@ -136,7 +138,7 @@ body {
 
 /* ── Main content area ── */
 .main-content {
-	margin-left: 240px;
+	margin-left: var(--sidebar-width);
 	transition: margin-left 300ms cubic-bezier(0.4, 0, 0.2, 1);
 }
 
@@ -214,9 +216,6 @@ body {
 /* ── Safe area handling ── */
 @supports (padding: env(safe-area-inset-bottom)) {
 	.main-content {
-		padding-bottom: env(safe-area-inset-bottom);
-	}
-	.sidebar {
 		padding-bottom: env(safe-area-inset-bottom);
 	}
 }

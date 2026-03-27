@@ -85,7 +85,6 @@ export default function KnowledgePage() {
 						backgroundColor: 'var(--bg-secondary)',
 						border: '1px solid var(--border-default)',
 						borderRadius: '0.75rem',
-						overflow: 'hidden',
 					}}
 				>
 					<table style={{ width: '100%', borderCollapse: 'collapse', fontSize: '0.875rem' }}>

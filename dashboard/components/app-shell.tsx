@@ -17,7 +17,7 @@ import {
 } from 'lucide-react';
 import Link from 'next/link';
 import { usePathname } from 'next/navigation';
-import { useCallback, useEffect, useState } from 'react';
+import { useCallback, useEffect, useRef, useState } from 'react';
 
 const navItems = [
 	{ href: '/', label: 'Dashboard', icon: Home },
@@ -64,6 +64,18 @@ export default function AppShell({ children }: { children: React.ReactNode }) {
 		};
 	}, [sidebarOpen]);
 
+	const toggleRef = useRef<HTMLButtonElement>(null);
+	const closeRef = useRef<HTMLButtonElement>(null);
+
+	// Manage focus when sidebar opens/closes
+	useEffect(() => {
+		if (sidebarOpen) {
+			closeRef.current?.focus();
+		} else {
+			toggleRef.current?.focus();
+		}
+	}, [sidebarOpen]);
+
 	const closeSidebar = useCallback(() => setSidebarOpen(false), []);
 	const openSidebar = useCallback(() => setSidebarOpen(true), []);
 
@@ -87,7 +99,6 @@ export default function AppShell({ children }: { children: React.ReactNode }) {
 				style={{
 					backgroundColor: 'var(--bg-secondary)',
 					borderRight: '1px solid var(--border-default)',
-					padding: '1.5rem 0',
 					display: 'flex',
 					flexDirection: 'column',
 					gap: '0.25rem',
@@ -125,6 +136,7 @@ export default function AppShell({ children }: { children: React.ReactNode }) {
 						</p>
 					</div>
 					<button
+						ref={closeRef}
 						type="button"
 						className="sidebar-close"
 						onClick={closeSidebar}
@@ -190,6 +202,7 @@ export default function AppShell({ children }: { children: React.ReactNode }) {
 				>
 					{/* Hamburger (mobile only) */}
 					<button
+						ref={toggleRef}
 						type="button"
 						className="sidebar-toggle"
 						onClick={openSidebar}
