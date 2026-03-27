@@ -66,9 +66,14 @@ export default function AppShell({ children }: { children: React.ReactNode }) {
 
 	const toggleRef = useRef<HTMLButtonElement>(null);
 	const closeRef = useRef<HTMLButtonElement>(null);
+	const didMountRef = useRef(false);
 
-	// Manage focus when sidebar opens/closes
+	// Manage focus when sidebar opens/closes (skip initial mount)
 	useEffect(() => {
+		if (!didMountRef.current) {
+			didMountRef.current = true;
+			return;
+		}
 		if (sidebarOpen) {
 			closeRef.current?.focus();
 		} else {
@@ -81,16 +86,11 @@ export default function AppShell({ children }: { children: React.ReactNode }) {
 
 	return (
 		<div style={{ display: 'flex', minHeight: '100dvh' }}>
-			{/* Overlay */}
+			{/* Overlay — click to dismiss; keyboard dismissal via document Escape listener */}
+			{/* biome-ignore lint/a11y/useKeyWithClickEvents: overlay dismissed via document-level Escape listener */}
 			<div
 				className={`sidebar-overlay${sidebarOpen ? ' sidebar-overlay-visible' : ''}`}
 				onClick={closeSidebar}
-				onKeyDown={(e) => {
-					if (e.key === 'Enter' || e.key === ' ') closeSidebar();
-				}}
-				role="button"
-				tabIndex={-1}
-				aria-label="Close menu"
 			/>
 
 			{/* Sidebar */}
