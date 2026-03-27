@@ -2,7 +2,7 @@
 set -e
 
 PROJECT_ID=${GCP_PROJECT_ID:?"Set GCP_PROJECT_ID"}
-REGION=${GCP_REGION:-"us-central1"}
+REGION=${GCP_REGION:-"us-east4"}
 SERVICE_NAME="textrawl"
 IMAGE="$REGION-docker.pkg.dev/$PROJECT_ID/textrawl/textrawl"
 
