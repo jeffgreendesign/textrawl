@@ -5,7 +5,7 @@
 
 import { Code, Eye, Send, Sparkles } from 'lucide-react';
 import { useState } from 'react';
-import AppletSandbox from '../../../components/applet-sandbox.js';
+import AppletSandbox from '../../../components/applet-sandbox';
 
 function escapeHtml(str: string): string {
 	return str

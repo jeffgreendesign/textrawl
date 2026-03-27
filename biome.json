@@ -31,7 +31,16 @@
 		}
 	},
 	"files": {
-		"ignore": ["node_modules", ".next", ".source", "dist", "*.min.js", "*.d.ts", ".claude"]
+		"ignore": [
+			"node_modules",
+			".next",
+			".source",
+			"dist",
+			".vercel",
+			"*.min.js",
+			"*.d.ts",
+			".claude"
+		]
 	},
 	"overrides": [
 		{
