@@ -5,6 +5,8 @@
 
 import { useCallback, useEffect, useRef } from 'react';
 
+import { getApiBase } from '@/lib/api';
+
 interface AppletSandboxProps {
 	code: string;
 	title?: string;
@@ -62,7 +64,7 @@ export default function AppletSandbox({ code, title = 'Applet', style }: AppletS
 
 		try {
 			const token = localStorage.getItem('textrawl_token');
-			const baseUrl = localStorage.getItem('textrawl_server') || '';
+			const apiBase = getApiBase();
 			const headers: Record<string, string> = { 'Content-Type': 'application/json' };
 			if (token) headers.Authorization = `Bearer ${token}`;
 
@@ -70,7 +72,7 @@ export default function AppletSandbox({ code, title = 'Applet', style }: AppletS
 
 			switch (method) {
 				case 'search': {
-					const res = await fetch(`${baseUrl}/api/search?q=${encodeURIComponent(args[0] || '')}`, {
+					const res = await fetch(`${apiBase}/search?q=${encodeURIComponent(args[0] || '')}`, {
 						headers,
 					});
 					if (!res.ok) throw new Error(`API error: ${res.status}`);
@@ -78,7 +80,7 @@ export default function AppletSandbox({ code, title = 'Applet', style }: AppletS
 					break;
 				}
 				case 'documents': {
-					const res = await fetch(`${baseUrl}/api/documents`, { headers });
+					const res = await fetch(`${apiBase}/documents`, { headers });
 					if (!res.ok) throw new Error(`API error: ${res.status}`);
 					result = await res.json();
 					break;
