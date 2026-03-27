@@ -73,25 +73,24 @@ export default function UploadPage() {
 			const token = typeof window !== 'undefined' ? localStorage.getItem('textrawl_token') : null;
 
 			// Detect unconfigured server on deployed sites
+			const localHosts = new Set(['localhost', '127.0.0.1', '::1']);
 			if (
 				apiBase === 'http://localhost:3000/api' &&
 				typeof window !== 'undefined' &&
-				window.location.hostname !== 'localhost' &&
-				window.location.hostname !== '127.0.0.1'
+				!localHosts.has(window.location.hostname)
 			) {
-				for (const f of pending) {
-					setFiles((prev) =>
-						prev.map((p) =>
-							p.id === f.id
-								? {
-										...p,
-										status: 'error' as const,
-										error: 'No server configured. Go to Settings to set your server URL.',
-									}
-								: p,
-						),
-					);
-				}
+				const pendingIds = new Set(pending.map((f) => f.id));
+				setFiles((prev) =>
+					prev.map((p) =>
+						pendingIds.has(p.id)
+							? {
+									...p,
+									status: 'error' as const,
+									error: 'No server configured. Go to Settings to set your server URL.',
+								}
+							: p,
+					),
+				);
 				return;
 			}
 

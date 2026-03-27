@@ -10,7 +10,10 @@ const WS_BASE = process.env.NEXT_PUBLIC_WS_URL ?? 'ws://localhost:3000/ws';
 export function getApiBase(): string {
 	if (typeof window !== 'undefined') {
 		const override = localStorage.getItem('textrawl_server');
-		if (override) return `${override.replace(/\/+$/, '')}/api`;
+		if (override) {
+			const trimmed = override.replace(/\/+$/, '').replace(/\/api$/, '');
+			return `${trimmed}/api`;
+		}
 	}
 	return ENV_API_BASE;
 }
