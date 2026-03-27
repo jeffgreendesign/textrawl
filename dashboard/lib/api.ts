@@ -3,8 +3,20 @@
  * All calls go to the Textrawl server's REST API (Enhancement 9).
  */
 
-const API_BASE = process.env.NEXT_PUBLIC_API_URL ?? 'http://localhost:3000/api';
+const ENV_API_BASE = process.env.NEXT_PUBLIC_API_URL ?? 'http://localhost:3000/api';
 const WS_BASE = process.env.NEXT_PUBLIC_WS_URL ?? 'ws://localhost:3000/ws';
+
+/** Resolve API base URL: localStorage override → env var → localhost default. */
+export function getApiBase(): string {
+	if (typeof window !== 'undefined') {
+		const override = localStorage.getItem('textrawl_server');
+		if (override) {
+			const trimmed = override.replace(/\/+$/, '').replace(/\/api$/, '');
+			return `${trimmed}/api`;
+		}
+	}
+	return ENV_API_BASE;
+}
 
 function getHeaders(): HeadersInit {
 	const token = typeof window !== 'undefined' ? localStorage.getItem('textrawl_token') : null;
@@ -15,7 +27,7 @@ function getHeaders(): HeadersInit {
 }
 
 async function apiFetch<T>(path: string, init?: RequestInit): Promise<T> {
-	const res = await fetch(`${API_BASE}${path}`, {
+	const res = await fetch(`${getApiBase()}${path}`, {
 		...init,
 		headers: { ...getHeaders(), ...init?.headers },
 	});
@@ -79,7 +91,7 @@ export async function uploadFile(
 
 	const token = typeof window !== 'undefined' ? localStorage.getItem('textrawl_token') : null;
 
-	const res = await fetch(`${API_BASE}/upload`, {
+	const res = await fetch(`${getApiBase()}/upload`, {
 		method: 'POST',
 		headers: token ? { Authorization: `Bearer ${token}` } : {},
 		body: formData,

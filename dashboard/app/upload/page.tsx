@@ -6,6 +6,8 @@
 import { AlertCircle, Archive, CheckCircle, FileText, Image, Music, Upload, X } from 'lucide-react';
 import { useCallback, useState } from 'react';
 
+import { getApiBase } from '@/lib/api';
+
 interface UploadFile {
 	id: string;
 	file: File;
@@ -67,25 +69,29 @@ export default function UploadPage() {
 				.map((t) => t.trim())
 				.filter(Boolean);
 
+			const apiBase = getApiBase();
 			const token = typeof window !== 'undefined' ? localStorage.getItem('textrawl_token') : null;
-			const baseUrl =
-				typeof window !== 'undefined' ? localStorage.getItem('textrawl_server') || '' : '';
 
-			if (baseUrl) {
-				try {
-					new URL(baseUrl);
-				} catch {
-					for (const f of pending) {
-						setFiles((prev) =>
-							prev.map((p) =>
-								p.id === f.id
-									? { ...p, status: 'error' as const, error: 'Invalid server URL in settings' }
-									: p,
-							),
-						);
-					}
-					return;
-				}
+			// Detect unconfigured server on deployed sites
+			const localHosts = new Set(['localhost', '127.0.0.1', '::1']);
+			if (
+				apiBase === 'http://localhost:3000/api' &&
+				typeof window !== 'undefined' &&
+				!localHosts.has(window.location.hostname)
+			) {
+				const pendingIds = new Set(pending.map((f) => f.id));
+				setFiles((prev) =>
+					prev.map((p) =>
+						pendingIds.has(p.id)
+							? {
+									...p,
+									status: 'error' as const,
+									error: 'No server configured. Go to Settings to set your server URL.',
+								}
+							: p,
+					),
+				);
+				return;
 			}
 
 			for (const uploadFile of pending) {
@@ -100,7 +106,7 @@ export default function UploadPage() {
 					formData.append('file', uploadFile.file);
 					if (tagList.length) formData.append('tags', JSON.stringify(tagList));
 
-					const res = await fetch(`${baseUrl}/api/upload`, {
+					const res = await fetch(`${apiBase}/upload`, {
 						method: 'POST',
 						headers: token ? { Authorization: `Bearer ${token}` } : {},
 						body: formData,

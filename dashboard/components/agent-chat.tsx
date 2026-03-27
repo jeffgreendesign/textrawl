@@ -6,6 +6,8 @@
 import { Search, Send } from 'lucide-react';
 import { useEffect, useRef, useState } from 'react';
 
+import { getApiBase } from '@/lib/api';
+
 interface Message {
 	role: 'user' | 'assistant';
 	content: string;
@@ -41,10 +43,9 @@ export default function AgentChat({
 
 		try {
 			const token = typeof window !== 'undefined' ? localStorage.getItem('textrawl_token') : null;
-			const baseUrl =
-				typeof window !== 'undefined' ? localStorage.getItem('textrawl_server') || '' : '';
+			const apiBase = getApiBase();
 
-			const res = await fetch(`${baseUrl}/api/search?q=${encodeURIComponent(question)}&limit=5`, {
+			const res = await fetch(`${apiBase}/search?q=${encodeURIComponent(question)}&limit=5`, {
 				headers: token ? { Authorization: `Bearer ${token}` } : {},
 			});
 
