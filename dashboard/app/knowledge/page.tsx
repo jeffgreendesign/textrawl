@@ -19,14 +19,7 @@ export default function KnowledgePage() {
 
 	return (
 		<div>
-			<div
-				style={{
-					display: 'flex',
-					alignItems: 'center',
-					justifyContent: 'space-between',
-					marginBottom: '1.5rem',
-				}}
-			>
+			<div className="page-header-row">
 				<h2 style={{ fontSize: '1.5rem', fontWeight: 600 }}>Knowledge Explorer</h2>
 				<div
 					style={{
@@ -66,7 +59,7 @@ export default function KnowledgePage() {
 				<div
 					style={{
 						display: 'grid',
-						gridTemplateColumns: 'repeat(auto-fill, minmax(300px, 1fr))',
+						gridTemplateColumns: 'repeat(auto-fill, minmax(var(--grid-min-card), 1fr))',
 						gap: '1rem',
 					}}
 				>
@@ -87,11 +80,11 @@ export default function KnowledgePage() {
 
 			{viewMode === 'table' && (
 				<div
+					className="table-wrapper"
 					style={{
 						backgroundColor: 'var(--bg-secondary)',
 						border: '1px solid var(--border-default)',
 						borderRadius: '0.75rem',
-						overflow: 'hidden',
 					}}
 				>
 					<table style={{ width: '100%', borderCollapse: 'collapse', fontSize: '0.875rem' }}>

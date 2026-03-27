@@ -18,7 +18,7 @@ export default function DashboardHome() {
 			<div
 				style={{
 					display: 'grid',
-					gridTemplateColumns: 'repeat(auto-fit, minmax(200px, 1fr))',
+					gridTemplateColumns: 'repeat(auto-fit, minmax(var(--grid-min-stat), 1fr))',
 					gap: '1rem',
 					marginBottom: '2rem',
 				}}

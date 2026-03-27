@@ -30,14 +30,7 @@ const EXAMPLE_APPLETS = [
 export default function AppletsPage() {
 	return (
 		<div>
-			<div
-				style={{
-					display: 'flex',
-					alignItems: 'center',
-					justifyContent: 'space-between',
-					marginBottom: '1.5rem',
-				}}
-			>
+			<div className="page-header-row">
 				<h2 style={{ fontSize: '1.5rem', fontWeight: 600 }}>Applets</h2>
 				<Link
 					href="/applets/new"
@@ -68,7 +61,7 @@ export default function AppletsPage() {
 			<div
 				style={{
 					display: 'grid',
-					gridTemplateColumns: 'repeat(auto-fill, minmax(280px, 1fr))',
+					gridTemplateColumns: 'repeat(auto-fill, minmax(var(--grid-min-card), 1fr))',
 					gap: '1rem',
 				}}
 			>
