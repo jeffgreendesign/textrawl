@@ -31,6 +31,9 @@ tmp/
 temp/
 *.tmp
 
+# Supabase CLI
+supabase/.temp/
+
 # Claude Code
 .claude/
 CLAUDE.local.md
