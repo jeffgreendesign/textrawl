@@ -38,6 +38,67 @@ async function apiFetch<T>(path: string, init?: RequestInit): Promise<T> {
 	return res.json() as Promise<T>;
 }
 
+// --- Server base (for non-API routes like /health, /status) ---
+
+/** Server origin without /api suffix. Used for health checks and status. */
+export function getServerBase(): string {
+	return getApiBase().replace(/\/api$/, '');
+}
+
+// --- Health ---
+
+export interface HealthResult {
+	ok: boolean;
+	latencyMs: number;
+}
+
+export async function checkHealth(): Promise<HealthResult> {
+	const start = performance.now();
+	try {
+		const res = await fetch(`${getServerBase()}/health/live`, {
+			signal: AbortSignal.timeout(5000),
+		});
+		return { ok: res.ok, latencyMs: Math.round(performance.now() - start) };
+	} catch {
+		return { ok: false, latencyMs: Math.round(performance.now() - start) };
+	}
+}
+
+// --- Status ---
+
+export interface ServiceCheck {
+	name: string;
+	status: string;
+	message?: string;
+	latencyMs?: number;
+}
+
+export interface ToolStatus {
+	name: string;
+	group: string;
+	status: string;
+	message?: string;
+}
+
+export interface StatusResponse {
+	overall: 'operational' | 'degraded' | 'down';
+	version: string;
+	uptime: number;
+	timestamp: string;
+	services: ServiceCheck[];
+	features: Record<string, boolean>;
+	tools: ToolStatus[];
+	embedding: { provider: string; model: string; configured: boolean };
+}
+
+export async function fetchStatus(): Promise<StatusResponse> {
+	const res = await fetch(`${getServerBase()}/status`, {
+		signal: AbortSignal.timeout(15000),
+	});
+	if (!res.ok) throw new Error(`Status ${res.status}`);
+	return res.json() as Promise<StatusResponse>;
+}
+
 // --- Search ---
 export interface SearchResult {
 	documentId: string;
@@ -75,6 +136,18 @@ export async function listDocuments(
 
 export async function getDocument(id: string): Promise<Document> {
 	return apiFetch(`/documents/${id}`);
+}
+
+// --- Stats ---
+export interface Stats {
+	documents: number;
+	memories?: number | null;
+	conversations?: number | null;
+	insights?: number | null;
+}
+
+export async function fetchStats(): Promise<Stats> {
+	return apiFetch('/stats');
 }
 
 // --- Upload ---

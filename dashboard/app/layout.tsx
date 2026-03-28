@@ -1,5 +1,6 @@
 import type { Metadata, Viewport } from 'next';
 import AppShell from '../components/app-shell';
+import { Providers } from '../lib/providers';
 import './globals.css';
 
 export const viewport: Viewport = {
@@ -24,7 +25,9 @@ export default function RootLayout({ children }: { children: React.ReactNode }) 
 	return (
 		<html lang="en" className="dark">
 			<body>
-				<AppShell>{children}</AppShell>
+				<Providers>
+					<AppShell>{children}</AppShell>
+				</Providers>
 			</body>
 		</html>
 	);

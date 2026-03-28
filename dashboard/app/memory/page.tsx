@@ -1,6 +1,8 @@
 /**
  * Memory Graph — visualize entities and relationships.
  */
+import { Brain, ExternalLink } from 'lucide-react';
+
 export default function MemoryPage() {
 	return (
 		<div>
@@ -18,11 +20,36 @@ export default function MemoryPage() {
 					justifyContent: 'center',
 				}}
 			>
-				<p style={{ color: 'var(--text-muted)', fontSize: '0.875rem', textAlign: 'center' }}>
-					Interactive force-directed graph of your entities and relationships.
-					<br />
-					Connect to your server to visualize your memory graph.
-				</p>
+				<div style={{ textAlign: 'center', maxWidth: 400 }}>
+					<Brain size={40} style={{ color: 'var(--text-muted)', margin: '0 auto 1rem' }} />
+					<p
+						style={{
+							color: 'var(--text-muted)',
+							fontSize: '0.875rem',
+							marginBottom: '1rem',
+							lineHeight: 1.6,
+						}}
+					>
+						Interactive force-directed graph of your entities and relationships. This visualization
+						requires a REST API endpoint that is coming soon.
+					</p>
+					<p style={{ fontSize: '0.8125rem' }}>
+						Your memory tools are available via MCP —{' '}
+						<a
+							href="/agents"
+							style={{
+								color: 'var(--text-accent)',
+								textDecoration: 'none',
+								display: 'inline-flex',
+								alignItems: 'center',
+								gap: '0.25rem',
+							}}
+						>
+							check the Agents page <ExternalLink size={12} />
+						</a>{' '}
+						to see if they are operational.
+					</p>
+				</div>
 			</div>
 		</div>
 	);

@@ -2,7 +2,9 @@ import { Router, type Router as RouterType } from 'express';
 import { isSupabaseConfigured } from '../db/client.js';
 import { getDocument, listDocuments } from '../db/documents.js';
 import { hybridSearch } from '../db/search.js';
+import { getKnowledgeStats } from '../db/stats.js';
 import { generateEmbedding, isEmbeddingsConfigured } from '../services/embeddings.js';
+import { config } from '../utils/config.js';
 import { logger } from '../utils/logger.js';
 import { bearerAuth } from './middleware/auth.js';
 import { uploadRouter } from './upload.js';
@@ -91,5 +93,55 @@ apiRoutes.get('/documents/:id', bearerAuth, async (req, res) => {
 			error: error instanceof Error ? error.message : String(error),
 		});
 		res.status(500).json({ error: 'Failed to get document' });
+	}
+});
+
+apiRoutes.get('/stats', bearerAuth, async (_req, res) => {
+	try {
+		if (!isSupabaseConfigured()) {
+			res.status(503).json({ error: 'Database not available' });
+			return;
+		}
+
+		const knowledge = await getKnowledgeStats();
+
+		const counts: Record<string, unknown> = { documents: knowledge.total };
+
+		if (config.ENABLE_MEMORY) {
+			try {
+				const { getMemoryStats } = await import('../db/memory-search.js');
+				const mem = await getMemoryStats();
+				counts.memories = mem.totalEntities;
+			} catch {
+				counts.memories = null;
+			}
+		}
+
+		if (config.ENABLE_CONVERSATIONS) {
+			try {
+				const { getConversationSearchStats } = await import('../db/conversation-search.js');
+				const conv = await getConversationSearchStats();
+				counts.conversations = conv.totalSessions;
+			} catch {
+				counts.conversations = null;
+			}
+		}
+
+		if (config.ENABLE_INSIGHTS) {
+			try {
+				const { getInsightStats } = await import('../db/insights.js');
+				const ins = await getInsightStats();
+				counts.insights = ins.total;
+			} catch {
+				counts.insights = null;
+			}
+		}
+
+		res.json(counts);
+	} catch (error) {
+		logger.error('REST stats failed', {
+			error: error instanceof Error ? error.message : String(error),
+		});
+		res.status(500).json({ error: 'Failed to get stats' });
 	}
 });

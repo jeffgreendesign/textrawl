@@ -1,257 +1,429 @@
 /**
- * Agents — orchestration panel for connected agents and tasks.
+ * Agents — live server monitor, MCP tool matrix, and feature flags.
  */
 'use client';
 
-import { Bot, Clock, Play, RefreshCw, Shield } from 'lucide-react';
-import { useState } from 'react';
+import { Activity, Bot, Cpu, RefreshCw, Zap } from 'lucide-react';
 
-interface AgentTask {
-	id: string;
-	name: string;
-	status: 'idle' | 'running' | 'completed';
-	lastRun?: string;
-	description: string;
+import { useHealth, useStatus } from '@/lib/queries';
+
+function formatUptime(seconds: number): string {
+	const d = Math.floor(seconds / 86400);
+	const h = Math.floor((seconds % 86400) / 3600);
+	const m = Math.floor((seconds % 3600) / 60);
+	if (d > 0) return `${d}d ${h}h`;
+	if (h > 0) return `${h}h ${m}m`;
+	return `${m}m`;
 }
 
-const MANUAL_TASKS: AgentTask[] = [
-	{
-		id: 'insight-scan',
-		name: 'Run Insight Scan',
-		status: 'idle',
-		description: 'Analyze recent documents for cross-source patterns and connections.',
-	},
-	{
-		id: 'generate-briefing',
-		name: 'Generate Briefing',
-		status: 'idle',
-		description: 'Create a daily briefing from recent additions and resurfaced knowledge.',
-	},
-	{
-		id: 'memory-extraction',
-		name: 'Extract Memories',
-		status: 'idle',
-		description: 'Extract entities and relationships from recent uploads.',
-	},
-	{
-		id: 'staleness-check',
-		name: 'Staleness Check',
-		status: 'idle',
-		description: 'Flag entities with observations older than 90 days.',
-	},
-];
+const STATUS_COLORS: Record<string, string> = {
+	operational: '#22c55e',
+	degraded: '#eab308',
+	down: '#ef4444',
+	disabled: '#71717a',
+	unchecked: '#71717a',
+};
+
+const STATUS_BG: Record<string, string> = {
+	operational: 'rgba(34, 197, 94, 0.08)',
+	degraded: 'rgba(234, 179, 8, 0.08)',
+	down: 'rgba(239, 68, 68, 0.08)',
+};
+
+const STATUS_LABELS: Record<string, string> = {
+	operational: 'All Systems Operational',
+	degraded: 'Partial Service Degradation',
+	down: 'Service Disruption',
+};
+
+function Skeleton({ width, height = 16 }: { width: number | string; height?: number }) {
+	return (
+		<div
+			style={{
+				width,
+				height,
+				borderRadius: 4,
+				backgroundColor: 'var(--bg-tertiary)',
+				animation: 'pulse 1.5s infinite',
+			}}
+		/>
+	);
+}
 
 export default function AgentsPage() {
-	const [tasks, setTasks] = useState(MANUAL_TASKS);
+	const { data: status, isLoading, refetch } = useStatus();
+	const { data: health } = useHealth();
 
-	const triggerTask = (taskId: string) => {
-		setTasks((prev) =>
-			prev.map((t) => (t.id === taskId ? { ...t, status: 'running' as const } : t)),
-		);
-		// Simulate completion
-		setTimeout(() => {
-			setTasks((prev) =>
-				prev.map((t) =>
-					t.id === taskId
-						? { ...t, status: 'completed' as const, lastRun: new Date().toLocaleTimeString() }
-						: t,
-				),
-			);
-		}, 2000);
-	};
+	const overall = status?.overall ?? 'down';
+	const color = STATUS_COLORS[overall] ?? '#71717a';
 
 	return (
 		<div>
-			<h2 style={{ fontSize: '1.5rem', fontWeight: 600, marginBottom: '1.5rem' }}>
-				Agent Orchestration
-			</h2>
-
-			{/* Connected Agents */}
-			<section style={{ marginBottom: '2rem' }}>
-				<h3
+			<div className="page-header-row">
+				<h2 style={{ fontSize: '1.5rem', fontWeight: 600 }}>Agent Orchestration</h2>
+				<button
+					type="button"
+					onClick={() => refetch()}
 					style={{
-						fontSize: '1rem',
-						fontWeight: 600,
-						marginBottom: '0.75rem',
-						color: 'var(--text-muted)',
-					}}
-				>
-					Connected Agents
-				</h3>
-				<div
-					style={{
-						backgroundColor: 'var(--bg-secondary)',
+						display: 'flex',
+						alignItems: 'center',
+						gap: '0.375rem',
+						padding: '0.375rem 0.75rem',
+						fontSize: '0.8125rem',
+						borderRadius: '0.375rem',
 						border: '1px solid var(--border-default)',
-						borderRadius: '0.75rem',
-						padding: '1.5rem',
+						backgroundColor: 'var(--bg-tertiary)',
+						color: 'var(--text-secondary)',
+						cursor: 'pointer',
 					}}
 				>
-					<div
-						style={{
-							display: 'flex',
-							alignItems: 'center',
-							gap: '0.75rem',
-							marginBottom: '0.75rem',
-						}}
-					>
-						<Bot size={20} style={{ color: 'var(--text-accent)' }} />
-						<div>
-							<p style={{ fontWeight: 500 }}>Textrawl Knowledge Agent</p>
-							<p style={{ fontSize: '0.75rem', color: 'var(--text-muted)' }}>Local — A2A + MCP</p>
-						</div>
+					<RefreshCw size={14} />
+					Refresh
+				</button>
+			</div>
+
+			{/* Overall status banner */}
+			<div
+				style={{
+					backgroundColor: STATUS_BG[overall] ?? 'var(--bg-secondary)',
+					border: `1px solid ${color}`,
+					borderRadius: '0.75rem',
+					padding: '1.25rem',
+					marginBottom: '1.5rem',
+					display: 'flex',
+					alignItems: 'center',
+					gap: '0.75rem',
+					flexWrap: 'wrap',
+				}}
+			>
+				{isLoading ? (
+					<Skeleton width={200} height={20} />
+				) : (
+					<>
+						<div
+							style={{
+								width: 12,
+								height: 12,
+								borderRadius: '50%',
+								backgroundColor: color,
+								boxShadow: `0 0 8px ${color}`,
+								flexShrink: 0,
+							}}
+						/>
+						<span style={{ fontWeight: 600, fontSize: '0.9375rem' }}>
+							{STATUS_LABELS[overall] ?? overall}
+						</span>
 						<span
 							style={{
 								marginLeft: 'auto',
-								fontSize: '0.6875rem',
-								padding: '0.25rem 0.625rem',
-								borderRadius: '9999px',
-								backgroundColor: 'rgba(132, 204, 22, 0.15)',
-								color: 'var(--text-accent)',
-							}}
-						>
-							Active
-						</span>
-					</div>
-					<div style={{ display: 'flex', gap: '0.5rem', flexWrap: 'wrap' }}>
-						{['search', 'save', 'memory', 'insights'].map((skill) => (
-							<span
-								key={skill}
-								style={{
-									fontSize: '0.6875rem',
-									padding: '0.125rem 0.5rem',
-									borderRadius: '0.25rem',
-									backgroundColor: 'var(--bg-tertiary)',
-									color: 'var(--text-muted)',
-								}}
-							>
-								{skill}
-							</span>
-						))}
-					</div>
-				</div>
-				<p style={{ color: 'var(--text-muted)', fontSize: '0.8125rem', marginTop: '0.75rem' }}>
-					External agents discovered via A2A will appear here.
-				</p>
-			</section>
-
-			{/* Manual Tasks */}
-			<section style={{ marginBottom: '2rem' }}>
-				<h3
-					style={{
-						fontSize: '1rem',
-						fontWeight: 600,
-						marginBottom: '0.75rem',
-						color: 'var(--text-muted)',
-					}}
-				>
-					Manual Tasks
-				</h3>
-				<div style={{ display: 'flex', flexDirection: 'column', gap: '0.5rem' }}>
-					{tasks.map((task) => (
-						<div
-							key={task.id}
-							className="task-item"
-							style={{
+								fontSize: '0.75rem',
+								fontFamily: 'var(--font-mono)',
+								color: 'var(--text-muted)',
 								display: 'flex',
 								alignItems: 'center',
 								gap: '0.75rem',
-								padding: '0.875rem 1rem',
-								backgroundColor: 'var(--bg-secondary)',
-								border: '1px solid var(--border-default)',
-								borderRadius: '0.5rem',
 							}}
 						>
-							<div style={{ flex: 1 }}>
-								<p style={{ fontSize: '0.875rem', fontWeight: 500 }}>{task.name}</p>
-								<p style={{ fontSize: '0.75rem', color: 'var(--text-muted)' }}>
-									{task.description}
-								</p>
-							</div>
-							<div
-								className="task-actions"
-								style={{ display: 'flex', alignItems: 'center', gap: '0.5rem', flexShrink: 0 }}
-							>
-								{task.lastRun && (
-									<span
-										style={{
-											fontSize: '0.6875rem',
-											color: 'var(--text-muted)',
-											display: 'flex',
-											alignItems: 'center',
-											gap: '0.25rem',
-										}}
-									>
-										<Clock size={12} /> {task.lastRun}
-									</span>
-								)}
-								<button
-									type="button"
-									onClick={() => triggerTask(task.id)}
-									disabled={task.status === 'running'}
-									style={{
-										display: 'flex',
-										alignItems: 'center',
-										gap: '0.375rem',
-										padding: '0.375rem 0.75rem',
-										backgroundColor:
-											task.status === 'running' ? 'var(--bg-tertiary)' : 'var(--text-accent)',
-										color: task.status === 'running' ? 'var(--text-muted)' : '#000',
-										border: 'none',
-										borderRadius: '0.375rem',
-										fontSize: '0.75rem',
-										fontWeight: 600,
-										cursor: task.status === 'running' ? 'not-allowed' : 'pointer',
-									}}
-								>
-									{task.status === 'running' ? (
-										<RefreshCw size={12} className="animate-spin" />
-									) : (
-										<Play size={12} />
-									)}
-									{task.status === 'running' ? 'Running...' : 'Run'}
-								</button>
-							</div>
-						</div>
-					))}
-				</div>
-			</section>
+							{status && (
+								<>
+									v{status.version} · up {formatUptime(status.uptime)}
+								</>
+							)}
+							{health?.ok && <span style={{ color: '#22c55e' }}>{health.latencyMs}ms</span>}
+						</span>
+					</>
+				)}
+			</div>
 
-			{/* Agent Access Log */}
-			<section>
+			{/* Services grid */}
+			<section style={{ marginBottom: '2rem' }}>
 				<h3
 					style={{
-						fontSize: '1rem',
+						fontSize: '0.8125rem',
 						fontWeight: 600,
 						marginBottom: '0.75rem',
 						color: 'var(--text-muted)',
+						textTransform: 'uppercase',
+						letterSpacing: '0.05em',
 					}}
 				>
-					Access Log
+					<Activity
+						size={14}
+						style={{ display: 'inline', marginRight: '0.5rem', verticalAlign: -2 }}
+					/>
+					Services
 				</h3>
 				<div
 					style={{
-						backgroundColor: 'var(--bg-secondary)',
-						border: '1px solid var(--border-default)',
-						borderRadius: '0.75rem',
-						padding: '1.5rem',
+						display: 'grid',
+						gridTemplateColumns: 'repeat(auto-fill, minmax(240px, 1fr))',
+						gap: '0.75rem',
 					}}
 				>
-					<div
-						style={{
-							display: 'flex',
-							alignItems: 'center',
-							gap: '0.5rem',
-							color: 'var(--text-muted)',
-						}}
-					>
-						<Shield size={16} />
-						<p style={{ fontSize: '0.875rem' }}>
-							Agent access history and permission logs will appear here when agents interact with
-							your knowledge.
-						</p>
-					</div>
+					{isLoading
+						? Array.from({ length: 4 }, (_, i) => `svc-skel-${i}`).map((key) => (
+								<div
+									key={key}
+									style={{
+										backgroundColor: 'var(--bg-secondary)',
+										border: '1px solid var(--border-default)',
+										borderRadius: '0.75rem',
+										padding: '1rem',
+									}}
+								>
+									<Skeleton width={120} />
+								</div>
+							))
+						: status?.services.map((svc) => {
+								const svcColor = STATUS_COLORS[svc.status] ?? '#71717a';
+								return (
+									<div
+										key={svc.name}
+										style={{
+											backgroundColor: 'var(--bg-secondary)',
+											border: '1px solid var(--border-default)',
+											borderRadius: '0.75rem',
+											padding: '1rem',
+											display: 'flex',
+											alignItems: 'center',
+											gap: '0.75rem',
+										}}
+									>
+										<div
+											style={{
+												width: 8,
+												height: 8,
+												borderRadius: '50%',
+												backgroundColor: svcColor,
+												boxShadow: svc.status === 'operational' ? `0 0 6px ${svcColor}` : undefined,
+												flexShrink: 0,
+											}}
+										/>
+										<div style={{ flex: 1, minWidth: 0 }}>
+											<p style={{ fontSize: '0.875rem', fontWeight: 500 }}>{svc.name}</p>
+											<p style={{ fontSize: '0.75rem', color: 'var(--text-muted)' }}>
+												{svc.message ?? svc.status}
+											</p>
+										</div>
+										{svc.latencyMs != null && (
+											<span
+												style={{
+													fontSize: '0.75rem',
+													fontFamily: 'var(--font-mono)',
+													color:
+														svc.latencyMs < 100
+															? '#22c55e'
+															: svc.latencyMs < 500
+																? '#eab308'
+																: '#ef4444',
+												}}
+											>
+												{svc.latencyMs}ms
+											</span>
+										)}
+									</div>
+								);
+							})}
 				</div>
 			</section>
+
+			{/* MCP Tool Matrix */}
+			{status && status.tools.length > 0 && (
+				<section style={{ marginBottom: '2rem' }}>
+					<h3
+						style={{
+							fontSize: '0.8125rem',
+							fontWeight: 600,
+							marginBottom: '0.75rem',
+							color: 'var(--text-muted)',
+							textTransform: 'uppercase',
+							letterSpacing: '0.05em',
+						}}
+					>
+						<Cpu
+							size={14}
+							style={{ display: 'inline', marginRight: '0.5rem', verticalAlign: -2 }}
+						/>
+						MCP Tools ({status.tools.length})
+					</h3>
+					<div
+						style={{
+							display: 'grid',
+							gridTemplateColumns: 'repeat(auto-fill, minmax(200px, 1fr))',
+							gap: 1,
+							backgroundColor: 'var(--border-default)',
+							borderRadius: '0.75rem',
+							overflow: 'hidden',
+						}}
+					>
+						{status.tools.map((tool) => {
+							const toolColor = STATUS_COLORS[tool.status] ?? '#71717a';
+							return (
+								<div
+									key={tool.name}
+									title={tool.message ?? tool.status}
+									style={{
+										backgroundColor: 'var(--bg-secondary)',
+										padding: '0.75rem 1rem',
+										display: 'flex',
+										alignItems: 'center',
+										gap: '0.625rem',
+									}}
+								>
+									<div
+										style={{
+											width: 6,
+											height: 6,
+											borderRadius: '50%',
+											backgroundColor: toolColor,
+											flexShrink: 0,
+										}}
+									/>
+									<span
+										style={{
+											fontSize: '0.8125rem',
+											fontFamily: 'var(--font-mono)',
+											fontWeight: 500,
+										}}
+									>
+										{tool.name}
+									</span>
+									<span
+										style={{
+											marginLeft: 'auto',
+											fontSize: '0.625rem',
+											color: 'var(--text-muted)',
+											textTransform: 'uppercase',
+											letterSpacing: '0.05em',
+										}}
+									>
+										{tool.group}
+									</span>
+								</div>
+							);
+						})}
+					</div>
+				</section>
+			)}
+
+			{/* Feature Flags */}
+			{status && (
+				<section style={{ marginBottom: '2rem' }}>
+					<h3
+						style={{
+							fontSize: '0.8125rem',
+							fontWeight: 600,
+							marginBottom: '0.75rem',
+							color: 'var(--text-muted)',
+							textTransform: 'uppercase',
+							letterSpacing: '0.05em',
+						}}
+					>
+						<Zap
+							size={14}
+							style={{ display: 'inline', marginRight: '0.5rem', verticalAlign: -2 }}
+						/>
+						Feature Flags
+					</h3>
+					<div style={{ display: 'flex', gap: '0.5rem', flexWrap: 'wrap' }}>
+						{Object.entries(status.features).map(([key, val]) => (
+							<span
+								key={key}
+								style={{
+									fontSize: '0.75rem',
+									padding: '0.25rem 0.625rem',
+									borderRadius: '9999px',
+									fontFamily: 'var(--font-mono)',
+									fontWeight: 500,
+									backgroundColor: val ? 'rgba(34, 197, 94, 0.15)' : 'rgba(113, 113, 122, 0.15)',
+									color: val ? '#22c55e' : '#71717a',
+									border: `1px solid ${val ? 'rgba(34, 197, 94, 0.3)' : 'rgba(113, 113, 122, 0.3)'}`,
+								}}
+							>
+								{key}: {val ? 'on' : 'off'}
+							</span>
+						))}
+					</div>
+				</section>
+			)}
+
+			{/* Embedding Provider */}
+			{status && (
+				<section style={{ marginBottom: '2rem' }}>
+					<h3
+						style={{
+							fontSize: '0.8125rem',
+							fontWeight: 600,
+							marginBottom: '0.75rem',
+							color: 'var(--text-muted)',
+							textTransform: 'uppercase',
+							letterSpacing: '0.05em',
+						}}
+					>
+						<Bot
+							size={14}
+							style={{ display: 'inline', marginRight: '0.5rem', verticalAlign: -2 }}
+						/>
+						Embedding Provider
+					</h3>
+					<div
+						style={{
+							backgroundColor: 'var(--bg-secondary)',
+							border: '1px solid var(--border-default)',
+							borderRadius: '0.75rem',
+							padding: '1rem',
+							display: 'flex',
+							alignItems: 'center',
+							gap: '1rem',
+							flexWrap: 'wrap',
+						}}
+					>
+						<div
+							style={{
+								width: 8,
+								height: 8,
+								borderRadius: '50%',
+								backgroundColor: status.embedding.configured ? '#22c55e' : '#ef4444',
+								flexShrink: 0,
+							}}
+						/>
+						<div>
+							<span
+								style={{
+									fontSize: '0.75rem',
+									color: 'var(--text-muted)',
+									textTransform: 'uppercase',
+									letterSpacing: '0.05em',
+								}}
+							>
+								Provider
+							</span>{' '}
+							<span style={{ fontSize: '0.875rem', fontFamily: 'var(--font-mono)' }}>
+								{status.embedding.provider}
+							</span>
+						</div>
+						<div>
+							<span
+								style={{
+									fontSize: '0.75rem',
+									color: 'var(--text-muted)',
+									textTransform: 'uppercase',
+									letterSpacing: '0.05em',
+								}}
+							>
+								Model
+							</span>{' '}
+							<span style={{ fontSize: '0.875rem', fontFamily: 'var(--font-mono)' }}>
+								{status.embedding.model}
+							</span>
+						</div>
+					</div>
+				</section>
+			)}
+
+			<p style={{ color: 'var(--text-muted)', fontSize: '0.8125rem', marginTop: '1rem' }}>
+				Tasks like insight scans, memory extraction, and briefings are executed via MCP tool calls.
+			</p>
 		</div>
 	);
 }

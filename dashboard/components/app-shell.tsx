@@ -16,8 +16,11 @@ import {
 	X,
 } from 'lucide-react';
 import Link from 'next/link';
-import { usePathname } from 'next/navigation';
+import { usePathname, useRouter } from 'next/navigation';
 import { useCallback, useEffect, useRef, useState } from 'react';
+
+import { useHealth } from '@/lib/queries';
+import CommandPalette from './command-palette';
 
 const navItems = [
 	{ href: '/', label: 'Dashboard', icon: Home },
@@ -34,7 +37,10 @@ const navItems = [
 
 export default function AppShell({ children }: { children: React.ReactNode }) {
 	const [sidebarOpen, setSidebarOpen] = useState(false);
+	const [paletteOpen, setPaletteOpen] = useState(false);
 	const pathname = usePathname();
+	const router = useRouter();
+	const { data: health } = useHealth();
 
 	// Close sidebar on route change
 	const [prevPathname, setPrevPathname] = useState(pathname);
@@ -43,14 +49,21 @@ export default function AppShell({ children }: { children: React.ReactNode }) {
 		setSidebarOpen(false);
 	}
 
-	// Close on Escape key
+	// Close on Escape key + ⌘K palette toggle
 	useEffect(() => {
 		const handler = (e: KeyboardEvent) => {
-			if (e.key === 'Escape') setSidebarOpen(false);
+			if (e.key === 'Escape') {
+				if (paletteOpen) setPaletteOpen(false);
+				else setSidebarOpen(false);
+			}
+			if ((e.metaKey || e.ctrlKey) && e.key === 'k') {
+				e.preventDefault();
+				setPaletteOpen((prev) => !prev);
+			}
 		};
 		document.addEventListener('keydown', handler);
 		return () => document.removeEventListener('keydown', handler);
-	}, []);
+	}, [paletteOpen]);
 
 	// Lock body scroll when sidebar is open on mobile
 	useEffect(() => {
@@ -125,14 +138,36 @@ export default function AppShell({ children }: { children: React.ReactNode }) {
 						>
 							textrawl
 						</h1>
+						{/* biome-ignore lint/a11y/useKeyWithClickEvents: click navigates */}
 						<p
+							onClick={() => router.push('/agents')}
 							style={{
 								fontSize: '0.75rem',
 								color: 'var(--text-muted)',
 								marginTop: '0.25rem',
+								display: 'flex',
+								alignItems: 'center',
+								gap: '0.375rem',
+								cursor: 'pointer',
 							}}
 						>
-							Command Center
+							<span
+								style={{
+									width: 8,
+									height: 8,
+									borderRadius: '50%',
+									backgroundColor: health == null ? '#71717a' : health.ok ? '#22c55e' : '#ef4444',
+									boxShadow: health?.ok ? '0 0 6px #22c55e' : undefined,
+									display: 'inline-block',
+									animation:
+										health == null
+											? 'pulse 1.5s infinite'
+											: health.ok
+												? 'pulse 2s infinite'
+												: undefined,
+								}}
+							/>
+							{health == null ? 'Connecting...' : health.ok ? `${health.latencyMs}ms` : 'Offline'}
 						</p>
 					</div>
 					<button
@@ -219,9 +254,11 @@ export default function AppShell({ children }: { children: React.ReactNode }) {
 						<Menu size={24} />
 					</button>
 
-					{/* Search bar */}
+					{/* Search bar — opens command palette */}
+					{/* biome-ignore lint/a11y/useKeyWithClickEvents: click triggers palette */}
 					<div
 						className="top-bar-search"
+						onClick={() => setPaletteOpen(true)}
 						style={{
 							display: 'flex',
 							alignItems: 'center',
@@ -231,27 +268,40 @@ export default function AppShell({ children }: { children: React.ReactNode }) {
 							padding: '0.5rem 1rem',
 							flex: 1,
 							maxWidth: 480,
+							cursor: 'pointer',
 						}}
 					>
 						<Search size={16} style={{ color: 'var(--text-muted)', flexShrink: 0 }} />
-						<input
-							type="text"
-							placeholder="Search your knowledge..."
-							aria-label="Search your knowledge"
+						<span
 							style={{
-								background: 'none',
-								border: 'none',
-								outline: 'none',
-								color: 'var(--text-primary)',
+								color: 'var(--text-muted)',
 								fontSize: '0.875rem',
-								width: '100%',
+								flex: 1,
 							}}
-						/>
+						>
+							Search...
+						</span>
+						<kbd
+							style={{
+								fontSize: '0.6875rem',
+								fontFamily: 'var(--font-mono)',
+								color: 'var(--text-muted)',
+								backgroundColor: 'var(--bg-secondary)',
+								padding: '0.125rem 0.375rem',
+								borderRadius: '0.25rem',
+								border: '1px solid var(--border-default)',
+							}}
+						>
+							⌘K
+						</kbd>
 					</div>
 				</div>
 
 				{children}
 			</main>
+
+			{/* Command Palette */}
+			{paletteOpen && <CommandPalette onClose={() => setPaletteOpen(false)} />}
 		</div>
 	);
 }
