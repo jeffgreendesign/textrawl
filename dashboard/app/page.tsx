@@ -269,7 +269,7 @@ export default function DashboardHome() {
 	const [events, setEvents] = useState<ActivityEvent[]>([]);
 	const [wsConnected, setWsConnected] = useState(false);
 	const wsRef = useRef<WebSocket | null>(null);
-	const reconnectTimeout = useRef<ReturnType<typeof setTimeout>>();
+	const reconnectTimeout = useRef<ReturnType<typeof setTimeout> | undefined>(undefined);
 	const reconnectDelay = useRef(5000);
 
 	// WebSocket connection with auto-reconnect
