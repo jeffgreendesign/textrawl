@@ -14,7 +14,7 @@ export default function CommandPalette({ onClose }: { onClose: () => void }) {
 	const [debouncedQuery, setDebouncedQuery] = useState('');
 	const [selectedIndex, setSelectedIndex] = useState(0);
 	const inputRef = useRef<HTMLInputElement>(null);
-	const debounceRef = useRef<ReturnType<typeof setTimeout>>();
+	const debounceRef = useRef<ReturnType<typeof setTimeout> | undefined>(undefined);
 	const router = useRouter();
 
 	// Debounce search query
