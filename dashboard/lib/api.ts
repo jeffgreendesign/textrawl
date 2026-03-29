@@ -139,11 +139,31 @@ export async function getDocument(id: string): Promise<Document> {
 }
 
 // --- Stats ---
+export interface MemoryStatsBreakdown {
+	entities: number;
+	observations: number;
+	relations: number;
+	entityTypeCounts: Record<string, number>;
+}
+
+export interface ConversationStatsBreakdown {
+	sessions: number;
+	turns: number;
+}
+
+export interface InsightStatsBreakdown {
+	total: number;
+	new: number;
+	seen: number;
+	dismissed: number;
+	byType: Record<string, number>;
+}
+
 export interface Stats {
 	documents: number;
-	memories?: number | null;
-	conversations?: number | null;
-	insights?: number | null;
+	memories?: MemoryStatsBreakdown | null;
+	conversations?: ConversationStatsBreakdown | null;
+	insights?: InsightStatsBreakdown | null;
 }
 
 export async function fetchStats(): Promise<Stats> {
@@ -172,6 +192,191 @@ export async function uploadFile(
 
 	if (!res.ok) throw new Error(`Upload failed: ${res.status}`);
 	return res.json();
+}
+
+// --- Memory ---
+
+export interface MemoryGraphNode {
+	id: string;
+	name: string;
+	type: string;
+	description: string | null;
+}
+
+export interface MemoryGraphEdge {
+	id: string;
+	source: string;
+	target: string;
+	type: string;
+	strength: number;
+}
+
+export interface MemoryGraph {
+	nodes: MemoryGraphNode[];
+	edges: MemoryGraphEdge[];
+}
+
+export interface MemoryEntity {
+	id: string;
+	name: string;
+	entity_type: string;
+	description: string | null;
+	metadata: Record<string, unknown>;
+	created_at: string;
+	updated_at: string;
+}
+
+export interface EntityContext {
+	entity_id: string;
+	entity_name: string;
+	entity_type: string;
+	entity_description: string | null;
+	observations: Array<{
+		id: string;
+		content: string;
+		source: string;
+		confidence: number;
+		created_at: string;
+	}>;
+	outgoing_relations: Array<{
+		relation_type: string;
+		to_entity: string;
+		to_entity_type: string;
+		strength: number;
+	}>;
+	incoming_relations: Array<{
+		relation_type: string;
+		from_entity: string;
+		from_entity_type: string;
+		strength: number;
+	}>;
+}
+
+export async function fetchMemoryGraph(limit = 200): Promise<MemoryGraph> {
+	return apiFetch(`/memory/graph?limit=${limit}`);
+}
+
+export async function fetchMemoryEntities(
+	limit = 50,
+	offset = 0,
+	types?: string[],
+): Promise<{ entities: MemoryEntity[]; total: number }> {
+	const params = new URLSearchParams({ limit: String(limit), offset: String(offset) });
+	if (types?.length) params.set('types', types.join(','));
+	return apiFetch(`/memory/entities?${params}`);
+}
+
+export async function fetchMemoryEntity(name: string): Promise<EntityContext> {
+	return apiFetch(`/memory/entities/${encodeURIComponent(name)}`);
+}
+
+// --- Conversations ---
+
+export interface ConversationSession {
+	session_id: string;
+	session_key: string | null;
+	title: string | null;
+	summary: string | null;
+	turn_count: number;
+	last_activity: string;
+	score: number;
+}
+
+export interface ConversationTurn {
+	id: string;
+	role: string;
+	content: string;
+	turn_index: number;
+	created_at: string;
+}
+
+export interface ConversationDetail {
+	session: {
+		id: string;
+		session_key: string | null;
+		title: string | null;
+		summary: string | null;
+		turn_count: number;
+		last_activity: string;
+		created_at: string;
+	};
+	turns: ConversationTurn[];
+}
+
+export async function fetchConversations(
+	limit = 20,
+	offset = 0,
+): Promise<{ sessions: ConversationSession[]; total: number }> {
+	return apiFetch(`/conversations?limit=${limit}&offset=${offset}`);
+}
+
+export async function fetchConversation(id: string, maxTurns = 50): Promise<ConversationDetail> {
+	return apiFetch(`/conversations/${id}?maxTurns=${maxTurns}`);
+}
+
+export async function searchConversations(
+	query: string,
+	limit = 10,
+): Promise<{ query: string; totalResults: number; results: ConversationSession[] }> {
+	return apiFetch(`/conversations/search?q=${encodeURIComponent(query)}&limit=${limit}`);
+}
+
+// --- Insights ---
+
+export interface InsightEvidence {
+	chunk_id?: string;
+	document_title?: string;
+	excerpt?: string;
+	relevance?: number;
+}
+
+export interface InsightItem {
+	id: string;
+	insight_type: string;
+	title: string;
+	summary: string;
+	evidence: InsightEvidence[];
+	entities: string[];
+	status: 'new' | 'seen' | 'dismissed';
+	batch_id: string | null;
+	created_at: string;
+}
+
+export interface InsightStats {
+	total: number;
+	new: number;
+	seen: number;
+	dismissed: number;
+	byType: Record<string, number>;
+	queueState: { chunks_pending: number; is_processing: boolean } | null;
+}
+
+export async function fetchInsights(
+	options: {
+		status?: string;
+		type?: string;
+		limit?: number;
+		offset?: number;
+	} = {},
+): Promise<{ insights: InsightItem[]; total: number }> {
+	const params = new URLSearchParams();
+	if (options.status) params.set('status', options.status);
+	if (options.type) params.set('type', options.type);
+	if (options.limit) params.set('limit', String(options.limit));
+	if (options.offset) params.set('offset', String(options.offset));
+	const qs = params.toString();
+	return apiFetch(`/insights${qs ? `?${qs}` : ''}`);
+}
+
+export async function fetchInsightStats(): Promise<InsightStats> {
+	return apiFetch('/insights/stats');
+}
+
+export async function patchInsightStatus(id: string, status: 'seen' | 'dismissed'): Promise<void> {
+	await apiFetch(`/insights/${id}/status`, {
+		method: 'PATCH',
+		body: JSON.stringify({ status }),
+	});
 }
 
 // --- WebSocket ---
