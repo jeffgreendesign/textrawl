@@ -1,5 +1,7 @@
 import crypto from 'node:crypto';
 import { Router, type Router as RouterType } from 'express';
+import { config } from '../utils/config.js';
+import { bearerAuth } from './middleware/auth.js';
 
 export const openapiRoutes: RouterType = Router();
 
@@ -422,6 +424,10 @@ const spec = {
 					'401': { description: 'Unauthorized' },
 					'500': {
 						description: 'Internal server error',
+						content: { 'application/json': { schema: { $ref: '#/components/schemas/Error' } } },
+					},
+					'503': {
+						description: 'Service unavailable — database or embeddings not configured',
 						content: { 'application/json': { schema: { $ref: '#/components/schemas/Error' } } },
 					},
 				},
@@ -942,7 +948,18 @@ const spec = {
 				responses: {
 					'200': {
 						description: 'Updated insight',
-						content: { 'application/json': { schema: { $ref: '#/components/schemas/Insight' } } },
+						content: {
+							'application/json': {
+								schema: {
+									type: 'object',
+									properties: {
+										id: { type: 'string', format: 'uuid' },
+										status: { type: 'string', enum: ['new', 'seen', 'dismissed'] },
+									},
+									required: ['id', 'status'],
+								},
+							},
+						},
 					},
 					'400': {
 						description: 'Invalid status',
@@ -1019,7 +1036,17 @@ const spec = {
 // GET /api/openapi.json — serve the spec
 // ---------------------------------------------------------------------------
 
-openapiRoutes.get('/openapi.json', (_req, res) => {
+// Production-only auth for API docs — open in development for convenience
+const docsAuth =
+	config.NODE_ENV === 'production'
+		? bearerAuth
+		: (
+				_req: Parameters<typeof bearerAuth>[0],
+				_res: Parameters<typeof bearerAuth>[1],
+				next: Parameters<typeof bearerAuth>[2],
+			) => next();
+
+openapiRoutes.get('/openapi.json', docsAuth, (_req, res) => {
 	res.json(spec);
 });
 
@@ -1027,7 +1054,7 @@ openapiRoutes.get('/openapi.json', (_req, res) => {
 // GET /api/docs — Scalar API reference UI
 // ---------------------------------------------------------------------------
 
-openapiRoutes.get('/docs', (_req, res) => {
+openapiRoutes.get('/docs', docsAuth, (_req, res) => {
 	const nonce = crypto.randomBytes(16).toString('base64');
 	res.setHeader('Content-Type', 'text/html; charset=utf-8');
 	res.setHeader(

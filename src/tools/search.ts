@@ -1,7 +1,7 @@
 import type { McpServer } from '@modelcontextprotocol/sdk/server/mcp.js';
 import { z } from 'zod';
 import { SearchError, unifiedSearch } from '../services/search.js';
-import { configError, formatId, toolError, toolResponse } from '../utils/compact.js';
+import { formatId, toolError, toolResponse } from '../utils/compact.js';
 import { logger } from '../utils/logger.js';
 
 // --- Output Schema ---
@@ -206,7 +206,7 @@ export function registerSearchTool(server: McpServer): void {
 				});
 
 				if (error instanceof SearchError) {
-					return configError('Search', error.message);
+					return toolError(error.message);
 				}
 
 				return toolError(

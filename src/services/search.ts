@@ -134,7 +134,7 @@ export async function unifiedSearch(options: SearchOptions): Promise<SearchRespo
 	}
 
 	// --- Cross-source fusion ---
-	const allResults: SearchResult[] = docResults.map((r) => ({
+	let allResults: SearchResult[] = docResults.map((r) => ({
 		type: 'document' as const,
 		score: r.score,
 		documentId: r.document_id,
@@ -174,18 +174,15 @@ export async function unifiedSearch(options: SearchOptions): Promise<SearchRespo
 	}
 
 	if (minScore !== undefined) {
-		const len = allResults.length;
-		for (let i = len - 1; i >= 0; i--) {
-			if (allResults[i].score < minScore) allResults.splice(i, 1);
-		}
+		allResults = allResults.filter((r) => r.score >= minScore);
 	}
 
 	allResults.sort((a, b) => b.score - a.score);
 	const limitedResults = allResults.slice(0, limit);
 
-	const docCount = docResults.length;
-	const memCount = allResults.filter((r) => r.type === 'memory').length;
-	const convCount = allResults.filter((r) => r.type === 'conversation').length;
+	const docCount = limitedResults.filter((r) => r.type === 'document').length;
+	const memCount = limitedResults.filter((r) => r.type === 'memory').length;
+	const convCount = limitedResults.filter((r) => r.type === 'conversation').length;
 
 	logger.info('Unified search completed (cross-source)', {
 		documentCount: docCount,
