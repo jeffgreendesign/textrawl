@@ -58,8 +58,11 @@ insightRoutes.get('/insights', bearerAuth, async (req, res) => {
 		const limit = Math.min(parseInt(req.query.limit as string, 10) || 20, 100);
 		const offset = parseInt(req.query.offset as string, 10) || 0;
 
-		const insights = await getInsights({ status, insightType, limit, offset });
-		res.json({ insights, total: insights.length });
+		const [insights, stats] = await Promise.all([
+			getInsights({ status, insightType, limit, offset }),
+			getInsightStats(),
+		]);
+		res.json({ insights, total: stats.total });
 	} catch (error) {
 		logger.error('REST list insights failed', {
 			error: error instanceof Error ? error.message : String(error),
@@ -86,7 +89,7 @@ insightRoutes.patch('/insights/:id/status', bearerAuth, async (req, res) => {
 		}
 
 		await updateInsightStatus(req.params.id, status as InsightStatus);
-		res.json({ ok: true });
+		res.json({ id: req.params.id, status });
 	} catch (error) {
 		const message = error instanceof Error ? error.message : String(error);
 		if (message.includes('not found')) {

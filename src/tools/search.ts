@@ -3,7 +3,7 @@ import { z } from 'zod';
 import { isSupabaseConfigured } from '../db/client.js';
 import { isOpenAIConfigured } from '../services/embeddings.js';
 import { SearchError, unifiedSearch } from '../services/search.js';
-import { configError, formatId, isCompact, toJSON, toolError } from '../utils/compact.js';
+import { configError, formatId, toolError, toolResponse } from '../utils/compact.js';
 import { logger } from '../utils/logger.js';
 
 // --- Output Schema ---
@@ -184,7 +184,6 @@ export function registerSearchTool(server: McpServer): void {
 					conversationWeight,
 				});
 
-				// Build structuredContent (always verbose, canonical keys)
 				const structuredContent = {
 					query: response.query,
 					totalResults: response.totalResults,
@@ -192,41 +191,25 @@ export function registerSearchTool(server: McpServer): void {
 					results: response.results,
 				};
 
-				if (isCompact()) {
-					return {
-						content: [
-							{
-								type: 'text' as const,
-								text: JSON.stringify({
-									n: response.totalResults,
-									r: response.results.map((r) => ({
-										src: r.type[0],
-										s: Math.round(r.score * 1000) / 1000,
-										...(r.documentId ? { d: formatId(r.documentId) } : {}),
-										...(r.documentTitle ? { t: r.documentTitle } : {}),
-										...(r.content ? { c: r.content.slice(0, 300) } : {}),
-										...(r.entityName ? { entityName: r.entityName } : {}),
-										...(r.entityType ? { entityType: r.entityType } : {}),
-										...(r.sessionId ? { sessionId: r.sessionId } : {}),
-										...(r.title ? { title: r.title } : {}),
-										...(r.summary ? { summary: r.summary } : {}),
-									})),
-								}),
-							},
-						],
-						structuredContent,
-					};
-				}
-
-				return {
-					content: [
-						{
-							type: 'text' as const,
-							text: JSON.stringify(structuredContent, null, 2),
-						},
-					],
+				return toolResponse({
+					compact: {
+						n: response.totalResults,
+						r: response.results.map((r) => ({
+							src: r.type[0],
+							s: Math.round(r.score * 1000) / 1000,
+							...(r.documentId ? { d: formatId(r.documentId) } : {}),
+							...(r.documentTitle ? { t: r.documentTitle } : {}),
+							...(r.content ? { c: r.content.slice(0, 300) } : {}),
+							...(r.entityName ? { entityName: r.entityName } : {}),
+							...(r.entityType ? { entityType: r.entityType } : {}),
+							...(r.sessionId ? { sessionId: r.sessionId } : {}),
+							...(r.title ? { title: r.title } : {}),
+							...(r.summary ? { summary: r.summary } : {}),
+						})),
+					},
+					verbose: structuredContent,
 					structuredContent,
-				};
+				});
 			} catch (error) {
 				logger.error('search failed', {
 					error: error instanceof Error ? error.message : String(error),

@@ -71,9 +71,33 @@ const spec = {
 			SearchResult: {
 				type: 'object',
 				properties: {
-					documents: { type: 'array', items: { type: 'object' } },
-					memories: { type: 'array', items: { type: 'object' } },
-					conversations: { type: 'array', items: { type: 'object' } },
+					query: { type: 'string' },
+					totalResults: { type: 'integer' },
+					results: {
+						type: 'array',
+						items: {
+							type: 'object',
+							properties: {
+								type: { type: 'string', enum: ['document', 'memory', 'conversation'] },
+								score: { type: 'number' },
+								documentId: { type: 'string' },
+								documentTitle: { type: 'string' },
+								entityName: { type: 'string' },
+								entityType: { type: 'string' },
+								sessionId: { type: 'string' },
+								title: { type: 'string' },
+								content: { type: 'string' },
+							},
+						},
+					},
+					counts: {
+						type: 'object',
+						properties: {
+							documents: { type: 'integer' },
+							memories: { type: 'integer' },
+							conversations: { type: 'integer' },
+						},
+					},
 				},
 			},
 			Stats: {

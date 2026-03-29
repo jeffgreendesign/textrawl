@@ -158,10 +158,10 @@ export function useConversation(id: string) {
 	});
 }
 
-export function useConversationSearch(query: string) {
+export function useConversationSearch(query: string, limit?: number) {
 	return useQuery({
 		queryKey: queryKeys.conversationSearch(query),
-		queryFn: () => searchConversations(query),
+		queryFn: () => searchConversations(query, limit),
 		enabled: query.length > 0,
 		staleTime: 60_000,
 	});

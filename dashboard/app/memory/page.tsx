@@ -21,8 +21,6 @@ const ENTITY_TYPE_COLORS: Record<string, string> = {
 	organization: '#06b6d4',
 };
 
-const ALL_ENTITY_TYPES = Object.keys(ENTITY_TYPE_COLORS);
-
 function getTypeColor(type: string): string {
 	return ENTITY_TYPE_COLORS[type.toLowerCase()] ?? '#71717a';
 }
@@ -208,11 +206,15 @@ function ForceGraph({
 		return null;
 	}, []);
 
-	// Mouse handlers
+	// Mouse handlers — drag threshold distinguishes click from drag
 	useEffect(() => {
 		const canvas = canvasRef.current;
 		if (!canvas) return;
 		const cvs = canvas; // local const for closure type narrowing
+		const DRAG_THRESHOLD = 5;
+		let mouseDownPos: { x: number; y: number } | null = null;
+		let pendingNodeId: string | null = null;
+		let isDragging = false;
 
 		function getPos(e: MouseEvent) {
 			const rect = cvs.getBoundingClientRect();
@@ -221,16 +223,27 @@ function ForceGraph({
 
 		function onMouseDown(e: MouseEvent) {
 			const pos = getPos(e);
+			mouseDownPos = pos;
+			isDragging = false;
 			const node = findNodeAt(pos.x, pos.y);
-			if (node) {
-				dragNodeRef.current = node.id;
-				node.pinned = true;
-			}
+			pendingNodeId = node?.id ?? null;
 		}
 
 		function onMouseMove(e: MouseEvent) {
 			const pos = getPos(e);
 			mouseRef.current = pos;
+
+			// Start drag if threshold exceeded
+			if (mouseDownPos && !isDragging && pendingNodeId) {
+				const dx = pos.x - mouseDownPos.x;
+				const dy = pos.y - mouseDownPos.y;
+				if (dx * dx + dy * dy > DRAG_THRESHOLD * DRAG_THRESHOLD) {
+					isDragging = true;
+					dragNodeRef.current = pendingNodeId;
+					const node = simNodesRef.current.get(pendingNodeId);
+					if (node) node.pinned = true;
+				}
+			}
 
 			if (dragNodeRef.current) {
 				const node = simNodesRef.current.get(dragNodeRef.current);
@@ -249,22 +262,18 @@ function ForceGraph({
 
 		function onMouseUp(e: MouseEvent) {
 			const pos = getPos(e);
-			if (dragNodeRef.current) {
+			if (isDragging && dragNodeRef.current) {
 				const node = simNodesRef.current.get(dragNodeRef.current);
 				if (node) node.pinned = false;
 				dragNodeRef.current = null;
 			} else {
+				// Click — no drag occurred
 				const node = findNodeAt(pos.x, pos.y);
 				onSelectNode(node?.id ?? null);
 			}
-		}
-
-		function onClick(e: MouseEvent) {
-			// Only fire selection on click without drag
-			if (dragNodeRef.current) return;
-			const pos = getPos(e);
-			const node = findNodeAt(pos.x, pos.y);
-			onSelectNode(node?.id ?? null);
+			mouseDownPos = null;
+			pendingNodeId = null;
+			isDragging = false;
 		}
 
 		canvas.addEventListener('mousedown', onMouseDown);
@@ -840,7 +849,7 @@ function EntityDetailPanel({
 
 export default function MemoryPage() {
 	const { data, isLoading, isError, error, refetch } = useMemoryGraph();
-	const [activeTypes, setActiveTypes] = useState<Set<string>>(new Set(ALL_ENTITY_TYPES));
+	const [activeTypes, setActiveTypes] = useState<Set<string> | null>(null);
 	const [selectedNodeId, setSelectedNodeId] = useState<string | null>(null);
 
 	const nodes = data?.nodes ?? [];
@@ -856,21 +865,28 @@ export default function MemoryPage() {
 		return counts;
 	}, [nodes]);
 
-	// Derive present types (only show pills for types that exist in data)
+	// Derive present types from data (sorted by count descending)
 	const presentTypes = useMemo(() => {
-		return ALL_ENTITY_TYPES.filter((t) => (typeCounts.get(t) ?? 0) > 0);
+		return Array.from(typeCounts.keys()).sort(
+			(a, b) => (typeCounts.get(b) ?? 0) - (typeCounts.get(a) ?? 0),
+		);
 	}, [typeCounts]);
 
+	// Default activeTypes to all present types when data first loads
+	const resolvedActiveTypes = useMemo(() => {
+		if (activeTypes !== null) return activeTypes;
+		return new Set(presentTypes);
+	}, [activeTypes, presentTypes]);
+
 	function toggleType(type: string) {
-		setActiveTypes((prev) => {
-			const next = new Set(prev);
-			if (next.has(type)) {
-				next.delete(type);
-			} else {
-				next.add(type);
-			}
-			return next;
-		});
+		const current = resolvedActiveTypes;
+		const next = new Set(current);
+		if (next.has(type)) {
+			next.delete(type);
+		} else {
+			next.add(type);
+		}
+		setActiveTypes(next);
 	}
 
 	// Select entity by name (used from detail panel relation clicks)
@@ -879,8 +895,8 @@ export default function MemoryPage() {
 		if (node) {
 			setSelectedNodeId(node.id);
 			// Ensure the type is active
-			if (!activeTypes.has(node.type.toLowerCase())) {
-				setActiveTypes((prev) => new Set([...prev, node.type.toLowerCase()]));
+			if (!resolvedActiveTypes.has(node.type.toLowerCase())) {
+				setActiveTypes(new Set([...resolvedActiveTypes, node.type.toLowerCase()]));
 			}
 		}
 	}
@@ -1048,7 +1064,7 @@ export default function MemoryPage() {
 					}}
 				>
 					{presentTypes.map((type) => {
-						const isActive = activeTypes.has(type);
+						const isActive = resolvedActiveTypes.has(type);
 						const color = getTypeColor(type);
 						const count = typeCounts.get(type) ?? 0;
 						return (
@@ -1113,7 +1129,7 @@ export default function MemoryPage() {
 					<ForceGraph
 						nodes={nodes}
 						edges={edges}
-						activeTypes={activeTypes}
+						activeTypes={resolvedActiveTypes}
 						selectedNodeId={selectedNodeId}
 						onSelectNode={setSelectedNodeId}
 					/>

@@ -172,8 +172,15 @@ export async function unifiedSearch(options: SearchOptions): Promise<SearchRespo
 		}
 	}
 
+	if (minScore !== undefined) {
+		const len = allResults.length;
+		for (let i = len - 1; i >= 0; i--) {
+			if (allResults[i].score < minScore) allResults.splice(i, 1);
+		}
+	}
+
 	allResults.sort((a, b) => b.score - a.score);
-	const limitedResults = allResults.slice(0, limit * 2);
+	const limitedResults = allResults.slice(0, limit);
 
 	const docCount = docResults.length;
 	const memCount = allResults.filter((r) => r.type === 'memory').length;

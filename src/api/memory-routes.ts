@@ -34,11 +34,14 @@ memoryRoutes.get('/memory/entities', bearerAuth, async (req, res) => {
 			return;
 		}
 
-		const limit = Math.min(parseInt(req.query.limit as string, 10) || 50, 200);
-		const offset = parseInt(req.query.offset as string, 10) || 0;
+		const limit = Math.min(Math.max(1, parseInt(req.query.limit as string, 10) || 50), 200);
+		const offset = Math.max(0, parseInt(req.query.offset as string, 10) || 0);
 		const typesParam = req.query.types as string | undefined;
 		const entityTypes = typesParam
-			? (typesParam.split(',').map((t) => t.trim()) as EntityType[])
+			? (typesParam
+					.split(',')
+					.map((t) => t.trim())
+					.filter(Boolean) as EntityType[])
 			: undefined;
 
 		const result = await listEntities({ entityTypes, limit, offset });
@@ -62,7 +65,7 @@ memoryRoutes.get('/memory/entities/:name', bearerAuth, async (req, res) => {
 			return;
 		}
 
-		const entityName = decodeURIComponent(req.params.name);
+		const entityName = req.params.name;
 		const context = await getEntityContext(entityName);
 
 		if (!context) {

@@ -38,10 +38,13 @@ apiRoutes.get('/search', bearerAuth, async (req, res) => {
 
 		res.json(response);
 	} catch (error) {
-		logger.error('REST search failed', {
-			error: error instanceof Error ? error.message : String(error),
-		});
-		res.status(500).json({ error: 'Search failed' });
+		const message = error instanceof Error ? error.message : String(error);
+		logger.error('REST search failed', { error: message });
+		const statusCode =
+			error instanceof Error && 'statusCode' in error
+				? (error as Error & { statusCode: number }).statusCode
+				: 500;
+		res.status(statusCode).json({ error: message || 'Search failed' });
 	}
 });
 

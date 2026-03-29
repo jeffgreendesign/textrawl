@@ -339,14 +339,14 @@ export async function listRelations(
 		throw new DatabaseError('Supabase not configured');
 	}
 
-	const { entityIds, limit = 500 } = options;
+	const { entityIds, limit } = options;
 	const client = getSupabaseClient();
 
-	let query = client
-		.from('memory_relations')
-		.select('*')
-		.order('created_at', { ascending: false })
-		.limit(limit);
+	let query = client.from('memory_relations').select('*').order('created_at', { ascending: false });
+
+	if (limit !== undefined) {
+		query = query.limit(limit);
+	}
 
 	if (entityIds && entityIds.length > 0) {
 		query = query.or(
