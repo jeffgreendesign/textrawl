@@ -212,9 +212,10 @@ function ForceGraph({
 	useEffect(() => {
 		const canvas = canvasRef.current;
 		if (!canvas) return;
+		const cvs = canvas; // local const for closure type narrowing
 
 		function getPos(e: MouseEvent) {
-			const rect = canvas.getBoundingClientRect();
+			const rect = cvs.getBoundingClientRect();
 			return { x: e.clientX - rect.left, y: e.clientY - rect.top };
 		}
 
