@@ -257,7 +257,7 @@ function ForceGraph({
 
 			const hovered = findNodeAt(pos.x, pos.y);
 			hoveredNodeRef.current = hovered?.id ?? null;
-			canvas.style.cursor = hovered ? 'pointer' : 'default';
+			cvs.style.cursor = hovered ? 'pointer' : 'default';
 		}
 
 		function onMouseUp(e: MouseEvent) {
