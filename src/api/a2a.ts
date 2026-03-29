@@ -1,7 +1,5 @@
 import { Router, type Router as RouterType } from 'express';
-import { isSupabaseConfigured } from '../db/client.js';
-import { hybridSearch } from '../db/search.js';
-import { generateEmbedding, isEmbeddingsConfigured } from '../services/embeddings.js';
+import { unifiedSearch } from '../services/search.js';
 import { config } from '../utils/config.js';
 import { TextrawlError } from '../utils/errors.js';
 import { logger } from '../utils/logger.js';
@@ -86,28 +84,20 @@ a2aRoutes.post('/.well-known/agent/tasks', bearerAuth, async (req, res) => {
 
 		logger.info('A2A task received', { queryLength: query.length });
 
-		if (!isSupabaseConfigured() || !isEmbeddingsConfigured()) {
-			res.status(503).json({
-				error: 'Knowledge base not configured',
-			});
-			return;
-		}
-
-		// TODO: Consider using the unified ask tool for multi-source search (documents + memory + conversations)
-		const queryEmbedding = await generateEmbedding(query);
-		const results = await hybridSearch({
-			queryText: query,
-			queryEmbedding,
+		const response = await unifiedSearch({
+			query,
 			limit: 10,
+			includeMemories: config.ENABLE_MEMORY,
+			includeConversations: config.ENABLE_CONVERSATIONS,
 		});
 
 		// Format as A2A task response
 		const responseText =
-			results.length > 0
-				? results
+			response.totalResults > 0
+				? response.results
 						.map(
 							(r, i) =>
-								`[${i + 1}] ${r.document_title} (${r.source_type}): ${(r.content ?? '').slice(0, 300)}`,
+								`[${i + 1}] [${r.type}] ${r.documentTitle ?? r.entityName ?? r.title ?? 'Untitled'}: ${(r.content ?? r.summary ?? '').slice(0, 300)}`,
 						)
 						.join('\n\n')
 				: 'No results found in the knowledge base.';
@@ -119,11 +109,12 @@ a2aRoutes.post('/.well-known/agent/tasks', bearerAuth, async (req, res) => {
 				parts: [{ type: 'text', text: responseText }],
 			},
 			metadata: {
-				resultCount: results.length,
-				sources: results.map((r) => ({
-					documentId: r.document_id,
-					title: r.document_title,
-					sourceType: r.source_type,
+				resultCount: response.totalResults,
+				counts: response.counts,
+				sources: response.results.map((r) => ({
+					type: r.type,
+					id: r.documentId ?? r.entityId ?? r.sessionId,
+					title: r.documentTitle ?? r.entityName ?? r.title,
 				})),
 			},
 		});

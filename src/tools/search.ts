@@ -1,12 +1,9 @@
 import type { McpServer } from '@modelcontextprotocol/sdk/server/mcp.js';
 import { z } from 'zod';
 import { isSupabaseConfigured } from '../db/client.js';
-import { hybridConversationSearch } from '../db/conversation-search.js';
-import { hybridMemorySearch } from '../db/memory-search.js';
-import { hybridSearch } from '../db/search.js';
-import { generateEmbedding, isOpenAIConfigured } from '../services/embeddings.js';
+import { isOpenAIConfigured } from '../services/embeddings.js';
+import { SearchError, unifiedSearch } from '../services/search.js';
 import { configError, formatId, isCompact, toJSON, toolError } from '../utils/compact.js';
-import { config } from '../utils/config.js';
 import { logger } from '../utils/logger.js';
 
 // --- Output Schema ---
@@ -172,206 +169,47 @@ export function registerSearchTool(server: McpServer): void {
 			}
 
 			try {
-				// Generate embedding for the query
-				const queryEmbedding = await generateEmbedding(query);
-
-				// Request more results to allow for post-filtering
-				const fetchLimit = tags || sourceType || contentType || minScore ? limit * 3 : limit;
-
-				// Perform hybrid search on documents
-				let docResults = await hybridSearch({
-					queryText: query,
-					queryEmbedding,
-					limit: fetchLimit,
+				const response = await unifiedSearch({
+					query,
+					limit,
 					fullTextWeight,
 					semanticWeight,
-				});
-
-				// Apply post-filters
-				if (sourceType) {
-					docResults = docResults.filter((r) => r.source_type === sourceType);
-				}
-
-				if (contentType) {
-					docResults = docResults.filter((r) => r.document_metadata?.content_type === contentType);
-				}
-
-				if (tags && tags.length > 0) {
-					docResults = docResults.filter((r) => {
-						const docTags = (r.document_metadata?.tags as string[]) || [];
-						return tags.every((tag) => docTags.includes(tag));
-					});
-				}
-
-				if (minScore !== undefined) {
-					docResults = docResults.filter((r) => r.score >= minScore);
-				}
-
-				// Apply final limit after filtering
-				docResults = docResults.slice(0, limit);
-
-				// --- Document-only response (default) ---
-				const crossSource = includeMemories || includeConversations;
-
-				if (!crossSource) {
-					// Build structuredContent (always verbose, canonical keys)
-					const structuredContent = {
-						query,
-						totalResults: docResults.length,
-						results: docResults.map((r) => {
-							const docTags = (r.document_metadata?.tags as string[]) || [];
-							return {
-								type: 'document' as const,
-								score: r.score,
-								documentId: r.document_id,
-								documentTitle: r.document_title,
-								sourceType: r.source_type,
-								tags: docTags,
-								chunkId: r.chunk_id,
-								content: r.content.slice(0, 500),
-							};
-						}),
-					};
-
-					// Build content text (compact or verbose)
-					if (isCompact()) {
-						return {
-							content: [
-								{
-									type: 'text' as const,
-									text: JSON.stringify({
-										n: docResults.length,
-										r: docResults.map((r) => ({
-											d: formatId(r.document_id),
-											t: r.document_title,
-											c: r.content.slice(0, 300),
-											s: Math.round(r.score * 1000) / 1000,
-										})),
-									}),
-								},
-							],
-							structuredContent,
-						};
-					}
-
-					return {
-						content: [
-							{
-								type: 'text' as const,
-								text: JSON.stringify(structuredContent, null, 2),
-							},
-						],
-						structuredContent,
-					};
-				}
-
-				// --- Cross-source fusion ---
-				// Results from multiple retrievers are combined using score-based
-				// linear weighting (not rank-based RRF). Document scores pass
-				// through unweighted — they are already fused via weighted RRF
-				// during retrieval (fullTextWeight / semanticWeight). Memory
-				// scores are scaled by memoryWeight, conversation scores by
-				// conversationWeight. Score scales may differ between retrievers;
-				// this is an accepted trade-off for simplicity over per-retriever
-				// normalization.
-				const allResults: Array<{
-					type: 'document' | 'memory' | 'conversation';
-					score: number;
-					data: Record<string, unknown>;
-				}> = [];
-
-				for (const doc of docResults) {
-					allResults.push({
-						type: 'document',
-						score: doc.score,
-						data: {
-							documentId: doc.document_id,
-							documentTitle: doc.document_title,
-							content: doc.content.slice(0, 500),
-							sourceType: doc.source_type,
-						},
-					});
-				}
-
-				// Search memories
-				if (includeMemories && config.ENABLE_MEMORY) {
-					const memories = await hybridMemorySearch(query, queryEmbedding, { limit });
-					for (const mem of memories) {
-						allResults.push({
-							type: 'memory',
-							score: mem.score * memoryWeight,
-							data: {
-								entityId: mem.entity_id,
-								entityName: mem.entity_name,
-								entityType: mem.entity_type,
-								content: mem.observation_content.slice(0, 500),
-							},
-						});
-					}
-				}
-
-				// Search conversations
-				if (includeConversations && config.ENABLE_CONVERSATIONS) {
-					const convos = await hybridConversationSearch(query, queryEmbedding, {
-						limit,
-					});
-					for (const conv of convos) {
-						allResults.push({
-							type: 'conversation',
-							score: conv.score * conversationWeight,
-							data: {
-								sessionId: conv.session_id,
-								sessionKey: conv.session_key,
-								title: conv.title,
-								summary: conv.summary?.slice(0, 300),
-							},
-						});
-					}
-				}
-
-				// Sort by score (highest first) and limit
-				allResults.sort((a, b) => b.score - a.score);
-				const limitedResults = allResults.slice(0, limit * 2);
-
-				const docCount = docResults.length;
-				const memCount = allResults.filter((r) => r.type === 'memory').length;
-				const convCount = allResults.filter((r) => r.type === 'conversation').length;
-
-				logger.info('search completed (cross-source)', {
-					documentCount: docCount,
-					memoryCount: memCount,
-					conversationCount: convCount,
-					totalFused: limitedResults.length,
+					tags,
+					sourceType,
+					contentType,
+					minScore,
+					includeMemories,
+					includeConversations,
+					memoryWeight,
+					conversationWeight,
 				});
 
 				// Build structuredContent (always verbose, canonical keys)
 				const structuredContent = {
-					query,
-					totalResults: limitedResults.length,
-					counts: {
-						documents: docCount,
-						memories: memCount,
-						conversations: convCount,
-					},
-					results: limitedResults.map((r) => ({
-						type: r.type,
-						score: r.score,
-						...r.data,
-					})),
+					query: response.query,
+					totalResults: response.totalResults,
+					...(response.counts ? { counts: response.counts } : {}),
+					results: response.results,
 				};
 
-				// Build content text (compact or verbose)
 				if (isCompact()) {
 					return {
 						content: [
 							{
 								type: 'text' as const,
 								text: JSON.stringify({
-									n: limitedResults.length,
-									r: limitedResults.map((r) => ({
+									n: response.totalResults,
+									r: response.results.map((r) => ({
 										src: r.type[0],
 										s: Math.round(r.score * 1000) / 1000,
-										...r.data,
+										...(r.documentId ? { d: formatId(r.documentId) } : {}),
+										...(r.documentTitle ? { t: r.documentTitle } : {}),
+										...(r.content ? { c: r.content.slice(0, 300) } : {}),
+										...(r.entityName ? { entityName: r.entityName } : {}),
+										...(r.entityType ? { entityType: r.entityType } : {}),
+										...(r.sessionId ? { sessionId: r.sessionId } : {}),
+										...(r.title ? { title: r.title } : {}),
+										...(r.summary ? { summary: r.summary } : {}),
 									})),
 								}),
 							},
@@ -393,6 +231,10 @@ export function registerSearchTool(server: McpServer): void {
 				logger.error('search failed', {
 					error: error instanceof Error ? error.message : String(error),
 				});
+
+				if (error instanceof SearchError) {
+					return configError('Search', error.message);
+				}
 
 				return toolError(
 					`Search failed: ${error instanceof Error ? error.message : 'Unknown error'}`,

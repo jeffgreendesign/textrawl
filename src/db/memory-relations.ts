@@ -326,6 +326,45 @@ export async function deleteRelation(id: string): Promise<void> {
 }
 
 /**
+ * List relations in bulk, optionally filtered to a set of entity IDs.
+ * Used by the memory graph REST endpoint to fetch all edges in one query.
+ */
+export async function listRelations(
+	options: {
+		entityIds?: string[];
+		limit?: number;
+	} = {},
+): Promise<MemoryRelation[]> {
+	if (!isSupabaseConfigured()) {
+		throw new DatabaseError('Supabase not configured');
+	}
+
+	const { entityIds, limit = 500 } = options;
+	const client = getSupabaseClient();
+
+	let query = client
+		.from('memory_relations')
+		.select('*')
+		.order('created_at', { ascending: false })
+		.limit(limit);
+
+	if (entityIds && entityIds.length > 0) {
+		query = query.or(
+			`from_entity_id.in.(${entityIds.join(',')}),to_entity_id.in.(${entityIds.join(',')})`,
+		);
+	}
+
+	const { data, error } = await query;
+
+	if (error) {
+		logger.error('Failed to list relations', { error: error.message });
+		throw new DatabaseError('Failed to list relations');
+	}
+
+	return data as MemoryRelation[];
+}
+
+/**
  * Delete all relations between two entities
  */
 export async function deleteRelationsBetween(

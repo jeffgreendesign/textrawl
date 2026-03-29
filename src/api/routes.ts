@@ -1,9 +1,8 @@
 import { Router, type Router as RouterType } from 'express';
 import { isSupabaseConfigured } from '../db/client.js';
 import { getDocument, listDocuments } from '../db/documents.js';
-import { hybridSearch } from '../db/search.js';
 import { getKnowledgeStats } from '../db/stats.js';
-import { generateEmbedding, isEmbeddingsConfigured } from '../services/embeddings.js';
+import { unifiedSearch } from '../services/search.js';
 import { config } from '../utils/config.js';
 import { logger } from '../utils/logger.js';
 import { bearerAuth } from './middleware/auth.js';
@@ -26,26 +25,18 @@ apiRoutes.get('/search', bearerAuth, async (req, res) => {
 			return;
 		}
 
-		if (!isSupabaseConfigured() || !isEmbeddingsConfigured()) {
-			res.status(503).json({ error: 'Search not available' });
-			return;
-		}
-
 		const limit = Math.min(parseInt(req.query.limit as string, 10) || 10, 50);
-		const queryEmbedding = await generateEmbedding(q);
-		const results = await hybridSearch({ queryText: q, queryEmbedding, limit });
+		const includeMemories = req.query.includeMemories === 'true';
+		const includeConversations = req.query.includeConversations === 'true';
 
-		res.json({
+		const response = await unifiedSearch({
 			query: q,
-			totalResults: results.length,
-			results: results.map((r) => ({
-				documentId: r.document_id,
-				documentTitle: r.document_title,
-				content: r.content.slice(0, 500),
-				sourceType: r.source_type,
-				score: r.score,
-			})),
+			limit,
+			includeMemories,
+			includeConversations,
 		});
+
+		res.json(response);
 	} catch (error) {
 		logger.error('REST search failed', {
 			error: error instanceof Error ? error.message : String(error),
@@ -111,7 +102,12 @@ apiRoutes.get('/stats', bearerAuth, async (_req, res) => {
 			try {
 				const { getMemoryStats } = await import('../db/memory-search.js');
 				const mem = await getMemoryStats();
-				counts.memories = mem.totalEntities;
+				counts.memories = {
+					entities: mem.totalEntities,
+					observations: mem.totalObservations,
+					relations: mem.totalRelations,
+					entityTypeCounts: mem.entityTypeCounts,
+				};
 			} catch {
 				counts.memories = null;
 			}
@@ -121,7 +117,10 @@ apiRoutes.get('/stats', bearerAuth, async (_req, res) => {
 			try {
 				const { getConversationSearchStats } = await import('../db/conversation-search.js');
 				const conv = await getConversationSearchStats();
-				counts.conversations = conv.totalSessions;
+				counts.conversations = {
+					sessions: conv.totalSessions,
+					turns: conv.totalTurns,
+				};
 			} catch {
 				counts.conversations = null;
 			}
@@ -131,7 +130,13 @@ apiRoutes.get('/stats', bearerAuth, async (_req, res) => {
 			try {
 				const { getInsightStats } = await import('../db/insights.js');
 				const ins = await getInsightStats();
-				counts.insights = ins.total;
+				counts.insights = {
+					total: ins.total,
+					new: ins.new,
+					seen: ins.seen,
+					dismissed: ins.dismissed,
+					byType: ins.byType,
+				};
 			} catch {
 				counts.insights = null;
 			}

@@ -3,9 +3,13 @@ import cors from 'cors';
 import express from 'express';
 import helmet from 'helmet';
 import { a2aRoutes } from './api/a2a.js';
+import { conversationRoutes } from './api/conversation-routes.js';
+import { insightRoutes } from './api/insight-routes.js';
+import { memoryRoutes } from './api/memory-routes.js';
 import { bearerAuth } from './api/middleware/auth.js';
 import { errorHandler } from './api/middleware/error.js';
 import { apiLimiter, healthLimiter } from './api/middleware/rateLimit.js';
+import { openapiRoutes } from './api/openapi.js';
 import { apiRoutes } from './api/routes.js';
 import { statusRouter } from './api/status.js';
 import { checkDatabaseConnection, isSupabaseConfigured } from './db/client.js';
@@ -22,7 +26,7 @@ app.set('trust proxy', config.NODE_ENV === 'production' ? 1 : false);
 
 // Security middleware — skip helmet for dashboard (sets its own nonce-based CSP)
 app.use((req, res, next) => {
-	if (req.path === '/status/dashboard') {
+	if (req.path === '/status/dashboard' || req.path === '/api/docs') {
 		next();
 	} else {
 		helmet()(req, res, next);
@@ -46,7 +50,7 @@ const getAllowedOrigins = (): string[] | false => {
 app.use(
 	cors({
 		origin: getAllowedOrigins(),
-		methods: ['GET', 'POST'],
+		methods: ['GET', 'POST', 'PATCH'],
 	}),
 );
 
@@ -132,8 +136,12 @@ app.all('/mcp', apiLimiter, bearerAuth, async (req, res) => {
 	}
 });
 
-// API routes (file upload)
+// API routes
 app.use('/api', apiRoutes);
+app.use('/api', memoryRoutes);
+app.use('/api', conversationRoutes);
+app.use('/api', insightRoutes);
+app.use('/api', openapiRoutes);
 
 // Error handling
 app.use(errorHandler);
