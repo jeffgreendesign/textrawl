@@ -3,6 +3,7 @@ import { hybridConversationSearch } from '../db/conversation-search.js';
 import { hybridMemorySearch } from '../db/memory-search.js';
 import { hybridSearch } from '../db/search.js';
 import { config } from '../utils/config.js';
+import { ServiceUnavailableError } from '../utils/errors.js';
 import { logger } from '../utils/logger.js';
 import { generateEmbedding, isEmbeddingsConfigured } from './embeddings.js';
 
@@ -77,10 +78,10 @@ export async function unifiedSearch(options: SearchOptions): Promise<SearchRespo
 	} = options;
 
 	if (!isSupabaseConfigured()) {
-		throw new SearchError('Database not configured');
+		throw new ServiceUnavailableError('Database not configured');
 	}
 	if (!isEmbeddingsConfigured()) {
-		throw new SearchError('Embedding provider not configured');
+		throw new ServiceUnavailableError('Embedding provider not configured');
 	}
 
 	const queryEmbedding = await generateEmbedding(query);
@@ -202,12 +203,7 @@ export async function unifiedSearch(options: SearchOptions): Promise<SearchRespo
 }
 
 // ---------------------------------------------------------------------------
-// Error
+// Error — re-export ServiceUnavailableError as SearchError for backward compat
 // ---------------------------------------------------------------------------
 
-export class SearchError extends Error {
-	constructor(message: string) {
-		super(message);
-		this.name = 'SearchError';
-	}
-}
+export const SearchError = ServiceUnavailableError;

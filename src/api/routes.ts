@@ -1,4 +1,5 @@
 import { Router, type Router as RouterType } from 'express';
+import { z } from 'zod';
 import { isSupabaseConfigured } from '../db/client.js';
 import { getDocument, listDocuments } from '../db/documents.js';
 import { getKnowledgeStats } from '../db/stats.js';
@@ -7,6 +8,23 @@ import { config } from '../utils/config.js';
 import { logger } from '../utils/logger.js';
 import { bearerAuth } from './middleware/auth.js';
 import { uploadRouter } from './upload.js';
+
+// ---------------------------------------------------------------------------
+// Query validation schemas
+// ---------------------------------------------------------------------------
+
+const SearchQuerySchema = z.object({
+	q: z.string().min(1, 'Query parameter "q" is required'),
+	limit: z.coerce.number().int().min(1).max(50).default(10),
+	includeMemories: z
+		.enum(['true', 'false'])
+		.default('false')
+		.transform((v) => v === 'true'),
+	includeConversations: z
+		.enum(['true', 'false'])
+		.default('false')
+		.transform((v) => v === 'true'),
+});
 
 export const apiRoutes: RouterType = Router();
 
@@ -18,17 +36,14 @@ apiRoutes.use(uploadRouter);
 // ---------------------------------------------------------------------------
 
 apiRoutes.get('/search', bearerAuth, async (req, res) => {
+	const parsed = SearchQuerySchema.safeParse(req.query);
+	if (!parsed.success) {
+		res.status(400).json({ error: parsed.error.issues[0].message });
+		return;
+	}
+
 	try {
-		const q = req.query.q as string;
-		if (!q) {
-			res.status(400).json({ error: 'Query parameter "q" is required' });
-			return;
-		}
-
-		const limit = Math.min(parseInt(req.query.limit as string, 10) || 10, 50);
-		const includeMemories = req.query.includeMemories === 'true';
-		const includeConversations = req.query.includeConversations === 'true';
-
+		const { q, limit, includeMemories, includeConversations } = parsed.data;
 		const response = await unifiedSearch({
 			query: q,
 			limit,

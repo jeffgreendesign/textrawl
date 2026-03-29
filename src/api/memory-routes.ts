@@ -1,13 +1,51 @@
 import { Router, type Router as RouterType } from 'express';
+import { z } from 'zod';
 import { isSupabaseConfigured } from '../db/client.js';
 import { listEntities } from '../db/memory-entities.js';
-import type { EntityType } from '../db/memory-entities.js';
 import { listRelations } from '../db/memory-relations.js';
 import { getEntityContext, getMemoryStats, hybridMemorySearch } from '../db/memory-search.js';
 import { generateEmbedding, isEmbeddingsConfigured } from '../services/embeddings.js';
 import { config } from '../utils/config.js';
 import { logger } from '../utils/logger.js';
 import { bearerAuth } from './middleware/auth.js';
+
+// ---------------------------------------------------------------------------
+// Query validation schemas
+// ---------------------------------------------------------------------------
+
+const ENTITY_TYPES = [
+	'person',
+	'concept',
+	'project',
+	'preference',
+	'fact',
+	'location',
+	'organization',
+] as const;
+
+const EntitiesQuerySchema = z.object({
+	limit: z.coerce.number().int().min(1).max(200).default(50),
+	offset: z.coerce.number().int().min(0).default(0),
+	types: z
+		.string()
+		.transform((v) =>
+			v
+				.split(',')
+				.map((t) => t.trim())
+				.filter(Boolean),
+		)
+		.pipe(z.array(z.enum(ENTITY_TYPES)).min(1))
+		.optional(),
+});
+
+const GraphQuerySchema = z.object({
+	limit: z.coerce.number().int().min(1).max(500).default(200),
+});
+
+const MemorySearchQuerySchema = z.object({
+	q: z.string().min(1, 'Query parameter "q" is required'),
+	limit: z.coerce.number().int().min(1).max(50).default(10),
+});
 
 export const memoryRoutes: RouterType = Router();
 
@@ -28,22 +66,19 @@ memoryRoutes.use('/memory', (_req, res, next) => {
 // ---------------------------------------------------------------------------
 
 memoryRoutes.get('/memory/entities', bearerAuth, async (req, res) => {
+	const parsed = EntitiesQuerySchema.safeParse(req.query);
+	if (!parsed.success) {
+		res.status(400).json({ error: parsed.error.issues[0].message });
+		return;
+	}
+
 	try {
 		if (!isSupabaseConfigured()) {
 			res.status(503).json({ error: 'Database not available' });
 			return;
 		}
 
-		const limit = Math.min(Math.max(1, parseInt(req.query.limit as string, 10) || 50), 200);
-		const offset = Math.max(0, parseInt(req.query.offset as string, 10) || 0);
-		const typesParam = req.query.types as string | undefined;
-		const entityTypes = typesParam
-			? (typesParam
-					.split(',')
-					.map((t) => t.trim())
-					.filter(Boolean) as EntityType[])
-			: undefined;
-
+		const { limit, offset, types: entityTypes } = parsed.data;
 		const result = await listEntities({ entityTypes, limit, offset });
 		res.json(result);
 	} catch (error) {
@@ -87,13 +122,19 @@ memoryRoutes.get('/memory/entities/:name', bearerAuth, async (req, res) => {
 // ---------------------------------------------------------------------------
 
 memoryRoutes.get('/memory/graph', bearerAuth, async (req, res) => {
+	const parsed = GraphQuerySchema.safeParse(req.query);
+	if (!parsed.success) {
+		res.status(400).json({ error: parsed.error.issues[0].message });
+		return;
+	}
+
 	try {
 		if (!isSupabaseConfigured()) {
 			res.status(503).json({ error: 'Database not available' });
 			return;
 		}
 
-		const limit = Math.min(parseInt(req.query.limit as string, 10) || 200, 500);
+		const { limit } = parsed.data;
 
 		// Fetch entities as nodes
 		const { entities } = await listEntities({ limit, offset: 0 });
@@ -110,13 +151,19 @@ memoryRoutes.get('/memory/graph', bearerAuth, async (req, res) => {
 			description: e.description,
 		}));
 
-		const edges = relations.map((r) => ({
-			id: r.id,
-			source: r.from_entity_id,
-			target: r.to_entity_id,
-			type: r.relation_type,
-			strength: r.strength,
-		}));
+		// Filter out relations where either endpoint is not in the node set
+		// (listRelations uses OR logic, so one side may reference an entity outside
+		// the fetched set when the graph is paginated)
+		const nodeIds = new Set(entityIds);
+		const edges = relations
+			.filter((r) => nodeIds.has(r.from_entity_id) && nodeIds.has(r.to_entity_id))
+			.map((r) => ({
+				id: r.id,
+				source: r.from_entity_id,
+				target: r.to_entity_id,
+				type: r.relation_type,
+				strength: r.strength,
+			}));
 
 		res.json({ nodes, edges });
 	} catch (error) {
@@ -132,19 +179,19 @@ memoryRoutes.get('/memory/graph', bearerAuth, async (req, res) => {
 // ---------------------------------------------------------------------------
 
 memoryRoutes.get('/memory/search', bearerAuth, async (req, res) => {
-	try {
-		const q = req.query.q as string;
-		if (!q) {
-			res.status(400).json({ error: 'Query parameter "q" is required' });
-			return;
-		}
+	const parsed = MemorySearchQuerySchema.safeParse(req.query);
+	if (!parsed.success) {
+		res.status(400).json({ error: parsed.error.issues[0].message });
+		return;
+	}
 
+	try {
 		if (!isSupabaseConfigured() || !isEmbeddingsConfigured()) {
 			res.status(503).json({ error: 'Memory search not available' });
 			return;
 		}
 
-		const limit = Math.min(parseInt(req.query.limit as string, 10) || 10, 50);
+		const { q, limit } = parsed.data;
 		const queryEmbedding = await generateEmbedding(q);
 		const results = await hybridMemorySearch(q, queryEmbedding, { limit });
 

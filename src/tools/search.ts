@@ -1,7 +1,5 @@
 import type { McpServer } from '@modelcontextprotocol/sdk/server/mcp.js';
 import { z } from 'zod';
-import { isSupabaseConfigured } from '../db/client.js';
-import { isOpenAIConfigured } from '../services/embeddings.js';
 import { SearchError, unifiedSearch } from '../services/search.js';
 import { configError, formatId, toolError, toolResponse } from '../utils/compact.js';
 import { logger } from '../utils/logger.js';
@@ -159,14 +157,6 @@ export function registerSearchTool(server: McpServer): void {
 				includeMemories,
 				includeConversations,
 			});
-
-			if (!isSupabaseConfigured()) {
-				return configError('Database', 'Set SUPABASE_URL and SUPABASE_SERVICE_KEY');
-			}
-
-			if (!isOpenAIConfigured()) {
-				return configError('Embedding provider', 'Set OPENAI_API_KEY or configure Ollama');
-			}
 
 			try {
 				const response = await unifiedSearch({

@@ -56,3 +56,10 @@ export class ExternalServiceError extends TextrawlError {
 		this.name = 'ExternalServiceError';
 	}
 }
+
+export class ServiceUnavailableError extends TextrawlError {
+	constructor(message = 'Service temporarily unavailable') {
+		super(message, 503, 'SERVICE_UNAVAILABLE');
+		this.name = 'ServiceUnavailableError';
+	}
+}

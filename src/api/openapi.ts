@@ -118,24 +118,123 @@ const spec = {
 					created_at: { type: 'string', format: 'date-time' },
 				},
 			},
+			Relation: {
+				type: 'object',
+				properties: {
+					relation_type: { type: 'string' },
+					to_entity: { type: 'string' },
+					to_entity_type: {
+						type: 'string',
+						enum: [
+							'person',
+							'concept',
+							'project',
+							'preference',
+							'fact',
+							'location',
+							'organization',
+						],
+					},
+					from_entity: { type: 'string' },
+					from_entity_type: {
+						type: 'string',
+						enum: [
+							'person',
+							'concept',
+							'project',
+							'preference',
+							'fact',
+							'location',
+							'organization',
+						],
+					},
+					strength: { type: 'number', minimum: 0, maximum: 1 },
+				},
+			},
 			EntityContext: {
 				type: 'object',
 				properties: {
 					entity: { $ref: '#/components/schemas/Entity' },
-					relations: { type: 'array', items: { type: 'object' } },
+					entity_description: { type: ['string', 'null'] },
+					observations: {
+						type: 'array',
+						items: {
+							type: 'object',
+							properties: {
+								id: { type: 'string', format: 'uuid' },
+								content: { type: 'string' },
+								source: { type: ['string', 'null'] },
+								created_at: { type: 'string', format: 'date-time' },
+							},
+						},
+					},
+					outgoing_relations: {
+						type: 'array',
+						items: { $ref: '#/components/schemas/Relation' },
+					},
+					incoming_relations: {
+						type: 'array',
+						items: { $ref: '#/components/schemas/Relation' },
+					},
+				},
+			},
+			GraphNode: {
+				type: 'object',
+				properties: {
+					id: { type: 'string', format: 'uuid' },
+					name: { type: 'string' },
+					type: {
+						type: 'string',
+						enum: [
+							'person',
+							'concept',
+							'project',
+							'preference',
+							'fact',
+							'location',
+							'organization',
+						],
+					},
+					description: { type: ['string', 'null'] },
+				},
+			},
+			GraphEdge: {
+				type: 'object',
+				properties: {
+					id: { type: 'string', format: 'uuid' },
+					source: { type: 'string', format: 'uuid', description: 'from_entity_id' },
+					target: { type: 'string', format: 'uuid', description: 'to_entity_id' },
+					type: { type: 'string' },
+					strength: { type: 'number', minimum: 0, maximum: 1 },
 				},
 			},
 			GraphData: {
 				type: 'object',
 				properties: {
-					nodes: { type: 'array', items: { type: 'object' } },
-					edges: { type: 'array', items: { type: 'object' } },
+					nodes: { type: 'array', items: { $ref: '#/components/schemas/GraphNode' } },
+					edges: { type: 'array', items: { $ref: '#/components/schemas/GraphEdge' } },
+				},
+			},
+			MemorySearchResultItem: {
+				type: 'object',
+				properties: {
+					entity_id: { type: 'string', format: 'uuid' },
+					entity_name: { type: 'string' },
+					entity_type: { type: 'string' },
+					observation_content: { type: 'string' },
+					score: { type: 'number' },
+					confidence: { type: 'number' },
 				},
 			},
 			MemorySearchResult: {
 				type: 'object',
 				properties: {
-					results: { type: 'array', items: { type: 'object' } },
+					query: { type: 'string' },
+					totalResults: { type: 'integer' },
+					results: {
+						type: 'array',
+						items: { $ref: '#/components/schemas/MemorySearchResultItem' },
+					},
 				},
 			},
 			MemoryStats: {
@@ -144,38 +243,104 @@ const spec = {
 					totalEntities: { type: 'integer' },
 					totalObservations: { type: 'integer' },
 					totalRelations: { type: 'integer' },
-					entityTypeCounts: { type: 'object' },
+					entityTypeCounts: {
+						type: 'object',
+						additionalProperties: { type: 'integer' },
+						description: 'Map of entity type name to count',
+					},
+				},
+			},
+			ConversationTurn: {
+				type: 'object',
+				properties: {
+					id: { type: 'string', format: 'uuid' },
+					role: { type: 'string', enum: ['user', 'assistant', 'system'] },
+					content: { type: 'string' },
+					turn_index: { type: 'integer' },
+					created_at: { type: 'string', format: 'date-time' },
+				},
+			},
+			ConversationSummary: {
+				type: 'object',
+				properties: {
+					id: { type: 'string', format: 'uuid' },
+					session_key: { type: ['string', 'null'] },
+					title: { type: ['string', 'null'] },
+					summary: { type: ['string', 'null'] },
+					turn_count: { type: 'integer' },
+					last_activity: { type: 'string', format: 'date-time' },
+					created_at: { type: 'string', format: 'date-time' },
 				},
 			},
 			Conversation: {
 				type: 'object',
 				properties: {
 					id: { type: 'string', format: 'uuid' },
-					summary: { type: 'string' },
+					session_key: { type: ['string', 'null'] },
+					title: { type: ['string', 'null'] },
+					summary: { type: ['string', 'null'] },
 					created_at: { type: 'string', format: 'date-time' },
-					turns: { type: 'array', items: { type: 'object' } },
+					turns: {
+						type: 'array',
+						items: { $ref: '#/components/schemas/ConversationTurn' },
+					},
 				},
 			},
 			ConversationList: {
 				type: 'object',
 				properties: {
-					conversations: { type: 'array', items: { type: 'object' } },
+					conversations: {
+						type: 'array',
+						items: { $ref: '#/components/schemas/ConversationSummary' },
+					},
 					total: { type: 'integer' },
+				},
+			},
+			ConversationSearchResultItem: {
+				type: 'object',
+				properties: {
+					session_id: { type: 'string', format: 'uuid' },
+					session_key: { type: ['string', 'null'] },
+					title: { type: ['string', 'null'] },
+					summary: { type: ['string', 'null'] },
+					score: { type: 'number' },
 				},
 			},
 			ConversationSearchResult: {
 				type: 'object',
 				properties: {
-					results: { type: 'array', items: { type: 'object' } },
+					query: { type: 'string' },
+					totalResults: { type: 'integer' },
+					results: {
+						type: 'array',
+						items: { $ref: '#/components/schemas/ConversationSearchResultItem' },
+					},
 				},
 			},
 			Insight: {
 				type: 'object',
 				properties: {
 					id: { type: 'string', format: 'uuid' },
-					type: { type: 'string' },
+					insight_type: {
+						type: 'string',
+						enum: ['cross_source', 'theme_cluster', 'entity_bridge', 'temporal_pattern', 'outlier'],
+					},
+					title: { type: 'string' },
+					summary: { type: 'string' },
 					status: { type: 'string', enum: ['new', 'seen', 'dismissed'] },
-					content: { type: 'string' },
+					evidence: {
+						type: 'array',
+						items: {
+							type: 'object',
+							properties: {
+								type: { type: 'string' },
+								id: { type: 'string' },
+								title: { type: 'string' },
+								snippet: { type: 'string' },
+							},
+						},
+					},
+					entities: { type: 'array', items: { type: 'string' } },
 					created_at: { type: 'string', format: 'date-time' },
 				},
 			},
@@ -193,7 +358,11 @@ const spec = {
 					new: { type: 'integer' },
 					seen: { type: 'integer' },
 					dismissed: { type: 'integer' },
-					byType: { type: 'object' },
+					byType: {
+						type: 'object',
+						additionalProperties: { type: 'integer' },
+						description: 'Map of insight type to count',
+					},
 				},
 			},
 			HealthCheck: {

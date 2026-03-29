@@ -5,6 +5,7 @@ import {
 	DatabaseError,
 	ExternalServiceError,
 	NotFoundError,
+	ServiceUnavailableError,
 	TextrawlError,
 	ValidationError,
 } from '../errors.js';
@@ -87,6 +88,24 @@ describe('custom error hierarchy', () => {
 			const error = new ExternalServiceError();
 			expect(error.statusCode).toBe(502);
 			expect(error.code).toBe('EXTERNAL_SERVICE_ERROR');
+		});
+	});
+
+	describe('ServiceUnavailableError', () => {
+		it('has 503 status code', () => {
+			const error = new ServiceUnavailableError();
+			expect(error.statusCode).toBe(503);
+			expect(error.code).toBe('SERVICE_UNAVAILABLE');
+		});
+
+		it('allows custom message', () => {
+			const error = new ServiceUnavailableError('Database not configured');
+			expect(error.message).toBe('Database not configured');
+			expect(error.statusCode).toBe(503);
+		});
+
+		it('extends TextrawlError', () => {
+			expect(new ServiceUnavailableError()).toBeInstanceOf(TextrawlError);
 		});
 	});
 });
