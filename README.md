@@ -391,6 +391,7 @@ OLLAMA_MODEL=nomic-embed-text
 | No search results | Check `chunks` table has embeddings; lower `minScore` |
 | MCP tools not in Claude | Restart Claude Desktop; check `curl http://localhost:3000/health` |
 | Rate limit exceeded | API: 100/min, Upload: 10/min |
+| CodeQL Analyze job fails with SARIF/default setup error | This repo uses advanced CodeQL workflow (`.github/workflows/codeql.yml`); keep GitHub Code Scanning Default Setup disabled in repo settings |
 
 ## Contributing
 

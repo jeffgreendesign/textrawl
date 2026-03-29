@@ -61,3 +61,4 @@ See `src/tools/*.ts` for full tool schemas and `README.md` for user-facing docum
 
 - Keep MCP tool names and schemas stable unless explicitly requested.
 - Use `console.error()` for logging paths that may affect stdio MCP JSON-RPC transport.
+- CodeQL mode: this repo uses the advanced workflow in `.github/workflows/codeql.yml`; keep GitHub Code Scanning Default Setup disabled to avoid SARIF processing conflicts.
