@@ -328,19 +328,19 @@ export default function DashboardHome() {
 		},
 		{
 			label: 'Memories',
-			value: stats?.memories,
+			value: stats?.memories?.entities,
 			color: '#60a5fa',
 			icon: Brain,
 		},
 		{
 			label: 'Conversations',
-			value: stats?.conversations,
+			value: stats?.conversations?.sessions,
 			color: '#a78bfa',
 			icon: MessageSquare,
 		},
 		{
 			label: 'Insights',
-			value: stats?.insights,
+			value: stats?.insights?.total,
 			color: '#fb923c',
 			icon: Lightbulb,
 		},
