@@ -12,10 +12,8 @@ import { config as dotenvConfig } from 'dotenv';
  * CLI configuration
  */
 export interface CLIConfig {
-	/** Supabase project URL */
-	supabaseUrl: string;
-	/** Supabase service key */
-	supabaseServiceKey: string;
+	/** Neon PostgreSQL connection URL */
+	databaseUrl: string;
 	/** Embedding provider: openai or ollama */
 	embeddingProvider: 'openai' | 'ollama';
 	/** OpenAI API key (if using OpenAI) */
@@ -43,15 +41,10 @@ export function loadCLIConfig(envPath = '.env'): CLIConfig {
 	}
 
 	// Validate required fields
-	const supabaseUrl = process.env.SUPABASE_URL;
-	const supabaseServiceKey = process.env.SUPABASE_SERVICE_KEY;
+	const databaseUrl = process.env.DATABASE_URL;
 
-	if (!supabaseUrl) {
-		throw new Error('SUPABASE_URL is required in .env file');
-	}
-
-	if (!supabaseServiceKey) {
-		throw new Error('SUPABASE_SERVICE_KEY is required in .env file');
+	if (!databaseUrl) {
+		throw new Error('DATABASE_URL is required in .env file');
 	}
 
 	// Determine embedding provider
@@ -72,8 +65,7 @@ export function loadCLIConfig(envPath = '.env'): CLIConfig {
 	}
 
 	return {
-		supabaseUrl,
-		supabaseServiceKey,
+		databaseUrl,
 		embeddingProvider,
 		openaiApiKey: process.env.OPENAI_API_KEY,
 		ollamaBaseUrl: process.env.OLLAMA_BASE_URL,
@@ -82,10 +74,10 @@ export function loadCLIConfig(envPath = '.env'): CLIConfig {
 }
 
 /**
- * Check if upload is configured (has Supabase + embeddings)
+ * Check if upload is configured (has database + embeddings)
  */
 export function isUploadConfigured(config: CLIConfig): boolean {
-	if (!config.supabaseUrl || !config.supabaseServiceKey) {
+	if (!config.databaseUrl) {
 		return false;
 	}
 

@@ -2,7 +2,7 @@
 /**
  * Markdown Upload Utility
  *
- * Uploads converted markdown files to Supabase with chunking and embeddings
+ * Uploads converted markdown files to Neon PostgreSQL with chunking and embeddings
  * Reuses existing services for consistency with the main server
  *
  * Usage:
@@ -29,8 +29,8 @@ import { splitFile } from './lib/splitter.js';
 import type { DocumentFrontMatter, UploadResult } from './lib/types.js';
 
 import { type CreateChunkInput, createChunks } from '../../src/db/chunks.js';
-import { getSupabaseClient } from '../../src/db/client.js';
 import { createDocument } from '../../src/db/documents.js';
+import { pgQuery } from '../../src/db/pg-client.js';
 // Import existing services from the main project
 // These paths work because tsx resolves them at runtime
 import { chunkText, smartChunk } from '../../src/services/chunker.js';
@@ -45,12 +45,8 @@ const MANIFEST_SAVE_INTERVAL = 50;
  * Requires the `drop_chunks_hnsw_index` function from setup-db-bulk-helpers.sql.
  */
 async function dropHnswIndex(): Promise<void> {
-	const client = getSupabaseClient();
 	const start = Date.now();
-	const { error } = await client.rpc('drop_chunks_hnsw_index');
-	if (error) {
-		throw new Error(`Failed to drop HNSW index: ${error.message}`);
-	}
+	await pgQuery('SELECT drop_chunks_hnsw_index()');
 	logger.info(`HNSW index dropped (${Date.now() - start}ms)`);
 }
 
@@ -59,13 +55,9 @@ async function dropHnswIndex(): Promise<void> {
  * Requires the `create_chunks_hnsw_index` function from setup-db-bulk-helpers.sql.
  */
 async function recreateHnswIndex(): Promise<void> {
-	const client = getSupabaseClient();
 	const start = Date.now();
 	logger.info('Recreating HNSW index (this may take a while for large datasets)...');
-	const { error } = await client.rpc('create_chunks_hnsw_index');
-	if (error) {
-		throw new Error(`Failed to recreate HNSW index: ${error.message}`);
-	}
+	await pgQuery('SELECT create_chunks_hnsw_index()');
 	logger.info(`HNSW index recreated (${((Date.now() - start) / 1000).toFixed(1)}s)`);
 }
 
@@ -164,7 +156,7 @@ function sanitizeMetadata(obj: Record<string, unknown>): Record<string, unknown>
 	return sanitized;
 }
 
-/** Maximum safe payload size for Supabase PostgREST (bytes) */
+/** Maximum safe payload size for batch INSERT (bytes) */
 const MAX_PAYLOAD_SIZE = 5 * 1024 * 1024; // 5MB
 
 /**
@@ -292,7 +284,7 @@ async function uploadFileSemantic(
 			converted_at: prepared.frontmatter.converted_at,
 		});
 
-		// Check payload size before sending to Supabase
+		// Check payload size before sending to database
 		const payloadSize = estimatePayloadSize(prepared.bodyContent, metadata);
 		if (payloadSize > MAX_PAYLOAD_SIZE) {
 			const sizeMB = (payloadSize / (1024 * 1024)).toFixed(1);
@@ -308,7 +300,7 @@ async function uploadFileSemantic(
 			);
 		}
 
-		// Create document in Supabase
+		// Create document in database
 		const document = await withRetry(
 			() =>
 				createDocument({
@@ -485,7 +477,7 @@ async function uploadBatchedFixed(
 				converted_at: cf.prepared.frontmatter.converted_at,
 			});
 
-			// Check payload size before sending to Supabase
+			// Check payload size before sending to database
 			const payloadSize = estimatePayloadSize(cf.prepared.bodyContent, metadata);
 			if (payloadSize > MAX_PAYLOAD_SIZE) {
 				const sizeMB = (payloadSize / (1024 * 1024)).toFixed(1);
@@ -610,9 +602,7 @@ async function uploadDocuments(directory: string, options: UploadOptions): Promi
 	const cliConfig = loadCLIConfig(options.config);
 
 	if (!isUploadConfigured(cliConfig)) {
-		logger.error(
-			'Upload not configured. Check SUPABASE_URL, SUPABASE_SERVICE_KEY, and embedding provider.',
-		);
+		logger.error('Upload not configured. Check DATABASE_URL and embedding provider.');
 		process.exit(1);
 	}
 
@@ -938,7 +928,7 @@ async function uploadDocuments(directory: string, options: UploadOptions): Promi
 // CLI setup
 const program = createBaseCommand(
 	'upload',
-	'Upload converted markdown files to Supabase with chunking and embeddings',
+	'Upload converted markdown files to PostgreSQL with chunking and embeddings',
 );
 
 addUploadOptions(program);
