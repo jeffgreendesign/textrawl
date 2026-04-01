@@ -17,7 +17,7 @@ gcloud run deploy $SERVICE_NAME \
   --platform managed \
   --region $REGION \
   --allow-unauthenticated \
-  --set-secrets="API_BEARER_TOKEN=textrawl-api-token:latest,SUPABASE_URL=textrawl-supabase-url:latest,SUPABASE_SERVICE_KEY=textrawl-supabase-key:latest,OPENAI_API_KEY=textrawl-openai-key:latest" \
+  --set-secrets="API_BEARER_TOKEN=textrawl-api-token:latest,DATABASE_URL=textrawl-database-url:latest,OPENAI_API_KEY=textrawl-openai-key:latest" \
   --set-env-vars="ALLOWED_ORIGINS=$ALLOWED_ORIGINS" \
   --min-instances 0 \
   --max-instances 10 \

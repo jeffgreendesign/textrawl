@@ -8,8 +8,7 @@ services:
     environment:
       - NODE_ENV=production
       - PORT=3000
-      - SUPABASE_URL=${SUPABASE_URL}
-      - SUPABASE_SERVICE_KEY=${SUPABASE_SERVICE_KEY}
+      - DATABASE_URL=${DATABASE_URL}
       - OPENAI_API_KEY=${OPENAI_API_KEY}
       - API_BEARER_TOKEN=${API_BEARER_TOKEN}
       - LOG_LEVEL=${LOG_LEVEL:-info}

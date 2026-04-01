@@ -40,21 +40,12 @@ echo
 echo "Enter your credentials (or press Enter to skip and edit .env later):"
 echo
 
-read -p "SUPABASE_URL (e.g., https://abc123.supabase.co): " SUPABASE_URL
-if [ -n "$SUPABASE_URL" ]; then
+read -p "DATABASE_URL (Neon pooled connection string): " DATABASE_URL
+if [ -n "$DATABASE_URL" ]; then
     if [[ "$OSTYPE" == "darwin"* ]]; then
-        sed -i '' "s|^SUPABASE_URL=.*|SUPABASE_URL=$SUPABASE_URL|" .env
+        sed -i '' "s|^DATABASE_URL=.*|DATABASE_URL=$DATABASE_URL|" .env
     else
-        sed -i "s|^SUPABASE_URL=.*|SUPABASE_URL=$SUPABASE_URL|" .env
-    fi
-fi
-
-read -p "SUPABASE_SERVICE_KEY: " SUPABASE_KEY
-if [ -n "$SUPABASE_KEY" ]; then
-    if [[ "$OSTYPE" == "darwin"* ]]; then
-        sed -i '' "s|^SUPABASE_SERVICE_KEY=.*|SUPABASE_SERVICE_KEY=$SUPABASE_KEY|" .env
-    else
-        sed -i "s|^SUPABASE_SERVICE_KEY=.*|SUPABASE_SERVICE_KEY=$SUPABASE_KEY|" .env
+        sed -i "s|^DATABASE_URL=.*|DATABASE_URL=$DATABASE_URL|" .env
     fi
 fi
 
@@ -75,8 +66,7 @@ echo "(Save this - you'll need it for authenticated requests)"
 echo
 echo "Next steps:"
 echo "  1. Edit .env if you skipped any credentials"
-echo "  2. Run database setup in Supabase SQL Editor:"
-echo "     - Open scripts/setup-db.sql"
-echo "     - Paste and run in your Supabase dashboard"
+echo "  2. Run database setup against your Neon database:"
+echo "     - psql \$DATABASE_URL -f scripts/setup-db.sql"
 echo "  3. Start the dev server: pnpm dev"
 echo

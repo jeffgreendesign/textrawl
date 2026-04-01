@@ -23,9 +23,9 @@ const envSchema = z.object({
 		)
 		.optional(),
 
-	// Supabase
-	SUPABASE_URL: z.string().url().optional(),
-	SUPABASE_SERVICE_KEY: z.string().optional(),
+	// Database (Neon PostgreSQL)
+	DATABASE_URL: z.string().optional(),
+	DATABASE_URL_UNPOOLED: z.string().optional(),
 
 	// Embeddings
 	EMBEDDING_PROVIDER: z.enum(['openai', 'ollama', 'google']).default('openai'),
@@ -118,9 +118,6 @@ const envSchema = z.object({
 		.transform((val) => parseFloat(val))
 		.refine((val) => val >= 0 && val <= 1, 'Must be between 0 and 1'),
 
-	// Direct Postgres connection (optional - enables pg:analyze tools)
-	DATABASE_URL: z.string().optional(),
-
 	// Directory for pg-analyze report history (default: ./reports/pg-analysis)
 	PG_REPORT_DIR: z.string().default('./reports/pg-analysis'),
 
@@ -201,8 +198,8 @@ export function loadConfig(): Config {
 		if (!result.data.API_BEARER_TOKEN) {
 			logger.warn('API_BEARER_TOKEN not set - auth will be disabled');
 		}
-		if (!result.data.SUPABASE_URL || !result.data.SUPABASE_SERVICE_KEY) {
-			logger.warn('Supabase credentials not set - database features disabled');
+		if (!result.data.DATABASE_URL) {
+			logger.warn('DATABASE_URL not set - database features disabled');
 		}
 		if (result.data.EMBEDDING_PROVIDER === 'openai' && !result.data.OPENAI_API_KEY) {
 			logger.warn('OPENAI_API_KEY not set - embeddings disabled');
