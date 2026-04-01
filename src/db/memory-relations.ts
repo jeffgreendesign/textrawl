@@ -1,7 +1,7 @@
 import type { MemoryRelation } from '../types/database.js';
 import { DatabaseError, NotFoundError, ValidationError } from '../utils/errors.js';
 import { logger } from '../utils/logger.js';
-import { getSupabaseClient, isSupabaseConfigured } from './client.js';
+import { isDatabaseConfigured, pgQuery, queryOne, queryOneOrThrow } from './pg-client.js';
 
 export type { MemoryRelation } from '../types/database.js';
 
@@ -59,31 +59,37 @@ export const RELATION_TYPES = {
  * Create a new relation between entities
  */
 export async function createRelation(input: CreateRelationInput): Promise<MemoryRelation> {
-	if (!isSupabaseConfigured()) {
-		throw new DatabaseError('Supabase not configured');
+	if (!isDatabaseConfigured()) {
+		throw new DatabaseError('Database not configured');
 	}
 
 	if (input.fromEntityId === input.toEntityId) {
 		throw new DatabaseError('Cannot create self-referential relation');
 	}
 
-	const client = getSupabaseClient();
+	const normalizedType = input.relationType.toLowerCase().replace(/\s+/g, '_');
+	const strength = input.strength ?? 1.0;
+	const metadata = input.metadata || {};
 
-	const { data, error } = await client
-		.from('memory_relations')
-		.insert({
-			from_entity_id: input.fromEntityId,
-			to_entity_id: input.toEntityId,
-			relation_type: input.relationType.toLowerCase().replace(/\s+/g, '_'),
-			strength: input.strength ?? 1.0,
-			metadata: input.metadata || {},
-		})
-		.select()
-		.single();
+	try {
+		const data = await queryOneOrThrow<MemoryRelation>(
+			`INSERT INTO memory_relations (from_entity_id, to_entity_id, relation_type, strength, metadata)
+			 VALUES ($1, $2, $3, $4, $5)
+			 RETURNING *`,
+			[input.fromEntityId, input.toEntityId, normalizedType, strength, JSON.stringify(metadata)],
+			'Relation',
+		);
 
-	if (error) {
+		logger.info('Created memory relation', {
+			id: data.id,
+			from: input.fromEntityId,
+			to: input.toEntityId,
+			type: input.relationType,
+		});
+		return data;
+	} catch (err: unknown) {
 		// Handle unique constraint violation (relation already exists)
-		if (error.code === '23505') {
+		if (err && typeof err === 'object' && 'code' in err && err.code === '23505') {
 			logger.debug('Relation already exists', {
 				from: input.fromEntityId,
 				to: input.toEntityId,
@@ -91,17 +97,11 @@ export async function createRelation(input: CreateRelationInput): Promise<Memory
 			});
 			return getRelation(input.fromEntityId, input.toEntityId, input.relationType);
 		}
-		logger.error('Failed to create relation', { error: error.message });
+		logger.error('Failed to create relation', {
+			error: err instanceof Error ? err.message : String(err),
+		});
 		throw new DatabaseError('Failed to create relation');
 	}
-
-	logger.info('Created memory relation', {
-		id: data.id,
-		from: input.fromEntityId,
-		to: input.toEntityId,
-		type: input.relationType,
-	});
-	return data as MemoryRelation;
 }
 
 /**
@@ -116,51 +116,67 @@ export async function createRelation(input: CreateRelationInput): Promise<Memory
  * @param input.strength - Relation strength from 0 to 1 (default: 1.0)
  * @param input.metadata - Optional metadata key-value pairs
  * @returns The existing or newly created relation
- * @throws {DatabaseError} If Supabase is not configured, entities are the same, or the upsert fails
+ * @throws {DatabaseError} If database is not configured, entities are the same, or the upsert fails
  */
 export async function getOrCreateRelation(input: CreateRelationInput): Promise<MemoryRelation> {
-	if (!isSupabaseConfigured()) {
-		throw new DatabaseError('Supabase not configured');
+	if (!isDatabaseConfigured()) {
+		throw new DatabaseError('Database not configured');
 	}
 
 	if (input.fromEntityId === input.toEntityId) {
 		throw new DatabaseError('Cannot create self-referential relation');
 	}
 
-	const client = getSupabaseClient();
-
 	const normalizedType = input.relationType.toLowerCase().replace(/\s+/g, '_');
 
-	// Build the upsert payload dynamically — only include strength and metadata
-	// when explicitly provided so that onConflict merge preserves existing DB
-	// values for unspecified fields.
-	const payload: Record<string, unknown> = {
-		from_entity_id: input.fromEntityId,
-		to_entity_id: input.toEntityId,
-		relation_type: normalizedType,
-	};
+	// Build SET clause dynamically — only update strength and metadata when
+	// explicitly provided so that existing DB values are preserved for
+	// unspecified fields.
+	const setClauses: string[] = [];
 	if (input.strength !== undefined) {
-		payload.strength = input.strength;
+		setClauses.push('strength = EXCLUDED.strength');
 	}
 	if (input.metadata !== undefined) {
-		payload.metadata = input.metadata;
+		setClauses.push('metadata = EXCLUDED.metadata');
 	}
 
-	const { data, error } = await client
-		.from('memory_relations')
-		.upsert(payload, {
-			onConflict: 'from_entity_id,to_entity_id,relation_type',
-			ignoreDuplicates: false,
-		})
-		.select()
-		.single();
+	// If nothing to update on conflict, use DO NOTHING and fetch afterward
+	const onConflictAction =
+		setClauses.length > 0 ? `DO UPDATE SET ${setClauses.join(', ')}` : 'DO NOTHING';
 
-	if (error) {
-		logger.error('Failed to upsert relation', { error: error.message });
+	const params: unknown[] = [
+		input.fromEntityId,
+		input.toEntityId,
+		normalizedType,
+		input.strength ?? 1.0,
+		JSON.stringify(input.metadata ?? {}),
+	];
+
+	try {
+		const data = await queryOne<MemoryRelation>(
+			`INSERT INTO memory_relations (from_entity_id, to_entity_id, relation_type, strength, metadata)
+			 VALUES ($1, $2, $3, $4, $5)
+			 ON CONFLICT (from_entity_id, to_entity_id, relation_type) ${onConflictAction}
+			 RETURNING *`,
+			params,
+		);
+
+		if (data) return data;
+
+		// DO NOTHING doesn't return a row, so fetch it
+		return await queryOneOrThrow<MemoryRelation>(
+			`SELECT * FROM memory_relations
+			 WHERE from_entity_id = $1 AND to_entity_id = $2 AND relation_type = $3`,
+			[input.fromEntityId, input.toEntityId, normalizedType],
+			'Relation',
+		);
+	} catch (err: unknown) {
+		if (err instanceof NotFoundError) throw err;
+		logger.error('Failed to upsert relation', {
+			error: err instanceof Error ? err.message : String(err),
+		});
 		throw new DatabaseError('Failed to create or update relation');
 	}
-
-	return data as MemoryRelation;
 }
 
 /**
@@ -171,29 +187,26 @@ export async function getRelation(
 	toEntityId: string,
 	relationType: string,
 ): Promise<MemoryRelation> {
-	if (!isSupabaseConfigured()) {
-		throw new DatabaseError('Supabase not configured');
+	if (!isDatabaseConfigured()) {
+		throw new DatabaseError('Database not configured');
 	}
 
-	const client = getSupabaseClient();
+	const normalizedType = relationType.toLowerCase().replace(/\s+/g, '_');
 
-	const { data, error } = await client
-		.from('memory_relations')
-		.select('*')
-		.eq('from_entity_id', fromEntityId)
-		.eq('to_entity_id', toEntityId)
-		.eq('relation_type', relationType.toLowerCase().replace(/\s+/g, '_'))
-		.single();
-
-	if (error) {
-		if (error.code === 'PGRST116') {
-			throw new NotFoundError('Relation not found');
-		}
-		logger.error('Failed to get relation', { error: error.message });
+	try {
+		return await queryOneOrThrow<MemoryRelation>(
+			`SELECT * FROM memory_relations
+			 WHERE from_entity_id = $1 AND to_entity_id = $2 AND relation_type = $3`,
+			[fromEntityId, toEntityId, normalizedType],
+			'Relation',
+		);
+	} catch (err: unknown) {
+		if (err instanceof NotFoundError) throw err;
+		logger.error('Failed to get relation', {
+			error: err instanceof Error ? err.message : String(err),
+		});
 		throw new DatabaseError('Failed to get relation');
 	}
-
-	return data as MemoryRelation;
 }
 
 /**
@@ -203,26 +216,27 @@ export async function getOutgoingRelations(
 	entityId: string,
 	relationType?: string,
 ): Promise<MemoryRelation[]> {
-	if (!isSupabaseConfigured()) {
-		throw new DatabaseError('Supabase not configured');
+	if (!isDatabaseConfigured()) {
+		throw new DatabaseError('Database not configured');
 	}
 
-	const client = getSupabaseClient();
+	try {
+		const params: unknown[] = [entityId];
+		let sql = 'SELECT * FROM memory_relations WHERE from_entity_id = $1';
 
-	let query = client.from('memory_relations').select('*').eq('from_entity_id', entityId);
+		if (relationType) {
+			sql += ' AND relation_type = $2';
+			params.push(relationType.toLowerCase().replace(/\s+/g, '_'));
+		}
 
-	if (relationType) {
-		query = query.eq('relation_type', relationType.toLowerCase().replace(/\s+/g, '_'));
-	}
-
-	const { data, error } = await query;
-
-	if (error) {
-		logger.error('Failed to get outgoing relations', { error: error.message });
+		const { rows } = await pgQuery<MemoryRelation>(sql, params);
+		return rows;
+	} catch (err: unknown) {
+		logger.error('Failed to get outgoing relations', {
+			error: err instanceof Error ? err.message : String(err),
+		});
 		throw new DatabaseError('Failed to get relations');
 	}
-
-	return data as MemoryRelation[];
 }
 
 /**
@@ -232,26 +246,27 @@ export async function getIncomingRelations(
 	entityId: string,
 	relationType?: string,
 ): Promise<MemoryRelation[]> {
-	if (!isSupabaseConfigured()) {
-		throw new DatabaseError('Supabase not configured');
+	if (!isDatabaseConfigured()) {
+		throw new DatabaseError('Database not configured');
 	}
 
-	const client = getSupabaseClient();
+	try {
+		const params: unknown[] = [entityId];
+		let sql = 'SELECT * FROM memory_relations WHERE to_entity_id = $1';
 
-	let query = client.from('memory_relations').select('*').eq('to_entity_id', entityId);
+		if (relationType) {
+			sql += ' AND relation_type = $2';
+			params.push(relationType.toLowerCase().replace(/\s+/g, '_'));
+		}
 
-	if (relationType) {
-		query = query.eq('relation_type', relationType.toLowerCase().replace(/\s+/g, '_'));
-	}
-
-	const { data, error } = await query;
-
-	if (error) {
-		logger.error('Failed to get incoming relations', { error: error.message });
+		const { rows } = await pgQuery<MemoryRelation>(sql, params);
+		return rows;
+	} catch (err: unknown) {
+		logger.error('Failed to get incoming relations', {
+			error: err instanceof Error ? err.message : String(err),
+		});
 		throw new DatabaseError('Failed to get relations');
 	}
-
-	return data as MemoryRelation[];
 }
 
 /**
@@ -275,54 +290,46 @@ export async function updateRelationStrength(
 	id: string,
 	strength: number,
 ): Promise<MemoryRelation> {
-	if (!isSupabaseConfigured()) {
-		throw new DatabaseError('Supabase not configured');
+	if (!isDatabaseConfigured()) {
+		throw new DatabaseError('Database not configured');
 	}
 
 	if (strength < 0 || strength > 1) {
 		throw new DatabaseError('Strength must be between 0 and 1');
 	}
 
-	const client = getSupabaseClient();
-
-	const { data, error } = await client
-		.from('memory_relations')
-		.update({ strength })
-		.eq('id', id)
-		.select()
-		.single();
-
-	if (error) {
-		if (error.code === 'PGRST116') {
-			throw new NotFoundError('Relation not found');
-		}
+	try {
+		return await queryOneOrThrow<MemoryRelation>(
+			'UPDATE memory_relations SET strength = $1 WHERE id = $2 RETURNING *',
+			[strength, id],
+			'Relation',
+		);
+	} catch (err: unknown) {
+		if (err instanceof NotFoundError) throw err;
 		logger.error('Failed to update relation strength', {
-			error: error.message,
+			error: err instanceof Error ? err.message : String(err),
 		});
 		throw new DatabaseError('Failed to update relation');
 	}
-
-	return data as MemoryRelation;
 }
 
 /**
  * Delete a relation
  */
 export async function deleteRelation(id: string): Promise<void> {
-	if (!isSupabaseConfigured()) {
-		throw new DatabaseError('Supabase not configured');
+	if (!isDatabaseConfigured()) {
+		throw new DatabaseError('Database not configured');
 	}
 
-	const client = getSupabaseClient();
-
-	const { error } = await client.from('memory_relations').delete().eq('id', id);
-
-	if (error) {
-		logger.error('Failed to delete relation', { error: error.message });
+	try {
+		await pgQuery('DELETE FROM memory_relations WHERE id = $1', [id]);
+		logger.info('Deleted memory relation', { id });
+	} catch (err: unknown) {
+		logger.error('Failed to delete relation', {
+			error: err instanceof Error ? err.message : String(err),
+		});
 		throw new DatabaseError('Failed to delete relation');
 	}
-
-	logger.info('Deleted memory relation', { id });
 }
 
 /**
@@ -335,33 +342,38 @@ export async function listRelations(
 		limit?: number;
 	} = {},
 ): Promise<MemoryRelation[]> {
-	if (!isSupabaseConfigured()) {
-		throw new DatabaseError('Supabase not configured');
+	if (!isDatabaseConfigured()) {
+		throw new DatabaseError('Database not configured');
 	}
 
 	const { entityIds, limit } = options;
-	const client = getSupabaseClient();
+	const params: unknown[] = [];
+	let paramIdx = 1;
 
-	let query = client.from('memory_relations').select('*').order('created_at', { ascending: false });
-
-	if (limit !== undefined) {
-		query = query.limit(limit);
-	}
+	let sql = 'SELECT * FROM memory_relations';
 
 	if (entityIds && entityIds.length > 0) {
-		query = query.or(
-			`from_entity_id.in.(${entityIds.join(',')}),to_entity_id.in.(${entityIds.join(',')})`,
-		);
+		sql += ` WHERE (from_entity_id = ANY($${paramIdx}) OR to_entity_id = ANY($${paramIdx}))`;
+		params.push(entityIds);
+		paramIdx++;
 	}
 
-	const { data, error } = await query;
+	sql += ' ORDER BY created_at DESC';
 
-	if (error) {
-		logger.error('Failed to list relations', { error: error.message });
+	if (limit !== undefined) {
+		sql += ` LIMIT $${paramIdx}`;
+		params.push(limit);
+	}
+
+	try {
+		const { rows } = await pgQuery<MemoryRelation>(sql, params);
+		return rows;
+	} catch (err: unknown) {
+		logger.error('Failed to list relations', {
+			error: err instanceof Error ? err.message : String(err),
+		});
 		throw new DatabaseError('Failed to list relations');
 	}
-
-	return data as MemoryRelation[];
 }
 
 /**
@@ -371,8 +383,8 @@ export async function deleteRelationsBetween(
 	entityId1: string,
 	entityId2: string,
 ): Promise<number> {
-	if (!isSupabaseConfigured()) {
-		throw new DatabaseError('Supabase not configured');
+	if (!isDatabaseConfigured()) {
+		throw new DatabaseError('Database not configured');
 	}
 
 	// Validate UUID format before querying to prevent SQL injection
@@ -380,22 +392,19 @@ export async function deleteRelationsBetween(
 		throw new ValidationError('Invalid entity ID format');
 	}
 
-	const client = getSupabaseClient();
+	try {
+		const { rowCount } = await pgQuery(
+			`DELETE FROM memory_relations
+			 WHERE (from_entity_id = $1 AND to_entity_id = $2)
+			    OR (from_entity_id = $2 AND to_entity_id = $1)`,
+			[entityId1, entityId2],
+		);
 
-	const { data, error } = await client
-		.from('memory_relations')
-		.delete()
-		.or(
-			`and(from_entity_id.eq.${entityId1},to_entity_id.eq.${entityId2}),and(from_entity_id.eq.${entityId2},to_entity_id.eq.${entityId1})`,
-		)
-		.select('id');
-
-	if (error) {
+		return rowCount ?? 0;
+	} catch (err: unknown) {
 		logger.error('Failed to delete relations between entities', {
-			error: error.message,
+			error: err instanceof Error ? err.message : String(err),
 		});
 		throw new DatabaseError('Failed to delete relations');
 	}
-
-	return data?.length || 0;
 }

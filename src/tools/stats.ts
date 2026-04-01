@@ -1,9 +1,9 @@
 import type { McpServer } from '@modelcontextprotocol/sdk/server/mcp.js';
 import { z } from 'zod';
-import { isSupabaseConfigured } from '../db/client.js';
 import { getConversationSearchStats } from '../db/conversation-search.js';
 import { getInsightStats, validateInsightSchema } from '../db/insights.js';
 import { getMemoryStats } from '../db/memory-search.js';
+import { isDatabaseConfigured } from '../db/pg-client.js';
 import { getKnowledgeStats } from '../db/stats.js';
 import { configError, isCompact, toJSON, toolError } from '../utils/compact.js';
 import { config } from '../utils/config.js';
@@ -112,7 +112,7 @@ export function registerStatsTools(server: McpServer): void {
 		async ({ scope }) => {
 			logger.info('get_stats called', { scope });
 
-			if (!isSupabaseConfigured()) {
+			if (!isDatabaseConfigured()) {
 				return configError('Database', 'Set SUPABASE_URL and SUPABASE_SERVICE_KEY');
 			}
 

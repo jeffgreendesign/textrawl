@@ -1,11 +1,12 @@
 import { randomUUID } from 'node:crypto';
 import Anthropic from '@anthropic-ai/sdk';
-import { getSupabaseClient, isSupabaseConfigured } from '../db/client.js';
 import {
 	type CreateInsightInput,
 	createInsights,
 	setInsightQueueProcessing,
 } from '../db/insights.js';
+import { isDatabaseConfigured, pgQuery, queryOne } from '../db/pg-client.js';
+import type { SearchResult } from '../types/database.js';
 import { config } from '../utils/config.js';
 import { logger } from '../utils/logger.js';
 import { generateEmbedding, isEmbeddingsConfigured } from './embeddings.js';
@@ -77,7 +78,7 @@ export async function runInsightScan(options?: {
 
 	logger.info('Starting insight scan', { batchId, fullScan: options?.fullScan, maxChunks });
 
-	if (!isSupabaseConfigured() || !isEmbeddingsConfigured()) {
+	if (!isDatabaseConfigured() || !isEmbeddingsConfigured()) {
 		throw new Error('Supabase and embeddings must be configured for insight analysis');
 	}
 
@@ -159,61 +160,53 @@ export async function runInsightScan(options?: {
 // ---------------------------------------------------------------------------
 
 async function fetchRecentChunks(limit: number, fullScan?: boolean): Promise<ChunkWithContext[]> {
-	const client = getSupabaseClient();
-
-	// Get last scan time to only fetch new chunks
-	let query = client
-		.from('chunks')
-		.select(`
-			id,
-			document_id,
-			content,
-			embedding,
-			created_at,
-			metadata,
-			documents!inner (
-				title,
-				source_type,
-				metadata
-			)
-		`)
-		.not('embedding', 'is', null)
-		.order('created_at', { ascending: false })
-		.limit(limit);
+	const conditions = ['c.embedding IS NOT NULL'];
+	const params: unknown[] = [];
+	let paramIdx = 1;
 
 	if (!fullScan) {
-		// Only chunks since last scan
-		const { data: queue } = await client
-			.from('insight_queue')
-			.select('last_scan_at')
-			.eq('id', 1)
-			.single();
-
+		const queue = await queryOne<{ last_scan_at: string | null }>(
+			'SELECT last_scan_at FROM insight_queue WHERE id = 1',
+		);
 		if (queue?.last_scan_at) {
-			query = query.gt('created_at', queue.last_scan_at);
+			conditions.push(`c.created_at > $${paramIdx}`);
+			params.push(queue.last_scan_at);
+			paramIdx++;
 		}
 	}
 
-	const { data, error } = await query;
-	if (error) {
-		logger.error('Failed to fetch chunks for analysis', { error: error.message });
+	params.push(limit);
+	const sql = `
+		SELECT c.id, c.document_id, c.content, c.embedding, c.created_at, c.metadata,
+			d.title AS document_title, d.source_type, d.metadata AS document_metadata
+		FROM chunks c
+		JOIN documents d ON c.document_id = d.id
+		WHERE ${conditions.join(' AND ')}
+		ORDER BY c.created_at DESC
+		LIMIT $${paramIdx}
+	`;
+
+	try {
+		const { rows } = await pgQuery<Record<string, unknown>>(sql, params);
+		return rows.map((row) => {
+			const docMeta = (row.document_metadata ?? {}) as Record<string, unknown>;
+			return {
+				id: row.id as string,
+				document_id: row.document_id as string,
+				document_title: (row.document_title ?? 'Untitled') as string,
+				content: row.content as string,
+				source_type: (row.source_type ?? 'note') as string,
+				content_type: (docMeta?.content_type as string) ?? null,
+				embedding: row.embedding as number[],
+				created_at: row.created_at as string,
+			};
+		});
+	} catch (error) {
+		logger.error('Failed to fetch chunks for analysis', {
+			error: error instanceof Error ? error.message : String(error),
+		});
 		throw new Error('Failed to fetch chunks');
 	}
-
-	return (data ?? []).map((row: Record<string, unknown>) => {
-		const doc = row.documents as Record<string, unknown>;
-		const docMeta = (doc?.metadata ?? {}) as Record<string, unknown>;
-		return {
-			id: row.id as string,
-			document_id: row.document_id as string,
-			document_title: (doc?.title ?? 'Untitled') as string,
-			content: row.content as string,
-			source_type: (doc?.source_type ?? 'note') as string,
-			content_type: (docMeta?.content_type as string) ?? null,
-			embedding: row.embedding as number[],
-			created_at: row.created_at as string,
-		};
-	});
 }
 
 // ---------------------------------------------------------------------------
@@ -237,23 +230,26 @@ async function findCrossSourceConnections(chunks: ChunkWithContext[]): Promise<C
 
 	// For each recent chunk, find similar chunks from DIFFERENT documents
 	// Use the DB for efficiency on large datasets
-	const client = getSupabaseClient();
 
 	for (const chunk of chunks) {
 		if (!chunk.embedding) continue;
 
 		// Semantic search for nearest neighbors (excluding same document)
-		const { data, error } = await client.rpc('semantic_search', {
-			query_embedding: chunk.embedding,
-			match_count: 5,
-		});
-
-		if (error) {
-			logger.error('Semantic search failed during insight scan', { error: error.message });
+		let matches: SearchResult[];
+		try {
+			const result = await pgQuery<SearchResult>('SELECT * FROM semantic_search($1::vector, $2)', [
+				JSON.stringify(chunk.embedding),
+				5,
+			]);
+			matches = result.rows;
+		} catch (error) {
+			logger.error('Semantic search failed during insight scan', {
+				error: error instanceof Error ? error.message : String(error),
+			});
 			continue;
 		}
 
-		for (const match of data ?? []) {
+		for (const match of matches) {
 			// Skip same document
 			if (match.document_id === chunk.document_id) continue;
 
@@ -288,23 +284,24 @@ async function findCrossSourceConnections(chunks: ChunkWithContext[]): Promise<C
 }
 
 async function findOutliers(chunks: ChunkWithContext[]): Promise<ChunkWithContext[]> {
-	const client = getSupabaseClient();
 	const outliers: ChunkWithContext[] = [];
 
 	for (const chunk of chunks) {
 		if (!chunk.embedding) continue;
 
-		const { data, error } = await client.rpc('semantic_search', {
-			query_embedding: chunk.embedding,
-			match_count: 3,
-		});
-
-		if (error) continue;
+		let searchResults: SearchResult[];
+		try {
+			const result = await pgQuery<SearchResult>('SELECT * FROM semantic_search($1::vector, $2)', [
+				JSON.stringify(chunk.embedding),
+				3,
+			]);
+			searchResults = result.rows;
+		} catch {
+			continue;
+		}
 
 		// Filter out same-document matches
-		const otherDocMatches = (data ?? []).filter(
-			(m: Record<string, unknown>) => m.document_id !== chunk.document_id,
-		);
+		const otherDocMatches = searchResults.filter((m) => m.document_id !== chunk.document_id);
 
 		// If best match from another document is low similarity, it's an outlier
 		const bestScore = otherDocMatches[0]?.score ?? 0;

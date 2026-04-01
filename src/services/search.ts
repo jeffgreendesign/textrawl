@@ -1,6 +1,6 @@
-import { isSupabaseConfigured } from '../db/client.js';
 import { hybridConversationSearch } from '../db/conversation-search.js';
 import { hybridMemorySearch } from '../db/memory-search.js';
+import { isDatabaseConfigured } from '../db/pg-client.js';
 import { hybridSearch } from '../db/search.js';
 import { config } from '../utils/config.js';
 import { ServiceUnavailableError } from '../utils/errors.js';
@@ -77,7 +77,7 @@ export async function unifiedSearch(options: SearchOptions): Promise<SearchRespo
 		conversationWeight = 0.5,
 	} = options;
 
-	if (!isSupabaseConfigured()) {
+	if (!isDatabaseConfigured()) {
 		throw new ServiceUnavailableError('Database not configured');
 	}
 	if (!isEmbeddingsConfigured()) {

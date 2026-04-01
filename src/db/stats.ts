@@ -1,7 +1,7 @@
 import type { KnowledgeStats } from '../types/database.js';
 import { DatabaseError } from '../utils/errors.js';
 import { logger } from '../utils/logger.js';
-import { getSupabaseClient, isSupabaseConfigured } from './client.js';
+import { isDatabaseConfigured, pgQuery, queryCount } from './pg-client.js';
 
 export type { KnowledgeStats } from '../types/database.js';
 
@@ -10,56 +10,43 @@ export type { KnowledgeStats } from '../types/database.js';
  * by source type and content type, top tags, and the date range of stored documents.
  *
  * @returns Knowledge base statistics with totals, breakdowns, top 10 tags, and date range
- * @throws {DatabaseError} If Supabase is not configured or any of the underlying queries fail
+ * @throws {DatabaseError} If the database is not configured or any of the underlying queries fail
  */
 export async function getKnowledgeStats(): Promise<KnowledgeStats> {
-	if (!isSupabaseConfigured()) {
-		throw new DatabaseError('Supabase not configured');
+	if (!isDatabaseConfigured()) {
+		throw new DatabaseError('Database not configured');
 	}
 
-	const client = getSupabaseClient();
+	// Run independent queries in parallel
+	const [total, sourceTypeResult, metadataResult, oldestResult, newestResult] = await Promise.all([
+		queryCount('SELECT count(*) FROM documents'),
 
-	// Get total count
-	const { count: total, error: countError } = await client
-		.from('documents')
-		.select('*', { count: 'exact', head: true });
+		pgQuery<{ source_type: string | null }>('SELECT source_type FROM documents'),
 
-	if (countError) {
-		logger.error('Failed to get document count', { error: countError.message });
-		throw new DatabaseError('Failed to get document count');
-	}
+		pgQuery<{ metadata: Record<string, unknown> | null }>('SELECT metadata FROM documents'),
 
-	// Get counts by source_type
-	const { data: sourceTypeData, error: sourceTypeError } = await client
-		.from('documents')
-		.select('source_type');
+		pgQuery<{ created_at: string }>(
+			'SELECT created_at FROM documents ORDER BY created_at ASC LIMIT 1',
+		),
 
-	if (sourceTypeError) {
-		logger.error('Failed to get source type counts', { error: sourceTypeError.message });
-		throw new DatabaseError('Failed to get source type counts');
-	}
+		pgQuery<{ created_at: string }>(
+			'SELECT created_at FROM documents ORDER BY created_at DESC LIMIT 1',
+		),
+	]);
 
+	// Aggregate source types
 	const bySourceType: Record<string, number> = {};
-	for (const doc of sourceTypeData || []) {
+	for (const doc of sourceTypeResult.rows) {
 		const st = doc.source_type || 'unknown';
 		bySourceType[st] = (bySourceType[st] || 0) + 1;
 	}
 
-	// Get counts by content_type from metadata
-	const { data: metadataData, error: metadataError } = await client
-		.from('documents')
-		.select('metadata');
-
-	if (metadataError) {
-		logger.error('Failed to get metadata', { error: metadataError.message });
-		throw new DatabaseError('Failed to get metadata');
-	}
-
+	// Aggregate content types and tags from metadata
 	const byContentType: Record<string, number> = {};
 	const tagCounts: Record<string, number> = {};
 
-	for (const doc of metadataData || []) {
-		const metadata = doc.metadata as Record<string, unknown> | null;
+	for (const doc of metadataResult.rows) {
+		const metadata = doc.metadata;
 		if (metadata) {
 			// Count content types
 			const contentType = (metadata.content_type as string) || 'unknown';
@@ -81,27 +68,12 @@ export async function getKnowledgeStats(): Promise<KnowledgeStats> {
 		.sort((a, b) => b.count - a.count)
 		.slice(0, 10);
 
-	// Get date range
-	const { data: oldestData, error: oldestError } = await client
-		.from('documents')
-		.select('created_at')
-		.order('created_at', { ascending: true })
-		.limit(1)
-		.single();
-
-	const { data: newestData, error: newestError } = await client
-		.from('documents')
-		.select('created_at')
-		.order('created_at', { ascending: false })
-		.limit(1)
-		.single();
-
-	// Handle empty database case gracefully
-	const oldest = oldestError ? null : oldestData?.created_at || null;
-	const newest = newestError ? null : newestData?.created_at || null;
+	// Date range (empty database returns null)
+	const oldest = oldestResult.rows[0]?.created_at ?? null;
+	const newest = newestResult.rows[0]?.created_at ?? null;
 
 	return {
-		total: total || 0,
+		total,
 		bySourceType,
 		byContentType,
 		topTags,

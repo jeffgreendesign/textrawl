@@ -1,7 +1,7 @@
 import { Router, type Router as RouterType } from 'express';
-import { isSupabaseConfigured } from '../db/client.js';
 import { getInsightStats, getInsights, updateInsightStatus } from '../db/insights.js';
 import type { InsightStatus, InsightType } from '../db/insights.js';
+import { isDatabaseConfigured } from '../db/pg-client.js';
 import { config } from '../utils/config.js';
 import { logger } from '../utils/logger.js';
 import { bearerAuth } from './middleware/auth.js';
@@ -27,7 +27,7 @@ insightRoutes.use('/insights', (_req, res, next) => {
 
 insightRoutes.get('/insights/stats', bearerAuth, async (_req, res) => {
 	try {
-		if (!isSupabaseConfigured()) {
+		if (!isDatabaseConfigured()) {
 			res.status(503).json({ error: 'Database not available' });
 			return;
 		}
@@ -48,7 +48,7 @@ insightRoutes.get('/insights/stats', bearerAuth, async (_req, res) => {
 
 insightRoutes.get('/insights', bearerAuth, async (req, res) => {
 	try {
-		if (!isSupabaseConfigured()) {
+		if (!isDatabaseConfigured()) {
 			res.status(503).json({ error: 'Database not available' });
 			return;
 		}
@@ -77,7 +77,7 @@ insightRoutes.get('/insights', bearerAuth, async (req, res) => {
 
 insightRoutes.patch('/insights/:id/status', bearerAuth, async (req, res) => {
 	try {
-		if (!isSupabaseConfigured()) {
+		if (!isDatabaseConfigured()) {
 			res.status(503).json({ error: 'Database not available' });
 			return;
 		}

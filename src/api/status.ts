@@ -1,6 +1,6 @@
 import crypto from 'node:crypto';
 import { Router, type Router as RouterType } from 'express';
-import { checkDatabaseConnection, isSupabaseConfigured } from '../db/client.js';
+import { checkDatabaseConnection, isDatabaseConfigured } from '../db/pg-client.js';
 import { isEmbeddingsConfigured } from '../services/embeddings.js';
 import { config } from '../utils/config.js';
 import { logger } from '../utils/logger.js';
@@ -48,12 +48,11 @@ const serverStartTime = Date.now();
 
 /** Check if a table is accessible (schema exists) */
 async function checkTable(tableName: string): Promise<boolean> {
-	if (!isSupabaseConfigured()) return false;
+	if (!isDatabaseConfigured()) return false;
 	try {
-		const { getSupabaseClient } = await import('../db/client.js');
-		const client = getSupabaseClient();
-		const { error } = await client.from(tableName).select('id').limit(0);
-		return !error;
+		const { pgQuery } = await import('../db/pg-client.js');
+		await pgQuery(`SELECT 1 FROM ${tableName} LIMIT 0`);
+		return true;
 	} catch {
 		return false;
 	}
@@ -181,7 +180,7 @@ statusRouter.get('/status', async (_req, res) => {
 		const services: ServiceCheck[] = [];
 
 		// 1. Database
-		const dbConfigured = isSupabaseConfigured();
+		const dbConfigured = isDatabaseConfigured();
 		if (dbConfigured) {
 			const [dbConnected, dbLatency] = await timed(checkDatabaseConnection);
 			services.push({

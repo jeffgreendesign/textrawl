@@ -1,6 +1,6 @@
 import { DatabaseError } from '../utils/errors.js';
 import { logger } from '../utils/logger.js';
-import { getSupabaseClient, isSupabaseConfigured } from './client.js';
+import { isDatabaseConfigured, pgQuery, queryCount, queryOne } from './pg-client.js';
 
 /**
  * Conversation search result from session summaries
@@ -30,13 +30,13 @@ export interface TurnSearchResult {
 
 /**
  * Perform a pure semantic (vector similarity) search across conversation session
- * summaries using the `conversation_semantic_search` Supabase RPC.
+ * summaries using the `conversation_semantic_search` database function.
  *
  * @param queryEmbedding - The vector embedding of the search query
  * @param options - Search configuration options
  * @param options.limit - Maximum number of results to return (default: 10)
  * @returns An array of conversation search results ranked by cosine similarity
- * @throws {DatabaseError} If Supabase is not configured or the search RPC fails
+ * @throws {DatabaseError} If the database is not configured or the search fails
  */
 export async function semanticConversationSearch(
 	queryEmbedding: number[],
@@ -44,34 +44,34 @@ export async function semanticConversationSearch(
 		limit?: number;
 	} = {},
 ): Promise<ConversationSearchResult[]> {
-	if (!isSupabaseConfigured()) {
-		throw new DatabaseError('Supabase not configured');
+	if (!isDatabaseConfigured()) {
+		throw new DatabaseError('Database not configured');
 	}
 
 	const { limit = 10 } = options;
-	const client = getSupabaseClient();
 
-	const { data, error } = await client.rpc('conversation_semantic_search', {
-		query_embedding: queryEmbedding,
-		match_count: limit,
-	});
+	try {
+		const { rows } = await pgQuery<ConversationSearchResult>(
+			'SELECT * FROM conversation_semantic_search($1::vector, $2)',
+			[JSON.stringify(queryEmbedding), limit],
+		);
 
-	if (error) {
-		logger.error('Semantic conversation search failed', { error: error.message });
+		logger.debug('Semantic conversation search completed', {
+			resultCount: rows.length,
+		});
+
+		return rows;
+	} catch (err) {
+		const message = err instanceof Error ? err.message : String(err);
+		logger.error('Semantic conversation search failed', { error: message });
 		throw new DatabaseError('Semantic conversation search failed');
 	}
-
-	logger.debug('Semantic conversation search completed', {
-		resultCount: data?.length || 0,
-	});
-
-	return (data || []) as ConversationSearchResult[];
 }
 
 /**
  * Perform a hybrid search across conversation session summaries combining full-text
  * search and vector similarity using Reciprocal Rank Fusion (RRF) via the
- * `conversation_hybrid_search` Supabase RPC.
+ * `conversation_hybrid_search` database function.
  *
  * @param queryText - The raw text query used for full-text search
  * @param queryEmbedding - The vector embedding of the query for semantic search
@@ -80,7 +80,7 @@ export async function semanticConversationSearch(
  * @param options.fullTextWeight - Weight applied to full-text search scores in RRF (default: 1.0)
  * @param options.semanticWeight - Weight applied to semantic search scores in RRF (default: 1.0)
  * @returns An array of conversation search results ranked by fused RRF score
- * @throws {DatabaseError} If Supabase is not configured or the search RPC fails
+ * @throws {DatabaseError} If the database is not configured or the search fails
  */
 export async function hybridConversationSearch(
 	queryText: string,
@@ -91,38 +91,34 @@ export async function hybridConversationSearch(
 		semanticWeight?: number;
 	} = {},
 ): Promise<ConversationSearchResult[]> {
-	if (!isSupabaseConfigured()) {
-		throw new DatabaseError('Supabase not configured');
+	if (!isDatabaseConfigured()) {
+		throw new DatabaseError('Database not configured');
 	}
 
 	const { limit = 10, fullTextWeight = 1.0, semanticWeight = 1.0 } = options;
-	const client = getSupabaseClient();
 
-	const { data, error } = await client.rpc('conversation_hybrid_search', {
-		query_text: queryText,
-		query_embedding: queryEmbedding,
-		match_count: limit,
-		full_text_weight: fullTextWeight,
-		semantic_weight: semanticWeight,
-		rrf_k: 60,
-	});
+	try {
+		const { rows } = await pgQuery<ConversationSearchResult>(
+			'SELECT * FROM conversation_hybrid_search($1, $2::vector, $3, $4, $5, $6)',
+			[queryText, JSON.stringify(queryEmbedding), limit, fullTextWeight, semanticWeight, 60],
+		);
 
-	if (error) {
-		logger.error('Hybrid conversation search failed', { error: error.message });
+		logger.debug('Hybrid conversation search completed', {
+			queryTextLength: queryText.length,
+			resultCount: rows.length,
+		});
+
+		return rows;
+	} catch (err) {
+		const message = err instanceof Error ? err.message : String(err);
+		logger.error('Hybrid conversation search failed', { error: message });
 		throw new DatabaseError('Hybrid conversation search failed');
 	}
-
-	logger.debug('Hybrid conversation search completed', {
-		queryTextLength: queryText.length,
-		resultCount: data?.length || 0,
-	});
-
-	return (data || []) as ConversationSearchResult[];
 }
 
 /**
  * Search within individual conversation turns (messages) using hybrid full-text
- * and semantic search via the `conversation_turn_search` Supabase RPC.
+ * and semantic search via the `conversation_turn_search` database function.
  * Optionally filter to a specific session.
  *
  * @param queryText - The raw text query used for full-text search
@@ -133,7 +129,7 @@ export async function hybridConversationSearch(
  * @param options.fullTextWeight - Weight applied to full-text search scores in RRF (default: 1.0)
  * @param options.semanticWeight - Weight applied to semantic search scores in RRF (default: 1.0)
  * @returns An array of turn search results ranked by fused RRF score
- * @throws {DatabaseError} If Supabase is not configured or the search RPC fails
+ * @throws {DatabaseError} If the database is not configured or the search fails
  */
 export async function searchConversationTurns(
 	queryText: string,
@@ -145,35 +141,38 @@ export async function searchConversationTurns(
 		semanticWeight?: number;
 	} = {},
 ): Promise<TurnSearchResult[]> {
-	if (!isSupabaseConfigured()) {
-		throw new DatabaseError('Supabase not configured');
+	if (!isDatabaseConfigured()) {
+		throw new DatabaseError('Database not configured');
 	}
 
 	const { limit = 20, sessionId, fullTextWeight = 1.0, semanticWeight = 1.0 } = options;
-	const client = getSupabaseClient();
 
-	const { data, error } = await client.rpc('conversation_turn_search', {
-		query_text: queryText,
-		query_embedding: queryEmbedding,
-		match_count: limit,
-		full_text_weight: fullTextWeight,
-		semantic_weight: semanticWeight,
-		rrf_k: 60,
-		filter_session_id: sessionId || null,
-	});
+	try {
+		const { rows } = await pgQuery<TurnSearchResult>(
+			'SELECT * FROM conversation_turn_search($1, $2::vector, $3, $4, $5, $6, $7)',
+			[
+				queryText,
+				JSON.stringify(queryEmbedding),
+				limit,
+				fullTextWeight,
+				semanticWeight,
+				60,
+				sessionId || null,
+			],
+		);
 
-	if (error) {
-		logger.error('Conversation turn search failed', { error: error.message });
+		logger.debug('Conversation turn search completed', {
+			queryTextLength: queryText.length,
+			resultCount: rows.length,
+			filteredBySession: !!sessionId,
+		});
+
+		return rows;
+	} catch (err) {
+		const message = err instanceof Error ? err.message : String(err);
+		logger.error('Conversation turn search failed', { error: message });
 		throw new DatabaseError('Conversation turn search failed');
 	}
-
-	logger.debug('Conversation turn search completed', {
-		queryTextLength: queryText.length,
-		resultCount: data?.length || 0,
-		filteredBySession: !!sessionId,
-	});
-
-	return (data || []) as TurnSearchResult[];
 }
 
 /**
@@ -184,7 +183,7 @@ export async function searchConversationTurns(
  * @param options.limit - Maximum number of sessions to return (default: 20)
  * @param options.offset - Number of sessions to skip for pagination (default: 0)
  * @returns An object with the sessions array and total count for pagination
- * @throws {DatabaseError} If Supabase is not configured or the query fails
+ * @throws {DatabaseError} If the database is not configured or the query fails
  */
 export async function getRecentConversations(options: {
 	limit?: number;
@@ -193,39 +192,48 @@ export async function getRecentConversations(options: {
 	sessions: ConversationSearchResult[];
 	total: number;
 }> {
-	if (!isSupabaseConfigured()) {
-		throw new DatabaseError('Supabase not configured');
+	if (!isDatabaseConfigured()) {
+		throw new DatabaseError('Database not configured');
 	}
 
 	const { limit = 20, offset = 0 } = options;
-	const client = getSupabaseClient();
 
-	const { data, error, count } = await client
-		.from('conversation_sessions')
-		.select('id, session_key, title, summary, turn_count, last_activity', { count: 'exact' })
-		.order('last_activity', { ascending: false })
-		.range(offset, offset + limit - 1);
+	try {
+		const [{ rows }, total] = await Promise.all([
+			pgQuery<{
+				id: string;
+				session_key: string | null;
+				title: string | null;
+				summary: string | null;
+				turn_count: number;
+				last_activity: string;
+			}>(
+				`SELECT id, session_key, title, summary, turn_count, last_activity
+				FROM conversation_sessions
+				ORDER BY last_activity DESC
+				LIMIT $1 OFFSET $2`,
+				[limit, offset],
+			),
+			queryCount('SELECT count(*) FROM conversation_sessions'),
+		]);
 
-	if (error) {
-		logger.error('Failed to get recent conversations', { error: error.message });
+		const sessions = rows.map((session) => ({
+			session_id: session.id,
+			session_key: session.session_key,
+			title: session.title,
+			summary: session.summary,
+			turn_count: session.turn_count,
+			last_activity: session.last_activity,
+			score: 0,
+		}));
+
+		return { sessions, total };
+	} catch (err) {
+		if (err instanceof DatabaseError) throw err;
+		const message = err instanceof Error ? err.message : String(err);
+		logger.error('Failed to get recent conversations', { error: message });
 		throw new DatabaseError('Failed to get recent conversations');
 	}
-
-	// Map to search result format with score = 0 (not from search)
-	const sessions = (data || []).map((session) => ({
-		session_id: session.id,
-		session_key: session.session_key,
-		title: session.title,
-		summary: session.summary,
-		turn_count: session.turn_count,
-		last_activity: session.last_activity,
-		score: 0,
-	}));
-
-	return {
-		sessions,
-		total: count || 0,
-	};
 }
 
 /**
@@ -236,7 +244,7 @@ export async function getRecentConversations(options: {
  * @param options - Options for limiting turn retrieval
  * @param options.maxTurns - Maximum number of turns to return (default: 50)
  * @returns The session with its turns, or `null` if the session is not found
- * @throws {DatabaseError} If Supabase is not configured or any query fails
+ * @throws {DatabaseError} If the database is not configured or any query fails
  */
 export async function getConversationWithTurns(
 	sessionId: string,
@@ -261,46 +269,56 @@ export async function getConversationWithTurns(
 		created_at: string;
 	}>;
 } | null> {
-	if (!isSupabaseConfigured()) {
-		throw new DatabaseError('Supabase not configured');
+	if (!isDatabaseConfigured()) {
+		throw new DatabaseError('Database not configured');
 	}
 
 	const { maxTurns = 50 } = options;
-	const client = getSupabaseClient();
 
-	// Get session
-	const { data: session, error: sessionError } = await client
-		.from('conversation_sessions')
-		.select('id, session_key, title, summary, turn_count, last_activity, created_at')
-		.eq('id', sessionId)
-		.maybeSingle();
+	try {
+		// Get session
+		const session = await queryOne<{
+			id: string;
+			session_key: string | null;
+			title: string | null;
+			summary: string | null;
+			turn_count: number;
+			last_activity: string;
+			created_at: string;
+		}>(
+			`SELECT id, session_key, title, summary, turn_count, last_activity, created_at
+			FROM conversation_sessions
+			WHERE id = $1`,
+			[sessionId],
+		);
 
-	if (sessionError) {
-		logger.error('Failed to get conversation session', { error: sessionError.message });
+		if (!session) {
+			return null;
+		}
+
+		// Get turns
+		const { rows: turns } = await pgQuery<{
+			id: string;
+			role: string;
+			content: string;
+			turn_index: number;
+			created_at: string;
+		}>(
+			`SELECT id, role, content, turn_index, created_at
+			FROM conversation_turns
+			WHERE session_id = $1
+			ORDER BY turn_index ASC
+			LIMIT $2`,
+			[sessionId, maxTurns],
+		);
+
+		return { session, turns };
+	} catch (err) {
+		if (err instanceof DatabaseError) throw err;
+		const message = err instanceof Error ? err.message : String(err);
+		logger.error('Failed to get conversation with turns', { error: message });
 		throw new DatabaseError('Failed to get conversation');
 	}
-
-	if (!session) {
-		return null;
-	}
-
-	// Get turns
-	const { data: turns, error: turnsError } = await client
-		.from('conversation_turns')
-		.select('id, role, content, turn_index, created_at')
-		.eq('session_id', sessionId)
-		.order('turn_index', { ascending: true })
-		.limit(maxTurns);
-
-	if (turnsError) {
-		logger.error('Failed to get conversation turns', { error: turnsError.message });
-		throw new DatabaseError('Failed to get conversation turns');
-	}
-
-	return {
-		session,
-		turns: turns || [],
-	};
 }
 
 /**
@@ -308,7 +326,7 @@ export async function getConversationWithTurns(
  * session and turn counts and how many have embeddings for search.
  *
  * @returns Statistics with total sessions/turns and counts of those with embeddings
- * @throws {DatabaseError} If Supabase is not configured or any of the underlying queries fail
+ * @throws {DatabaseError} If the database is not configured or any of the underlying queries fail
  */
 export async function getConversationSearchStats(): Promise<{
 	totalSessions: number;
@@ -316,56 +334,23 @@ export async function getConversationSearchStats(): Promise<{
 	totalTurns: number;
 	turnsWithEmbedding: number;
 }> {
-	if (!isSupabaseConfigured()) {
-		throw new DatabaseError('Supabase not configured');
+	if (!isDatabaseConfigured()) {
+		throw new DatabaseError('Database not configured');
 	}
 
-	const client = getSupabaseClient();
+	try {
+		const [totalSessions, sessionsWithSummary, totalTurns, turnsWithEmbedding] = await Promise.all([
+			queryCount('SELECT count(*) FROM conversation_sessions'),
+			queryCount('SELECT count(*) FROM conversation_sessions WHERE summary_embedding IS NOT NULL'),
+			queryCount('SELECT count(*) FROM conversation_turns'),
+			queryCount('SELECT count(*) FROM conversation_turns WHERE embedding IS NOT NULL'),
+		]);
 
-	// Get session counts
-	const { count: totalSessions, error: totalSessionsError } = await client
-		.from('conversation_sessions')
-		.select('*', { count: 'exact', head: true });
-
-	if (totalSessionsError) {
-		logger.error('Failed to get conversation stats', { error: totalSessionsError.message });
+		return { totalSessions, sessionsWithSummary, totalTurns, turnsWithEmbedding };
+	} catch (err) {
+		if (err instanceof DatabaseError) throw err;
+		const message = err instanceof Error ? err.message : String(err);
+		logger.error('Failed to get conversation stats', { error: message });
 		throw new DatabaseError('Failed to get conversation stats');
 	}
-
-	const { count: sessionsWithSummary, error: sessionsWithSummaryError } = await client
-		.from('conversation_sessions')
-		.select('*', { count: 'exact', head: true })
-		.not('summary_embedding', 'is', null);
-
-	if (sessionsWithSummaryError) {
-		logger.error('Failed to get conversation stats', { error: sessionsWithSummaryError.message });
-		throw new DatabaseError('Failed to get conversation stats');
-	}
-
-	// Get turn counts
-	const { count: totalTurns, error: totalTurnsError } = await client
-		.from('conversation_turns')
-		.select('*', { count: 'exact', head: true });
-
-	if (totalTurnsError) {
-		logger.error('Failed to get conversation stats', { error: totalTurnsError.message });
-		throw new DatabaseError('Failed to get conversation stats');
-	}
-
-	const { count: turnsWithEmbedding, error: turnsWithEmbeddingError } = await client
-		.from('conversation_turns')
-		.select('*', { count: 'exact', head: true })
-		.not('embedding', 'is', null);
-
-	if (turnsWithEmbeddingError) {
-		logger.error('Failed to get conversation stats', { error: turnsWithEmbeddingError.message });
-		throw new DatabaseError('Failed to get conversation stats');
-	}
-
-	return {
-		totalSessions: totalSessions || 0,
-		sessionsWithSummary: sessionsWithSummary || 0,
-		totalTurns: totalTurns || 0,
-		turnsWithEmbedding: turnsWithEmbedding || 0,
-	};
 }

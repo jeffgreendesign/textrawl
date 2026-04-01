@@ -1,10 +1,10 @@
 import { Router, type Router as RouterType } from 'express';
-import { isSupabaseConfigured } from '../db/client.js';
 import {
 	getConversationWithTurns,
 	getRecentConversations,
 	hybridConversationSearch,
 } from '../db/conversation-search.js';
+import { isDatabaseConfigured } from '../db/pg-client.js';
 import { generateEmbedding, isEmbeddingsConfigured } from '../services/embeddings.js';
 import { config } from '../utils/config.js';
 import { logger } from '../utils/logger.js';
@@ -37,7 +37,7 @@ conversationRoutes.get('/conversations/search', bearerAuth, async (req, res) => 
 			return;
 		}
 
-		if (!isSupabaseConfigured() || !isEmbeddingsConfigured()) {
+		if (!isDatabaseConfigured() || !isEmbeddingsConfigured()) {
 			res.status(503).json({ error: 'Conversation search not available' });
 			return;
 		}
@@ -65,7 +65,7 @@ conversationRoutes.get('/conversations/search', bearerAuth, async (req, res) => 
 
 conversationRoutes.get('/conversations', bearerAuth, async (req, res) => {
 	try {
-		if (!isSupabaseConfigured()) {
+		if (!isDatabaseConfigured()) {
 			res.status(503).json({ error: 'Database not available' });
 			return;
 		}
@@ -89,7 +89,7 @@ conversationRoutes.get('/conversations', bearerAuth, async (req, res) => {
 
 conversationRoutes.get('/conversations/:id', bearerAuth, async (req, res) => {
 	try {
-		if (!isSupabaseConfigured()) {
+		if (!isDatabaseConfigured()) {
 			res.status(503).json({ error: 'Database not available' });
 			return;
 		}

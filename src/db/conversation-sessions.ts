@@ -1,7 +1,13 @@
 import type { ConversationSession } from '../types/database.js';
 import { DatabaseError, NotFoundError } from '../utils/errors.js';
 import { logger } from '../utils/logger.js';
-import { getSupabaseClient, isSupabaseConfigured } from './client.js';
+import {
+	isDatabaseConfigured,
+	pgQuery,
+	queryCount,
+	queryOne,
+	queryOneOrThrow,
+} from './pg-client.js';
 
 export type { ConversationSession } from '../types/database.js';
 
@@ -31,30 +37,35 @@ export interface UpdateSessionInput {
  * @param input.summaryEmbedding - Optional vector embedding of the summary
  * @param input.metadata - Optional metadata key-value pairs
  * @returns The newly created or existing conversation session
- * @throws {DatabaseError} If Supabase is not configured or the insert fails
+ * @throws {DatabaseError} If the database is not configured or the insert fails
  */
 export async function createSession(input: CreateSessionInput): Promise<ConversationSession> {
-	if (!isSupabaseConfigured()) {
-		throw new DatabaseError('Supabase not configured');
+	if (!isDatabaseConfigured()) {
+		throw new DatabaseError('Database not configured');
 	}
 
-	const client = getSupabaseClient();
+	try {
+		const data = await queryOneOrThrow<ConversationSession>(
+			`INSERT INTO conversation_sessions (session_key, title, summary, summary_embedding, metadata)
+			 VALUES ($1, $2, $3, $4::vector, $5)
+			 RETURNING *`,
+			[
+				input.sessionKey || null,
+				input.title || null,
+				input.summary || null,
+				input.summaryEmbedding ? JSON.stringify(input.summaryEmbedding) : null,
+				JSON.stringify(input.metadata || {}),
+			],
+		);
 
-	const { data, error } = await client
-		.from('conversation_sessions')
-		.insert({
-			session_key: input.sessionKey || null,
-			title: input.title || null,
-			summary: input.summary || null,
-			summary_embedding: input.summaryEmbedding || null,
-			metadata: input.metadata || {},
-		})
-		.select()
-		.single();
-
-	if (error) {
+		logger.info('Created conversation session', {
+			id: data.id,
+			sessionKey: data.session_key,
+		});
+		return data;
+	} catch (err: unknown) {
 		// Handle unique constraint violation (session key already exists)
-		if (error.code === '23505') {
+		if (err instanceof Error && 'code' in err && (err as { code: string }).code === '23505') {
 			logger.debug('Session key already exists, fetching existing', {
 				sessionKey: input.sessionKey,
 			});
@@ -62,15 +73,14 @@ export async function createSession(input: CreateSessionInput): Promise<Conversa
 				return getSessionByKey(input.sessionKey);
 			}
 		}
-		logger.error('Failed to create session', { error: error.message });
+		if (err instanceof NotFoundError || err instanceof DatabaseError) {
+			throw err;
+		}
+		logger.error('Failed to create session', {
+			error: err instanceof Error ? err.message : String(err),
+		});
 		throw new DatabaseError('Failed to create conversation session');
 	}
-
-	logger.info('Created conversation session', {
-		id: data.id,
-		sessionKey: data.session_key,
-	});
-	return data as ConversationSession;
 }
 
 /**
@@ -80,50 +90,86 @@ export async function createSession(input: CreateSessionInput): Promise<Conversa
  * @param sessionKey - The unique session key to upsert on
  * @param input - Optional session data (title, summary, embedding, metadata) to set on create/update
  * @returns The existing or newly created conversation session
- * @throws {DatabaseError} If Supabase is not configured or the upsert fails
+ * @throws {DatabaseError} If the database is not configured or the upsert fails
  */
 export async function getOrCreateSession(
 	sessionKey: string,
 	input?: Omit<CreateSessionInput, 'sessionKey'>,
 ): Promise<ConversationSession> {
-	if (!isSupabaseConfigured()) {
-		throw new DatabaseError('Supabase not configured');
+	if (!isDatabaseConfigured()) {
+		throw new DatabaseError('Database not configured');
 	}
 
-	const client = getSupabaseClient();
+	// Build dynamic SET clause — only update fields that were explicitly provided
+	const setClauses: string[] = [];
+	const params: unknown[] = [sessionKey];
+	let paramIndex = 2;
 
-	// Build the upsert payload dynamically — only include fields that were
-	// explicitly provided so that Supabase's onConflict merge preserves
-	// existing DB values for unspecified columns.
-	const payload: Record<string, unknown> = { session_key: sessionKey };
+	// Always include insert columns/values
+	const insertCols = ['session_key'];
+	const insertVals = ['$1'];
+
 	if (input?.title !== undefined) {
-		payload.title = input.title;
+		insertCols.push('title');
+		insertVals.push(`$${paramIndex}`);
+		setClauses.push(`title = $${paramIndex}`);
+		params.push(input.title);
+		paramIndex++;
 	}
 	if (input?.summary !== undefined) {
-		payload.summary = input.summary;
+		insertCols.push('summary');
+		insertVals.push(`$${paramIndex}`);
+		setClauses.push(`summary = $${paramIndex}`);
+		params.push(input.summary);
+		paramIndex++;
 	}
 	if (input?.summaryEmbedding !== undefined) {
-		payload.summary_embedding = input.summaryEmbedding;
+		insertCols.push('summary_embedding');
+		insertVals.push(`$${paramIndex}::vector`);
+		setClauses.push(`summary_embedding = $${paramIndex}::vector`);
+		params.push(JSON.stringify(input.summaryEmbedding));
+		paramIndex++;
 	}
 	if (input?.metadata !== undefined) {
-		payload.metadata = input.metadata;
+		insertCols.push('metadata');
+		insertVals.push(`$${paramIndex}`);
+		setClauses.push(`metadata = $${paramIndex}`);
+		params.push(JSON.stringify(input.metadata));
+		paramIndex++;
 	}
 
-	const { data, error } = await client
-		.from('conversation_sessions')
-		.upsert(payload, {
-			onConflict: 'session_key',
-			ignoreDuplicates: false,
-		})
-		.select()
-		.single();
+	const onConflict =
+		setClauses.length > 0
+			? `ON CONFLICT (session_key) DO UPDATE SET ${setClauses.join(', ')}`
+			: 'ON CONFLICT (session_key) DO NOTHING';
 
-	if (error) {
-		logger.error('Failed to upsert session', { error: error.message });
+	try {
+		// When DO NOTHING fires, no row is returned by RETURNING, so fall back to a SELECT
+		const sql = `INSERT INTO conversation_sessions (${insertCols.join(', ')})
+			 VALUES (${insertVals.join(', ')})
+			 ${onConflict}
+			 RETURNING *`;
+
+		const row = await queryOne<ConversationSession>(sql, params);
+		if (row) {
+			return row;
+		}
+
+		// DO NOTHING was triggered — fetch the existing row
+		return await queryOneOrThrow<ConversationSession>(
+			'SELECT * FROM conversation_sessions WHERE session_key = $1',
+			[sessionKey],
+			'Session',
+		);
+	} catch (err: unknown) {
+		if (err instanceof NotFoundError || err instanceof DatabaseError) {
+			throw err;
+		}
+		logger.error('Failed to upsert session', {
+			error: err instanceof Error ? err.message : String(err),
+		});
 		throw new DatabaseError('Failed to create or update session');
 	}
-
-	return data as ConversationSession;
 }
 
 /**
@@ -132,30 +178,26 @@ export async function getOrCreateSession(
  * @param id - The UUID of the session to retrieve
  * @returns The conversation session record
  * @throws {NotFoundError} If no session exists with the given ID
- * @throws {DatabaseError} If Supabase is not configured or the query fails
+ * @throws {DatabaseError} If the database is not configured or the query fails
  */
 export async function getSession(id: string): Promise<ConversationSession> {
-	if (!isSupabaseConfigured()) {
-		throw new DatabaseError('Supabase not configured');
+	if (!isDatabaseConfigured()) {
+		throw new DatabaseError('Database not configured');
 	}
 
-	const client = getSupabaseClient();
-
-	const { data, error } = await client
-		.from('conversation_sessions')
-		.select('*')
-		.eq('id', id)
-		.single();
-
-	if (error) {
-		if (error.code === 'PGRST116') {
-			throw new NotFoundError(`Session not found: ${id}`);
-		}
-		logger.error('Failed to get session', { error: error.message });
+	try {
+		return await queryOneOrThrow<ConversationSession>(
+			'SELECT * FROM conversation_sessions WHERE id = $1',
+			[id],
+			`Session not found: ${id}`,
+		);
+	} catch (err: unknown) {
+		if (err instanceof NotFoundError) throw err;
+		logger.error('Failed to get session', {
+			error: err instanceof Error ? err.message : String(err),
+		});
 		throw new DatabaseError('Failed to get session');
 	}
-
-	return data as ConversationSession;
 }
 
 /**
@@ -164,30 +206,26 @@ export async function getSession(id: string): Promise<ConversationSession> {
  * @param sessionKey - The unique session key to look up
  * @returns The conversation session record
  * @throws {NotFoundError} If no session exists with the given key
- * @throws {DatabaseError} If Supabase is not configured or the query fails
+ * @throws {DatabaseError} If the database is not configured or the query fails
  */
 export async function getSessionByKey(sessionKey: string): Promise<ConversationSession> {
-	if (!isSupabaseConfigured()) {
-		throw new DatabaseError('Supabase not configured');
+	if (!isDatabaseConfigured()) {
+		throw new DatabaseError('Database not configured');
 	}
 
-	const client = getSupabaseClient();
-
-	const { data, error } = await client
-		.from('conversation_sessions')
-		.select('*')
-		.eq('session_key', sessionKey)
-		.single();
-
-	if (error) {
-		if (error.code === 'PGRST116') {
-			throw new NotFoundError(`Session not found: ${sessionKey}`);
-		}
-		logger.error('Failed to get session by key', { error: error.message });
+	try {
+		return await queryOneOrThrow<ConversationSession>(
+			'SELECT * FROM conversation_sessions WHERE session_key = $1',
+			[sessionKey],
+			`Session not found: ${sessionKey}`,
+		);
+	} catch (err: unknown) {
+		if (err instanceof NotFoundError) throw err;
+		logger.error('Failed to get session by key', {
+			error: err instanceof Error ? err.message : String(err),
+		});
 		throw new DatabaseError('Failed to get session');
 	}
-
-	return data as ConversationSession;
 }
 
 /**
@@ -196,27 +234,24 @@ export async function getSessionByKey(sessionKey: string): Promise<ConversationS
  *
  * @param sessionKey - The unique session key to search for
  * @returns The conversation session, or `null` if not found
- * @throws {DatabaseError} If Supabase is not configured or the query fails
+ * @throws {DatabaseError} If the database is not configured or the query fails
  */
 export async function findSessionByKey(sessionKey: string): Promise<ConversationSession | null> {
-	if (!isSupabaseConfigured()) {
-		throw new DatabaseError('Supabase not configured');
+	if (!isDatabaseConfigured()) {
+		throw new DatabaseError('Database not configured');
 	}
 
-	const client = getSupabaseClient();
-
-	const { data, error } = await client
-		.from('conversation_sessions')
-		.select('*')
-		.eq('session_key', sessionKey)
-		.maybeSingle();
-
-	if (error) {
-		logger.error('Failed to find session', { error: error.message });
+	try {
+		return await queryOne<ConversationSession>(
+			'SELECT * FROM conversation_sessions WHERE session_key = $1',
+			[sessionKey],
+		);
+	} catch (err: unknown) {
+		logger.error('Failed to find session', {
+			error: err instanceof Error ? err.message : String(err),
+		});
 		throw new DatabaseError('Failed to find session');
 	}
-
-	return data as ConversationSession | null;
 }
 
 /**
@@ -231,53 +266,59 @@ export async function findSessionByKey(sessionKey: string): Promise<Conversation
  * @param input.metadata - New metadata key-value pairs
  * @returns The updated conversation session record
  * @throws {NotFoundError} If no session exists with the given ID
- * @throws {DatabaseError} If Supabase is not configured or the update fails
+ * @throws {DatabaseError} If the database is not configured or the update fails
  */
 export async function updateSession(
 	id: string,
 	input: UpdateSessionInput,
 ): Promise<ConversationSession> {
-	if (!isSupabaseConfigured()) {
-		throw new DatabaseError('Supabase not configured');
+	if (!isDatabaseConfigured()) {
+		throw new DatabaseError('Database not configured');
 	}
 
-	const client = getSupabaseClient();
+	const setClauses: string[] = [];
+	const params: unknown[] = [];
+	let paramIndex = 1;
 
-	const updates: Record<string, unknown> = {};
 	if (input.title !== undefined) {
-		updates.title = input.title;
+		setClauses.push(`title = $${paramIndex++}`);
+		params.push(input.title);
 	}
 	if (input.summary !== undefined) {
-		updates.summary = input.summary;
+		setClauses.push(`summary = $${paramIndex++}`);
+		params.push(input.summary);
 	}
 	if (input.summaryEmbedding !== undefined) {
-		updates.summary_embedding = input.summaryEmbedding;
+		setClauses.push(`summary_embedding = $${paramIndex++}::vector`);
+		params.push(JSON.stringify(input.summaryEmbedding));
 	}
 	if (input.metadata !== undefined) {
-		updates.metadata = input.metadata;
+		setClauses.push(`metadata = $${paramIndex++}`);
+		params.push(JSON.stringify(input.metadata));
 	}
 
-	if (Object.keys(updates).length === 0) {
+	if (setClauses.length === 0) {
 		return getSession(id);
 	}
 
-	const { data, error } = await client
-		.from('conversation_sessions')
-		.update(updates)
-		.eq('id', id)
-		.select()
-		.single();
+	params.push(id);
 
-	if (error) {
-		if (error.code === 'PGRST116') {
-			throw new NotFoundError(`Session not found: ${id}`);
-		}
-		logger.error('Failed to update session', { error: error.message });
+	try {
+		const data = await queryOneOrThrow<ConversationSession>(
+			`UPDATE conversation_sessions SET ${setClauses.join(', ')} WHERE id = $${paramIndex} RETURNING *`,
+			params,
+			`Session not found: ${id}`,
+		);
+
+		logger.info('Updated conversation session', { id, updates: Object.keys(input) });
+		return data;
+	} catch (err: unknown) {
+		if (err instanceof NotFoundError) throw err;
+		logger.error('Failed to update session', {
+			error: err instanceof Error ? err.message : String(err),
+		});
 		throw new DatabaseError('Failed to update session');
 	}
-
-	logger.info('Updated conversation session', { id, updates: Object.keys(updates) });
-	return data as ConversationSession;
 }
 
 /**
@@ -286,31 +327,31 @@ export async function updateSession(
  *
  * @param id - The UUID of the session to delete
  * @returns Resolves when the session has been deleted
- * @throws {DatabaseError} If Supabase is not configured or the delete fails
+ * @throws {DatabaseError} If the database is not configured or the delete fails
  */
 export async function deleteSession(id: string): Promise<void> {
-	if (!isSupabaseConfigured()) {
-		throw new DatabaseError('Supabase not configured');
+	if (!isDatabaseConfigured()) {
+		throw new DatabaseError('Database not configured');
 	}
 
-	const client = getSupabaseClient();
+	try {
+		const { rows } = await pgQuery<{ id: string }>(
+			'DELETE FROM conversation_sessions WHERE id = $1 RETURNING id',
+			[id],
+		);
 
-	const { data, error } = await client
-		.from('conversation_sessions')
-		.delete()
-		.eq('id', id)
-		.select('id');
+		if (rows.length === 0) {
+			throw new NotFoundError(`Conversation session not found: ${id}`);
+		}
 
-	if (error) {
-		logger.error('Failed to delete session', { error: error.message });
+		logger.info('Deleted conversation session', { id });
+	} catch (err: unknown) {
+		if (err instanceof NotFoundError) throw err;
+		logger.error('Failed to delete session', {
+			error: err instanceof Error ? err.message : String(err),
+		});
 		throw new DatabaseError('Failed to delete session');
 	}
-
-	if (!data || data.length === 0) {
-		throw new NotFoundError(`Conversation session not found: ${id}`);
-	}
-
-	logger.info('Deleted conversation session', { id });
 }
 
 /**
@@ -320,34 +361,34 @@ export async function deleteSession(id: string): Promise<void> {
  * @param options.limit - Maximum number of sessions to return (default: 20)
  * @param options.offset - Number of sessions to skip for pagination (default: 0)
  * @returns An object with the matching sessions array and total count for pagination
- * @throws {DatabaseError} If Supabase is not configured or the query fails
+ * @throws {DatabaseError} If the database is not configured or the query fails
  */
 export async function listSessions(options: {
 	limit?: number;
 	offset?: number;
 }): Promise<{ sessions: ConversationSession[]; total: number }> {
-	if (!isSupabaseConfigured()) {
-		throw new DatabaseError('Supabase not configured');
+	if (!isDatabaseConfigured()) {
+		throw new DatabaseError('Database not configured');
 	}
 
 	const { limit = 20, offset = 0 } = options;
-	const client = getSupabaseClient();
 
-	const { data, error, count } = await client
-		.from('conversation_sessions')
-		.select('*', { count: 'exact' })
-		.order('last_activity', { ascending: false })
-		.range(offset, offset + limit - 1);
+	try {
+		const [{ rows }, total] = await Promise.all([
+			pgQuery<ConversationSession>(
+				'SELECT * FROM conversation_sessions ORDER BY last_activity DESC LIMIT $1 OFFSET $2',
+				[limit, offset],
+			),
+			queryCount('SELECT count(*) FROM conversation_sessions'),
+		]);
 
-	if (error) {
-		logger.error('Failed to list sessions', { error: error.message });
+		return { sessions: rows, total };
+	} catch (err: unknown) {
+		logger.error('Failed to list sessions', {
+			error: err instanceof Error ? err.message : String(err),
+		});
 		throw new DatabaseError('Failed to list sessions');
 	}
-
-	return {
-		sessions: data as ConversationSession[],
-		total: count || 0,
-	};
 }
 
 /**
@@ -355,7 +396,7 @@ export async function listSessions(options: {
  * and turn counts and the date range of stored sessions.
  *
  * @returns Conversation statistics with session/turn totals and date range
- * @throws {DatabaseError} If Supabase is not configured or any of the underlying queries fail
+ * @throws {DatabaseError} If the database is not configured or any of the underlying queries fail
  */
 export async function getConversationStats(): Promise<{
 	totalSessions: number;
@@ -363,54 +404,32 @@ export async function getConversationStats(): Promise<{
 	oldestSession: string | null;
 	newestSession: string | null;
 }> {
-	if (!isSupabaseConfigured()) {
-		throw new DatabaseError('Supabase not configured');
+	if (!isDatabaseConfigured()) {
+		throw new DatabaseError('Database not configured');
 	}
 
-	const client = getSupabaseClient();
+	try {
+		const [totalSessions, totalTurns, oldest, newest] = await Promise.all([
+			queryCount('SELECT count(*) FROM conversation_sessions'),
+			queryCount('SELECT count(*) FROM conversation_turns'),
+			queryOne<{ created_at: string }>(
+				'SELECT created_at FROM conversation_sessions ORDER BY created_at ASC LIMIT 1',
+			),
+			queryOne<{ created_at: string }>(
+				'SELECT created_at FROM conversation_sessions ORDER BY created_at DESC LIMIT 1',
+			),
+		]);
 
-	// Use efficient count + limit-1 queries instead of fetching all rows
-	const [sessionCountResult, turnCountResult, oldestResult, newestResult] = await Promise.all([
-		client.from('conversation_sessions').select('*', { count: 'exact', head: true }),
-		client.from('conversation_turns').select('*', { count: 'exact', head: true }),
-		client
-			.from('conversation_sessions')
-			.select('created_at')
-			.order('created_at', { ascending: true })
-			.limit(1)
-			.maybeSingle(),
-		client
-			.from('conversation_sessions')
-			.select('created_at')
-			.order('created_at', { ascending: false })
-			.limit(1)
-			.maybeSingle(),
-	]);
-
-	if (sessionCountResult.error) {
-		logger.error('Failed to get session stats', { error: sessionCountResult.error.message });
+		return {
+			totalSessions,
+			totalTurns,
+			oldestSession: oldest?.created_at || null,
+			newestSession: newest?.created_at || null,
+		};
+	} catch (err: unknown) {
+		logger.error('Failed to get conversation stats', {
+			error: err instanceof Error ? err.message : String(err),
+		});
 		throw new DatabaseError('Failed to get conversation stats');
 	}
-
-	if (turnCountResult.error) {
-		logger.error('Failed to get turn stats', { error: turnCountResult.error.message });
-		throw new DatabaseError('Failed to get conversation stats');
-	}
-
-	if (oldestResult.error) {
-		logger.error('Failed to get oldest session', { error: oldestResult.error.message });
-		throw new DatabaseError('Failed to get conversation stats');
-	}
-
-	if (newestResult.error) {
-		logger.error('Failed to get newest session', { error: newestResult.error.message });
-		throw new DatabaseError('Failed to get conversation stats');
-	}
-
-	return {
-		totalSessions: sessionCountResult.count || 0,
-		totalTurns: turnCountResult.count || 0,
-		oldestSession: oldestResult.data?.created_at || null,
-		newestSession: newestResult.data?.created_at || null,
-	};
 }

@@ -1,8 +1,8 @@
 import type { McpServer } from '@modelcontextprotocol/sdk/server/mcp.js';
 import { z } from 'zod';
-import { isSupabaseConfigured } from '../db/client.js';
 import { listDocuments } from '../db/documents.js';
 import { getInsights } from '../db/insights.js';
+import { isDatabaseConfigured } from '../db/pg-client.js';
 import { configError, toolError } from '../utils/compact.js';
 import { config } from '../utils/config.js';
 import { logger } from '../utils/logger.js';
@@ -39,7 +39,7 @@ export function registerBriefingTool(server: McpServer): void {
 		async ({ includeOnThisDay, recentDays }) => {
 			logger.info('daily_briefing called', { includeOnThisDay, recentDays });
 
-			if (!isSupabaseConfigured()) {
+			if (!isDatabaseConfigured()) {
 				return configError('Database', 'Set SUPABASE_URL and SUPABASE_SERVICE_KEY');
 			}
 

@@ -3,8 +3,8 @@ import { JSDOM } from 'jsdom';
 import TurndownService from 'turndown';
 import { z } from 'zod';
 import { createChunks } from '../db/chunks.js';
-import { isSupabaseConfigured } from '../db/client.js';
 import { createDocument } from '../db/documents.js';
+import { isDatabaseConfigured } from '../db/pg-client.js';
 import { smartChunk } from '../services/chunker.js';
 import { generateEmbeddings, isEmbeddingsConfigured } from '../services/embeddings.js';
 import { extractAndStoreMemories, isExtractionConfigured } from '../services/memory-extraction.js';
@@ -80,7 +80,7 @@ export function registerUrlTool(server: McpServer): void {
 		async ({ url, title, tags, extractMemories }) => {
 			logger.info('save_url called', { url: redactUrl(url), title, tags, extractMemories });
 
-			if (!isSupabaseConfigured()) {
+			if (!isDatabaseConfigured()) {
 				return configError('Database', 'Set SUPABASE_URL and SUPABASE_SERVICE_KEY');
 			}
 			if (!isEmbeddingsConfigured()) {

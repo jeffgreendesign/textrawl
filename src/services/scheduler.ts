@@ -1,5 +1,5 @@
-import { isSupabaseConfigured } from '../db/client.js';
 import { shouldRunInsightScan } from '../db/insights.js';
+import { isDatabaseConfigured } from '../db/pg-client.js';
 import { config } from '../utils/config.js';
 import { logger } from '../utils/logger.js';
 import { events } from './events.js';
@@ -19,7 +19,7 @@ export function startScheduler(): void {
 		return;
 	}
 
-	if (!isSupabaseConfigured()) {
+	if (!isDatabaseConfigured()) {
 		logger.info('Scheduler skipped: database not configured');
 		return;
 	}

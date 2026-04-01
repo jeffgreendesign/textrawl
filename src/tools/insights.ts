@@ -1,6 +1,5 @@
 import type { McpServer } from '@modelcontextprotocol/sdk/server/mcp.js';
 import { z } from 'zod';
-import { isSupabaseConfigured } from '../db/client.js';
 import {
 	type InsightStatus,
 	type InsightType,
@@ -11,6 +10,7 @@ import {
 	updateInsightStatus,
 	validateInsightSchema,
 } from '../db/insights.js';
+import { isDatabaseConfigured } from '../db/pg-client.js';
 import { generateEmbedding, isOpenAIConfigured } from '../services/embeddings.js';
 import { runInsightScan } from '../services/insight-analysis.js';
 import { configError, formatId, isCompact, toJSON, toolError } from '../utils/compact.js';
@@ -73,7 +73,7 @@ export function registerInsightTools(server: McpServer): void {
 		async ({ status, insightType, query, limit }) => {
 			logger.info('get_insights called', { status, insightType, query, limit });
 
-			if (!isSupabaseConfigured()) {
+			if (!isDatabaseConfigured()) {
 				return configError('Database', 'Set SUPABASE_URL and SUPABASE_SERVICE_KEY');
 			}
 
@@ -203,7 +203,7 @@ export function registerInsightTools(server: McpServer): void {
 		async ({ fullScan, maxChunks }) => {
 			logger.info('discover_connections called', { fullScan, maxChunks });
 
-			if (!isSupabaseConfigured()) {
+			if (!isDatabaseConfigured()) {
 				return configError('Database', 'Set SUPABASE_URL and SUPABASE_SERVICE_KEY');
 			}
 
@@ -290,7 +290,7 @@ export function registerInsightTools(server: McpServer): void {
 		async ({ insightId }) => {
 			logger.info('dismiss_insight called', { insightId });
 
-			if (!isSupabaseConfigured()) {
+			if (!isDatabaseConfigured()) {
 				return configError('Database', 'Set SUPABASE_URL and SUPABASE_SERVICE_KEY');
 			}
 

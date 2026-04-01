@@ -1,6 +1,7 @@
+import type { SearchResult } from '../types/database.js';
 import { DatabaseError } from '../utils/errors.js';
 import { logger } from '../utils/logger.js';
-import { type SearchResult, getSupabaseClient, isSupabaseConfigured } from './client.js';
+import { isDatabaseConfigured, pgQuery } from './pg-client.js';
 
 export interface HybridSearchOptions {
 	queryText: string;
@@ -12,7 +13,7 @@ export interface HybridSearchOptions {
 
 /**
  * Perform hybrid search combining vector similarity and full-text search using
- * Reciprocal Rank Fusion (RRF) via the `hybrid_search` Supabase RPC.
+ * Reciprocal Rank Fusion (RRF) via the `hybrid_search` Postgres function.
  *
  * @param options - Search configuration including query text, embedding, and weighting
  * @param options.queryText - The raw text query used for full-text search
@@ -21,11 +22,11 @@ export interface HybridSearchOptions {
  * @param options.fullTextWeight - Weight applied to full-text search scores in RRF (default: 1.0)
  * @param options.semanticWeight - Weight applied to semantic search scores in RRF (default: 1.0)
  * @returns An array of search results ranked by fused RRF score
- * @throws {DatabaseError} If Supabase is not configured or the search RPC fails
+ * @throws {DatabaseError} If the database is not configured or the search query fails
  */
 export async function hybridSearch(options: HybridSearchOptions): Promise<SearchResult[]> {
-	if (!isSupabaseConfigured()) {
-		throw new DatabaseError('Supabase not configured');
+	if (!isDatabaseConfigured()) {
+		throw new DatabaseError('Database not configured');
 	}
 
 	const {
@@ -36,8 +37,6 @@ export async function hybridSearch(options: HybridSearchOptions): Promise<Search
 		semanticWeight = 1.0,
 	} = options;
 
-	const client = getSupabaseClient();
-
 	logger.debug('Performing hybrid search', {
 		queryTextLength: queryText.length,
 		limit,
@@ -45,20 +44,12 @@ export async function hybridSearch(options: HybridSearchOptions): Promise<Search
 		semanticWeight,
 	});
 
-	const { data, error } = await client.rpc('hybrid_search', {
-		query_text: queryText,
-		query_embedding: queryEmbedding,
-		match_count: limit,
-		full_text_weight: fullTextWeight,
-		semantic_weight: semanticWeight,
-	});
+	const { rows } = await pgQuery<SearchResult>(
+		'SELECT * FROM hybrid_search($1, $2::vector, $3, $4, $5)',
+		[queryText, JSON.stringify(queryEmbedding), limit, fullTextWeight, semanticWeight],
+	);
 
-	if (error) {
-		logger.error('Hybrid search failed', { error: error.message });
-		throw new DatabaseError('Search operation failed');
-	}
+	logger.info('Hybrid search completed', { resultCount: rows.length });
 
-	logger.info('Hybrid search completed', { resultCount: data.length });
-
-	return data as SearchResult[];
+	return rows;
 }

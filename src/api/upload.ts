@@ -1,8 +1,8 @@
 import { Router, type Router as RouterType } from 'express';
 import multer from 'multer';
 import { createChunks } from '../db/chunks.js';
-import { isSupabaseConfigured } from '../db/client.js';
 import { createDocument } from '../db/documents.js';
+import { isDatabaseConfigured } from '../db/pg-client.js';
 import { smartChunk } from '../services/chunker.js';
 import { generateEmbeddings, isOpenAIConfigured } from '../services/embeddings.js';
 import { extractText, isSupportedType, validateFileType } from '../services/processor.js';
@@ -36,7 +36,7 @@ uploadRouter.post(
 				throw new ValidationError('No file provided');
 			}
 
-			if (!isSupabaseConfigured()) {
+			if (!isDatabaseConfigured()) {
 				res.status(503).json({ error: 'Database not configured' });
 				return;
 			}

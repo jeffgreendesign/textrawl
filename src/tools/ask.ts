@@ -1,9 +1,9 @@
 import type { McpServer } from '@modelcontextprotocol/sdk/server/mcp.js';
 import { z } from 'zod';
-import { isSupabaseConfigured } from '../db/client.js';
 import { hybridConversationSearch } from '../db/conversation-search.js';
 import { searchInsights } from '../db/insights.js';
 import { hybridMemorySearch } from '../db/memory-search.js';
+import { isDatabaseConfigured } from '../db/pg-client.js';
 import { hybridSearch } from '../db/search.js';
 import { generateEmbedding, isEmbeddingsConfigured } from '../services/embeddings.js';
 import { configError, toolError } from '../utils/compact.js';
@@ -43,7 +43,7 @@ export function registerAskTool(server: McpServer): void {
 		async ({ question, scope, limit }) => {
 			logger.info('ask called', { question: question.slice(0, 100), scope, limit });
 
-			if (!isSupabaseConfigured()) {
+			if (!isDatabaseConfigured()) {
 				return configError('Database', 'Set SUPABASE_URL and SUPABASE_SERVICE_KEY');
 			}
 			if (!isEmbeddingsConfigured()) {

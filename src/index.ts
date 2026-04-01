@@ -12,7 +12,7 @@ import { apiLimiter, healthLimiter } from './api/middleware/rateLimit.js';
 import { openapiRoutes } from './api/openapi.js';
 import { apiRoutes } from './api/routes.js';
 import { statusRouter } from './api/status.js';
-import { checkDatabaseConnection, isSupabaseConfigured } from './db/client.js';
+import { checkDatabaseConnection, isDatabaseConfigured } from './db/pg-client.js';
 import { createMcpServer } from './server.js';
 import { isOpenAIConfigured } from './services/embeddings.js';
 import { config } from './utils/config.js';
@@ -75,7 +75,7 @@ app.get('/health', healthLimiter, (_req, res) => {
 });
 
 app.get('/health/ready', healthLimiter, async (_req, res) => {
-	const dbConfigured = isSupabaseConfigured();
+	const dbConfigured = isDatabaseConfigured();
 
 	let dbConnected = false;
 	if (dbConfigured) {

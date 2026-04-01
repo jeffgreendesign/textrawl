@@ -1,12 +1,12 @@
 import type { McpServer } from '@modelcontextprotocol/sdk/server/mcp.js';
 import { z } from 'zod';
 import { getChunksForDocument } from '../db/chunks.js';
-import { isSupabaseConfigured } from '../db/client.js';
 import {
 	getDocument as getDocumentFromDb,
 	listDocuments as listDocumentsFromDb,
 	updateDocument as updateDocumentInDb,
 } from '../db/documents.js';
+import { isDatabaseConfigured } from '../db/pg-client.js';
 import { configError, formatId, toolError, toolResponse } from '../utils/compact.js';
 import { logger } from '../utils/logger.js';
 
@@ -87,7 +87,7 @@ export function registerDocumentTools(server: McpServer): void {
 		async ({ documentId, includeChunks, maxContentLength }) => {
 			logger.info('get_document called', { documentId, includeChunks });
 
-			if (!isSupabaseConfigured()) {
+			if (!isDatabaseConfigured()) {
 				return configError('Database', 'Set SUPABASE_URL and SUPABASE_SERVICE_KEY');
 			}
 
@@ -208,7 +208,7 @@ export function registerDocumentTools(server: McpServer): void {
 				sortOrder,
 			});
 
-			if (!isSupabaseConfigured()) {
+			if (!isDatabaseConfigured()) {
 				return configError('Database', 'Set SUPABASE_URL and SUPABASE_SERVICE_KEY');
 			}
 
@@ -297,7 +297,7 @@ export function registerDocumentTools(server: McpServer): void {
 		async ({ documentId, title, tags }) => {
 			logger.info('update_document called', { documentId, title, tags });
 
-			if (!isSupabaseConfigured()) {
+			if (!isDatabaseConfigured()) {
 				return configError('Database', 'Set SUPABASE_URL and SUPABASE_SERVICE_KEY');
 			}
 

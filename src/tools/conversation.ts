@@ -1,6 +1,5 @@
 import type { McpServer } from '@modelcontextprotocol/sdk/server/mcp.js';
 import { z } from 'zod';
-import { isSupabaseConfigured } from '../db/client.js';
 import {
 	getConversationWithTurns,
 	hybridConversationSearch,
@@ -17,6 +16,7 @@ import {
 	updateSession,
 } from '../db/conversation-sessions.js';
 import { createTurns, getRecentTurns } from '../db/conversation-turns.js';
+import { isDatabaseConfigured } from '../db/pg-client.js';
 import { generateEmbedding, isOpenAIConfigured } from '../services/embeddings.js';
 import { configError, formatId, isCompact, toJSON, toolError } from '../utils/compact.js';
 import { logger } from '../utils/logger.js';
@@ -80,7 +80,7 @@ export function registerConversationTools(server: McpServer): void {
 				embedTurns,
 			});
 
-			if (!isSupabaseConfigured()) {
+			if (!isDatabaseConfigured()) {
 				return configError('Database', 'Set SUPABASE_URL and SUPABASE_SERVICE_KEY');
 			}
 
@@ -322,7 +322,7 @@ export function registerConversationTools(server: McpServer): void {
 		}) => {
 			logger.info('query_conversations called', { mode, query, sessionId, sessionKey, limit });
 
-			if (!isSupabaseConfigured()) {
+			if (!isDatabaseConfigured()) {
 				return configError('Database', 'Set SUPABASE_URL and SUPABASE_SERVICE_KEY');
 			}
 
@@ -643,7 +643,7 @@ export function registerConversationTools(server: McpServer): void {
 				return toolError('Either sessionId or sessionKey is required');
 			}
 
-			if (!isSupabaseConfigured()) {
+			if (!isDatabaseConfigured()) {
 				return configError('Database', 'Set SUPABASE_URL and SUPABASE_SERVICE_KEY');
 			}
 

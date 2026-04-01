@@ -1,6 +1,5 @@
 import type { McpServer } from '@modelcontextprotocol/sdk/server/mcp.js';
 import { z } from 'zod';
-import { isSupabaseConfigured } from '../db/client.js';
 import {
 	type EntityType,
 	deleteEntity,
@@ -11,6 +10,7 @@ import {
 import { createObservation, findSimilarObservation } from '../db/memory-observations.js';
 import { RELATION_TYPES, getOrCreateRelation } from '../db/memory-relations.js';
 import { getEntityContext, hybridMemorySearch, semanticMemorySearch } from '../db/memory-search.js';
+import { isDatabaseConfigured } from '../db/pg-client.js';
 import { generateEmbedding, isOpenAIConfigured } from '../services/embeddings.js';
 import {
 	extractAndStoreMemories,
@@ -113,7 +113,7 @@ export function registerMemoryTools(server: McpServer): void {
 				observationLength: observation.length,
 			});
 
-			if (!isSupabaseConfigured()) {
+			if (!isDatabaseConfigured()) {
 				return configError('Database', 'Set SUPABASE_URL and SUPABASE_SERVICE_KEY');
 			}
 
@@ -355,7 +355,7 @@ export function registerMemoryTools(server: McpServer): void {
 		}) => {
 			logger.info('query_memory called', { mode, query, entityName, entityTypes, limit });
 
-			if (!isSupabaseConfigured()) {
+			if (!isDatabaseConfigured()) {
 				return configError('Database', 'Set SUPABASE_URL and SUPABASE_SERVICE_KEY');
 			}
 
@@ -614,7 +614,7 @@ export function registerMemoryTools(server: McpServer): void {
 				toEntityType,
 			});
 
-			if (!isSupabaseConfigured()) {
+			if (!isDatabaseConfigured()) {
 				return configError('Database', 'Set SUPABASE_URL and SUPABASE_SERVICE_KEY');
 			}
 
@@ -719,7 +719,7 @@ export function registerMemoryTools(server: McpServer): void {
 				);
 			}
 
-			if (!isSupabaseConfigured()) {
+			if (!isDatabaseConfigured()) {
 				return configError('Database', 'Set SUPABASE_URL and SUPABASE_SERVICE_KEY');
 			}
 
@@ -808,7 +808,7 @@ export function registerMemoryTools(server: McpServer): void {
 			}
 
 			// Only require Supabase if we're storing results
-			if (storeResults && !isSupabaseConfigured()) {
+			if (storeResults && !isDatabaseConfigured()) {
 				return configError('Database', 'Set SUPABASE_URL and SUPABASE_SERVICE_KEY');
 			}
 
@@ -965,7 +965,7 @@ export function registerMemoryTools(server: McpServer): void {
 				return toolError('Provide at least one fact or relation');
 			}
 
-			if (!isSupabaseConfigured()) {
+			if (!isDatabaseConfigured()) {
 				return configError('Database', 'Set SUPABASE_URL and SUPABASE_SERVICE_KEY');
 			}
 

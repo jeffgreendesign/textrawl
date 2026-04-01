@@ -1,6 +1,7 @@
+import type { Document } from '../types/database.js';
 import { DatabaseError, NotFoundError } from '../utils/errors.js';
 import { logger } from '../utils/logger.js';
-import { type Document, getSupabaseClient, isSupabaseConfigured } from './client.js';
+import { isDatabaseConfigured, pgQuery, queryCount, queryOneOrThrow } from './pg-client.js';
 
 export interface CreateDocumentInput {
 	title: string;
@@ -30,32 +31,36 @@ export interface UpdateDocumentInput {
  * Create a new document
  */
 export async function createDocument(input: CreateDocumentInput): Promise<Document> {
-	if (!isSupabaseConfigured()) {
+	if (!isDatabaseConfigured()) {
 		throw new DatabaseError('Supabase not configured');
 	}
 
-	const client = getSupabaseClient();
+	try {
+		const doc = await queryOneOrThrow<Document>(
+			`INSERT INTO documents (title, source_type, raw_content, source_url, file_path, metadata)
+			 VALUES ($1, $2, $3, $4, $5, $6)
+			 RETURNING *`,
+			[
+				input.title,
+				input.sourceType,
+				input.rawContent,
+				input.sourceUrl || null,
+				input.filePath || null,
+				JSON.stringify(input.metadata || {}),
+			],
+			'Document',
+		);
 
-	const { data, error } = await client
-		.from('documents')
-		.insert({
-			title: input.title,
-			source_type: input.sourceType,
-			raw_content: input.rawContent,
-			source_url: input.sourceUrl || null,
-			file_path: input.filePath || null,
-			metadata: input.metadata || {},
-		})
-		.select()
-		.single();
-
-	if (error) {
-		logger.error('Failed to create document', { error: error.message });
-		throw new DatabaseError(`Failed to create document: ${error.message}`);
+		logger.info('Created document', { id: doc.id, title: doc.title });
+		return doc;
+	} catch (error) {
+		if (error instanceof NotFoundError) {
+			throw new DatabaseError('Failed to create document: no row returned');
+		}
+		const message = error instanceof Error ? error.message : String(error);
+		logger.error('Failed to create document', { error: message });
+		throw new DatabaseError(`Failed to create document: ${message}`);
 	}
-
-	logger.info('Created document', { id: data.id, title: data.title });
-	return data as Document;
 }
 
 /**
@@ -67,23 +72,25 @@ export async function createDocument(input: CreateDocumentInput): Promise<Docume
  * @throws {DatabaseError} If Supabase is not configured or the query fails
  */
 export async function getDocument(id: string): Promise<Document> {
-	if (!isSupabaseConfigured()) {
+	if (!isDatabaseConfigured()) {
 		throw new DatabaseError('Supabase not configured');
 	}
 
-	const client = getSupabaseClient();
-
-	const { data, error } = await client.from('documents').select('*').eq('id', id).single();
-
-	if (error) {
-		if (error.code === 'PGRST116') {
+	try {
+		return await queryOneOrThrow<Document>(
+			'SELECT * FROM documents WHERE id = $1',
+			[id],
+			`Document not found: ${id}`,
+		);
+	} catch (error) {
+		if (error instanceof NotFoundError) {
 			throw new NotFoundError(`Document not found: ${id}`);
 		}
-		logger.error('Failed to get document', { error: error.message });
+		logger.error('Failed to get document', {
+			error: error instanceof Error ? error.message : String(error),
+		});
 		throw new DatabaseError('Failed to get document');
 	}
-
-	return data as Document;
 }
 
 /**
@@ -104,7 +111,7 @@ export async function getDocument(id: string): Promise<Document> {
 export async function listDocuments(
 	options: ListDocumentsOptions = {},
 ): Promise<{ documents: Document[]; total: number }> {
-	if (!isSupabaseConfigured()) {
+	if (!isDatabaseConfigured()) {
 		throw new DatabaseError('Supabase not configured');
 	}
 
@@ -117,40 +124,57 @@ export async function listDocuments(
 		sortBy = 'created_at',
 		sortOrder = 'desc',
 	} = options;
-	const client = getSupabaseClient();
 
-	let query = client
-		.from('documents')
-		.select('*', { count: 'exact' })
-		.order(sortBy, { ascending: sortOrder === 'asc' })
-		.order('id', { ascending: sortOrder === 'asc' })
-		.range(offset, offset + limit - 1);
+	// Allowlist for sort columns to prevent SQL injection
+	const allowedSortColumns = ['created_at', 'updated_at', 'title'] as const;
+	const safeSort = allowedSortColumns.includes(sortBy as (typeof allowedSortColumns)[number])
+		? sortBy
+		: 'created_at';
+	const direction = sortOrder === 'asc' ? 'ASC' : 'DESC';
+
+	const conditions: string[] = [];
+	const params: unknown[] = [];
+	let paramIndex = 1;
 
 	if (sourceType) {
-		query = query.eq('source_type', sourceType);
+		conditions.push(`source_type = $${paramIndex++}`);
+		params.push(sourceType);
 	}
 
-	// Filter by content_type in metadata JSONB
 	if (contentType) {
-		query = query.filter('metadata->>content_type', 'eq', contentType);
+		conditions.push(`metadata->>'content_type' = $${paramIndex++}`);
+		params.push(contentType);
 	}
 
-	// Filter by tags using JSONB contains operator
 	if (tags && tags.length > 0) {
-		query = query.contains('metadata->tags', tags);
+		conditions.push(`metadata->'tags' @> $${paramIndex++}::jsonb`);
+		params.push(JSON.stringify(tags));
 	}
 
-	const { data, error, count } = await query;
+	const whereClause = conditions.length > 0 ? `WHERE ${conditions.join(' AND ')}` : '';
 
-	if (error) {
-		logger.error('Failed to list documents', { error: error.message });
+	try {
+		const dataQuery = `SELECT * FROM documents ${whereClause}
+			ORDER BY ${safeSort} ${direction}, id ${direction}
+			LIMIT $${paramIndex++} OFFSET $${paramIndex++}`;
+		const dataParams = [...params, limit, offset];
+
+		const countQuery = `SELECT count(*) FROM documents ${whereClause}`;
+
+		const [dataResult, total] = await Promise.all([
+			pgQuery<Document>(dataQuery, dataParams),
+			queryCount(countQuery, params),
+		]);
+
+		return {
+			documents: dataResult.rows,
+			total,
+		};
+	} catch (error) {
+		const message = error instanceof Error ? error.message : String(error);
+		logger.error('Failed to list documents', { error: message });
 		throw new DatabaseError('Failed to list documents');
 	}
-
-	return {
-		documents: data as Document[],
-		total: count || 0,
-	};
 }
 
 /**
@@ -166,45 +190,50 @@ export async function listDocuments(
  * @throws {DatabaseError} If Supabase is not configured or the update fails
  */
 export async function updateDocument(id: string, input: UpdateDocumentInput): Promise<Document> {
-	if (!isSupabaseConfigured()) {
+	if (!isDatabaseConfigured()) {
 		throw new DatabaseError('Supabase not configured');
 	}
 
 	// Get existing document first to merge metadata
 	const existing = await getDocument(id);
 
-	const client = getSupabaseClient();
-
-	const updates: Record<string, unknown> = {};
+	const setClauses: string[] = [];
+	const params: unknown[] = [];
+	let paramIndex = 1;
 
 	if (input.title !== undefined) {
-		updates.title = input.title;
+		setClauses.push(`title = $${paramIndex++}`);
+		params.push(input.title);
 	}
 
 	if (input.tags !== undefined) {
 		// Merge tags into existing metadata
-		updates.metadata = {
+		const mergedMetadata = {
 			...(existing.metadata as Record<string, unknown>),
 			tags: input.tags,
 		};
+		setClauses.push(`metadata = $${paramIndex++}`);
+		params.push(JSON.stringify(mergedMetadata));
 	}
 
-	if (Object.keys(updates).length === 0) {
+	if (setClauses.length === 0) {
 		return existing;
 	}
 
-	const { data, error } = await client
-		.from('documents')
-		.update(updates)
-		.eq('id', id)
-		.select()
-		.single();
+	params.push(id);
 
-	if (error) {
-		logger.error('Failed to update document', { error: error.message });
+	try {
+		const doc = await queryOneOrThrow<Document>(
+			`UPDATE documents SET ${setClauses.join(', ')} WHERE id = $${paramIndex} RETURNING *`,
+			params,
+			'Document',
+		);
+
+		logger.info('Updated document', { id, updates: setClauses.map((c) => c.split(' =')[0]) });
+		return doc;
+	} catch (error) {
+		const message = error instanceof Error ? error.message : String(error);
+		logger.error('Failed to update document', { error: message });
 		throw new DatabaseError('Failed to update document');
 	}
-
-	logger.info('Updated document', { id, updates: Object.keys(updates) });
-	return data as Document;
 }

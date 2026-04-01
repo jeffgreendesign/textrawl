@@ -1,7 +1,7 @@
 import type { McpServer } from '@modelcontextprotocol/sdk/server/mcp.js';
 import { z } from 'zod';
-import { isSupabaseConfigured } from '../db/client.js';
 import { listDocuments } from '../db/documents.js';
+import { isDatabaseConfigured } from '../db/pg-client.js';
 import { hybridSearch } from '../db/search.js';
 import { generateEmbedding, isEmbeddingsConfigured } from '../services/embeddings.js';
 import { configError, toolError } from '../utils/compact.js';
@@ -35,7 +35,7 @@ export function registerTimelineTool(server: McpServer): void {
 		async ({ startDate, endDate, topic, limit }) => {
 			logger.info('timeline called', { startDate, endDate, topic, limit });
 
-			if (!isSupabaseConfigured()) {
+			if (!isDatabaseConfigured()) {
 				return configError('Database', 'Set SUPABASE_URL and SUPABASE_SERVICE_KEY');
 			}
 

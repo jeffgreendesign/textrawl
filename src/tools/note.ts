@@ -1,8 +1,8 @@
 import type { McpServer } from '@modelcontextprotocol/sdk/server/mcp.js';
 import { z } from 'zod';
 import { createChunks } from '../db/chunks.js';
-import { isSupabaseConfigured } from '../db/client.js';
 import { createDocument } from '../db/documents.js';
+import { isDatabaseConfigured } from '../db/pg-client.js';
 import { smartChunk } from '../services/chunker.js';
 import { generateEmbeddings, isOpenAIConfigured } from '../services/embeddings.js';
 import { extractAndStoreMemories, isExtractionConfigured } from '../services/memory-extraction.js';
@@ -54,7 +54,7 @@ export function registerNoteTool(server: McpServer): void {
 			});
 
 			// Check if services are configured
-			if (!isSupabaseConfigured()) {
+			if (!isDatabaseConfigured()) {
 				return configError('Database', 'Set SUPABASE_URL and SUPABASE_SERVICE_KEY');
 			}
 

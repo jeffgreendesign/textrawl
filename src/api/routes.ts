@@ -1,7 +1,7 @@
 import { Router, type Router as RouterType } from 'express';
 import { z } from 'zod';
-import { isSupabaseConfigured } from '../db/client.js';
 import { getDocument, listDocuments } from '../db/documents.js';
+import { isDatabaseConfigured } from '../db/pg-client.js';
 import { getKnowledgeStats } from '../db/stats.js';
 import { unifiedSearch } from '../services/search.js';
 import { config } from '../utils/config.js';
@@ -65,7 +65,7 @@ apiRoutes.get('/search', bearerAuth, async (req, res) => {
 
 apiRoutes.get('/documents', bearerAuth, async (req, res) => {
 	try {
-		if (!isSupabaseConfigured()) {
+		if (!isDatabaseConfigured()) {
 			res.status(503).json({ error: 'Database not available' });
 			return;
 		}
@@ -85,7 +85,7 @@ apiRoutes.get('/documents', bearerAuth, async (req, res) => {
 
 apiRoutes.get('/documents/:id', bearerAuth, async (req, res) => {
 	try {
-		if (!isSupabaseConfigured()) {
+		if (!isDatabaseConfigured()) {
 			res.status(503).json({ error: 'Database not available' });
 			return;
 		}
@@ -107,7 +107,7 @@ apiRoutes.get('/documents/:id', bearerAuth, async (req, res) => {
 
 apiRoutes.get('/stats', bearerAuth, async (_req, res) => {
 	try {
-		if (!isSupabaseConfigured()) {
+		if (!isDatabaseConfigured()) {
 			res.status(503).json({ error: 'Database not available' });
 			return;
 		}

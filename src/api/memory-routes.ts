@@ -1,9 +1,9 @@
 import { Router, type Router as RouterType } from 'express';
 import { z } from 'zod';
-import { isSupabaseConfigured } from '../db/client.js';
 import { listEntities } from '../db/memory-entities.js';
 import { listRelations } from '../db/memory-relations.js';
 import { getEntityContext, getMemoryStats, hybridMemorySearch } from '../db/memory-search.js';
+import { isDatabaseConfigured } from '../db/pg-client.js';
 import { generateEmbedding, isEmbeddingsConfigured } from '../services/embeddings.js';
 import { config } from '../utils/config.js';
 import { logger } from '../utils/logger.js';
@@ -73,7 +73,7 @@ memoryRoutes.get('/memory/entities', bearerAuth, async (req, res) => {
 	}
 
 	try {
-		if (!isSupabaseConfigured()) {
+		if (!isDatabaseConfigured()) {
 			res.status(503).json({ error: 'Database not available' });
 			return;
 		}
@@ -95,7 +95,7 @@ memoryRoutes.get('/memory/entities', bearerAuth, async (req, res) => {
 
 memoryRoutes.get('/memory/entities/:name', bearerAuth, async (req, res) => {
 	try {
-		if (!isSupabaseConfigured()) {
+		if (!isDatabaseConfigured()) {
 			res.status(503).json({ error: 'Database not available' });
 			return;
 		}
@@ -129,7 +129,7 @@ memoryRoutes.get('/memory/graph', bearerAuth, async (req, res) => {
 	}
 
 	try {
-		if (!isSupabaseConfigured()) {
+		if (!isDatabaseConfigured()) {
 			res.status(503).json({ error: 'Database not available' });
 			return;
 		}
@@ -186,7 +186,7 @@ memoryRoutes.get('/memory/search', bearerAuth, async (req, res) => {
 	}
 
 	try {
-		if (!isSupabaseConfigured() || !isEmbeddingsConfigured()) {
+		if (!isDatabaseConfigured() || !isEmbeddingsConfigured()) {
 			res.status(503).json({ error: 'Memory search not available' });
 			return;
 		}
@@ -214,7 +214,7 @@ memoryRoutes.get('/memory/search', bearerAuth, async (req, res) => {
 
 memoryRoutes.get('/memory/stats', bearerAuth, async (_req, res) => {
 	try {
-		if (!isSupabaseConfigured()) {
+		if (!isDatabaseConfigured()) {
 			res.status(503).json({ error: 'Database not available' });
 			return;
 		}
