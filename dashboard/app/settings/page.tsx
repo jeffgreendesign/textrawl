@@ -22,6 +22,13 @@ export default function SettingsPage() {
 		setTimeout(() => setSaved(false), 2000);
 	};
 
+	const codeStyle = {
+		fontSize: '0.75rem',
+		backgroundColor: 'var(--bg-primary)',
+		padding: '0.125rem 0.375rem',
+		borderRadius: '0.25rem',
+	};
+
 	const fieldStyle = {
 		width: '100%',
 		padding: '0.5rem 0.75rem',
@@ -60,50 +67,10 @@ export default function SettingsPage() {
 						}}
 					>
 						Enter the URL of your Textrawl server and the{' '}
-						<code
-							style={{
-								fontSize: '0.75rem',
-								backgroundColor: 'var(--bg-primary)',
-								padding: '0.125rem 0.375rem',
-								borderRadius: '0.25rem',
-							}}
-						>
-							API_BEARER_TOKEN
-						</code>{' '}
-						value from your server&apos;s{' '}
-						<code
-							style={{
-								fontSize: '0.75rem',
-								backgroundColor: 'var(--bg-primary)',
-								padding: '0.125rem 0.375rem',
-								borderRadius: '0.25rem',
-							}}
-						>
-							.env
-						</code>{' '}
-						file. Generate a token with{' '}
-						<code
-							style={{
-								fontSize: '0.75rem',
-								backgroundColor: 'var(--bg-primary)',
-								padding: '0.125rem 0.375rem',
-								borderRadius: '0.25rem',
-							}}
-						>
-							openssl rand -base64 32
-						</code>{' '}
-						or run{' '}
-						<code
-							style={{
-								fontSize: '0.75rem',
-								backgroundColor: 'var(--bg-primary)',
-								padding: '0.125rem 0.375rem',
-								borderRadius: '0.25rem',
-							}}
-						>
-							pnpm setup
-						</code>
-						.{' '}
+						<code style={codeStyle}>API_BEARER_TOKEN</code> value from your server&apos;s{' '}
+						<code style={codeStyle}>.env</code> file. Generate a token with{' '}
+						<code style={codeStyle}>openssl rand -base64 32</code> or run{' '}
+						<code style={codeStyle}>pnpm setup</code>.{' '}
 						<a
 							href="/docs/getting-started/configuration"
 							target="_blank"
