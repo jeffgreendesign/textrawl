@@ -30,6 +30,7 @@ export default function SettingsPage() {
 		borderRadius: '0.5rem',
 		color: 'var(--text-primary)',
 		fontSize: '0.875rem',
+		boxSizing: 'border-box' as const,
 	};
 
 	return (
@@ -46,9 +47,73 @@ export default function SettingsPage() {
 						padding: '1.5rem',
 					}}
 				>
-					<h3 style={{ fontSize: '1rem', fontWeight: 600, marginBottom: '1rem' }}>
+					<h3 style={{ fontSize: '1rem', fontWeight: 600, marginBottom: '0.5rem' }}>
 						Server Connection
 					</h3>
+
+					<p
+						style={{
+							fontSize: '0.8125rem',
+							color: 'var(--text-muted)',
+							lineHeight: 1.5,
+							marginBottom: '1rem',
+						}}
+					>
+						Enter the URL of your Textrawl server and the{' '}
+						<code
+							style={{
+								fontSize: '0.75rem',
+								backgroundColor: 'var(--bg-primary)',
+								padding: '0.125rem 0.375rem',
+								borderRadius: '0.25rem',
+							}}
+						>
+							API_BEARER_TOKEN
+						</code>{' '}
+						value from your server&apos;s{' '}
+						<code
+							style={{
+								fontSize: '0.75rem',
+								backgroundColor: 'var(--bg-primary)',
+								padding: '0.125rem 0.375rem',
+								borderRadius: '0.25rem',
+							}}
+						>
+							.env
+						</code>{' '}
+						file. Generate a token with{' '}
+						<code
+							style={{
+								fontSize: '0.75rem',
+								backgroundColor: 'var(--bg-primary)',
+								padding: '0.125rem 0.375rem',
+								borderRadius: '0.25rem',
+							}}
+						>
+							openssl rand -base64 32
+						</code>{' '}
+						or run{' '}
+						<code
+							style={{
+								fontSize: '0.75rem',
+								backgroundColor: 'var(--bg-primary)',
+								padding: '0.125rem 0.375rem',
+								borderRadius: '0.25rem',
+							}}
+						>
+							pnpm setup
+						</code>
+						.{' '}
+						<a
+							href="/docs/getting-started/configuration"
+							target="_blank"
+							rel="noopener noreferrer"
+							style={{ color: 'var(--text-accent)' }}
+						>
+							See the configuration docs
+						</a>{' '}
+						for full setup details.
+					</p>
 
 					<div style={{ marginBottom: '1rem' }}>
 						<label
