@@ -5,7 +5,15 @@ vi.mock('../config.js', () => ({
 	config: { COMPACT_RESPONSES: true },
 }));
 
-import { configError, formatId, isCompact, toJSON, toolError, toolResponse } from '../compact.js';
+import {
+	configError,
+	formatId,
+	isCompact,
+	serializeDates,
+	toJSON,
+	toolError,
+	toolResponse,
+} from '../compact.js';
 import { config } from '../config.js';
 
 describe('compact utilities', () => {
@@ -78,6 +86,52 @@ describe('compact utilities', () => {
 		});
 	});
 
+	describe('serializeDates', () => {
+		it('converts Date objects to ISO strings', () => {
+			const date = new Date('2024-01-15T10:30:00.000Z');
+			expect(serializeDates(date)).toBe('2024-01-15T10:30:00.000Z');
+		});
+
+		it('converts nested Date objects in objects', () => {
+			const obj = {
+				name: 'test',
+				createdAt: new Date('2024-01-15T10:30:00.000Z'),
+				nested: {
+					updatedAt: new Date('2024-06-01T00:00:00.000Z'),
+				},
+			};
+			const result = serializeDates(obj);
+			expect(result.createdAt).toBe('2024-01-15T10:30:00.000Z');
+			expect(result.nested.updatedAt).toBe('2024-06-01T00:00:00.000Z');
+			expect(result.name).toBe('test');
+		});
+
+		it('converts Date objects in arrays', () => {
+			const arr = [
+				{ id: '1', createdAt: new Date('2024-01-01T00:00:00.000Z') },
+				{ id: '2', createdAt: new Date('2024-02-01T00:00:00.000Z') },
+			];
+			const result = serializeDates(arr);
+			expect(result[0].createdAt).toBe('2024-01-01T00:00:00.000Z');
+			expect(result[1].createdAt).toBe('2024-02-01T00:00:00.000Z');
+		});
+
+		it('passes through primitives unchanged', () => {
+			expect(serializeDates('hello')).toBe('hello');
+			expect(serializeDates(42)).toBe(42);
+			expect(serializeDates(true)).toBe(true);
+			expect(serializeDates(null)).toBe(null);
+			expect(serializeDates(undefined)).toBe(undefined);
+		});
+
+		it('handles null values in objects', () => {
+			const obj = { oldest: null, newest: new Date('2024-01-01T00:00:00.000Z') };
+			const result = serializeDates(obj);
+			expect(result.oldest).toBe(null);
+			expect(result.newest).toBe('2024-01-01T00:00:00.000Z');
+		});
+	});
+
 	describe('toolResponse', () => {
 		it('returns compact response when COMPACT_RESPONSES is true', () => {
 			(config as { COMPACT_RESPONSES: boolean }).COMPACT_RESPONSES = true;
@@ -119,6 +173,28 @@ describe('compact utilities', () => {
 				verbose: { success: true },
 			});
 			expect(result).not.toHaveProperty('structuredContent');
+		});
+
+		it('serializes Date objects in structuredContent', () => {
+			const structured = {
+				documents: [
+					{
+						id: '1',
+						createdAt: new Date('2024-01-15T10:30:00.000Z'),
+						updatedAt: new Date('2024-06-01T00:00:00.000Z'),
+					},
+				],
+			};
+			const result = toolResponse({
+				compact: { n: 1 },
+				verbose: structured,
+				structuredContent: structured as unknown as Record<string, unknown>,
+			});
+			const sc = result.structuredContent as {
+				documents: Array<{ createdAt: string; updatedAt: string }>;
+			};
+			expect(sc.documents[0].createdAt).toBe('2024-01-15T10:30:00.000Z');
+			expect(sc.documents[0].updatedAt).toBe('2024-06-01T00:00:00.000Z');
 		});
 	});
 });
