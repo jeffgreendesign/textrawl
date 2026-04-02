@@ -51,6 +51,7 @@ const GetStatsOutputSchema = {
 				.object({
 					chunks_pending: z.number(),
 					is_processing: z.boolean(),
+					last_insert_at: z.string().nullable(),
 					last_scan_at: z.string().nullable(),
 				})
 				.nullable(),
@@ -113,7 +114,7 @@ export function registerStatsTools(server: McpServer): void {
 			logger.info('get_stats called', { scope });
 
 			if (!isDatabaseConfigured()) {
-				return configError('Database', 'Set SUPABASE_URL and SUPABASE_SERVICE_KEY');
+				return configError('Database', 'Set DATABASE_URL');
 			}
 
 			try {
@@ -211,6 +212,7 @@ export function registerStatsTools(server: McpServer): void {
 							queueState: {
 								chunks_pending: number;
 								is_processing: boolean;
+								last_insert_at: string | null;
 								last_scan_at: string | null;
 							} | null;
 						};
@@ -224,6 +226,7 @@ export function registerStatsTools(server: McpServer): void {
 								? {
 										p: ins.queueState.chunks_pending,
 										proc: ins.queueState.is_processing,
+										lastIns: ins.queueState.last_insert_at,
 										last: ins.queueState.last_scan_at,
 									}
 								: null,

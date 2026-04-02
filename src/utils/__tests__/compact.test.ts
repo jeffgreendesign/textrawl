@@ -121,7 +121,23 @@ describe('compact utilities', () => {
 			expect(serializeDates(42)).toBe(42);
 			expect(serializeDates(true)).toBe(true);
 			expect(serializeDates(null)).toBe(null);
-			expect(serializeDates(undefined)).toBe(undefined);
+		});
+
+		it('converts undefined to null', () => {
+			expect(serializeDates(undefined)).toBe(null);
+		});
+
+		it('converts undefined fields in objects to null', () => {
+			const obj = { a: 'ok', b: undefined, c: 42 };
+			const result = serializeDates(obj);
+			expect(result.a).toBe('ok');
+			expect(result.b).toBe(null);
+			expect(result.c).toBe(42);
+		});
+
+		it('converts invalid Date to null', () => {
+			expect(serializeDates(new Date('not-a-date'))).toBe(null);
+			expect(serializeDates(new Date(NaN))).toBe(null);
 		});
 
 		it('handles null values in objects', () => {
