@@ -1,5 +1,23 @@
 import { config } from './config.js';
 
+/**
+ * Recursively convert Date objects to ISO 8601 strings.
+ * MCP output validation requires string types — pg drivers return JS Date objects
+ * for timestamp columns, which fail structuredContent validation.
+ */
+export function serializeDates<T>(obj: T): T {
+	if (obj instanceof Date) return obj.toISOString() as T;
+	if (Array.isArray(obj)) return obj.map(serializeDates) as T;
+	if (obj !== null && typeof obj === 'object') {
+		const result: Record<string, unknown> = {};
+		for (const [key, value] of Object.entries(obj as Record<string, unknown>)) {
+			result[key] = serializeDates(value);
+		}
+		return result as T;
+	}
+	return obj;
+}
+
 export const isCompact = () => config.COMPACT_RESPONSES;
 
 export function toJSON(obj: unknown): string {
@@ -75,7 +93,8 @@ export function toolResponse(opts: {
 		content: [{ type: 'text' as const, text }],
 	};
 	if (opts.structuredContent) {
-		result.structuredContent = opts.structuredContent;
+		// Serialize Date objects to ISO strings for MCP output validation
+		result.structuredContent = serializeDates(opts.structuredContent);
 	}
 	return result;
 }

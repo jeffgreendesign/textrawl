@@ -5,7 +5,7 @@ import { getInsightStats, validateInsightSchema } from '../db/insights.js';
 import { getMemoryStats } from '../db/memory-search.js';
 import { isDatabaseConfigured } from '../db/pg-client.js';
 import { getKnowledgeStats } from '../db/stats.js';
-import { configError, isCompact, toJSON, toolError } from '../utils/compact.js';
+import { configError, isCompact, serializeDates, toJSON, toolError } from '../utils/compact.js';
 import { config } from '../utils/config.js';
 import { logger } from '../utils/logger.js';
 
@@ -237,7 +237,8 @@ export function registerStatsTools(server: McpServer): void {
 								text: JSON.stringify(compact),
 							},
 						],
-						structuredContent: result,
+						// Serialize Date objects to ISO strings for MCP output validation
+						structuredContent: serializeDates(result),
 					};
 				}
 
@@ -248,7 +249,8 @@ export function registerStatsTools(server: McpServer): void {
 							text: toJSON(result),
 						},
 					],
-					structuredContent: result,
+					// Serialize Date objects to ISO strings for MCP output validation
+					structuredContent: serializeDates(result),
 				};
 			} catch (error) {
 				logger.error('get_stats failed', {
