@@ -5,7 +5,7 @@ import { getInsightStats, validateInsightSchema } from '../db/insights.js';
 import { getMemoryStats } from '../db/memory-search.js';
 import { isDatabaseConfigured } from '../db/pg-client.js';
 import { getKnowledgeStats } from '../db/stats.js';
-import { configError, isCompact, serializeDates, toJSON, toolError } from '../utils/compact.js';
+import { configError, isCompact, toolError, toolResponse } from '../utils/compact.js';
 import { config } from '../utils/config.js';
 import { logger } from '../utils/logger.js';
 
@@ -230,28 +230,18 @@ export function registerStatsTools(server: McpServer): void {
 						};
 					}
 
-					return {
-						content: [
-							{
-								type: 'text' as const,
-								text: JSON.stringify(compact),
-							},
-						],
-						// Serialize Date objects to ISO strings for MCP output validation
-						structuredContent: serializeDates(result),
-					};
+					return toolResponse({
+						compact,
+						verbose: result,
+						structuredContent: result,
+					});
 				}
 
-				return {
-					content: [
-						{
-							type: 'text' as const,
-							text: toJSON(result),
-						},
-					],
-					// Serialize Date objects to ISO strings for MCP output validation
-					structuredContent: serializeDates(result),
-				};
+				return toolResponse({
+					compact: result,
+					verbose: result,
+					structuredContent: result,
+				});
 			} catch (error) {
 				logger.error('get_stats failed', {
 					error: error instanceof Error ? error.message : String(error),
