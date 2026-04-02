@@ -25,11 +25,11 @@ export async function getKnowledgeStats(): Promise<KnowledgeStats> {
 
 		pgQuery<{ metadata: Record<string, unknown> | null }>('SELECT metadata FROM documents'),
 
-		pgQuery<{ created_at: string }>(
+		pgQuery<{ created_at: Date | string }>(
 			'SELECT created_at FROM documents ORDER BY created_at ASC LIMIT 1',
 		),
 
-		pgQuery<{ created_at: string }>(
+		pgQuery<{ created_at: Date | string }>(
 			'SELECT created_at FROM documents ORDER BY created_at DESC LIMIT 1',
 		),
 	]);
@@ -69,8 +69,11 @@ export async function getKnowledgeStats(): Promise<KnowledgeStats> {
 		.slice(0, 10);
 
 	// Date range (empty database returns null)
-	const oldest = oldestResult.rows[0]?.created_at ?? null;
-	const newest = newestResult.rows[0]?.created_at ?? null;
+	// pg driver returns Date objects for TIMESTAMPTZ — convert at source
+	const oldestRaw = oldestResult.rows[0]?.created_at ?? null;
+	const newestRaw = newestResult.rows[0]?.created_at ?? null;
+	const oldest = oldestRaw instanceof Date ? oldestRaw.toISOString() : oldestRaw;
+	const newest = newestRaw instanceof Date ? newestRaw.toISOString() : newestRaw;
 
 	return {
 		total,
