@@ -84,6 +84,15 @@ async function ensureInsightSchema(): Promise<{ ok: true } | { ok: false; error:
  * conversation_stats, and insight_stats.
  */
 export function registerStatsTools(server: McpServer): void {
+	/** Log a per-scope error with message and stack trace. */
+	function logScopeError(scopeName: string, scope: string, err: unknown): void {
+		logger.error(`get_stats: ${scopeName} scope failed`, {
+			scope,
+			error: err instanceof Error ? err.message : String(err),
+			stack: err instanceof Error ? err.stack : undefined,
+		});
+	}
+
 	server.registerTool(
 		'get_stats',
 		{
@@ -126,11 +135,7 @@ export function registerStatsTools(server: McpServer): void {
 					try {
 						result.knowledge = await getKnowledgeStats();
 					} catch (err) {
-						logger.error('get_stats: knowledge scope failed', {
-							scope,
-							error: err instanceof Error ? err.message : String(err),
-							stack: err instanceof Error ? err.stack : undefined,
-						});
+						logScopeError('knowledge', scope, err);
 						if (!includeAll) {
 							return toolError(
 								`Knowledge stats failed: ${err instanceof Error ? err.message : 'Unknown error'}`,
@@ -144,11 +149,7 @@ export function registerStatsTools(server: McpServer): void {
 					try {
 						result.memory = await getMemoryStats();
 					} catch (err) {
-						logger.error('get_stats: memory scope failed', {
-							scope,
-							error: err instanceof Error ? err.message : String(err),
-							stack: err instanceof Error ? err.stack : undefined,
-						});
+						logScopeError('memory', scope, err);
 					}
 				} else if (scope === 'memory') {
 					if (!config.ENABLE_MEMORY) {
@@ -157,11 +158,7 @@ export function registerStatsTools(server: McpServer): void {
 					try {
 						result.memory = await getMemoryStats();
 					} catch (err) {
-						logger.error('get_stats: memory scope failed', {
-							scope,
-							error: err instanceof Error ? err.message : String(err),
-							stack: err instanceof Error ? err.stack : undefined,
-						});
+						logScopeError('memory', scope, err);
 						return toolError(
 							`Memory stats failed: ${err instanceof Error ? err.message : 'Unknown error'}`,
 						);
@@ -173,11 +170,7 @@ export function registerStatsTools(server: McpServer): void {
 					try {
 						result.conversations = await getConversationSearchStats();
 					} catch (err) {
-						logger.error('get_stats: conversations scope failed', {
-							scope,
-							error: err instanceof Error ? err.message : String(err),
-							stack: err instanceof Error ? err.stack : undefined,
-						});
+						logScopeError('conversations', scope, err);
 					}
 				} else if (scope === 'conversations') {
 					if (!config.ENABLE_CONVERSATIONS) {
@@ -186,11 +179,7 @@ export function registerStatsTools(server: McpServer): void {
 					try {
 						result.conversations = await getConversationSearchStats();
 					} catch (err) {
-						logger.error('get_stats: conversations scope failed', {
-							scope,
-							error: err instanceof Error ? err.message : String(err),
-							stack: err instanceof Error ? err.stack : undefined,
-						});
+						logScopeError('conversations', scope, err);
 						return toolError(
 							`Conversation stats failed: ${err instanceof Error ? err.message : 'Unknown error'}`,
 						);
@@ -206,11 +195,7 @@ export function registerStatsTools(server: McpServer): void {
 						}
 						// Silently skip if schema not ready in 'all' mode
 					} catch (err) {
-						logger.error('get_stats: insights scope failed', {
-							scope,
-							error: err instanceof Error ? err.message : String(err),
-							stack: err instanceof Error ? err.stack : undefined,
-						});
+						logScopeError('insights', scope, err);
 						// Invalidate stale schema cache so next call re-checks
 						insightSchemaCache = null;
 					}
@@ -225,11 +210,7 @@ export function registerStatsTools(server: McpServer): void {
 					try {
 						result.insights = await getInsightStats();
 					} catch (err) {
-						logger.error('get_stats: insights scope failed', {
-							scope,
-							error: err instanceof Error ? err.message : String(err),
-							stack: err instanceof Error ? err.stack : undefined,
-						});
+						logScopeError('insights', scope, err);
 						insightSchemaCache = null;
 						return toolError(
 							`Insight stats failed: ${err instanceof Error ? err.message : 'Unknown error'}`,
