@@ -76,6 +76,11 @@ describe('get_stats tool', () => {
 		vi.clearAllMocks();
 		vi.mocked(isDatabaseConfigured).mockReturnValue(true);
 
+		// Reset feature flags to defaults (prevent cross-test leakage)
+		(config as Record<string, unknown>).ENABLE_MEMORY = false;
+		(config as Record<string, unknown>).ENABLE_CONVERSATIONS = false;
+		(config as Record<string, unknown>).ENABLE_INSIGHTS = false;
+
 		// Default: empty knowledge base
 		vi.mocked(getKnowledgeStats).mockResolvedValue({
 			total: 0,
@@ -93,6 +98,7 @@ describe('get_stats tool', () => {
 		const result = (await callStats('all')) as { isError?: boolean; content: { text: string }[] };
 		expect(result.isError).toBe(true);
 		expect(result.content[0].text).toContain('not configured');
+		expect(result.content[0].text).toContain('DATABASE_URL');
 	});
 
 	it('returns knowledge stats for empty database', async () => {
