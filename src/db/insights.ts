@@ -60,9 +60,28 @@ export async function getInsightQueueState(): Promise<InsightQueueState | null> 
 	if (!isDatabaseConfigured()) return null;
 
 	try {
-		return await queryOne<InsightQueueState>(
+		const row = await queryOne<{
+			chunks_pending: number;
+			last_insert_at: Date | string | null;
+			last_scan_at: Date | string | null;
+			is_processing: boolean;
+		}>(
 			'SELECT chunks_pending, last_insert_at, last_scan_at, is_processing FROM insight_queue WHERE id = 1',
 		);
+		if (!row) return null;
+		// pg driver returns Date objects for TIMESTAMPTZ — convert at source
+		return {
+			chunks_pending: row.chunks_pending,
+			is_processing: row.is_processing,
+			last_insert_at:
+				row.last_insert_at instanceof Date
+					? row.last_insert_at.toISOString()
+					: (row.last_insert_at ?? null),
+			last_scan_at:
+				row.last_scan_at instanceof Date
+					? row.last_scan_at.toISOString()
+					: (row.last_scan_at ?? null),
+		};
 	} catch (err) {
 		const message = err instanceof Error ? err.message : String(err);
 		logger.error('Failed to get insight queue state', { error: message });

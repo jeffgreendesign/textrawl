@@ -76,3 +76,4 @@ Tool implementations: `src/tools/*.ts`. See `README.md` for full tool documentat
 - ESM imports require explicit `.js` extension.
 - Keep MCP stdout clean (avoid arbitrary stdout logging in MCP request path).
 - Prefer small, PR-shaped changes and keep tool schemas backward compatible.
+- MCP tool handlers must return plain JSON-serializable values. Never return raw Date, BigInt, Buffer, or class instances. All date fields must be ISO 8601 strings or null. All aggregate queries (COUNT, MIN, MAX) must handle the empty-table case with sensible defaults (0, null, []). Every scope in get_stats must be wrapped in its own try/catch so partial failures don't crash scope=all.

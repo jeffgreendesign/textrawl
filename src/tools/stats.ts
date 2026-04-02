@@ -123,36 +123,97 @@ export function registerStatsTools(server: McpServer): void {
 
 				// Knowledge stats (always available)
 				if (includeAll || scope === 'knowledge') {
-					result.knowledge = await getKnowledgeStats();
+					try {
+						result.knowledge = await getKnowledgeStats();
+					} catch (err) {
+						logger.error('get_stats: knowledge scope failed', {
+							scope,
+							error: err instanceof Error ? err.message : String(err),
+							stack: err instanceof Error ? err.stack : undefined,
+						});
+						if (!includeAll) {
+							return toolError(
+								`Knowledge stats failed: ${err instanceof Error ? err.message : 'Unknown error'}`,
+							);
+						}
+					}
 				}
 
 				// Memory stats (feature-flagged)
 				if (includeAll && config.ENABLE_MEMORY) {
-					result.memory = await getMemoryStats();
+					try {
+						result.memory = await getMemoryStats();
+					} catch (err) {
+						logger.error('get_stats: memory scope failed', {
+							scope,
+							error: err instanceof Error ? err.message : String(err),
+							stack: err instanceof Error ? err.stack : undefined,
+						});
+					}
 				} else if (scope === 'memory') {
 					if (!config.ENABLE_MEMORY) {
 						return toolError('Memory feature is disabled (ENABLE_MEMORY=false)');
 					}
-					result.memory = await getMemoryStats();
+					try {
+						result.memory = await getMemoryStats();
+					} catch (err) {
+						logger.error('get_stats: memory scope failed', {
+							scope,
+							error: err instanceof Error ? err.message : String(err),
+							stack: err instanceof Error ? err.stack : undefined,
+						});
+						return toolError(
+							`Memory stats failed: ${err instanceof Error ? err.message : 'Unknown error'}`,
+						);
+					}
 				}
 
 				// Conversation stats (feature-flagged)
 				if (includeAll && config.ENABLE_CONVERSATIONS) {
-					result.conversations = await getConversationSearchStats();
+					try {
+						result.conversations = await getConversationSearchStats();
+					} catch (err) {
+						logger.error('get_stats: conversations scope failed', {
+							scope,
+							error: err instanceof Error ? err.message : String(err),
+							stack: err instanceof Error ? err.stack : undefined,
+						});
+					}
 				} else if (scope === 'conversations') {
 					if (!config.ENABLE_CONVERSATIONS) {
 						return toolError('Conversations feature is disabled (ENABLE_CONVERSATIONS=false)');
 					}
-					result.conversations = await getConversationSearchStats();
+					try {
+						result.conversations = await getConversationSearchStats();
+					} catch (err) {
+						logger.error('get_stats: conversations scope failed', {
+							scope,
+							error: err instanceof Error ? err.message : String(err),
+							stack: err instanceof Error ? err.stack : undefined,
+						});
+						return toolError(
+							`Conversation stats failed: ${err instanceof Error ? err.message : 'Unknown error'}`,
+						);
+					}
 				}
 
 				// Insight stats (feature-flagged + schema check)
 				if (includeAll && config.ENABLE_INSIGHTS) {
-					const schema = await ensureInsightSchema();
-					if (schema.ok) {
-						result.insights = await getInsightStats();
+					try {
+						const schema = await ensureInsightSchema();
+						if (schema.ok) {
+							result.insights = await getInsightStats();
+						}
+						// Silently skip if schema not ready in 'all' mode
+					} catch (err) {
+						logger.error('get_stats: insights scope failed', {
+							scope,
+							error: err instanceof Error ? err.message : String(err),
+							stack: err instanceof Error ? err.stack : undefined,
+						});
+						// Invalidate stale schema cache so next call re-checks
+						insightSchemaCache = null;
 					}
-					// Silently skip if schema not ready in 'all' mode
 				} else if (scope === 'insights') {
 					if (!config.ENABLE_INSIGHTS) {
 						return toolError('Insights feature is disabled (ENABLE_INSIGHTS=false)');
@@ -161,7 +222,19 @@ export function registerStatsTools(server: McpServer): void {
 					if (!schema.ok) {
 						return toolError(`Insight schema not initialized: ${schema.error}`);
 					}
-					result.insights = await getInsightStats();
+					try {
+						result.insights = await getInsightStats();
+					} catch (err) {
+						logger.error('get_stats: insights scope failed', {
+							scope,
+							error: err instanceof Error ? err.message : String(err),
+							stack: err instanceof Error ? err.stack : undefined,
+						});
+						insightSchemaCache = null;
+						return toolError(
+							`Insight stats failed: ${err instanceof Error ? err.message : 'Unknown error'}`,
+						);
+					}
 				}
 
 				// Format response
@@ -247,11 +320,13 @@ export function registerStatsTools(server: McpServer): void {
 				});
 			} catch (error) {
 				logger.error('get_stats failed', {
+					scope,
 					error: error instanceof Error ? error.message : String(error),
+					stack: error instanceof Error ? error.stack : undefined,
 				});
 
 				return toolError(
-					`Failed to get stats: ${error instanceof Error ? error.message : 'Unknown error'}`,
+					`Failed to get stats (scope=${scope}): ${error instanceof Error ? error.message : 'Unknown error'}`,
 				);
 			}
 		},
