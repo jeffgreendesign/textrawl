@@ -6,7 +6,11 @@ import { config } from './config.js';
  * for timestamp columns, which fail structuredContent validation.
  */
 export function serializeDates<T>(obj: T): T {
-	if (obj instanceof Date) return obj.toISOString() as T;
+	if (obj === undefined) return null as T;
+	if (obj instanceof Date) {
+		const ts = obj.getTime();
+		return (Number.isNaN(ts) ? null : obj.toISOString()) as T;
+	}
 	if (Array.isArray(obj)) return obj.map(serializeDates) as T;
 	if (obj !== null && typeof obj === 'object') {
 		const result: Record<string, unknown> = {};
