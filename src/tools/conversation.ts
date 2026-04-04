@@ -170,13 +170,7 @@ export function registerConversationTools(server: McpServer): void {
 					],
 				};
 			} catch (error) {
-				logger.error('save_conversation_context failed', {
-					error: error instanceof Error ? error.message : String(error),
-				});
-
-				return toolError(
-					`Failed to save conversation: ${error instanceof Error ? error.message : 'Unknown error'}`,
-				);
+				return toolError('save_conversation_context', error);
 			}
 		},
 	);
@@ -598,14 +592,7 @@ export function registerConversationTools(server: McpServer): void {
 					}
 				}
 			} catch (error) {
-				logger.error('query_conversations failed', {
-					mode,
-					error: error instanceof Error ? error.message : String(error),
-				});
-
-				return toolError(
-					`Conversation query failed: ${error instanceof Error ? error.message : 'Unknown error'}`,
-				);
+				return toolError('query_conversations', error);
 			}
 		},
 	);
@@ -683,13 +670,7 @@ export function registerConversationTools(server: McpServer): void {
 					],
 				};
 			} catch (error) {
-				logger.error('delete_conversation failed', {
-					error: error instanceof Error ? error.message : String(error),
-				});
-
-				return toolError(
-					`Failed to delete conversation: ${error instanceof Error ? error.message : 'Unknown error'}`,
-				);
+				return toolError('delete_conversation', error);
 			}
 		},
 	);

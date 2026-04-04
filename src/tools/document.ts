@@ -147,10 +147,7 @@ export function registerDocumentTools(server: McpServer): void {
 					structuredContent,
 				});
 			} catch (error) {
-				logger.error('get_document failed', {
-					error: error instanceof Error ? error.message : String(error),
-				});
-				return toolError(error instanceof Error ? error.message : 'Failed to get document');
+				return toolError('get_document', error);
 			}
 		},
 	);
@@ -261,10 +258,7 @@ export function registerDocumentTools(server: McpServer): void {
 					structuredContent,
 				});
 			} catch (error) {
-				logger.error('list_documents failed', {
-					error: error instanceof Error ? error.message : String(error),
-				});
-				return toolError(error instanceof Error ? error.message : 'Failed to list documents');
+				return toolError('list_documents', error);
 			}
 		},
 	);
@@ -327,10 +321,7 @@ export function registerDocumentTools(server: McpServer): void {
 					},
 				});
 			} catch (error) {
-				logger.error('update_document failed', {
-					error: error instanceof Error ? error.message : String(error),
-				});
-				return toolError(error instanceof Error ? error.message : 'Failed to update document');
+				return toolError('update_document', error);
 			}
 		},
 	);

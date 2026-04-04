@@ -160,12 +160,7 @@ export function registerInsightTools(server: McpServer): void {
 					],
 				};
 			} catch (error) {
-				logger.error('get_insights failed', {
-					error: error instanceof Error ? error.message : String(error),
-				});
-				return toolError(
-					`Failed to get insights: ${error instanceof Error ? error.message : 'Unknown error'}`,
-				);
+				return toolError('get_insights', error);
 			}
 		},
 	);
@@ -257,12 +252,7 @@ export function registerInsightTools(server: McpServer): void {
 					],
 				};
 			} catch (error) {
-				logger.error('discover_connections failed', {
-					error: error instanceof Error ? error.message : String(error),
-				});
-				return toolError(
-					`Insight scan failed: ${error instanceof Error ? error.message : 'Unknown error'}`,
-				);
+				return toolError('discover_connections', error);
 			}
 		},
 	);
@@ -312,9 +302,7 @@ export function registerInsightTools(server: McpServer): void {
 					],
 				};
 			} catch (error) {
-				return toolError(
-					`Failed to dismiss insight: ${error instanceof Error ? error.message : 'Unknown error'}`,
-				);
+				return toolError('dismiss_insight', error);
 			}
 		},
 	);

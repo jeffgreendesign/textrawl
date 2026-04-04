@@ -209,12 +209,7 @@ export function registerPgAnalyzeTools(server: McpServer): void {
 					structuredContent,
 				});
 			} catch (error) {
-				logger.error('pg_analyze failed', {
-					error: error instanceof Error ? error.message : String(error),
-				});
-				return toolError(
-					`Analysis failed: ${error instanceof Error ? error.message : 'Unknown error'}`,
-				);
+				return toolError('pg_analyze', error);
 			}
 		},
 	);
@@ -275,12 +270,7 @@ export function registerPgAnalyzeTools(server: McpServer): void {
 					structuredContent: verboseRecs,
 				});
 			} catch (error) {
-				logger.error('pg_recommendations failed', {
-					error: error instanceof Error ? error.message : String(error),
-				});
-				return toolError(
-					`Recommendations failed: ${error instanceof Error ? error.message : 'Unknown error'}`,
-				);
+				return toolError('pg_recommendations', error);
 			}
 		},
 	);
@@ -364,13 +354,7 @@ export function registerPgAnalyzeTools(server: McpServer): void {
 					structuredContent: verboseHistory,
 				});
 			} catch (error) {
-				logger.error('pg_report_history failed', {
-					error: error instanceof Error ? error.message : String(error),
-					stack: error instanceof Error ? error.stack : undefined,
-				});
-				return toolError(
-					`Report history failed: ${error instanceof Error ? error.message : 'Unknown error'}`,
-				);
+				return toolError('pg_report_history', error);
 			}
 		},
 	);

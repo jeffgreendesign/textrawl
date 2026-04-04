@@ -173,10 +173,7 @@ export function registerNoteTool(server: McpServer): void {
 					],
 				};
 			} catch (error) {
-				logger.error('add_note failed', {
-					error: error instanceof Error ? error.message : String(error),
-				});
-				return toolError(error instanceof Error ? error.message : 'Failed to add note');
+				return toolError('add_note', error);
 			}
 		},
 	);

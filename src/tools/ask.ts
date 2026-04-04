@@ -175,12 +175,7 @@ export function registerAskTool(server: McpServer): void {
 					],
 				};
 			} catch (error) {
-				logger.error('ask failed', {
-					error: error instanceof Error ? error.message : String(error),
-				});
-				return toolError(
-					error instanceof Error ? error.message : 'Failed to search knowledge base',
-				);
+				return toolError('ask', error);
 			}
 		},
 	);

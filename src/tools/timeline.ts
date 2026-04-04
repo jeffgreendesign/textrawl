@@ -126,10 +126,7 @@ export function registerTimelineTool(server: McpServer): void {
 					],
 				};
 			} catch (error) {
-				logger.error('timeline failed', {
-					error: error instanceof Error ? error.message : String(error),
-				});
-				return toolError(error instanceof Error ? error.message : 'Failed to build timeline');
+				return toolError('timeline', error);
 			}
 		},
 	);

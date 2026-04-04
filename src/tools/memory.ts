@@ -198,13 +198,7 @@ export function registerMemoryTools(server: McpServer): void {
 					],
 				};
 			} catch (error) {
-				logger.error('remember_fact failed', {
-					error: error instanceof Error ? error.message : String(error),
-				});
-
-				return toolError(
-					`Failed to remember fact about "${entityName}": ${error instanceof Error ? error.message : 'Unknown error'}`,
-				);
+				return toolError('remember_fact', error);
 			}
 		},
 	);
@@ -547,14 +541,7 @@ export function registerMemoryTools(server: McpServer): void {
 					}
 				}
 			} catch (error) {
-				logger.error('query_memory failed', {
-					mode,
-					error: error instanceof Error ? error.message : String(error),
-				});
-
-				return toolError(
-					`Memory query failed: ${error instanceof Error ? error.message : 'Unknown error'}`,
-				);
+				return toolError('query_memory', error);
 			}
 		},
 	);
@@ -677,13 +664,9 @@ export function registerMemoryTools(server: McpServer): void {
 					],
 				};
 			} catch (error) {
-				logger.error('relate_entities failed', {
-					error: error instanceof Error ? error.message : String(error),
+				return toolError('relate_entities', error, {
+					hint: 'Entity type params are optional — omit them if unsure.',
 				});
-
-				return toolError(
-					`Failed to relate "${fromEntity}" → "${toEntity}": ${error instanceof Error ? error.message : 'Unknown error'}. Tip: entity type params are optional — omit them if unsure.`,
-				);
 			}
 		},
 	);
@@ -753,13 +736,7 @@ export function registerMemoryTools(server: McpServer): void {
 					],
 				};
 			} catch (error) {
-				logger.error('forget_entity failed', {
-					error: error instanceof Error ? error.message : String(error),
-				});
-
-				return toolError(
-					`Failed to forget "${entityName}": ${error instanceof Error ? error.message : 'Unknown error'}`,
-				);
+				return toolError('forget_entity', error);
 			}
 		},
 	);
@@ -896,13 +873,7 @@ export function registerMemoryTools(server: McpServer): void {
 					],
 				};
 			} catch (error) {
-				logger.error('extract_memories failed', {
-					error: error instanceof Error ? error.message : String(error),
-				});
-
-				return toolError(
-					`Memory extraction failed: ${error instanceof Error ? error.message : 'Unknown error'}`,
-				);
+				return toolError('extract_memories', error);
 			}
 		},
 	);
@@ -956,139 +927,145 @@ export function registerMemoryTools(server: McpServer): void {
 			},
 		},
 		async ({ facts, relations }) => {
-			logger.info('build_knowledge called', {
-				factCount: facts?.length ?? 0,
-				relationCount: relations?.length ?? 0,
-			});
+			try {
+				logger.info('build_knowledge called', {
+					factCount: facts?.length ?? 0,
+					relationCount: relations?.length ?? 0,
+				});
 
-			if (!facts?.length && !relations?.length) {
-				return toolError('Provide at least one fact or relation');
-			}
+				if (!facts?.length && !relations?.length) {
+					return toolError('Provide at least one fact or relation');
+				}
 
-			if (!isDatabaseConfigured()) {
-				return configError('Database', 'Set SUPABASE_URL and SUPABASE_SERVICE_KEY');
-			}
+				if (!isDatabaseConfigured()) {
+					return configError('Database', 'Set SUPABASE_URL and SUPABASE_SERVICE_KEY');
+				}
 
-			if (!isOpenAIConfigured()) {
-				return configError('Embedding provider', 'Set OPENAI_API_KEY or configure Ollama');
-			}
+				if (!isOpenAIConfigured()) {
+					return configError('Embedding provider', 'Set OPENAI_API_KEY or configure Ollama');
+				}
 
-			let factsCreated = 0;
-			let factsDuplicate = 0;
-			let relationsCreated = 0;
-			const errors: string[] = [];
+				let factsCreated = 0;
+				let factsDuplicate = 0;
+				let relationsCreated = 0;
+				const errors: string[] = [];
 
-			// Process facts
-			if (facts?.length) {
-				for (const fact of facts) {
-					try {
-						const entity = await getOrCreateEntity({
-							name: fact.entityName,
-							entityType: fact.entityType as EntityType,
-						});
+				// Process facts
+				if (facts?.length) {
+					for (const fact of facts) {
+						try {
+							const entity = await getOrCreateEntity({
+								name: fact.entityName,
+								entityType: fact.entityType as EntityType,
+							});
 
-						// Generate embedding first for semantic dedup
-						const embedding = await generateEmbedding(fact.observation);
+							// Generate embedding first for semantic dedup
+							const embedding = await generateEmbedding(fact.observation);
 
-						// Check for duplicate (exact match + semantic similarity)
-						const existing = await findSimilarObservation(
-							entity.id,
-							fact.observation,
-							0.95,
-							embedding,
-						);
-						if (existing) {
-							factsDuplicate++;
-							continue;
+							// Check for duplicate (exact match + semantic similarity)
+							const existing = await findSimilarObservation(
+								entity.id,
+								fact.observation,
+								0.95,
+								embedding,
+							);
+							if (existing) {
+								factsDuplicate++;
+								continue;
+							}
+
+							// Create observation (reuse embedding from above)
+							await createObservation({
+								entityId: entity.id,
+								content: fact.observation,
+								source: fact.source,
+								embedding,
+								validUntil: null,
+							});
+							factsCreated++;
+						} catch (error) {
+							const msg = `fact "${fact.entityName}": ${error instanceof Error ? error.message : String(error)}`;
+							logger.error('build_knowledge fact failed', { entity: fact.entityName, error: msg });
+							errors.push(msg);
 						}
-
-						// Create observation (reuse embedding from above)
-						await createObservation({
-							entityId: entity.id,
-							content: fact.observation,
-							source: fact.source,
-							embedding,
-							validUntil: null,
-						});
-						factsCreated++;
-					} catch (error) {
-						const msg = `fact "${fact.entityName}": ${error instanceof Error ? error.message : String(error)}`;
-						logger.error('build_knowledge fact failed', { entity: fact.entityName, error: msg });
-						errors.push(msg);
 					}
 				}
-			}
 
-			// Process relations
-			if (relations?.length) {
-				for (const rel of relations) {
-					try {
-						const cleanFromType = sanitizeEntityType(rel.fromEntityType);
-						const cleanToType = sanitizeEntityType(rel.toEntityType);
+				// Process relations
+				if (relations?.length) {
+					for (const rel of relations) {
+						try {
+							const cleanFromType = sanitizeEntityType(rel.fromEntityType);
+							const cleanToType = sanitizeEntityType(rel.toEntityType);
 
-						const fromEntityObj = await getOrCreateEntity({
-							name: rel.fromEntity,
-							entityType:
-								cleanFromType || (await findEntityByName(rel.fromEntity))?.entity_type || 'concept',
-						});
+							const fromEntityObj = await getOrCreateEntity({
+								name: rel.fromEntity,
+								entityType:
+									cleanFromType ||
+									(await findEntityByName(rel.fromEntity))?.entity_type ||
+									'concept',
+							});
 
-						const toEntityObj = await getOrCreateEntity({
-							name: rel.toEntity,
-							entityType:
-								cleanToType || (await findEntityByName(rel.toEntity))?.entity_type || 'concept',
-						});
+							const toEntityObj = await getOrCreateEntity({
+								name: rel.toEntity,
+								entityType:
+									cleanToType || (await findEntityByName(rel.toEntity))?.entity_type || 'concept',
+							});
 
-						await getOrCreateRelation({
-							fromEntityId: fromEntityObj.id,
-							toEntityId: toEntityObj.id,
-							relationType: rel.relation,
-						});
-						relationsCreated++;
-					} catch (error) {
-						const msg = `relation "${rel.fromEntity} ${rel.relation} ${rel.toEntity}": ${error instanceof Error ? error.message : String(error)}`;
-						logger.error('build_knowledge relation failed', {
-							from: rel.fromEntity,
-							to: rel.toEntity,
-							error: msg,
-						});
-						errors.push(msg);
+							await getOrCreateRelation({
+								fromEntityId: fromEntityObj.id,
+								toEntityId: toEntityObj.id,
+								relationType: rel.relation,
+							});
+							relationsCreated++;
+						} catch (error) {
+							const msg = `relation "${rel.fromEntity} ${rel.relation} ${rel.toEntity}": ${error instanceof Error ? error.message : String(error)}`;
+							logger.error('build_knowledge relation failed', {
+								from: rel.fromEntity,
+								to: rel.toEntity,
+								error: msg,
+							});
+							errors.push(msg);
+						}
 					}
 				}
+
+				const hasErrors = errors.length > 0;
+				logger.info('build_knowledge completed', {
+					factsCreated,
+					factsDuplicate,
+					relationsCreated,
+					errors: hasErrors ? errors.length : 0,
+				});
+
+				return {
+					content: [
+						{
+							type: 'text' as const,
+							text: toJSON(
+								isCompact()
+									? {
+											ok: !hasErrors,
+											...(hasErrors ? { partial: true } : {}),
+											facts: { new: factsCreated, dup: factsDuplicate },
+											rel: relationsCreated,
+											...(hasErrors ? { err: errors } : {}),
+										}
+									: {
+											success: !hasErrors,
+											...(hasErrors ? { partialSuccess: true } : {}),
+											factsCreated,
+											factsDuplicate,
+											relationsCreated,
+											...(hasErrors ? { errors } : {}),
+										},
+							),
+						},
+					],
+				};
+			} catch (error) {
+				return toolError('build_knowledge', error);
 			}
-
-			const hasErrors = errors.length > 0;
-			logger.info('build_knowledge completed', {
-				factsCreated,
-				factsDuplicate,
-				relationsCreated,
-				errors: hasErrors ? errors.length : 0,
-			});
-
-			return {
-				content: [
-					{
-						type: 'text' as const,
-						text: toJSON(
-							isCompact()
-								? {
-										ok: !hasErrors,
-										...(hasErrors ? { partial: true } : {}),
-										facts: { new: factsCreated, dup: factsDuplicate },
-										rel: relationsCreated,
-										...(hasErrors ? { err: errors } : {}),
-									}
-								: {
-										success: !hasErrors,
-										...(hasErrors ? { partialSuccess: true } : {}),
-										factsCreated,
-										factsDuplicate,
-										relationsCreated,
-										...(hasErrors ? { errors } : {}),
-									},
-						),
-					},
-				],
-			};
 		},
 	);
 
