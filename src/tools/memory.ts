@@ -365,7 +365,7 @@ export function registerMemoryTools(server: McpServer): void {
 					// --- Search mode (replaces recall_memories) ---
 					case 'search': {
 						if (!query) {
-							return toolError('query is required for mode="search"');
+							return toolError('query_memory', new Error('query is required for mode="search"'));
 						}
 						if (!isOpenAIConfigured()) {
 							return configError('Embedding provider', 'Set OPENAI_API_KEY or configure Ollama');
@@ -440,7 +440,10 @@ export function registerMemoryTools(server: McpServer): void {
 					// --- Entity mode (replaces get_entity_context) ---
 					case 'entity': {
 						if (!entityName) {
-							return toolError('entityName is required for mode="entity"');
+							return toolError(
+								'query_memory',
+								new Error('entityName is required for mode="entity"'),
+							);
 						}
 
 						const context = await getEntityContext(entityName, includeRelated);
@@ -705,7 +708,10 @@ export function registerMemoryTools(server: McpServer): void {
 
 			if (!confirm) {
 				return toolError(
-					'Deletion not confirmed. Set confirm=true to delete. This action is irreversible.',
+					'forget_entity',
+					new Error(
+						'Deletion not confirmed. Set confirm=true to delete. This action is irreversible.',
+					),
 				);
 			}
 
@@ -718,7 +724,10 @@ export function registerMemoryTools(server: McpServer): void {
 
 				if (!entity) {
 					return toolError(
-						`Entity "${entityName}" not found. Use query_memory with mode="list" to see available entities.`,
+						'forget_entity',
+						new Error(
+							`Entity "${entityName}" not found. Use query_memory with mode="list" to see available entities.`,
+						),
 					);
 				}
 
