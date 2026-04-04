@@ -29,6 +29,7 @@ vi.mock('../../db/pg-client.js', () => ({
 
 vi.mock('../../services/embeddings.js', () => ({
 	isEmbeddingsConfigured: vi.fn(() => true),
+	generateEmbedding: vi.fn(async () => [0.1, 0.2, 0.3]),
 }));
 
 vi.mock('../../utils/health-helpers.js', async (importOriginal) => {
@@ -43,7 +44,7 @@ vi.mock('../../utils/health-helpers.js', async (importOriginal) => {
 // --- Imports ---
 
 import { checkDatabaseConnection, isDatabaseConfigured } from '../../db/pg-client.js';
-import { isEmbeddingsConfigured } from '../../services/embeddings.js';
+import { generateEmbedding, isEmbeddingsConfigured } from '../../services/embeddings.js';
 import { config } from '../../utils/config.js';
 import { checkTable } from '../../utils/health-helpers.js';
 import { HealthCheckOutputSchema, registerHealthTool } from '../health.js';
@@ -97,10 +98,13 @@ describe('health_check tool', () => {
 			expect.objectContaining({ ok: true }),
 		);
 		expect(result.structuredContent?.checks.embeddings).toEqual(
-			expect.objectContaining({ ok: true, model: 'text-embedding-3-small' }),
+			expect.objectContaining({ ok: true, model: 'text-embedding-3-small', provider: 'openai' }),
 		);
 		expect(result.structuredContent?.checks.documents).toEqual(
-			expect.objectContaining({ ok: true }),
+			expect.objectContaining({ ok: true, count: 0 }),
+		);
+		expect(result.structuredContent?.checks.chunks).toEqual(
+			expect.objectContaining({ ok: true, count: 0 }),
 		);
 	});
 
@@ -144,27 +148,34 @@ describe('health_check tool', () => {
 	it('checks memory tables when ENABLE_MEMORY is true', async () => {
 		(config as { ENABLE_MEMORY: boolean }).ENABLE_MEMORY = true;
 		const result = (await callHealth(false)) as {
-			structuredContent?: { checks: Record<string, { ok: boolean }> };
+			structuredContent?: {
+				checks: Record<string, { ok: boolean; entities?: number; observations?: number }>;
+			};
 		};
 		expect(result.structuredContent?.checks.memory).toBeDefined();
 		expect(result.structuredContent?.checks.memory.ok).toBe(true);
+		expect(result.structuredContent?.checks.memory.entities).toBe(0);
+		expect(result.structuredContent?.checks.memory.observations).toBe(0);
 	});
 
 	it('checks conversation tables when ENABLE_CONVERSATIONS is true', async () => {
 		(config as { ENABLE_CONVERSATIONS: boolean }).ENABLE_CONVERSATIONS = true;
 		const result = (await callHealth(false)) as {
-			structuredContent?: { checks: Record<string, { ok: boolean }> };
+			structuredContent?: { checks: Record<string, { ok: boolean; sessions?: number }> };
 		};
 		expect(result.structuredContent?.checks.conversations).toBeDefined();
 		expect(result.structuredContent?.checks.conversations.ok).toBe(true);
+		expect(result.structuredContent?.checks.conversations.sessions).toBe(0);
 	});
 
 	it('checks insight tables when ENABLE_INSIGHTS is true', async () => {
 		(config as { ENABLE_INSIGHTS: boolean }).ENABLE_INSIGHTS = true;
 		const result = (await callHealth(false)) as {
-			structuredContent?: { checks: Record<string, { ok: boolean }> };
+			structuredContent?: { checks: Record<string, { ok: boolean; count?: number }> };
 		};
 		expect(result.structuredContent?.checks.insights).toBeDefined();
+		expect(result.structuredContent?.checks.insights.ok).toBe(true);
+		expect(result.structuredContent?.checks.insights.count).toBe(0);
 		expect(result.structuredContent?.checks.insightQueue).toBeDefined();
 	});
 
@@ -185,6 +196,43 @@ describe('health_check tool', () => {
 			structuredContent?: { checks: Record<string, { model?: string }> };
 		};
 		expect(result.structuredContent?.checks.embeddings.model).toBe('nomic-embed-text-v2-moe');
+	});
+
+	it('always includes counts even when verbose is false', async () => {
+		(config as Record<string, unknown>).ENABLE_MEMORY = true;
+		(config as Record<string, unknown>).ENABLE_CONVERSATIONS = true;
+		(config as Record<string, unknown>).ENABLE_INSIGHTS = true;
+
+		const result = (await callHealth(false)) as {
+			structuredContent?: { checks: Record<string, Record<string, unknown>> };
+		};
+		const checks = result.structuredContent?.checks;
+		expect(checks?.documents.count).toBe(0);
+		expect(checks?.chunks.count).toBe(0);
+		expect(checks?.memory.entities).toBe(0);
+		expect(checks?.memory.observations).toBe(0);
+		expect(checks?.conversations.sessions).toBe(0);
+		expect(checks?.insights.count).toBe(0);
+	});
+
+	it('returns degraded when embedding service is unreachable', async () => {
+		vi.mocked(generateEmbedding).mockRejectedValueOnce(new Error('Connection refused'));
+		const result = (await callHealth(false)) as {
+			structuredContent?: {
+				status: string;
+				checks: Record<string, { ok: boolean; error?: string }>;
+			};
+		};
+		expect(result.structuredContent?.checks.embeddings.ok).toBe(false);
+		expect(result.structuredContent?.checks.embeddings.error).toBe('Connection refused');
+	});
+
+	it('includes provider in embeddings check', async () => {
+		(config as Record<string, unknown>).EMBEDDING_PROVIDER = 'google';
+		const result = (await callHealth(false)) as {
+			structuredContent?: { checks: Record<string, { provider?: string }> };
+		};
+		expect(result.structuredContent?.checks.embeddings.provider).toBe('google');
 	});
 
 	describe('output schema validation', () => {
