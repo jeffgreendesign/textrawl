@@ -32,7 +32,8 @@ function createHandler(): () => Promise<unknown> {
 
 	registerHealthTool(fakeServer as never);
 	if (!handler) throw new Error('registerHealthTool did not register a handler');
-	return () => handler!({}, {});
+	const registeredHandler = handler;
+	return () => registeredHandler({}, {});
 }
 
 describe('health_check tool', () => {
@@ -83,6 +84,26 @@ describe('health_check tool', () => {
 		expect(result.structuredContent?.status).toBe('degraded');
 		expect(result.structuredContent?.checks.conversations.ok).toBe(false);
 		expect(result.structuredContent?.checks.conversations.error).toContain('missing table');
+	});
+
+	it('handles empty tables gracefully', async () => {
+		vi.mocked(pgQuery).mockImplementation(async (sql: string) => {
+			if (sql === 'SELECT 1') return { rows: [{ '?column?': 1 }], rowCount: 1 };
+			return { rows: [{ c: 0 }], rowCount: 1 };
+		});
+
+		const result = (await callHealth()) as {
+			structuredContent?: {
+				status: string;
+				checks: Record<string, { count?: number }>;
+			};
+		};
+
+		expect(result.structuredContent?.status).toBe('healthy');
+		expect(result.structuredContent?.checks.documents.count).toBe(0);
+
+		const outputSchema = z.object(HealthCheckOutputSchema);
+		expect(outputSchema.safeParse(result.structuredContent).success).toBe(true);
 	});
 
 	it('output matches schema', async () => {

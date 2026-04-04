@@ -19,7 +19,14 @@ export const HealthCheckOutputSchema = {
 	timestamp: z.string(),
 };
 
-async function countRows(table: string): Promise<number> {
+export type TableName =
+	| 'documents'
+	| 'chunks'
+	| 'memory_entities'
+	| 'conversation_sessions'
+	| 'proactive_insights';
+
+async function countRows(table: TableName): Promise<number> {
 	const result = await pgQuery<{ c: number }>(`SELECT COUNT(*)::int AS c FROM ${table}`);
 	return result.rows[0]?.c ?? 0;
 }
