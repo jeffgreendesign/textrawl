@@ -6,6 +6,7 @@
 
 export { registerAskTool } from './ask.js';
 export { registerBriefingTool } from './briefing.js';
+export { registerHealthTool } from './health.js';
 export { registerSearchTool } from './search.js';
 export { registerDocumentTools } from './document.js';
 export { registerNoteTool } from './note.js';

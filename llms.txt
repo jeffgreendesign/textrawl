@@ -16,7 +16,7 @@ Textrawl is a personal knowledge server with persistent memory, searchable docum
 
 ## Tools
 
-Tools with `outputSchema` return `structuredContent` alongside text content: `search`, `get_document`, `list_documents`, `query_memory`, `query_conversations`, `get_stats`.
+Tools with `outputSchema` return `structuredContent` alongside text content: `search`, `get_document`, `list_documents`, `query_memory`, `query_conversations`, `get_stats`, `health_check`.
 
 ### search
 
@@ -171,6 +171,12 @@ Delete a conversation session.
 Get statistics across the knowledge base. Dispatches based on scope.
 
 - scope (enum): 'all' | 'knowledge' | 'memory' | 'conversations' | 'insights', default 'all'
+
+### health_check
+
+Check the health of all subsystems. Returns pass/fail per component with overall status.
+
+- verbose (boolean): Include latency and row counts, default false
 
 ## Insight Tools (Proactive Discovery)
 

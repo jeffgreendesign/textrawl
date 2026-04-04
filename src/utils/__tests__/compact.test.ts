@@ -5,20 +5,37 @@ vi.mock('../config.js', () => ({
 	config: { COMPACT_RESPONSES: true },
 }));
 
+vi.mock('../logger.js', () => ({
+	logger: { debug: vi.fn(), info: vi.fn(), warn: vi.fn(), error: vi.fn() },
+}));
+
 import {
+	classifyError,
 	configError,
 	formatId,
 	isCompact,
 	serializeDates,
+	serializeResponse,
 	toJSON,
 	toolError,
 	toolResponse,
 } from '../compact.js';
 import { config } from '../config.js';
+import {
+	AuthenticationError,
+	AuthorizationError,
+	DatabaseError,
+	ExternalServiceError,
+	NotFoundError,
+	TextrawlError,
+	ValidationError,
+} from '../errors.js';
+import { logger } from '../logger.js';
 
 describe('compact utilities', () => {
 	beforeEach(() => {
 		(config as { COMPACT_RESPONSES: boolean }).COMPACT_RESPONSES = false;
+		vi.clearAllMocks();
 	});
 
 	describe('isCompact', () => {
@@ -62,8 +79,64 @@ describe('compact utilities', () => {
 		});
 	});
 
+	describe('classifyError', () => {
+		it('classifies DatabaseError', () => {
+			expect(classifyError(new DatabaseError('conn failed'))).toBe('DATABASE_ERROR');
+		});
+
+		it('classifies ValidationError', () => {
+			expect(classifyError(new ValidationError('bad input'))).toBe('VALIDATION_ERROR');
+		});
+
+		it('classifies NotFoundError', () => {
+			expect(classifyError(new NotFoundError('missing'))).toBe('NOT_FOUND');
+		});
+
+		it('classifies ExternalServiceError', () => {
+			expect(classifyError(new ExternalServiceError('timeout'))).toBe('EXTERNAL_SERVICE_ERROR');
+		});
+
+		it('classifies unknown TextrawlError as RUNTIME_ERROR', () => {
+			expect(classifyError(new TextrawlError('oops', 500, 'UNKNOWN_CODE'))).toBe('RUNTIME_ERROR');
+		});
+
+		it('detects CONFIG_ERROR from message pattern', () => {
+			expect(classifyError(new Error('DATABASE_URL not configured'))).toBe('CONFIG_ERROR');
+			expect(classifyError(new Error('API key not set'))).toBe('CONFIG_ERROR');
+		});
+
+		it('classifies AuthenticationError as AUTH_ERROR', () => {
+			expect(classifyError(new AuthenticationError('bad token'))).toBe('AUTH_ERROR');
+		});
+
+		it('classifies AuthorizationError as AUTH_ERROR', () => {
+			expect(classifyError(new AuthorizationError('forbidden'))).toBe('AUTH_ERROR');
+		});
+
+		it('detects SCHEMA_ERROR from SQL-specific message patterns', () => {
+			expect(classifyError(new Error('relation "insights" does not exist'))).toBe('SCHEMA_ERROR');
+			expect(classifyError(new Error('column "insight_type" does not exist'))).toBe('SCHEMA_ERROR');
+			expect(classifyError(new Error('table schema validation failed'))).toBe('SCHEMA_ERROR');
+		});
+
+		it('does not match generic "does not exist" as SCHEMA_ERROR', () => {
+			expect(classifyError(new Error('file does not exist'))).toBe('RUNTIME_ERROR');
+			expect(classifyError(new Error('path does not exist'))).toBe('RUNTIME_ERROR');
+		});
+
+		it('defaults to RUNTIME_ERROR for generic errors', () => {
+			expect(classifyError(new Error('something broke'))).toBe('RUNTIME_ERROR');
+		});
+
+		it('defaults to RUNTIME_ERROR for non-Error values', () => {
+			expect(classifyError('string error')).toBe('RUNTIME_ERROR');
+			expect(classifyError(42)).toBe('RUNTIME_ERROR');
+			expect(classifyError(null)).toBe('RUNTIME_ERROR');
+		});
+	});
+
 	describe('toolError', () => {
-		it('returns error response with isError: true', () => {
+		it('returns error response with isError: true (legacy form)', () => {
 			(config as { COMPACT_RESPONSES: boolean }).COMPACT_RESPONSES = false;
 			const result = toolError('Something went wrong');
 			expect(result.isError).toBe(true);
@@ -71,6 +144,54 @@ describe('compact utilities', () => {
 			expect(result.content[0].type).toBe('text');
 			const parsed = JSON.parse(result.content[0].text);
 			expect(parsed.error).toBe('Something went wrong');
+		});
+
+		it('returns structured error response (new form)', () => {
+			const result = toolError('get_stats', new Error('connection refused'), {
+				scope: 'knowledge',
+				hint: 'Check DATABASE_URL',
+			});
+			expect(result.isError).toBe(true);
+			const parsed = JSON.parse(result.content[0].text);
+			expect(parsed.error).toBe(true);
+			expect(parsed.tool).toBe('get_stats');
+			expect(parsed.message).toBe('connection refused');
+			expect(parsed.code).toBe('RUNTIME_ERROR');
+			expect(parsed.scope).toBe('knowledge');
+			expect(parsed.hint).toBe('Check DATABASE_URL');
+		});
+
+		it('classifies error type in structured form', () => {
+			const result = toolError('search', new DatabaseError('query failed'));
+			const parsed = JSON.parse(result.content[0].text);
+			expect(parsed.code).toBe('DATABASE_ERROR');
+		});
+
+		it('logs full stack trace in structured form', () => {
+			const err = new Error('test error');
+			toolError('my_tool', err, { scope: 'test' });
+			expect(logger.error).toHaveBeenCalledWith(
+				'my_tool: test error',
+				expect.objectContaining({
+					tool: 'my_tool',
+					scope: 'test',
+					stack: expect.stringContaining('test error'),
+				}),
+			);
+		});
+
+		it('handles non-Error values in structured form', () => {
+			const result = toolError('my_tool', 'string error');
+			const parsed = JSON.parse(result.content[0].text);
+			expect(parsed.message).toBe('string error');
+			expect(parsed.code).toBe('RUNTIME_ERROR');
+		});
+
+		it('omits scope and hint when not provided', () => {
+			const result = toolError('my_tool', new Error('fail'));
+			const parsed = JSON.parse(result.content[0].text);
+			expect(parsed).not.toHaveProperty('scope');
+			expect(parsed).not.toHaveProperty('hint');
 		});
 	});
 
@@ -81,15 +202,16 @@ describe('compact utilities', () => {
 			expect(result.isError).toBe(true);
 			const parsed = JSON.parse(result.content[0].text);
 			expect(parsed.error).toBe('Database not configured');
+			expect(parsed.code).toBe('CONFIG_ERROR');
 			expect(parsed.message).toContain('Set SUPABASE_URL');
 			expect(parsed.message).toContain('do not retry');
 		});
 	});
 
-	describe('serializeDates', () => {
+	describe('serializeResponse', () => {
 		it('converts Date objects to ISO strings', () => {
 			const date = new Date('2024-01-15T10:30:00.000Z');
-			expect(serializeDates(date)).toBe('2024-01-15T10:30:00.000Z');
+			expect(serializeResponse(date)).toBe('2024-01-15T10:30:00.000Z');
 		});
 
 		it('converts nested Date objects in objects', () => {
@@ -100,7 +222,7 @@ describe('compact utilities', () => {
 					updatedAt: new Date('2024-06-01T00:00:00.000Z'),
 				},
 			};
-			const result = serializeDates(obj);
+			const result = serializeResponse(obj);
 			expect(result.createdAt).toBe('2024-01-15T10:30:00.000Z');
 			expect(result.nested.updatedAt).toBe('2024-06-01T00:00:00.000Z');
 			expect(result.name).toBe('test');
@@ -111,40 +233,82 @@ describe('compact utilities', () => {
 				{ id: '1', createdAt: new Date('2024-01-01T00:00:00.000Z') },
 				{ id: '2', createdAt: new Date('2024-02-01T00:00:00.000Z') },
 			];
-			const result = serializeDates(arr);
+			const result = serializeResponse(arr);
 			expect(result[0].createdAt).toBe('2024-01-01T00:00:00.000Z');
 			expect(result[1].createdAt).toBe('2024-02-01T00:00:00.000Z');
 		});
 
 		it('passes through primitives unchanged', () => {
-			expect(serializeDates('hello')).toBe('hello');
-			expect(serializeDates(42)).toBe(42);
-			expect(serializeDates(true)).toBe(true);
-			expect(serializeDates(null)).toBe(null);
+			expect(serializeResponse('hello')).toBe('hello');
+			expect(serializeResponse(42)).toBe(42);
+			expect(serializeResponse(true)).toBe(true);
+			expect(serializeResponse(null)).toBe(null);
 		});
 
 		it('converts undefined to null', () => {
-			expect(serializeDates(undefined)).toBe(null);
+			expect(serializeResponse(undefined)).toBe(null);
 		});
 
 		it('converts undefined fields in objects to null', () => {
 			const obj = { a: 'ok', b: undefined, c: 42 };
-			const result = serializeDates(obj);
+			const result = serializeResponse(obj);
 			expect(result.a).toBe('ok');
 			expect(result.b).toBe(null);
 			expect(result.c).toBe(42);
 		});
 
 		it('converts invalid Date to null', () => {
-			expect(serializeDates(new Date('not-a-date'))).toBe(null);
-			expect(serializeDates(new Date(NaN))).toBe(null);
+			expect(serializeResponse(new Date('not-a-date'))).toBe(null);
+			expect(serializeResponse(new Date(NaN))).toBe(null);
 		});
 
 		it('handles null values in objects', () => {
 			const obj = { oldest: null, newest: new Date('2024-01-01T00:00:00.000Z') };
-			const result = serializeDates(obj);
+			const result = serializeResponse(obj);
 			expect(result.oldest).toBe(null);
 			expect(result.newest).toBe('2024-01-01T00:00:00.000Z');
+		});
+
+		it('converts safe BigInt to number', () => {
+			expect(serializeResponse(42n)).toBe(42);
+			expect(serializeResponse(0n)).toBe(0);
+		});
+
+		it('converts unsafe BigInt to string to preserve precision', () => {
+			const big = BigInt(Number.MAX_SAFE_INTEGER) + 2n;
+			expect(serializeResponse(big)).toBe(big.toString());
+			const negBig = BigInt(Number.MIN_SAFE_INTEGER) - 2n;
+			expect(serializeResponse(negBig)).toBe(negBig.toString());
+		});
+
+		it('converts BigInt in nested objects', () => {
+			const obj = { count: 100n, items: [{ total: 5n }] };
+			const result = serializeResponse(obj);
+			expect(result.count).toBe(100);
+			expect(result.items[0].total).toBe(5);
+		});
+
+		it('converts Buffer to base64 string', () => {
+			const buf = Buffer.from('hello world');
+			expect(serializeResponse(buf)).toBe(buf.toString('base64'));
+		});
+
+		it('converts Buffer in nested objects', () => {
+			const obj = { data: Buffer.from('test'), name: 'file' };
+			const result = serializeResponse(obj);
+			expect(result.data).toBe(Buffer.from('test').toString('base64'));
+			expect(result.name).toBe('file');
+		});
+	});
+
+	describe('serializeDates (deprecated alias)', () => {
+		it('is the same function as serializeResponse', () => {
+			expect(serializeDates).toBe(serializeResponse);
+		});
+
+		it('still works for Date conversion', () => {
+			const date = new Date('2024-01-15T10:30:00.000Z');
+			expect(serializeDates(date)).toBe('2024-01-15T10:30:00.000Z');
 		});
 	});
 
@@ -211,6 +375,26 @@ describe('compact utilities', () => {
 			};
 			expect(sc.documents[0].createdAt).toBe('2024-01-15T10:30:00.000Z');
 			expect(sc.documents[0].updatedAt).toBe('2024-06-01T00:00:00.000Z');
+		});
+
+		it('serializes Date objects in text content too', () => {
+			(config as { COMPACT_RESPONSES: boolean }).COMPACT_RESPONSES = false;
+			const result = toolResponse({
+				compact: { d: new Date('2024-01-01T00:00:00.000Z') },
+				verbose: { date: new Date('2024-01-01T00:00:00.000Z') },
+			});
+			const parsed = JSON.parse(result.content[0].text);
+			expect(parsed.date).toBe('2024-01-01T00:00:00.000Z');
+		});
+
+		it('serializes BigInt values in text content', () => {
+			(config as { COMPACT_RESPONSES: boolean }).COMPACT_RESPONSES = false;
+			const result = toolResponse({
+				compact: { n: 42n },
+				verbose: { count: 42n },
+			});
+			const parsed = JSON.parse(result.content[0].text);
+			expect(parsed.count).toBe(42);
 		});
 	});
 });

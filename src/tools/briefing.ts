@@ -3,7 +3,7 @@ import { z } from 'zod';
 import { listDocuments } from '../db/documents.js';
 import { getInsights } from '../db/insights.js';
 import { isDatabaseConfigured } from '../db/pg-client.js';
-import { configError, toolError } from '../utils/compact.js';
+import { classifyError, configError, toolError, toolResponse } from '../utils/compact.js';
 import { config } from '../utils/config.js';
 import { logger } from '../utils/logger.js';
 
@@ -16,7 +16,7 @@ export function registerBriefingTool(server: McpServer): void {
 		{
 			title: 'Daily Briefing',
 			description:
-				'Get a personalized briefing of your knowledge base: recent additions, new insights, and "on this day" resurfacing of older content.',
+				'Get a personalized briefing of your knowledge base: recent additions, new insights, and "on this day" resurfacing of older content. Each section is fetched independently — a failure in one section returns an error object for that section without blocking others.',
 			inputSchema: {
 				includeOnThisDay: z
 					.boolean()
@@ -46,64 +46,96 @@ export function registerBriefingTool(server: McpServer): void {
 			try {
 				const briefing: Record<string, unknown> = {};
 
-				// Recent additions — fetch wider window so client-side date filter has enough data
-				const recentDocs = await listDocuments({
-					limit: 50,
-					offset: 0,
-				});
-				const cutoff = new Date();
-				cutoff.setDate(cutoff.getDate() - recentDays);
-				const recent = recentDocs.documents.filter((d) => new Date(d.created_at) >= cutoff);
-				briefing.recentAdditions = {
-					count: recent.length,
-					documents: recent.map((d) => ({
-						id: d.id,
-						title: d.title,
-						sourceType: d.source_type,
-						createdAt: d.created_at,
-					})),
-				};
-
-				// New insights
-				if (config.ENABLE_INSIGHTS) {
-					const newInsights = await getInsights({
-						status: 'new',
-						limit: 5,
+				// Section 1: Recent additions
+				try {
+					const recentDocs = await listDocuments({
+						limit: 50,
+						offset: 0,
 					});
-					briefing.newInsights = {
-						count: newInsights.length,
-						insights: newInsights.map((i) => ({
-							id: i.id,
-							type: i.insight_type,
-							title: i.title,
-							summary: i.summary.slice(0, 200),
-						})),
-					};
-				}
-
-				// "On this day" — resurface content from same date in past years
-				if (includeOnThisDay) {
-					// Limit of 100 is sufficient for on-this-day matching in most deployments
-					const allDocs = await listDocuments({ limit: 100, offset: 0 });
-					const today = new Date();
-					const onThisDay = allDocs.documents.filter((d) => {
-						const created = new Date(d.created_at);
-						return (
-							created.getMonth() === today.getMonth() &&
-							created.getDate() === today.getDate() &&
-							created.getFullYear() < today.getFullYear()
-						);
-					});
-
-					briefing.onThisDay = {
-						count: onThisDay.length,
-						documents: onThisDay.slice(0, 5).map((d) => ({
+					const cutoff = new Date();
+					cutoff.setDate(cutoff.getDate() - recentDays);
+					const recent = recentDocs.documents.filter((d) => new Date(d.created_at) >= cutoff);
+					briefing.recentAdditions = {
+						count: recent.length,
+						documents: recent.map((d) => ({
 							id: d.id,
 							title: d.title,
 							sourceType: d.source_type,
 							createdAt: d.created_at,
-							yearsAgo: today.getFullYear() - new Date(d.created_at).getFullYear(),
 						})),
+					};
+				} catch (err) {
+					logger.error('daily_briefing: recentAdditions failed', {
+						error: err instanceof Error ? err.message : String(err),
+					});
+					briefing.recentAdditions = {
+						error: true,
+						message: err instanceof Error ? err.message : 'Unknown error',
+						code: classifyError(err),
+					};
+				}
+
+				// Section 2: New insights
+				try {
+					if (config.ENABLE_INSIGHTS) {
+						const newInsights = await getInsights({
+							status: 'new',
+							limit: 5,
+						});
+						briefing.newInsights = {
+							count: newInsights.length,
+							insights: newInsights.map((i) => ({
+								id: i.id,
+								type: i.insight_type,
+								title: i.title,
+								summary: i.summary.slice(0, 200),
+							})),
+						};
+					}
+				} catch (err) {
+					logger.error('daily_briefing: newInsights failed', {
+						error: err instanceof Error ? err.message : String(err),
+					});
+					briefing.newInsights = {
+						error: true,
+						message: err instanceof Error ? err.message : 'Unknown error',
+						code: classifyError(err),
+					};
+				}
+
+				// Section 3: "On this day" — resurface content from same date in past years
+				try {
+					if (includeOnThisDay) {
+						const allDocs = await listDocuments({ limit: 100, offset: 0 });
+						const today = new Date();
+						const onThisDay = allDocs.documents.filter((d) => {
+							const created = new Date(d.created_at);
+							return (
+								created.getMonth() === today.getMonth() &&
+								created.getDate() === today.getDate() &&
+								created.getFullYear() < today.getFullYear()
+							);
+						});
+
+						briefing.onThisDay = {
+							count: onThisDay.length,
+							documents: onThisDay.slice(0, 5).map((d) => ({
+								id: d.id,
+								title: d.title,
+								sourceType: d.source_type,
+								createdAt: d.created_at,
+								yearsAgo: today.getFullYear() - new Date(d.created_at).getFullYear(),
+							})),
+						};
+					}
+				} catch (err) {
+					logger.error('daily_briefing: onThisDay failed', {
+						error: err instanceof Error ? err.message : String(err),
+					});
+					briefing.onThisDay = {
+						error: true,
+						message: err instanceof Error ? err.message : 'Unknown error',
+						code: classifyError(err),
 					};
 				}
 
@@ -111,22 +143,20 @@ export function registerBriefingTool(server: McpServer): void {
 				briefing.generatedAt = new Date().toISOString();
 
 				logger.info('daily_briefing completed', {
-					recentCount: (briefing.recentAdditions as { count: number }).count,
+					recentCount:
+						briefing.recentAdditions &&
+						typeof briefing.recentAdditions === 'object' &&
+						'count' in (briefing.recentAdditions as object)
+							? (briefing.recentAdditions as { count: number }).count
+							: 'error',
 				});
 
-				return {
-					content: [
-						{
-							type: 'text' as const,
-							text: JSON.stringify(briefing, null, 2),
-						},
-					],
-				};
-			} catch (error) {
-				logger.error('daily_briefing failed', {
-					error: error instanceof Error ? error.message : String(error),
+				return toolResponse({
+					compact: briefing,
+					verbose: briefing,
 				});
-				return toolError(error instanceof Error ? error.message : 'Failed to generate briefing');
+			} catch (error) {
+				return toolError('daily_briefing', error);
 			}
 		},
 	);
