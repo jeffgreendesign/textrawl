@@ -22,6 +22,8 @@ import {
 } from '../compact.js';
 import { config } from '../config.js';
 import {
+	AuthenticationError,
+	AuthorizationError,
 	DatabaseError,
 	ExternalServiceError,
 	NotFoundError,
@@ -103,9 +105,23 @@ describe('compact utilities', () => {
 			expect(classifyError(new Error('API key not set'))).toBe('CONFIG_ERROR');
 		});
 
-		it('detects SCHEMA_ERROR from message pattern', () => {
+		it('classifies AuthenticationError as AUTH_ERROR', () => {
+			expect(classifyError(new AuthenticationError('bad token'))).toBe('AUTH_ERROR');
+		});
+
+		it('classifies AuthorizationError as AUTH_ERROR', () => {
+			expect(classifyError(new AuthorizationError('forbidden'))).toBe('AUTH_ERROR');
+		});
+
+		it('detects SCHEMA_ERROR from SQL-specific message patterns', () => {
 			expect(classifyError(new Error('relation "insights" does not exist'))).toBe('SCHEMA_ERROR');
-			expect(classifyError(new Error('schema validation failed'))).toBe('SCHEMA_ERROR');
+			expect(classifyError(new Error('column "insight_type" does not exist'))).toBe('SCHEMA_ERROR');
+			expect(classifyError(new Error('table schema validation failed'))).toBe('SCHEMA_ERROR');
+		});
+
+		it('does not match generic "does not exist" as SCHEMA_ERROR', () => {
+			expect(classifyError(new Error('file does not exist'))).toBe('RUNTIME_ERROR');
+			expect(classifyError(new Error('path does not exist'))).toBe('RUNTIME_ERROR');
 		});
 
 		it('defaults to RUNTIME_ERROR for generic errors', () => {
@@ -253,9 +269,16 @@ describe('compact utilities', () => {
 			expect(result.newest).toBe('2024-01-01T00:00:00.000Z');
 		});
 
-		it('converts BigInt to number', () => {
+		it('converts safe BigInt to number', () => {
 			expect(serializeResponse(42n)).toBe(42);
 			expect(serializeResponse(0n)).toBe(0);
+		});
+
+		it('converts unsafe BigInt to string to preserve precision', () => {
+			const big = BigInt(Number.MAX_SAFE_INTEGER) + 2n;
+			expect(serializeResponse(big)).toBe(big.toString());
+			const negBig = BigInt(Number.MIN_SAFE_INTEGER) - 2n;
+			expect(serializeResponse(negBig)).toBe(negBig.toString());
 		});
 
 		it('converts BigInt in nested objects', () => {

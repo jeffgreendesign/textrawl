@@ -11,6 +11,7 @@ export type ErrorCode =
 	| 'VALIDATION_ERROR'
 	| 'DATABASE_ERROR'
 	| 'NOT_FOUND'
+	| 'AUTH_ERROR'
 	| 'EXTERNAL_SERVICE_ERROR';
 
 const TEXTRAWL_CODE_MAP: Record<string, ErrorCode> = {
@@ -19,8 +20,8 @@ const TEXTRAWL_CODE_MAP: Record<string, ErrorCode> = {
 	NOT_FOUND: 'NOT_FOUND',
 	EXTERNAL_SERVICE_ERROR: 'EXTERNAL_SERVICE_ERROR',
 	SERVICE_UNAVAILABLE: 'EXTERNAL_SERVICE_ERROR',
-	AUTHENTICATION_ERROR: 'VALIDATION_ERROR',
-	AUTHORIZATION_ERROR: 'VALIDATION_ERROR',
+	AUTHENTICATION_ERROR: 'AUTH_ERROR',
+	AUTHORIZATION_ERROR: 'AUTH_ERROR',
 };
 
 export function classifyError(error: unknown): ErrorCode {
@@ -30,7 +31,13 @@ export function classifyError(error: unknown): ErrorCode {
 	if (error instanceof Error) {
 		const msg = error.message.toLowerCase();
 		if (msg.includes('not configured') || msg.includes('not set')) return 'CONFIG_ERROR';
-		if (msg.includes('does not exist') || msg.includes('schema')) return 'SCHEMA_ERROR';
+		// Match SQL-specific "does not exist" (relation/column/table) but not generic filesystem errors
+		if (
+			(msg.includes('relation') || msg.includes('column') || msg.includes('table')) &&
+			(msg.includes('does not exist') || msg.includes('schema'))
+		) {
+			return 'SCHEMA_ERROR';
+		}
 	}
 	return 'RUNTIME_ERROR';
 }
@@ -50,7 +57,12 @@ export function serializeResponse<T>(obj: T): T {
 		const ts = obj.getTime();
 		return (Number.isNaN(ts) ? null : obj.toISOString()) as T;
 	}
-	if (typeof obj === 'bigint') return Number(obj) as T;
+	if (typeof obj === 'bigint') {
+		if (obj >= Number.MIN_SAFE_INTEGER && obj <= Number.MAX_SAFE_INTEGER) {
+			return Number(obj) as T;
+		}
+		return obj.toString() as T;
+	}
 	if (typeof Buffer !== 'undefined' && Buffer.isBuffer(obj)) return obj.toString('base64') as T;
 	if (Array.isArray(obj)) return obj.map(serializeResponse) as T;
 	if (obj !== null && typeof obj === 'object') {

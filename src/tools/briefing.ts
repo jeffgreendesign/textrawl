@@ -3,7 +3,7 @@ import { z } from 'zod';
 import { listDocuments } from '../db/documents.js';
 import { getInsights } from '../db/insights.js';
 import { isDatabaseConfigured } from '../db/pg-client.js';
-import { configError, toolError, toolResponse } from '../utils/compact.js';
+import { classifyError, configError, toolError, toolResponse } from '../utils/compact.js';
 import { config } from '../utils/config.js';
 import { logger } from '../utils/logger.js';
 
@@ -71,6 +71,7 @@ export function registerBriefingTool(server: McpServer): void {
 					briefing.recentAdditions = {
 						error: true,
 						message: err instanceof Error ? err.message : 'Unknown error',
+						code: classifyError(err),
 					};
 				}
 
@@ -98,6 +99,7 @@ export function registerBriefingTool(server: McpServer): void {
 					briefing.newInsights = {
 						error: true,
 						message: err instanceof Error ? err.message : 'Unknown error',
+						code: classifyError(err),
 					};
 				}
 
@@ -133,6 +135,7 @@ export function registerBriefingTool(server: McpServer): void {
 					briefing.onThisDay = {
 						error: true,
 						message: err instanceof Error ? err.message : 'Unknown error',
+						code: classifyError(err),
 					};
 				}
 

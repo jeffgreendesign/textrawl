@@ -3,9 +3,12 @@ import { isDatabaseConfigured, pgQuery } from '../db/pg-client.js';
 /** Server process start time (shared across REST and MCP health checks). */
 export const serverStartTime = Date.now();
 
+const SAFE_IDENTIFIER = /^[A-Za-z_][A-Za-z0-9_]*$/;
+
 /** Check if a table is accessible (schema exists). */
 export async function checkTable(tableName: string): Promise<boolean> {
 	if (!isDatabaseConfigured()) return false;
+	if (!SAFE_IDENTIFIER.test(tableName)) return false;
 	try {
 		await pgQuery(`SELECT 1 FROM ${tableName} LIMIT 0`);
 		return true;

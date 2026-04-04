@@ -250,15 +250,7 @@ export function registerStatsTools(server: McpServer): void {
 					const compact: Record<string, unknown> = {};
 
 					if (result.knowledge) {
-						// Pass through error objects as-is
-						if (
-							typeof result.knowledge === 'object' &&
-							(result.knowledge as { error?: boolean }).error
-						) {
-							compact.knowledge = result.knowledge;
-						} else {
-							compact.knowledge = result.knowledge;
-						}
+						compact.knowledge = result.knowledge;
 					}
 
 					if (result.memory) {

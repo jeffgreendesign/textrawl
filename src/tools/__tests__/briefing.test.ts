@@ -134,6 +134,7 @@ describe('daily_briefing tool', () => {
 		expect(parsed.recentAdditions).toEqual({
 			error: true,
 			message: 'connection lost',
+			code: expect.any(String),
 		});
 		// onThisDay should still succeed
 		expect(parsed.onThisDay).toBeDefined();
@@ -154,6 +155,7 @@ describe('daily_briefing tool', () => {
 		expect(parsed.newInsights).toEqual({
 			error: true,
 			message: 'insights table missing',
+			code: expect.any(String),
 		});
 	});
 
@@ -171,6 +173,7 @@ describe('daily_briefing tool', () => {
 		expect(parsed.onThisDay).toEqual({
 			error: true,
 			message: 'timeout',
+			code: expect.any(String),
 		});
 	});
 
@@ -196,15 +199,16 @@ describe('daily_briefing tool', () => {
 		vi.mocked(getInsights).mockResolvedValue([
 			{
 				id: 'ins-1',
-				insight_type: 'theme',
+				insight_type: 'theme_cluster',
 				title: 'Test Insight',
 				summary: 'A test insight summary that could be long',
+				evidence: [],
+				entities: [],
+				batch_id: null,
 				status: 'new',
 				created_at: new Date().toISOString(),
-				source_document_ids: [],
-				confidence: 0.8,
 			},
-		] as never);
+		]);
 
 		const result = (await callBriefing(false, 7)) as {
 			content: { text: string }[];
