@@ -63,7 +63,21 @@ export function serializeResponse<T>(obj: T): T {
 		}
 		return obj.toString() as T;
 	}
-	if (typeof Buffer !== 'undefined' && Buffer.isBuffer(obj)) return obj.toString('base64') as T;
+	if (
+		typeof Buffer !== 'undefined' &&
+		typeof Buffer.isBuffer === 'function' &&
+		Buffer.isBuffer(obj)
+	) {
+		try {
+			return obj.toString('base64') as T;
+		} catch {
+			// Polyfilled Buffer without base64 support — fall back to manual encoding
+			const bytes = new Uint8Array(obj);
+			let binary = '';
+			for (const b of bytes) binary += String.fromCharCode(b);
+			return btoa(binary) as T;
+		}
+	}
 	if (Array.isArray(obj)) return obj.map(serializeResponse) as T;
 	if (obj !== null && typeof obj === 'object') {
 		const result: Record<string, unknown> = {};

@@ -59,8 +59,15 @@ function createHandler(): (includeOnThisDay: boolean, recentDays: number) => Pro
 // --- Fixtures ---
 
 function makeDoc(
-	overrides: Partial<{ id: string; title: string; source_type: string; created_at: string }> = {},
+	overrides: Partial<{
+		id: string;
+		title: string;
+		source_type: string;
+		created_at: string;
+		updated_at: string;
+	}> = {},
 ) {
+	const created = overrides.created_at ?? new Date().toISOString();
 	return {
 		id: overrides.id ?? 'doc-1',
 		title: overrides.title ?? 'Test Doc',
@@ -69,8 +76,8 @@ function makeDoc(
 		file_path: null,
 		raw_content: 'test content',
 		metadata: {},
-		created_at: overrides.created_at ?? new Date().toISOString(),
-		updated_at: overrides.created_at ?? new Date().toISOString(),
+		created_at: created,
+		updated_at: overrides.updated_at ?? created,
 	};
 }
 
