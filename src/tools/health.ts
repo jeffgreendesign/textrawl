@@ -114,6 +114,7 @@ export function registerHealthTool(server: McpServer): void {
 				};
 				if (!embeddingsConfigured) {
 					checks.embeddings.error = `${config.EMBEDDING_PROVIDER} not configured`;
+					hasFailure = true;
 				} else {
 					try {
 						await generateEmbedding('health check');
@@ -121,6 +122,7 @@ export function registerHealthTool(server: McpServer): void {
 						checks.embeddings.ok = false;
 						checks.embeddings.error =
 							err instanceof Error ? err.message : 'Embedding service unreachable';
+						hasFailure = true;
 					}
 				}
 

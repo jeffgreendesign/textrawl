@@ -223,6 +223,7 @@ describe('health_check tool', () => {
 				checks: Record<string, { ok: boolean; error?: string }>;
 			};
 		};
+		expect(result.structuredContent?.status).toBe('degraded');
 		expect(result.structuredContent?.checks.embeddings.ok).toBe(false);
 		expect(result.structuredContent?.checks.embeddings.error).toBe('Connection refused');
 	});
