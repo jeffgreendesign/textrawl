@@ -222,4 +222,156 @@ describe('get_stats tool', () => {
 		expect(result.isError).toBe(true);
 		expect(result.content[0].text).toContain('connection refused');
 	});
+
+	it('returns insight stats with empty data (all zeros)', async () => {
+		(config as { ENABLE_INSIGHTS: boolean }).ENABLE_INSIGHTS = true;
+		vi.mocked(validateInsightSchema).mockResolvedValue({
+			valid: true,
+			missing: [],
+			hint: '',
+		});
+		vi.mocked(getInsightStats).mockResolvedValue({
+			total: 0,
+			new: 0,
+			seen: 0,
+			dismissed: 0,
+			byType: {},
+			queueState: null,
+		});
+
+		const result = (await callStats('insights')) as {
+			isError?: boolean;
+			structuredContent?: {
+				insights: {
+					total: number;
+					new: number;
+					seen: number;
+					dismissed: number;
+					byType: Record<string, number>;
+					queueState: null;
+				};
+			};
+		};
+		expect(result.isError).toBeUndefined();
+		expect(result.structuredContent?.insights).toEqual({
+			total: 0,
+			new: 0,
+			seen: 0,
+			dismissed: 0,
+			byType: {},
+			queueState: null,
+		});
+	});
+
+	it('returns insight stats with null queueState in structuredContent', async () => {
+		(config as { ENABLE_INSIGHTS: boolean }).ENABLE_INSIGHTS = true;
+		vi.mocked(validateInsightSchema).mockResolvedValue({
+			valid: true,
+			missing: [],
+			hint: '',
+		});
+		vi.mocked(getInsightStats).mockResolvedValue({
+			total: 1,
+			new: 1,
+			seen: 0,
+			dismissed: 0,
+			byType: { cross_source: 1 },
+			queueState: null,
+		});
+
+		const result = (await callStats('insights')) as {
+			structuredContent?: { insights: { queueState: unknown } };
+		};
+		expect(result.structuredContent?.insights.queueState).toBeNull();
+	});
+
+	it('scope=insights returns error when getInsightStats throws', async () => {
+		(config as { ENABLE_INSIGHTS: boolean }).ENABLE_INSIGHTS = true;
+		vi.mocked(validateInsightSchema).mockResolvedValue({
+			valid: true,
+			missing: [],
+			hint: '',
+		});
+		vi.mocked(getInsightStats).mockRejectedValue(
+			new Error('relation "proactive_insights" does not exist'),
+		);
+
+		const result = (await callStats('insights')) as {
+			isError?: boolean;
+			content: { text: string }[];
+		};
+		expect(result.isError).toBe(true);
+		expect(result.content[0].text).toContain('Insight stats failed');
+		expect(result.content[0].text).toContain('proactive_insights');
+	});
+
+	it('scope=all continues when insights throws', async () => {
+		(config as { ENABLE_INSIGHTS: boolean }).ENABLE_INSIGHTS = true;
+		vi.mocked(validateInsightSchema).mockResolvedValue({
+			valid: true,
+			missing: [],
+			hint: '',
+		});
+		vi.mocked(getInsightStats).mockRejectedValue(new Error('insights query failed'));
+
+		const result = (await callStats('all')) as {
+			isError?: boolean;
+			structuredContent?: Record<string, unknown>;
+		};
+		// Should NOT be an error — insights failure is silently skipped in 'all' mode
+		expect(result.isError).toBeUndefined();
+		expect(result.structuredContent).toHaveProperty('knowledge');
+		expect(result.structuredContent).not.toHaveProperty('insights');
+	});
+
+	it('structuredContent passes Zod output schema validation', async () => {
+		const z = await import('zod');
+		(config as { ENABLE_INSIGHTS: boolean }).ENABLE_INSIGHTS = true;
+		vi.mocked(validateInsightSchema).mockResolvedValue({
+			valid: true,
+			missing: [],
+			hint: '',
+		});
+		vi.mocked(getInsightStats).mockResolvedValue({
+			total: 5,
+			new: 2,
+			seen: 2,
+			dismissed: 1,
+			byType: { theme_cluster: 3, cross_source: 2 },
+			queueState: {
+				chunks_pending: 10,
+				is_processing: false,
+				last_insert_at: '2024-03-01T00:00:00.000Z',
+				last_scan_at: '2024-03-01T12:00:00.000Z',
+			},
+		});
+
+		const result = (await callStats('insights')) as {
+			structuredContent?: Record<string, unknown>;
+		};
+
+		// Validate against the same schema the MCP SDK would use
+		const outputSchema = z.z.object({
+			insights: z.z
+				.object({
+					total: z.z.number(),
+					new: z.z.number(),
+					seen: z.z.number(),
+					dismissed: z.z.number(),
+					byType: z.z.record(z.z.string(), z.z.number()),
+					queueState: z.z
+						.object({
+							chunks_pending: z.z.number(),
+							is_processing: z.z.boolean(),
+							last_insert_at: z.z.string().nullable(),
+							last_scan_at: z.z.string().nullable(),
+						})
+						.nullable(),
+				})
+				.optional(),
+		});
+
+		const parsed = outputSchema.safeParse(result.structuredContent);
+		expect(parsed.success).toBe(true);
+	});
 });

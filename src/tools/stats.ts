@@ -195,6 +195,8 @@ export function registerStatsTools(server: McpServer): void {
 						}
 						// Silently skip if schema not ready in 'all' mode
 					} catch (err) {
+						// Log to stderr so the actual error is visible in server logs
+						console.error('[get_stats] insights scope error (all):', err);
 						logScopeError('insights', scope, err);
 						// Invalidate stale schema cache so next call re-checks
 						insightSchemaCache = null;
@@ -210,6 +212,8 @@ export function registerStatsTools(server: McpServer): void {
 					try {
 						result.insights = await getInsightStats();
 					} catch (err) {
+						// Log to stderr so the actual error is visible in server logs
+						console.error('[get_stats] insights scope error:', err);
 						logScopeError('insights', scope, err);
 						insightSchemaCache = null;
 						return toolError(
@@ -300,6 +304,8 @@ export function registerStatsTools(server: McpServer): void {
 					structuredContent: result,
 				});
 			} catch (error) {
+				// Log to stderr so the actual error is visible even if MCP swallows it
+				console.error(`[get_stats] unhandled error (scope=${scope}):`, error);
 				logger.error('get_stats failed', {
 					scope,
 					error: error instanceof Error ? error.message : String(error),
