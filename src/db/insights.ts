@@ -1,7 +1,7 @@
 import type { InsightStatus, InsightType, ProactiveInsight } from '../types/database.js';
 import { DatabaseError, NotFoundError } from '../utils/errors.js';
 import { logger } from '../utils/logger.js';
-import { isDatabaseConfigured, pgQuery, queryCount, queryOne } from './pg-client.js';
+import { isDatabaseConfigured, pgQuery, queryOne } from './pg-client.js';
 
 // ---------------------------------------------------------------------------
 // Types — re-exported from the canonical types module for backward compat
@@ -24,6 +24,30 @@ export interface InsightQueueState {
 	last_insert_at: string | null;
 	last_scan_at: string | null;
 	is_processing: boolean;
+}
+
+// ---------------------------------------------------------------------------
+// Helpers
+// ---------------------------------------------------------------------------
+
+/**
+ * Coerce a TIMESTAMPTZ value (Date, string, or null) to an ISO 8601 string or null.
+ * Handles all driver return types defensively.
+ */
+function coerceTimestamp(value: unknown): string | null {
+	if (value == null) return null;
+	if (value instanceof Date) {
+		const ts = value.getTime();
+		return Number.isNaN(ts) ? null : value.toISOString();
+	}
+	// Parse string/number into Date and normalize to ISO 8601
+	try {
+		const d = new Date(value as string | number);
+		const ts = d.getTime();
+		return Number.isNaN(ts) ? null : d.toISOString();
+	} catch {
+		return null;
+	}
 }
 
 // ---------------------------------------------------------------------------
@@ -69,18 +93,14 @@ export async function getInsightQueueState(): Promise<InsightQueueState | null> 
 			'SELECT chunks_pending, last_insert_at, last_scan_at, is_processing FROM insight_queue WHERE id = 1',
 		);
 		if (!row) return null;
-		// pg driver returns Date objects for TIMESTAMPTZ — convert at source
+		// Defensively coerce all values to match the Zod output schema.
+		// The pg driver returns Date objects for TIMESTAMPTZ and may return
+		// unexpected types depending on the driver version / runtime.
 		return {
-			chunks_pending: row.chunks_pending,
-			is_processing: row.is_processing,
-			last_insert_at:
-				row.last_insert_at instanceof Date
-					? row.last_insert_at.toISOString()
-					: (row.last_insert_at ?? null),
-			last_scan_at:
-				row.last_scan_at instanceof Date
-					? row.last_scan_at.toISOString()
-					: (row.last_scan_at ?? null),
+			chunks_pending: Number(row.chunks_pending) || 0,
+			is_processing: row.is_processing === true,
+			last_insert_at: coerceTimestamp(row.last_insert_at),
+			last_scan_at: coerceTimestamp(row.last_scan_at),
 		};
 	} catch (err) {
 		const message = err instanceof Error ? err.message : String(err);
@@ -343,32 +363,50 @@ export async function getInsightStats(): Promise<{
 	}
 
 	try {
-		const [total, newCount, seenCount, dismissedCount, typeResult, queueState] = await Promise.all([
-			queryCount('SELECT count(*) FROM proactive_insights'),
-			queryCount("SELECT count(*) FROM proactive_insights WHERE status = 'new'"),
-			queryCount("SELECT count(*) FROM proactive_insights WHERE status = 'seen'"),
-			queryCount("SELECT count(*) FROM proactive_insights WHERE status = 'dismissed'"),
-			pgQuery<{ insight_type: string }>('SELECT insight_type FROM proactive_insights'),
+		// Single aggregate query replaces 5 parallel count queries.
+		// Casting to ::int ensures the Neon driver returns JS numbers (not bigint strings).
+		const [countsResult, typeResult, queueState] = await Promise.all([
+			pgQuery<{
+				total: number;
+				new_count: number;
+				seen_count: number;
+				dismissed_count: number;
+			}>(
+				`SELECT
+					count(*)::int AS total,
+					count(*) FILTER (WHERE status = 'new')::int AS new_count,
+					count(*) FILTER (WHERE status = 'seen')::int AS seen_count,
+					count(*) FILTER (WHERE status = 'dismissed')::int AS dismissed_count
+				FROM proactive_insights`,
+			),
+			pgQuery<{ insight_type: string; count: number }>(
+				'SELECT insight_type, count(*)::int AS count FROM proactive_insights GROUP BY insight_type',
+			),
 			getInsightQueueState(),
 		]);
 
+		const counts = countsResult.rows[0];
 		const byType: Record<string, number> = {};
 		for (const row of typeResult.rows) {
-			byType[row.insight_type] = (byType[row.insight_type] || 0) + 1;
+			byType[row.insight_type] = Number(row.count) || 0;
 		}
 
+		// Defensively coerce all values to match the Zod output schema.
 		return {
-			total,
-			new: newCount,
-			seen: seenCount,
-			dismissed: dismissedCount,
+			total: Number(counts?.total) || 0,
+			new: Number(counts?.new_count) || 0,
+			seen: Number(counts?.seen_count) || 0,
+			dismissed: Number(counts?.dismissed_count) || 0,
 			byType,
 			queueState,
 		};
 	} catch (err) {
 		if (err instanceof DatabaseError) throw err;
 		const message = err instanceof Error ? err.message : String(err);
-		logger.error('Failed to get insight stats', { error: message });
+		logger.error('Failed to get insight stats', {
+			error: message,
+			stack: err instanceof Error ? err.stack : undefined,
+		});
 		throw new DatabaseError(`Failed to get insight stats: ${message}`);
 	}
 }
