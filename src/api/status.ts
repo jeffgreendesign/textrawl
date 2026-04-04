@@ -61,6 +61,7 @@ const TOOL_DEFINITIONS: ToolDef[] = [
 	{ name: 'update_document', group: 'Document' },
 	{ name: 'add_note', group: 'Document' },
 	{ name: 'get_stats', group: 'Stats' },
+	{ name: 'health_check', group: 'Stats' },
 
 	// Memory tools
 	{
