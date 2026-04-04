@@ -40,8 +40,7 @@ function coerceTimestamp(value: unknown): string | null {
 		const ts = value.getTime();
 		return Number.isNaN(ts) ? null : value.toISOString();
 	}
-	if (typeof value === 'string' && value.length > 0) return value;
-	// Last resort: try to construct a Date
+	// Parse string/number into Date and normalize to ISO 8601
 	try {
 		const d = new Date(value as string | number);
 		const ts = d.getTime();
@@ -380,14 +379,16 @@ export async function getInsightStats(): Promise<{
 					count(*) FILTER (WHERE status = 'dismissed')::int AS dismissed_count
 				FROM proactive_insights`,
 			),
-			pgQuery<{ insight_type: string }>('SELECT insight_type FROM proactive_insights'),
+			pgQuery<{ insight_type: string; count: number }>(
+				'SELECT insight_type, count(*)::int AS count FROM proactive_insights GROUP BY insight_type',
+			),
 			getInsightQueueState(),
 		]);
 
 		const counts = countsResult.rows[0];
 		const byType: Record<string, number> = {};
 		for (const row of typeResult.rows) {
-			byType[row.insight_type] = (byType[row.insight_type] || 0) + 1;
+			byType[row.insight_type] = Number(row.count) || 0;
 		}
 
 		// Defensively coerce all values to match the Zod output schema.
