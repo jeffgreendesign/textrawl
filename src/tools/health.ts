@@ -1,10 +1,21 @@
 import type { McpServer } from '@modelcontextprotocol/sdk/server/mcp.js';
 import { z } from 'zod';
-import { checkDatabaseConnection, isDatabaseConfigured } from '../db/pg-client.js';
-import { isEmbeddingsConfigured } from '../services/embeddings.js';
+import {
+	checkDatabaseConnection,
+	isDatabaseConfigured,
+	queryCount,
+	queryOne,
+} from '../db/pg-client.js';
+import { generateEmbedding, isEmbeddingsConfigured } from '../services/embeddings.js';
 import { toolError, toolResponse } from '../utils/compact.js';
 import { config } from '../utils/config.js';
-import { checkTable, formatUptime, serverStartTime, timed } from '../utils/health-helpers.js';
+import {
+	checkTable,
+	estimateRowCount,
+	formatUptime,
+	serverStartTime,
+	timed,
+} from '../utils/health-helpers.js';
 import { logger } from '../utils/logger.js';
 
 import pkg from '../../package.json' with { type: 'json' };
@@ -16,8 +27,10 @@ const ComponentCheckSchema = z.object({
 	latencyMs: z.number().optional(),
 	error: z.string().optional(),
 	model: z.string().optional(),
+	provider: z.string().optional(),
 	count: z.number().optional(),
 	entities: z.number().optional(),
+	observations: z.number().optional(),
 	sessions: z.number().optional(),
 	pending: z.number().optional(),
 });
@@ -98,15 +111,34 @@ export function registerHealthTool(server: McpServer): void {
 					checks.database = { ok: false, error: 'DATABASE_URL not configured' };
 				}
 
-				// 2. Embeddings
-				const embeddingsOk = isEmbeddingsConfigured();
-				checks.embeddings = { ok: embeddingsOk, model: getEmbeddingModelName() };
-				if (!embeddingsOk) {
+				// 2. Embeddings (config + reachability)
+				const embeddingsConfigured = isEmbeddingsConfigured();
+				checks.embeddings = {
+					ok: embeddingsConfigured,
+					model: getEmbeddingModelName(),
+					provider: config.EMBEDDING_PROVIDER,
+				};
+				if (!embeddingsConfigured) {
 					checks.embeddings.error = `${config.EMBEDDING_PROVIDER} not configured`;
+					hasFailure = true;
+				} else {
+					try {
+						await generateEmbedding('health check');
+					} catch (err) {
+						checks.embeddings.ok = false;
+						checks.embeddings.error =
+							err instanceof Error ? err.message : 'Embedding service unreachable';
+						hasFailure = true;
+					}
 				}
 
 				// 3. Table checks (only if DB is connected)
 				if (dbOk) {
+					// Use estimated counts by default (pg_class catalog), exact count(*) in verbose
+					const getCount = verbose
+						? (table: string) => queryCount(`SELECT count(*) FROM ${table}`)
+						: estimateRowCount;
+
 					// Documents (always checked)
 					try {
 						const docsOk = await checkTable('documents');
@@ -114,12 +146,29 @@ export function registerHealthTool(server: McpServer): void {
 						if (!docsOk) {
 							checks.documents.error = "Table 'documents' not accessible";
 							hasFailure = true;
-						} else if (verbose) {
-							const { queryCount } = await import('../db/pg-client.js');
-							checks.documents.count = await queryCount('SELECT count(*) FROM documents');
+						} else {
+							checks.documents.count = await getCount('documents');
 						}
 					} catch (err) {
 						checks.documents = {
+							ok: false,
+							error: err instanceof Error ? err.message : 'Check failed',
+						};
+						hasFailure = true;
+					}
+
+					// Chunks (always checked)
+					try {
+						const chunksOk = await checkTable('chunks');
+						checks.chunks = { ok: chunksOk };
+						if (!chunksOk) {
+							checks.chunks.error = "Table 'chunks' not accessible";
+							hasFailure = true;
+						} else {
+							checks.chunks.count = await getCount('chunks');
+						}
+					} catch (err) {
+						checks.chunks = {
 							ok: false,
 							error: err instanceof Error ? err.message : 'Check failed',
 						};
@@ -134,9 +183,9 @@ export function registerHealthTool(server: McpServer): void {
 							if (!memOk) {
 								checks.memory.error = "Table 'memory_entities' not accessible";
 								hasFailure = true;
-							} else if (verbose) {
-								const { queryCount } = await import('../db/pg-client.js');
-								checks.memory.entities = await queryCount('SELECT count(*) FROM memory_entities');
+							} else {
+								checks.memory.entities = await getCount('memory_entities');
+								checks.memory.observations = await getCount('memory_observations');
 							}
 						} catch (err) {
 							checks.memory = {
@@ -155,11 +204,8 @@ export function registerHealthTool(server: McpServer): void {
 							if (!convOk) {
 								checks.conversations.error = "Table 'conversation_sessions' not accessible";
 								hasFailure = true;
-							} else if (verbose) {
-								const { queryCount } = await import('../db/pg-client.js');
-								checks.conversations.sessions = await queryCount(
-									'SELECT count(*) FROM conversation_sessions',
-								);
+							} else {
+								checks.conversations.sessions = await getCount('conversation_sessions');
 							}
 						} catch (err) {
 							checks.conversations = {
@@ -178,6 +224,8 @@ export function registerHealthTool(server: McpServer): void {
 							if (!insOk) {
 								checks.insights.error = "Table 'proactive_insights' not accessible";
 								hasFailure = true;
+							} else {
+								checks.insights.count = await getCount('proactive_insights');
 							}
 						} catch (err) {
 							checks.insights = {
@@ -193,8 +241,8 @@ export function registerHealthTool(server: McpServer): void {
 							checks.insightQueue = { ok: queueOk };
 							if (!queueOk) {
 								checks.insightQueue.error = "Table 'insight_queue' not accessible";
-							} else if (verbose) {
-								const { queryOne } = await import('../db/pg-client.js');
+								hasFailure = true;
+							} else {
 								const row = await queryOne<{ chunks_pending: number }>(
 									'SELECT chunks_pending FROM insight_queue WHERE id = 1',
 								);
@@ -207,6 +255,7 @@ export function registerHealthTool(server: McpServer): void {
 								ok: false,
 								error: err instanceof Error ? err.message : 'Check failed',
 							};
+							hasFailure = true;
 						}
 					}
 				}
