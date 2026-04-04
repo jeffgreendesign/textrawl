@@ -59,7 +59,7 @@ Memory tools return token-efficient responses by default, reducing context usage
 
 ### Structured Output
 
-Six read-only tools define `outputSchema` and return `structuredContent` alongside the text `content` response. The `structuredContent` object always uses canonical verbose keys regardless of `COMPACT_RESPONSES`. Tools with `outputSchema`: `search`, `get_document`, `list_documents`, `query_memory`, `query_conversations`, `get_stats`.
+Several read-only tools define `outputSchema` and return `structuredContent` alongside the text `content` response. The `structuredContent` object always uses canonical verbose keys regardless of `COMPACT_RESPONSES`. Tools with `outputSchema`: `search`, `get_document`, `list_documents`, `query_memory`, `query_conversations`, `get_stats`, `health_check`.
 
 ### search
 
@@ -366,6 +366,20 @@ Example:
 ```json
 {
   "scope": "all"
+}
+```
+
+### health_check
+
+Check the health of all Textrawl subsystems. Returns pass/fail per component with an overall status (healthy, degraded, unhealthy). Use as the first diagnostic step when something seems broken.
+
+Parameters:
+- verbose (boolean): Include latency measurements and row counts, default false
+
+Example:
+```json
+{
+  "verbose": true
 }
 ```
 

@@ -189,7 +189,7 @@ pnpm upload -- ./converted/
 
 ## MCP Tools (25 tools)
 
-Read-only tools (`search`, `get_document`, `list_documents`, `query_memory`, `query_conversations`, `get_stats`) include `outputSchema` and return `structuredContent` for programmatic consumption alongside the text `content` response.
+Read-only tools (`search`, `get_document`, `list_documents`, `query_memory`, `query_conversations`, `get_stats`, `health_check`) include `outputSchema` and return `structuredContent` for programmatic consumption alongside the text `content` response.
 
 ### Document Tools
 
@@ -243,6 +243,7 @@ Enable with `ENABLE_INSIGHTS=true` (default).
 | Tool | Description |
 |------|-------------|
 | `get_stats` | Statistics across all features (`scope: 'all' \| 'knowledge' \| 'memory' \| 'conversations' \| 'insights'`) |
+| `health_check` | Check the health of all subsystems — returns pass/fail per component with overall status (`verbose` for latency and counts) |
 
 ### Unified Tools
 

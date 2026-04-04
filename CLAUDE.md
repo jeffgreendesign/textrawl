@@ -56,7 +56,7 @@ Claude Code reference for Textrawl.
 <!-- Document/search: search, get_document, list_documents, update_document, add_note -->
 <!-- Memory: remember_fact, query_memory, relate_entities, forget_entity, extract_memories -->
 <!-- Conversation: save_conversation_context, query_conversations, delete_conversation -->
-<!-- Stats: get_stats -->
+<!-- Stats: get_stats, health_check -->
 <!-- Insights: get_insights, discover_connections, dismiss_insight, build_knowledge -->
 <!-- Unified: ask, daily_briefing, save_url, timeline -->
 <!-- Postgres: pg_analyze, pg_recommendations, pg_report_history -->
@@ -77,3 +77,12 @@ Tool implementations: `src/tools/*.ts`. See `README.md` for full tool documentat
 - Keep MCP stdout clean (avoid arbitrary stdout logging in MCP request path).
 - Prefer small, PR-shaped changes and keep tool schemas backward compatible.
 - MCP tool handlers MUST return plain JSON-serializable values. Handlers MUST NOT return raw Date, BigInt, Buffer, or class instances. All date fields MUST be ISO 8601 strings or null. All aggregate queries (COUNT, MIN, MAX) MUST handle the empty-table case with sensible defaults (0, null, []). Every scope in get_stats MUST be wrapped in its own try/catch so partial failures MUST NOT cause a crash for scope=all.
+
+## AX (Agent Experience) rules
+
+- All tool errors must use `toolError(toolName, error, context?)` for structured error objects — never throw generic messages that hide the root cause. The structured form includes `tool`, `message`, `code`, and optional `scope`/`hint` fields.
+- All tool responses pass through `serializeResponse()` via `toolResponse()`. Never return raw `{ content: [...] }` with unserialized data. Never return raw Date, BigInt, Buffer, or class instances.
+- Composite tools (get_stats, daily_briefing) must wrap each independent section in try/catch and return partial results on failure. Failed sections include `{ error: true, message, code }` in the response — they are never silently omitted.
+- All aggregate SQL queries (COUNT, MIN, MAX, AVG) must handle null/empty results with sensible defaults (0, null, []).
+- New tools must include an output schema smoke test covering the empty-DB case.
+- The `health_check` tool is always registered and provides per-component diagnostics. Use it as the first step when diagnosing infrastructure issues.

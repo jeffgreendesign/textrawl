@@ -3,6 +3,7 @@ import { registerAskTool } from './tools/ask.js';
 import { registerBriefingTool } from './tools/briefing.js';
 import { registerConversationTools } from './tools/conversation.js';
 import { registerDocumentTools } from './tools/document.js';
+import { registerHealthTool } from './tools/health.js';
 import { registerInsightTools } from './tools/insights.js';
 import { registerMemoryTools } from './tools/memory.js';
 import { registerNoteTool } from './tools/note.js';
@@ -88,6 +89,7 @@ export function createMcpServer(): McpServer {
 	registerBriefingTool(server);
 	registerTimelineTool(server);
 	registerStatsTools(server);
+	registerHealthTool(server);
 
 	// Register memory tools (feature flagged)
 	if (config.ENABLE_MEMORY) {

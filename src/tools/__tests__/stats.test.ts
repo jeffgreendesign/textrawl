@@ -1,4 +1,5 @@
 import { beforeEach, describe, expect, it, vi } from 'vitest';
+import { z } from 'zod';
 
 // --- Mocks (must be declared before imports) ---
 
@@ -38,10 +39,12 @@ vi.mock('../../db/insights.js', () => ({
 
 // --- Imports ---
 
+import { getConversationSearchStats } from '../../db/conversation-search.js';
 import { getInsightStats, validateInsightSchema } from '../../db/insights.js';
+import { getMemoryStats } from '../../db/memory-search.js';
 import { isDatabaseConfigured } from '../../db/pg-client.js';
 import { getKnowledgeStats } from '../../db/stats.js';
-import { registerStatsTools } from '../../tools/stats.js';
+import { GetStatsOutputSchema, registerStatsTools } from '../../tools/stats.js';
 import { config } from '../../utils/config.js';
 
 // --- Helpers ---
@@ -213,14 +216,18 @@ describe('get_stats tool', () => {
 		expect(qs?.last_scan_at).toBe('2024-03-01T12:00:00.000Z');
 	});
 
-	it('handles database error gracefully', async () => {
+	it('handles database error gracefully with structured error', async () => {
 		vi.mocked(getKnowledgeStats).mockRejectedValue(new Error('connection refused'));
 		const result = (await callStats('knowledge')) as {
 			isError?: boolean;
 			content: { text: string }[];
 		};
 		expect(result.isError).toBe(true);
-		expect(result.content[0].text).toContain('connection refused');
+		const parsed = JSON.parse(result.content[0].text);
+		expect(parsed.error).toBe(true);
+		expect(parsed.tool).toBe('get_stats');
+		expect(parsed.message).toBe('connection refused');
+		expect(parsed.scope).toBe('knowledge');
 	});
 
 	it('returns insight stats with empty data (all zeros)', async () => {
@@ -285,7 +292,7 @@ describe('get_stats tool', () => {
 		expect(result.structuredContent?.insights.queueState).toBeNull();
 	});
 
-	it('scope=insights returns error when getInsightStats throws', async () => {
+	it('scope=insights returns structured error when getInsightStats throws', async () => {
 		(config as { ENABLE_INSIGHTS: boolean }).ENABLE_INSIGHTS = true;
 		vi.mocked(validateInsightSchema).mockResolvedValue({
 			valid: true,
@@ -301,11 +308,13 @@ describe('get_stats tool', () => {
 			content: { text: string }[];
 		};
 		expect(result.isError).toBe(true);
-		expect(result.content[0].text).toContain('Insight stats failed');
-		expect(result.content[0].text).toContain('proactive_insights');
+		const parsed = JSON.parse(result.content[0].text);
+		expect(parsed.tool).toBe('get_stats');
+		expect(parsed.scope).toBe('insights');
+		expect(parsed.message).toContain('proactive_insights');
 	});
 
-	it('scope=all continues when insights throws', async () => {
+	it('scope=all returns partial results with error object when insights throws', async () => {
 		(config as { ENABLE_INSIGHTS: boolean }).ENABLE_INSIGHTS = true;
 		vi.mocked(validateInsightSchema).mockResolvedValue({
 			valid: true,
@@ -318,60 +327,133 @@ describe('get_stats tool', () => {
 			isError?: boolean;
 			structuredContent?: Record<string, unknown>;
 		};
-		// Should NOT be an error — insights failure is silently skipped in 'all' mode
+		// Should NOT be a top-level error — insights failure is reported per-scope
 		expect(result.isError).toBeUndefined();
 		expect(result.structuredContent).toHaveProperty('knowledge');
-		expect(result.structuredContent).not.toHaveProperty('insights');
+		// Insights should have an error object, not be absent
+		expect(result.structuredContent?.insights).toEqual({
+			error: true,
+			message: 'insights query failed',
+			code: expect.any(String),
+		});
 	});
 
-	it('structuredContent passes Zod output schema validation', async () => {
-		const z = await import('zod');
-		(config as { ENABLE_INSIGHTS: boolean }).ENABLE_INSIGHTS = true;
-		vi.mocked(validateInsightSchema).mockResolvedValue({
-			valid: true,
-			missing: [],
-			hint: '',
-		});
-		vi.mocked(getInsightStats).mockResolvedValue({
-			total: 5,
-			new: 2,
-			seen: 2,
-			dismissed: 1,
-			byType: { theme_cluster: 3, cross_source: 2 },
-			queueState: {
-				chunks_pending: 10,
-				is_processing: false,
-				last_insert_at: '2024-03-01T00:00:00.000Z',
-				last_scan_at: '2024-03-01T12:00:00.000Z',
-			},
+	it('scope=all returns partial results with error for knowledge failure', async () => {
+		(config as { ENABLE_MEMORY: boolean }).ENABLE_MEMORY = true;
+		vi.mocked(getKnowledgeStats).mockRejectedValue(new Error('knowledge table missing'));
+		vi.mocked(getMemoryStats).mockResolvedValue({
+			totalEntities: 5,
+			totalObservations: 10,
+			totalRelations: 3,
+			entityTypeCounts: { person: 3, org: 2 },
 		});
 
-		const result = (await callStats('insights')) as {
+		const result = (await callStats('all')) as {
+			isError?: boolean;
 			structuredContent?: Record<string, unknown>;
 		};
+		expect(result.isError).toBeUndefined();
+		// Knowledge has error
+		expect(result.structuredContent?.knowledge).toEqual({
+			error: true,
+			message: 'knowledge table missing',
+			code: expect.any(String),
+		});
+		// Memory still succeeded
+		expect(result.structuredContent?.memory).toEqual({
+			totalEntities: 5,
+			totalObservations: 10,
+			totalRelations: 3,
+			entityTypeCounts: { person: 3, org: 2 },
+		});
+	});
 
-		// Validate against the same schema the MCP SDK would use
-		const outputSchema = z.z.object({
-			insights: z.z
-				.object({
-					total: z.z.number(),
-					new: z.z.number(),
-					seen: z.z.number(),
-					dismissed: z.z.number(),
-					byType: z.z.record(z.z.string(), z.z.number()),
-					queueState: z.z
-						.object({
-							chunks_pending: z.z.number(),
-							is_processing: z.z.boolean(),
-							last_insert_at: z.z.string().nullable(),
-							last_scan_at: z.z.string().nullable(),
-						})
-						.nullable(),
-				})
-				.optional(),
+	it('scope=all reports schema error for insights when schema not ready', async () => {
+		(config as { ENABLE_INSIGHTS: boolean }).ENABLE_INSIGHTS = true;
+		vi.mocked(validateInsightSchema).mockResolvedValue({
+			valid: false,
+			missing: ['proactive_insights'],
+			hint: 'Run setup-db-insights.sql',
 		});
 
-		const parsed = outputSchema.safeParse(result.structuredContent);
-		expect(parsed.success).toBe(true);
+		const result = (await callStats('all')) as {
+			structuredContent?: Record<string, unknown>;
+		};
+		expect(result.structuredContent?.insights).toEqual({
+			error: true,
+			message: 'Run setup-db-insights.sql',
+			code: 'SCHEMA_ERROR',
+		});
+	});
+
+	describe('output schema validation', () => {
+		const outputSchema = z.object(GetStatsOutputSchema);
+
+		it('scope=knowledge passes output schema validation', async () => {
+			const result = (await callStats('knowledge')) as {
+				structuredContent?: Record<string, unknown>;
+			};
+			const parsed = outputSchema.safeParse(result.structuredContent);
+			expect(parsed.success).toBe(true);
+		});
+
+		it('scope=all with all features passes output schema validation', async () => {
+			(config as { ENABLE_INSIGHTS: boolean }).ENABLE_INSIGHTS = true;
+			(config as { ENABLE_MEMORY: boolean }).ENABLE_MEMORY = true;
+			(config as { ENABLE_CONVERSATIONS: boolean }).ENABLE_CONVERSATIONS = true;
+
+			vi.mocked(validateInsightSchema).mockResolvedValue({
+				valid: true,
+				missing: [],
+				hint: '',
+			});
+			vi.mocked(getInsightStats).mockResolvedValue({
+				total: 5,
+				new: 2,
+				seen: 2,
+				dismissed: 1,
+				byType: { theme_cluster: 3, cross_source: 2 },
+				queueState: {
+					chunks_pending: 10,
+					is_processing: false,
+					last_insert_at: '2024-03-01T00:00:00.000Z',
+					last_scan_at: '2024-03-01T12:00:00.000Z',
+				},
+			});
+			vi.mocked(getMemoryStats).mockResolvedValue({
+				totalEntities: 5,
+				totalObservations: 10,
+				totalRelations: 3,
+				entityTypeCounts: { person: 3 },
+			});
+			vi.mocked(getConversationSearchStats).mockResolvedValue({
+				totalSessions: 2,
+				sessionsWithSummary: 1,
+				totalTurns: 20,
+				turnsWithEmbedding: 15,
+			});
+
+			const result = (await callStats('all')) as {
+				structuredContent?: Record<string, unknown>;
+			};
+			const parsed = outputSchema.safeParse(result.structuredContent);
+			expect(parsed.success).toBe(true);
+		});
+
+		it('scope=all with partial errors passes output schema validation', async () => {
+			(config as { ENABLE_INSIGHTS: boolean }).ENABLE_INSIGHTS = true;
+			vi.mocked(validateInsightSchema).mockResolvedValue({
+				valid: true,
+				missing: [],
+				hint: '',
+			});
+			vi.mocked(getInsightStats).mockRejectedValue(new Error('insights broken'));
+
+			const result = (await callStats('all')) as {
+				structuredContent?: Record<string, unknown>;
+			};
+			const parsed = outputSchema.safeParse(result.structuredContent);
+			expect(parsed.success).toBe(true);
+		});
 	});
 });

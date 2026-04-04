@@ -5,58 +5,70 @@ import { getInsightStats, validateInsightSchema } from '../db/insights.js';
 import { getMemoryStats } from '../db/memory-search.js';
 import { isDatabaseConfigured } from '../db/pg-client.js';
 import { getKnowledgeStats } from '../db/stats.js';
-import { configError, isCompact, toolError, toolResponse } from '../utils/compact.js';
+import {
+	classifyError,
+	configError,
+	isCompact,
+	toolError,
+	toolResponse,
+} from '../utils/compact.js';
 import { config } from '../utils/config.js';
 import { logger } from '../utils/logger.js';
 
 // --- Output Schema ---
 
-const GetStatsOutputSchema = {
-	knowledge: z
+const ScopeErrorSchema = z.object({
+	error: z.literal(true),
+	message: z.string(),
+	code: z.string(),
+});
+
+const KnowledgeSchema = z.object({
+	total: z.number(),
+	bySourceType: z.record(z.string(), z.number()),
+	byContentType: z.record(z.string(), z.number()),
+	topTags: z.array(z.object({ tag: z.string(), count: z.number() })),
+	dateRange: z.object({
+		oldest: z.string().nullable(),
+		newest: z.string().nullable(),
+	}),
+});
+
+const MemorySchema = z.object({
+	totalEntities: z.number(),
+	totalObservations: z.number(),
+	totalRelations: z.number(),
+	entityTypeCounts: z.record(z.string(), z.number()),
+});
+
+const ConversationsSchema = z.object({
+	totalSessions: z.number(),
+	sessionsWithSummary: z.number(),
+	totalTurns: z.number(),
+	turnsWithEmbedding: z.number(),
+});
+
+const InsightsSchema = z.object({
+	total: z.number(),
+	new: z.number(),
+	seen: z.number(),
+	dismissed: z.number(),
+	byType: z.record(z.string(), z.number()),
+	queueState: z
 		.object({
-			total: z.number(),
-			bySourceType: z.record(z.string(), z.number()),
-			byContentType: z.record(z.string(), z.number()),
-			topTags: z.array(z.object({ tag: z.string(), count: z.number() })),
-			dateRange: z.object({
-				oldest: z.string().nullable(),
-				newest: z.string().nullable(),
-			}),
+			chunks_pending: z.number(),
+			is_processing: z.boolean(),
+			last_insert_at: z.string().nullable(),
+			last_scan_at: z.string().nullable(),
 		})
-		.optional(),
-	memory: z
-		.object({
-			totalEntities: z.number(),
-			totalObservations: z.number(),
-			totalRelations: z.number(),
-			entityTypeCounts: z.record(z.string(), z.number()),
-		})
-		.optional(),
-	conversations: z
-		.object({
-			totalSessions: z.number(),
-			sessionsWithSummary: z.number(),
-			totalTurns: z.number(),
-			turnsWithEmbedding: z.number(),
-		})
-		.optional(),
-	insights: z
-		.object({
-			total: z.number(),
-			new: z.number(),
-			seen: z.number(),
-			dismissed: z.number(),
-			byType: z.record(z.string(), z.number()),
-			queueState: z
-				.object({
-					chunks_pending: z.number(),
-					is_processing: z.boolean(),
-					last_insert_at: z.string().nullable(),
-					last_scan_at: z.string().nullable(),
-				})
-				.nullable(),
-		})
-		.optional(),
+		.nullable(),
+});
+
+export const GetStatsOutputSchema = {
+	knowledge: z.union([KnowledgeSchema, ScopeErrorSchema]).optional(),
+	memory: z.union([MemorySchema, ScopeErrorSchema]).optional(),
+	conversations: z.union([ConversationsSchema, ScopeErrorSchema]).optional(),
+	insights: z.union([InsightsSchema, ScopeErrorSchema]).optional(),
 };
 
 /** Cache insight schema validation for 60s */
@@ -75,6 +87,14 @@ async function ensureInsightSchema(): Promise<{ ok: true } | { ok: false; error:
 		return { ok: false, error: result.hint };
 	}
 	return { ok: true };
+}
+
+function scopeError(message: string, error: unknown) {
+	return {
+		error: true as const,
+		message,
+		code: classifyError(error),
+	};
 }
 
 /**
@@ -98,7 +118,7 @@ export function registerStatsTools(server: McpServer): void {
 		{
 			title: 'Get Stats',
 			description:
-				'Get statistics about the knowledge base, memory graph, conversations, and insights. Use scope to select which stats to return. Scoped queries require feature flags: memory (ENABLE_MEMORY), conversations (ENABLE_CONVERSATIONS), insights (ENABLE_INSIGHTS). scope="all" silently skips disabled features.',
+				'Get statistics about the knowledge base, memory graph, conversations, and insights. Use scope to select which stats to return. Scoped queries require feature flags: memory (ENABLE_MEMORY), conversations (ENABLE_CONVERSATIONS), insights (ENABLE_INSIGHTS). scope="all" silently skips disabled features but returns per-scope errors for enabled features that fail.',
 			inputSchema: {
 				scope: z
 					.enum(['all', 'knowledge', 'memory', 'conversations', 'insights'])
@@ -137,10 +157,12 @@ export function registerStatsTools(server: McpServer): void {
 					} catch (err) {
 						logScopeError('knowledge', scope, err);
 						if (!includeAll) {
-							return toolError(
-								`Knowledge stats failed: ${err instanceof Error ? err.message : 'Unknown error'}`,
-							);
+							return toolError('get_stats', err, { scope: 'knowledge' });
 						}
+						result.knowledge = scopeError(
+							err instanceof Error ? err.message : 'Unknown error',
+							err,
+						);
 					}
 				}
 
@@ -150,6 +172,7 @@ export function registerStatsTools(server: McpServer): void {
 						result.memory = await getMemoryStats();
 					} catch (err) {
 						logScopeError('memory', scope, err);
+						result.memory = scopeError(err instanceof Error ? err.message : 'Unknown error', err);
 					}
 				} else if (scope === 'memory') {
 					if (!config.ENABLE_MEMORY) {
@@ -159,9 +182,7 @@ export function registerStatsTools(server: McpServer): void {
 						result.memory = await getMemoryStats();
 					} catch (err) {
 						logScopeError('memory', scope, err);
-						return toolError(
-							`Memory stats failed: ${err instanceof Error ? err.message : 'Unknown error'}`,
-						);
+						return toolError('get_stats', err, { scope: 'memory' });
 					}
 				}
 
@@ -171,6 +192,10 @@ export function registerStatsTools(server: McpServer): void {
 						result.conversations = await getConversationSearchStats();
 					} catch (err) {
 						logScopeError('conversations', scope, err);
+						result.conversations = scopeError(
+							err instanceof Error ? err.message : 'Unknown error',
+							err,
+						);
 					}
 				} else if (scope === 'conversations') {
 					if (!config.ENABLE_CONVERSATIONS) {
@@ -180,9 +205,7 @@ export function registerStatsTools(server: McpServer): void {
 						result.conversations = await getConversationSearchStats();
 					} catch (err) {
 						logScopeError('conversations', scope, err);
-						return toolError(
-							`Conversation stats failed: ${err instanceof Error ? err.message : 'Unknown error'}`,
-						);
+						return toolError('get_stats', err, { scope: 'conversations' });
 					}
 				}
 
@@ -192,12 +215,18 @@ export function registerStatsTools(server: McpServer): void {
 						const schema = await ensureInsightSchema();
 						if (schema.ok) {
 							result.insights = await getInsightStats();
+						} else {
+							result.insights = {
+								error: true,
+								message: schema.error,
+								code: 'SCHEMA_ERROR',
+							};
 						}
-						// Silently skip if schema not ready in 'all' mode
 					} catch (err) {
 						logScopeError('insights', scope, err);
 						// Invalidate stale schema cache so next call re-checks
 						insightSchemaCache = null;
+						result.insights = scopeError(err instanceof Error ? err.message : 'Unknown error', err);
 					}
 				} else if (scope === 'insights') {
 					if (!config.ENABLE_INSIGHTS) {
@@ -212,9 +241,7 @@ export function registerStatsTools(server: McpServer): void {
 					} catch (err) {
 						logScopeError('insights', scope, err);
 						insightSchemaCache = null;
-						return toolError(
-							`Insight stats failed: ${err instanceof Error ? err.message : 'Unknown error'}`,
-						);
+						return toolError('get_stats', err, { scope: 'insights' });
 					}
 				}
 
@@ -223,68 +250,94 @@ export function registerStatsTools(server: McpServer): void {
 					const compact: Record<string, unknown> = {};
 
 					if (result.knowledge) {
-						compact.knowledge = result.knowledge;
+						// Pass through error objects as-is
+						if (
+							typeof result.knowledge === 'object' &&
+							(result.knowledge as { error?: boolean }).error
+						) {
+							compact.knowledge = result.knowledge;
+						} else {
+							compact.knowledge = result.knowledge;
+						}
 					}
 
 					if (result.memory) {
-						const mem = result.memory as {
-							totalEntities: number;
-							totalObservations: number;
-							totalRelations: number;
-							entityTypeCounts: Record<string, number>;
-						};
-						compact.memory = {
-							ent: mem.totalEntities,
-							obs: mem.totalObservations,
-							rel: mem.totalRelations,
-							byType: mem.entityTypeCounts,
-						};
+						if (typeof result.memory === 'object' && (result.memory as { error?: boolean }).error) {
+							compact.memory = result.memory;
+						} else {
+							const mem = result.memory as {
+								totalEntities: number;
+								totalObservations: number;
+								totalRelations: number;
+								entityTypeCounts: Record<string, number>;
+							};
+							compact.memory = {
+								ent: mem.totalEntities,
+								obs: mem.totalObservations,
+								rel: mem.totalRelations,
+								byType: mem.entityTypeCounts,
+							};
+						}
 					}
 
 					if (result.conversations) {
-						const conv = result.conversations as {
-							totalSessions: number;
-							sessionsWithSummary: number;
-							totalTurns: number;
-							turnsWithEmbedding: number;
-						};
-						compact.conversations = {
-							sess: conv.totalSessions,
-							indexed: conv.sessionsWithSummary,
-							turns: conv.totalTurns,
-							turnIdx: conv.turnsWithEmbedding,
-						};
+						if (
+							typeof result.conversations === 'object' &&
+							(result.conversations as { error?: boolean }).error
+						) {
+							compact.conversations = result.conversations;
+						} else {
+							const conv = result.conversations as {
+								totalSessions: number;
+								sessionsWithSummary: number;
+								totalTurns: number;
+								turnsWithEmbedding: number;
+							};
+							compact.conversations = {
+								sess: conv.totalSessions,
+								indexed: conv.sessionsWithSummary,
+								turns: conv.totalTurns,
+								turnIdx: conv.turnsWithEmbedding,
+							};
+						}
 					}
 
 					if (result.insights) {
-						const ins = result.insights as {
-							total: number;
-							new: number;
-							seen: number;
-							dismissed: number;
-							byType: Record<string, number>;
-							queueState: {
-								chunks_pending: number;
-								is_processing: boolean;
-								last_insert_at: string | null;
-								last_scan_at: string | null;
-							} | null;
-						};
-						compact.insights = {
-							n: ins.total,
-							new: ins.new,
-							seen: ins.seen,
-							dis: ins.dismissed,
-							types: ins.byType,
-							q: ins.queueState
-								? {
-										p: ins.queueState.chunks_pending,
-										proc: ins.queueState.is_processing,
-										lastIns: ins.queueState.last_insert_at,
-										last: ins.queueState.last_scan_at,
-									}
-								: null,
-						};
+						if (
+							typeof result.insights === 'object' &&
+							(result.insights as { error?: boolean }).error
+						) {
+							compact.insights = result.insights;
+						} else {
+							const ins = result.insights as {
+								total: number;
+								new: number;
+								seen: number;
+								dismissed: number;
+								byType: Record<string, number>;
+								queueState: {
+									chunks_pending: number;
+									is_processing: boolean;
+									last_insert_at: string | null;
+									last_scan_at: string | null;
+								} | null;
+							};
+							compact.insights = {
+								n: ins.total,
+								new: ins.new,
+								seen: ins.seen,
+								dis: ins.dismissed,
+								types: ins.byType,
+								q: ins.queueState
+									? {
+											p: ins.queueState.chunks_pending,
+											proc: ins.queueState.is_processing,
+											lastIns: ins.queueState.last_insert_at,
+											last: ins.queueState.last_scan_at,
+										}
+									: null,
+							};
+						}
 					}
 
 					return toolResponse({
@@ -300,15 +353,7 @@ export function registerStatsTools(server: McpServer): void {
 					structuredContent: result,
 				});
 			} catch (error) {
-				logger.error('get_stats failed', {
-					scope,
-					error: error instanceof Error ? error.message : String(error),
-					stack: error instanceof Error ? error.stack : undefined,
-				});
-
-				return toolError(
-					`Failed to get stats (scope=${scope}): ${error instanceof Error ? error.message : 'Unknown error'}`,
-				);
+				return toolError('get_stats', error, { scope });
 			}
 		},
 	);

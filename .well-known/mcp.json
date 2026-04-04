@@ -1329,6 +1329,54 @@
 			}
 		},
 		{
+			"name": "health_check",
+			"description": "Check the health of all Textrawl subsystems. Returns pass/fail per component with overall status (healthy, degraded, unhealthy).",
+			"inputSchema": {
+				"type": "object",
+				"properties": {
+					"verbose": {
+						"type": "boolean",
+						"default": false,
+						"description": "Include latency measurements and row counts"
+					}
+				}
+			},
+			"outputSchema": {
+				"type": "object",
+				"properties": {
+					"status": {
+						"type": "string",
+						"enum": ["healthy", "degraded", "unhealthy"]
+					},
+					"checks": {
+						"type": "object",
+						"additionalProperties": {
+							"type": "object",
+							"properties": {
+								"ok": {
+									"type": "boolean"
+								},
+								"error": {
+									"type": "string"
+								},
+								"latencyMs": {
+									"type": "number"
+								}
+							},
+							"required": ["ok"]
+						}
+					},
+					"version": {
+						"type": "string"
+					},
+					"uptime": {
+						"type": "string"
+					}
+				},
+				"required": ["status", "checks", "version", "uptime"]
+			}
+		},
+		{
 			"name": "get_insights",
 			"description": "Get proactive insights discovered from your knowledge base",
 			"featureFlag": "ENABLE_INSIGHTS",
@@ -1607,7 +1655,8 @@
 				"list_documents",
 				"query_memory",
 				"query_conversations",
-				"get_stats"
+				"get_stats",
+				"health_check"
 			]
 		}
 	},

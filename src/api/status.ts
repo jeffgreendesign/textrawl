@@ -3,6 +3,7 @@ import { Router, type Router as RouterType } from 'express';
 import { checkDatabaseConnection, isDatabaseConfigured } from '../db/pg-client.js';
 import { isEmbeddingsConfigured } from '../services/embeddings.js';
 import { config } from '../utils/config.js';
+import { checkTable, serverStartTime, timed } from '../utils/health-helpers.js';
 import { logger } from '../utils/logger.js';
 
 // ---------------------------------------------------------------------------
@@ -38,31 +39,6 @@ interface StatusResponse {
 		model: string;
 		configured: boolean;
 	};
-}
-
-// ---------------------------------------------------------------------------
-// Helpers
-// ---------------------------------------------------------------------------
-
-const serverStartTime = Date.now();
-
-/** Check if a table is accessible (schema exists) */
-async function checkTable(tableName: string): Promise<boolean> {
-	if (!isDatabaseConfigured()) return false;
-	try {
-		const { pgQuery } = await import('../db/pg-client.js');
-		await pgQuery(`SELECT 1 FROM ${tableName} LIMIT 0`);
-		return true;
-	} catch {
-		return false;
-	}
-}
-
-/** Time an async operation, return [result, latencyMs] */
-async function timed<T>(fn: () => Promise<T>): Promise<[T, number]> {
-	const start = performance.now();
-	const result = await fn();
-	return [result, Math.round(performance.now() - start)];
 }
 
 // ---------------------------------------------------------------------------
