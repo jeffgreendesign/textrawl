@@ -17,7 +17,14 @@ import {
 	extractMemoriesFromText,
 	isExtractionConfigured,
 } from '../services/memory-extraction.js';
-import { configError, formatId, isCompact, toJSON, toolError } from '../utils/compact.js';
+import {
+	configError,
+	formatId,
+	isCompact,
+	toJSON,
+	toolError,
+	toolResponse,
+} from '../utils/compact.js';
 import { logger } from '../utils/logger.js';
 
 const EntityTypeSchema = z.enum([
@@ -934,7 +941,7 @@ export function registerMemoryTools(server: McpServer): void {
 				});
 
 				if (!facts?.length && !relations?.length) {
-					return toolError('Provide at least one fact or relation');
+					return toolError('build_knowledge', new Error('Provide at least one fact or relation'));
 				}
 
 				if (!isDatabaseConfigured()) {
@@ -1038,31 +1045,23 @@ export function registerMemoryTools(server: McpServer): void {
 					errors: hasErrors ? errors.length : 0,
 				});
 
-				return {
-					content: [
-						{
-							type: 'text' as const,
-							text: toJSON(
-								isCompact()
-									? {
-											ok: !hasErrors,
-											...(hasErrors ? { partial: true } : {}),
-											facts: { new: factsCreated, dup: factsDuplicate },
-											rel: relationsCreated,
-											...(hasErrors ? { err: errors } : {}),
-										}
-									: {
-											success: !hasErrors,
-											...(hasErrors ? { partialSuccess: true } : {}),
-											factsCreated,
-											factsDuplicate,
-											relationsCreated,
-											...(hasErrors ? { errors } : {}),
-										},
-							),
-						},
-					],
-				};
+				return toolResponse({
+					compact: {
+						ok: !hasErrors,
+						...(hasErrors ? { partial: true } : {}),
+						facts: { new: factsCreated, dup: factsDuplicate },
+						rel: relationsCreated,
+						...(hasErrors ? { err: errors } : {}),
+					},
+					verbose: {
+						success: !hasErrors,
+						...(hasErrors ? { partialSuccess: true } : {}),
+						factsCreated,
+						factsDuplicate,
+						relationsCreated,
+						...(hasErrors ? { errors } : {}),
+					},
+				});
 			} catch (error) {
 				return toolError('build_knowledge', error);
 			}
