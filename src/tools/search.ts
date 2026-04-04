@@ -1,6 +1,6 @@
 import type { McpServer } from '@modelcontextprotocol/sdk/server/mcp.js';
 import { z } from 'zod';
-import { SearchError, unifiedSearch } from '../services/search.js';
+import { unifiedSearch } from '../services/search.js';
 import { formatId, toolError, toolResponse } from '../utils/compact.js';
 import { logger } from '../utils/logger.js';
 
@@ -201,17 +201,7 @@ export function registerSearchTool(server: McpServer): void {
 					structuredContent,
 				});
 			} catch (error) {
-				logger.error('search failed', {
-					error: error instanceof Error ? error.message : String(error),
-				});
-
-				if (error instanceof SearchError) {
-					return toolError(error.message);
-				}
-
-				return toolError(
-					`Search failed: ${error instanceof Error ? error.message : 'Unknown error'}`,
-				);
+				return toolError('search', error);
 			}
 		},
 	);

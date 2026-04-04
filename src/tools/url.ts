@@ -251,11 +251,7 @@ export function registerUrlTool(server: McpServer): void {
 					content: [{ type: 'text' as const, text: JSON.stringify(result, null, 2) }],
 				};
 			} catch (error) {
-				logger.error('save_url failed', {
-					error: error instanceof Error ? error.message : String(error),
-					url: redactUrl(url),
-				});
-				return toolError(error instanceof Error ? error.message : 'Failed to save URL');
+				return toolError('save_url', error);
 			}
 		},
 	);
