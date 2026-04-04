@@ -9,7 +9,13 @@ import {
 import { generateEmbedding, isEmbeddingsConfigured } from '../services/embeddings.js';
 import { toolError, toolResponse } from '../utils/compact.js';
 import { config } from '../utils/config.js';
-import { checkTable, formatUptime, serverStartTime, timed } from '../utils/health-helpers.js';
+import {
+	checkTable,
+	estimateRowCount,
+	formatUptime,
+	serverStartTime,
+	timed,
+} from '../utils/health-helpers.js';
 import { logger } from '../utils/logger.js';
 
 import pkg from '../../package.json' with { type: 'json' };
@@ -128,6 +134,11 @@ export function registerHealthTool(server: McpServer): void {
 
 				// 3. Table checks (only if DB is connected)
 				if (dbOk) {
+					// Use estimated counts by default (pg_class catalog), exact count(*) in verbose
+					const getCount = verbose
+						? (table: string) => queryCount(`SELECT count(*) FROM ${table}`)
+						: estimateRowCount;
+
 					// Documents (always checked)
 					try {
 						const docsOk = await checkTable('documents');
@@ -136,7 +147,7 @@ export function registerHealthTool(server: McpServer): void {
 							checks.documents.error = "Table 'documents' not accessible";
 							hasFailure = true;
 						} else {
-							checks.documents.count = await queryCount('SELECT count(*) FROM documents');
+							checks.documents.count = await getCount('documents');
 						}
 					} catch (err) {
 						checks.documents = {
@@ -154,7 +165,7 @@ export function registerHealthTool(server: McpServer): void {
 							checks.chunks.error = "Table 'chunks' not accessible";
 							hasFailure = true;
 						} else {
-							checks.chunks.count = await queryCount('SELECT count(*) FROM chunks');
+							checks.chunks.count = await getCount('chunks');
 						}
 					} catch (err) {
 						checks.chunks = {
@@ -173,10 +184,8 @@ export function registerHealthTool(server: McpServer): void {
 								checks.memory.error = "Table 'memory_entities' not accessible";
 								hasFailure = true;
 							} else {
-								checks.memory.entities = await queryCount('SELECT count(*) FROM memory_entities');
-								checks.memory.observations = await queryCount(
-									'SELECT count(*) FROM memory_observations',
-								);
+								checks.memory.entities = await getCount('memory_entities');
+								checks.memory.observations = await getCount('memory_observations');
 							}
 						} catch (err) {
 							checks.memory = {
@@ -196,9 +205,7 @@ export function registerHealthTool(server: McpServer): void {
 								checks.conversations.error = "Table 'conversation_sessions' not accessible";
 								hasFailure = true;
 							} else {
-								checks.conversations.sessions = await queryCount(
-									'SELECT count(*) FROM conversation_sessions',
-								);
+								checks.conversations.sessions = await getCount('conversation_sessions');
 							}
 						} catch (err) {
 							checks.conversations = {
@@ -218,7 +225,7 @@ export function registerHealthTool(server: McpServer): void {
 								checks.insights.error = "Table 'proactive_insights' not accessible";
 								hasFailure = true;
 							} else {
-								checks.insights.count = await queryCount('SELECT count(*) FROM proactive_insights');
+								checks.insights.count = await getCount('proactive_insights');
 							}
 						} catch (err) {
 							checks.insights = {
@@ -234,6 +241,7 @@ export function registerHealthTool(server: McpServer): void {
 							checks.insightQueue = { ok: queueOk };
 							if (!queueOk) {
 								checks.insightQueue.error = "Table 'insight_queue' not accessible";
+								hasFailure = true;
 							} else {
 								const row = await queryOne<{ chunks_pending: number }>(
 									'SELECT chunks_pending FROM insight_queue WHERE id = 1',
@@ -247,6 +255,7 @@ export function registerHealthTool(server: McpServer): void {
 								ok: false,
 								error: err instanceof Error ? err.message : 'Check failed',
 							};
+							hasFailure = true;
 						}
 					}
 				}

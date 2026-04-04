@@ -33,3 +33,15 @@ export function formatUptime(seconds: number): string {
 	if (h > 0) return `${h}h ${m}m`;
 	return `${m}m ${seconds % 60}s`;
 }
+
+/** Estimated row count from pg_class (cheap, no table scan). */
+export async function estimateRowCount(tableName: string): Promise<number> {
+	if (!SAFE_IDENTIFIER.test(tableName)) return -1;
+	const { rows } = await pgQuery<{ reltuples: string }>(
+		'SELECT reltuples FROM pg_class WHERE relname = $1',
+		[tableName],
+	);
+	if (!rows[0]) return -1;
+	const est = Number(rows[0].reltuples);
+	return est < 0 ? 0 : Math.round(est);
+}

@@ -38,15 +38,16 @@ vi.mock('../../utils/health-helpers.js', async (importOriginal) => {
 		...orig,
 		serverStartTime: Date.now() - 60_000, // 1 minute ago
 		checkTable: vi.fn(async () => true),
+		estimateRowCount: vi.fn(async () => 0),
 	};
 });
 
 // --- Imports ---
 
-import { checkDatabaseConnection, isDatabaseConfigured } from '../../db/pg-client.js';
+import { checkDatabaseConnection, isDatabaseConfigured, queryCount } from '../../db/pg-client.js';
 import { generateEmbedding, isEmbeddingsConfigured } from '../../services/embeddings.js';
 import { config } from '../../utils/config.js';
-import { checkTable } from '../../utils/health-helpers.js';
+import { checkTable, estimateRowCount } from '../../utils/health-helpers.js';
 import { HealthCheckOutputSchema, registerHealthTool } from '../health.js';
 
 // --- Helpers ---
@@ -226,6 +227,38 @@ describe('health_check tool', () => {
 		expect(result.structuredContent?.status).toBe('degraded');
 		expect(result.structuredContent?.checks.embeddings.ok).toBe(false);
 		expect(result.structuredContent?.checks.embeddings.error).toBe('Connection refused');
+	});
+
+	it('insight queue failure sets status to degraded', async () => {
+		(config as Record<string, unknown>).ENABLE_INSIGHTS = true;
+		vi.mocked(checkTable).mockImplementation(async (table: string) => {
+			return table !== 'insight_queue';
+		});
+
+		const result = (await callHealth(false)) as {
+			structuredContent?: {
+				status: string;
+				checks: Record<string, { ok: boolean; error?: string }>;
+			};
+		};
+		expect(result.structuredContent?.status).toBe('degraded');
+		expect(result.structuredContent?.checks.insightQueue.ok).toBe(false);
+		expect(result.structuredContent?.checks.insightQueue.error).toContain('not accessible');
+	});
+
+	it('uses estimated counts by default and exact counts in verbose mode', async () => {
+		vi.mocked(estimateRowCount).mockResolvedValue(100);
+		vi.mocked(queryCount).mockResolvedValue(42);
+
+		const defaultResult = (await callHealth(false)) as {
+			structuredContent?: { checks: Record<string, { count?: number }> };
+		};
+		expect(defaultResult.structuredContent?.checks.documents.count).toBe(100);
+
+		const verboseResult = (await callHealth(true)) as {
+			structuredContent?: { checks: Record<string, { count?: number }> };
+		};
+		expect(verboseResult.structuredContent?.checks.documents.count).toBe(42);
 	});
 
 	it('includes provider in embeddings check', async () => {
