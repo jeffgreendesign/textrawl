@@ -36,7 +36,7 @@ export function registerTimelineTool(server: McpServer): void {
 			logger.info('timeline called', { startDate, endDate, topic, limit });
 
 			if (!isDatabaseConfigured()) {
-				return configError('Database', 'Set SUPABASE_URL and SUPABASE_SERVICE_KEY');
+				return configError('Database', 'Set DATABASE_URL');
 			}
 
 			try {

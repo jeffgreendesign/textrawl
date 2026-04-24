@@ -44,7 +44,7 @@ export function registerAskTool(server: McpServer): void {
 			logger.info('ask called', { question: question.slice(0, 100), scope, limit });
 
 			if (!isDatabaseConfigured()) {
-				return configError('Database', 'Set SUPABASE_URL and SUPABASE_SERVICE_KEY');
+				return configError('Database', 'Set DATABASE_URL');
 			}
 			if (!isEmbeddingsConfigured()) {
 				return configError('Embeddings', 'Configure an embedding provider');

@@ -4,7 +4,7 @@
 [![Node.js](https://img.shields.io/badge/node-%3E%3D22-brightgreen?logo=node.js)](https://nodejs.org)
 [![TypeScript](https://img.shields.io/badge/TypeScript-5.x-3178C6?logo=typescript&logoColor=white)](https://www.typescriptlang.org)
 [![PostgreSQL](https://img.shields.io/badge/PostgreSQL-pgvector-4169E1?logo=postgresql&logoColor=white)](https://www.postgresql.org)
-[![Supabase](https://img.shields.io/badge/Supabase-3FCF8E?logo=supabase&logoColor=white)](https://supabase.com)
+[![Neon](https://img.shields.io/badge/Neon-000000?logo=neon&logoColor=white)](https://neon.tech)
 [![OpenAI](https://img.shields.io/badge/OpenAI-412991?logo=openai&logoColor=white)](https://openai.com)
 [![Ollama](https://img.shields.io/badge/Ollama-000000?logo=ollama&logoColor=white)](https://ollama.com)
 [![MCP](https://img.shields.io/badge/MCP-Compatible-8A2BE2)](https://modelcontextprotocol.io)
@@ -83,14 +83,20 @@ pnpm setup    # Interactive setup for credentials
 pnpm dev      # Start the server
 ```
 
-### 2. Set Up Supabase
+### 2. Set Up Your Database
 
-1. Create a free project at [supabase.com](https://supabase.com)
-2. Run `scripts/setup-db.sql` in the SQL Editor (or `setup-db-ollama.sql` for Ollama with `nomic-embed-text`, or `setup-db-ollama-v2.sql` for `nomic-embed-text-v2-moe`)
-3. (Optional) For memory tools, also run `scripts/setup-db-memory.sql` (or `setup-db-memory-ollama.sql`)
-4. (Optional) For conversation tools, also run `scripts/setup-db-conversation.sql` (or `setup-db-conversation-ollama.sql` / `setup-db-conversation-ollama-v2.sql`)
-5. Run `scripts/security-rls.sql` for security hardening
-6. Copy your project URL and service role key to `.env`
+1. Create a free project at [neon.tech](https://neon.tech)
+2. Copy the **pooled connection string** from the Neon dashboard into `DATABASE_URL` in `.env`
+3. Run the base schema against your database:
+
+   ```bash
+   psql $DATABASE_URL -f scripts/setup-db.sql
+   ```
+
+   (Use `setup-db-ollama.sql` for Ollama / `setup-db-ollama-v2.sql` for `nomic-embed-text-v2-moe` / `setup-db-google.sql` for Google AI)
+4. (Optional) For memory tools: `psql $DATABASE_URL -f scripts/setup-db-memory.sql`
+5. (Optional) For conversation tools: `psql $DATABASE_URL -f scripts/setup-db-conversation.sql`
+6. (Optional) For Row Level Security hardening: `psql $DATABASE_URL -f scripts/security-rls.sql`
 
 ### 3. Connect Claude Desktop
 
@@ -154,7 +160,7 @@ pnpm upload -- ./converted/
 
 | Guide | Description |
 |-------|-------------|
-| [Supabase Requirements](docs/guides/supabase-requirements.mdx) | Compute tiers, storage estimates, and database sizing |
+| [Database Sizing](docs/guides/supabase-requirements.mdx) | Vector dimensions, index counts, and storage estimates by embedding provider |
 | [CLI Tools](docs/cli/) | Batch conversion and upload from command line |
 | [Security](docs/guides/security-hardening.mdx) | Row Level Security and access controls |
 
@@ -164,8 +170,8 @@ pnpm upload -- ./converted/
 
 | Variable | Required | Description |
 |----------|----------|-------------|
-| `SUPABASE_URL` | Yes | `https://your-project.supabase.co` |
-| `SUPABASE_SERVICE_KEY` | Yes | Service role key |
+| `DATABASE_URL` | Yes | Neon (or any PostgreSQL) pooled connection string |
+| `DATABASE_URL_UNPOOLED` | No | Direct connection for schema migrations (optional) |
 | `EMBEDDING_PROVIDER` | No | `openai` (default), `ollama`, or `google` |
 | `OPENAI_API_KEY` | If OpenAI | For text-embedding-3-small (1536d) |
 | `OLLAMA_BASE_URL` | If Ollama | Default: `http://localhost:11434` |
@@ -176,18 +182,25 @@ pnpm upload -- ./converted/
 | `PORT` | No | Default: 3000 |
 | `LOG_LEVEL` | No | debug, info, warn, error |
 | `ALLOWED_ORIGINS` | No | Comma-separated CORS origins |
-| `ENABLE_MEMORY` | No | Enable memory tools (default: true); requires `setup-db-memory.sql` or `setup-db-memory-ollama.sql` |
-| `ENABLE_CONVERSATIONS` | No | Enable conversation memory tools (default: true); requires `setup-db-conversation.sql` or `setup-db-conversation-ollama.sql` or `setup-db-conversation-ollama-v2.sql` |
+| `ENABLE_MEMORY` | No | Enable memory tools (default: true); requires `setup-db-memory.sql` |
+| `ENABLE_CONVERSATIONS` | No | Enable conversation memory tools (default: true); requires `setup-db-conversation.sql` |
 | `ENABLE_INSIGHTS` | No | Enable proactive insight tools (default: true) |
 | `ENABLE_MEMORY_EXTRACTION` | No | Enable LLM-based memory extraction (default: false) |
 | `ANTHROPIC_API_KEY` | If extraction | Required for `extract_memories` tool |
 | `EXTRACTION_MODEL` | No | Model for extraction (default: claude-haiku-4-5-20250501) |
 | `INSIGHT_MODEL` | No | Model for insight synthesis (default: claude-sonnet-4-6-20250514) |
 | `COMPACT_RESPONSES` | No | Token-efficient responses (default: true) |
-| `DATABASE_URL` | No | Direct Postgres connection for pg_analyze tools |
-| `PG_REPORT_DIR` | No | Analysis report directory (default: ./reports/pg-analysis) |
+| `CHUNKING_MODE` | No | `fixed` (default) or `semantic` (embedding-based splits) |
+| `SEMANTIC_SIMILARITY_THRESHOLD` | No | Semantic split sensitivity 0–1 (default: 0.5) |
+| `REDIS_URL` | No | Redis URL for shared rate limiting across instances |
+| `GOOGLE_CLIENT_ID` | OAuth | OAuth 2.0 client ID (all four OAuth vars required together) |
+| `GOOGLE_CLIENT_SECRET` | OAuth | OAuth 2.0 client secret |
+| `OAUTH_JWT_SECRET` | OAuth | Min 32-char secret for JWT signing |
+| `OAUTH_ALLOWED_EMAILS` | OAuth | Comma-separated email allowlist (optional) |
+| `OAUTH_SERVER_URL` | OAuth | Public server URL for OAuth redirect |
+| `PG_REPORT_DIR` | No | pg_analyze report directory (default: ./reports/pg-analysis) |
 
-## MCP Tools (25 tools)
+## MCP Tools (26 tools)
 
 Read-only tools (`search`, `get_document`, `list_documents`, `query_memory`, `query_conversations`, `get_stats`, `health_check`) include `outputSchema` and return `structuredContent` for programmatic consumption alongside the text `content` response.
 
@@ -218,9 +231,10 @@ Enable with `ENABLE_MEMORY=true` (default). Requires `scripts/setup-db-memory.sq
 
 Enable with `ENABLE_CONVERSATIONS=true` (default). Requires running one of the conversation schema scripts:
 
-- `scripts/setup-db-conversation.sql` (OpenAI embeddings)
+- `scripts/setup-db-conversation.sql` (OpenAI embeddings, 1536d)
 - `scripts/setup-db-conversation-ollama.sql` (Ollama v1 - nomic-embed-text, 1024d)
 - `scripts/setup-db-conversation-ollama-v2.sql` (Ollama v2 - nomic-embed-text-v2-moe, 768d)
+- `scripts/setup-db-conversation-google.sql` (Google AI - text-embedding-004, 768d)
 
 | Tool | Description |
 |------|-------------|
@@ -256,7 +270,7 @@ Enable with `ENABLE_INSIGHTS=true` (default).
 
 ### Postgres Analysis Tools
 
-Enabled when `DATABASE_URL` is configured. Connects directly to Postgres (independent of Supabase client).
+Enabled when `DATABASE_URL` is configured. Connects directly to Postgres.
 
 | Tool | Description |
 |------|-------------|
@@ -343,7 +357,7 @@ pnpm docs:dev       # Run docs site
 
 ### Local Database (Optional)
 
-Run PostgreSQL + pgvector locally instead of using Supabase:
+Run PostgreSQL + pgvector locally:
 
 ```bash
 # Start local Postgres with pgvector
@@ -387,8 +401,7 @@ OLLAMA_MODEL=nomic-embed-text
 
 | Issue | Solution |
 |-------|----------|
-| Invalid Supabase URL | Format: `https://your-project.supabase.co` (no trailing slash) |
-| Missing service role key | Use service role key from Settings > API, not anon key |
+| Can't connect to database | Check `DATABASE_URL` is set to your Neon pooled connection string |
 | No search results | Check `chunks` table has embeddings; lower `minScore` |
 | MCP tools not in Claude | Restart Claude Desktop; check `curl http://localhost:3000/health` |
 | Rate limit exceeded | API: 100/min, Upload: 10/min |

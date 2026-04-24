@@ -88,7 +88,7 @@ export function registerDocumentTools(server: McpServer): void {
 			logger.info('get_document called', { documentId, includeChunks });
 
 			if (!isDatabaseConfigured()) {
-				return configError('Database', 'Set SUPABASE_URL and SUPABASE_SERVICE_KEY');
+				return configError('Database', 'Set DATABASE_URL');
 			}
 
 			try {
@@ -206,7 +206,7 @@ export function registerDocumentTools(server: McpServer): void {
 			});
 
 			if (!isDatabaseConfigured()) {
-				return configError('Database', 'Set SUPABASE_URL and SUPABASE_SERVICE_KEY');
+				return configError('Database', 'Set DATABASE_URL');
 			}
 
 			try {
@@ -292,7 +292,7 @@ export function registerDocumentTools(server: McpServer): void {
 			logger.info('update_document called', { documentId, title, tags });
 
 			if (!isDatabaseConfigured()) {
-				return configError('Database', 'Set SUPABASE_URL and SUPABASE_SERVICE_KEY');
+				return configError('Database', 'Set DATABASE_URL');
 			}
 
 			if (title === undefined && tags === undefined) {
