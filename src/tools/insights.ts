@@ -79,7 +79,7 @@ export function registerInsightTools(server: McpServer): void {
 
 			const schema = await ensureSchema();
 			if (!schema.ok) {
-				return toolError('get_insights', new Error(schema.error));
+				return configError('Insight schema', schema.error);
 			}
 
 			try {
@@ -204,7 +204,7 @@ export function registerInsightTools(server: McpServer): void {
 
 			const schema = await ensureSchema();
 			if (!schema.ok) {
-				return toolError('discover_connections', new Error(schema.error));
+				return configError('Insight schema', schema.error);
 			}
 
 			if (!isOpenAIConfigured()) {
@@ -286,7 +286,7 @@ export function registerInsightTools(server: McpServer): void {
 
 			const schema = await ensureSchema();
 			if (!schema.ok) {
-				return toolError('dismiss_insight', new Error(schema.error));
+				return configError('Insight schema', schema.error);
 			}
 
 			try {
