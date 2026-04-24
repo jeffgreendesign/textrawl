@@ -800,7 +800,7 @@ export function registerMemoryTools(server: McpServer): void {
 				);
 			}
 
-			// Only require Supabase if we're storing results
+			// Only require Postgres when storing results
 			if (storeResults && !isDatabaseConfigured()) {
 				return configError('Database', 'Set DATABASE_URL');
 			}

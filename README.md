@@ -160,7 +160,7 @@ pnpm upload -- ./converted/
 
 | Guide | Description |
 |-------|-------------|
-| [Supabase Requirements](docs/guides/supabase-requirements.mdx) | Compute tiers, storage estimates, and database sizing |
+| [Database Sizing](docs/guides/supabase-requirements.mdx) | Vector dimensions, index counts, and storage estimates by embedding provider |
 | [CLI Tools](docs/cli/) | Batch conversion and upload from command line |
 | [Security](docs/guides/security-hardening.mdx) | Row Level Security and access controls |
 
@@ -270,7 +270,7 @@ Enable with `ENABLE_INSIGHTS=true` (default).
 
 ### Postgres Analysis Tools
 
-Enabled when `DATABASE_URL` is configured. Connects directly to Postgres (independent of Supabase client).
+Enabled when `DATABASE_URL` is configured. Connects directly to Postgres.
 
 | Tool | Description |
 |------|-------------|
@@ -357,7 +357,7 @@ pnpm docs:dev       # Run docs site
 
 ### Local Database (Optional)
 
-Run PostgreSQL + pgvector locally instead of using Supabase:
+Run PostgreSQL + pgvector locally:
 
 ```bash
 # Start local Postgres with pgvector
@@ -401,8 +401,7 @@ OLLAMA_MODEL=nomic-embed-text
 
 | Issue | Solution |
 |-------|----------|
-| Invalid Supabase URL | Format: `https://your-project.supabase.co` (no trailing slash) |
-| Missing service role key | Use service role key from Settings > API, not anon key |
+| Can't connect to database | Check `DATABASE_URL` is set to your Neon pooled connection string |
 | No search results | Check `chunks` table has embeddings; lower `minScore` |
 | MCP tools not in Claude | Restart Claude Desktop; check `curl http://localhost:3000/health` |
 | Rate limit exceeded | API: 100/min, Upload: 10/min |

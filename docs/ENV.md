@@ -13,7 +13,6 @@ This file centralizes runtime configuration for Textrawl server, MCP tools, CLI,
 | Variable | Required | Purpose |
 |---|---|---|
 | `DATABASE_URL` | Yes (DB features) | Neon (or any PostgreSQL) pooled connection string |
-| `DATABASE_URL_UNPOOLED` | No | Direct connection for schema migrations |
 | `EMBEDDING_PROVIDER` | No | `openai` (default), `ollama`, or `google` |
 | `OPENAI_API_KEY` | Required for OpenAI | Embedding API key (`text-embedding-3-small`, 1536d) |
 | `GOOGLE_AI_API_KEY` | Required for Google | Google AI API key (`text-embedding-004`, 768d) |
