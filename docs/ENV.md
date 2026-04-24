@@ -12,8 +12,8 @@ This file centralizes runtime configuration for Textrawl server, MCP tools, CLI,
 
 | Variable | Required | Purpose |
 |---|---|---|
-| `SUPABASE_URL` | Yes (DB features) | Supabase project URL |
-| `SUPABASE_SERVICE_KEY` | Yes (DB features) | Service-role key used by server/CLI |
+| `DATABASE_URL` | Yes (DB features) | Neon (or any PostgreSQL) pooled connection string |
+| `DATABASE_URL_UNPOOLED` | No | Direct connection for schema migrations |
 | `EMBEDDING_PROVIDER` | No | `openai` (default), `ollama`, or `google` |
 | `OPENAI_API_KEY` | Required for OpenAI | Embedding API key (`text-embedding-3-small`, 1536d) |
 | `GOOGLE_AI_API_KEY` | Required for Google | Google AI API key (`text-embedding-004`, 768d) |
@@ -48,11 +48,11 @@ This file centralizes runtime configuration for Textrawl server, MCP tools, CLI,
 
 | Variable | Purpose |
 |---|---|
+| `DATABASE_URL_UNPOOLED` | Direct Postgres connection for pg_analyze tools and migrations |
 | `REDIS_URL` | Shared rate limiting across instances |
 | `GOOGLE_CLIENT_ID`, `GOOGLE_CLIENT_SECRET`, `OAUTH_JWT_SECRET`, `OAUTH_SERVER_URL` | OAuth support |
 | `OAUTH_ALLOWED_EMAILS` | Optional OAuth email allowlist |
 | `CHUNKING_MODE`, `SEMANTIC_SIMILARITY_THRESHOLD` | Chunking strategy tuning |
-| `DATABASE_URL` | Direct Postgres connection for pg_analyze tools |
 | `PG_REPORT_DIR` | Directory for analysis reports (default: `./reports/pg-analysis`) |
 | `INSIGHT_BATCH_THRESHOLD` | Insight scan tuning (default: `50`) |
 | `INSIGHT_DEBOUNCE_SECONDS` | Insight scan debounce (default: `300`) |
@@ -60,17 +60,16 @@ This file centralizes runtime configuration for Textrawl server, MCP tools, CLI,
 
 ## Security notes
 
-- Never expose `SUPABASE_SERVICE_KEY` to browser/renderer/client bundles.
+- Never expose `DATABASE_URL` to browser/renderer/client bundles.
 - Treat `API_BEARER_TOKEN` as a secret and rotate if leaked.
 
 ## Why
 
-- Supabase service-role keys are privileged and intended for trusted server environments only. [supabase]
+- `DATABASE_URL` grants full database access and is for trusted server environments only.
 - MCP servers should enforce authentication/authorization at transport boundaries in deployed environments. [mcp]
 - OpenAI MCP integration and client connector behavior are documented in OpenAI MCP docs. [openai-mcp]
 
 ## References
 
-[supabase]: https://supabase.com/docs/guides/api/api-keys
 [mcp]: https://modelcontextprotocol.io
 [openai-mcp]: https://platform.openai.com/docs/mcp

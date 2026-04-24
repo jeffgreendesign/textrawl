@@ -81,7 +81,7 @@ export function registerUrlTool(server: McpServer): void {
 			logger.info('save_url called', { url: redactUrl(url), title, tags, extractMemories });
 
 			if (!isDatabaseConfigured()) {
-				return configError('Database', 'Set SUPABASE_URL and SUPABASE_SERVICE_KEY');
+				return configError('Database', 'Set DATABASE_URL');
 			}
 			if (!isEmbeddingsConfigured()) {
 				return configError('Embeddings', 'Configure an embedding provider');

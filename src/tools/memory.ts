@@ -121,7 +121,7 @@ export function registerMemoryTools(server: McpServer): void {
 			});
 
 			if (!isDatabaseConfigured()) {
-				return configError('Database', 'Set SUPABASE_URL and SUPABASE_SERVICE_KEY');
+				return configError('Database', 'Set DATABASE_URL');
 			}
 
 			if (!isOpenAIConfigured()) {
@@ -357,7 +357,7 @@ export function registerMemoryTools(server: McpServer): void {
 			logger.info('query_memory called', { mode, query, entityName, entityTypes, limit });
 
 			if (!isDatabaseConfigured()) {
-				return configError('Database', 'Set SUPABASE_URL and SUPABASE_SERVICE_KEY');
+				return configError('Database', 'Set DATABASE_URL');
 			}
 
 			try {
@@ -612,7 +612,7 @@ export function registerMemoryTools(server: McpServer): void {
 			});
 
 			if (!isDatabaseConfigured()) {
-				return configError('Database', 'Set SUPABASE_URL and SUPABASE_SERVICE_KEY');
+				return configError('Database', 'Set DATABASE_URL');
 			}
 
 			try {
@@ -716,7 +716,7 @@ export function registerMemoryTools(server: McpServer): void {
 			}
 
 			if (!isDatabaseConfigured()) {
-				return configError('Database', 'Set SUPABASE_URL and SUPABASE_SERVICE_KEY');
+				return configError('Database', 'Set DATABASE_URL');
 			}
 
 			try {
@@ -802,7 +802,7 @@ export function registerMemoryTools(server: McpServer): void {
 
 			// Only require Supabase if we're storing results
 			if (storeResults && !isDatabaseConfigured()) {
-				return configError('Database', 'Set SUPABASE_URL and SUPABASE_SERVICE_KEY');
+				return configError('Database', 'Set DATABASE_URL');
 			}
 
 			try {
@@ -954,7 +954,7 @@ export function registerMemoryTools(server: McpServer): void {
 				}
 
 				if (!isDatabaseConfigured()) {
-					return configError('Database', 'Set SUPABASE_URL and SUPABASE_SERVICE_KEY');
+					return configError('Database', 'Set DATABASE_URL');
 				}
 
 				if (!isOpenAIConfigured()) {

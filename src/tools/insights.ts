@@ -74,7 +74,7 @@ export function registerInsightTools(server: McpServer): void {
 			logger.info('get_insights called', { status, insightType, query, limit });
 
 			if (!isDatabaseConfigured()) {
-				return configError('Database', 'Set SUPABASE_URL and SUPABASE_SERVICE_KEY');
+				return configError('Database', 'Set DATABASE_URL');
 			}
 
 			const schema = await ensureSchema();
@@ -199,7 +199,7 @@ export function registerInsightTools(server: McpServer): void {
 			logger.info('discover_connections called', { fullScan, maxChunks });
 
 			if (!isDatabaseConfigured()) {
-				return configError('Database', 'Set SUPABASE_URL and SUPABASE_SERVICE_KEY');
+				return configError('Database', 'Set DATABASE_URL');
 			}
 
 			const schema = await ensureSchema();
@@ -281,7 +281,7 @@ export function registerInsightTools(server: McpServer): void {
 			logger.info('dismiss_insight called', { insightId });
 
 			if (!isDatabaseConfigured()) {
-				return configError('Database', 'Set SUPABASE_URL and SUPABASE_SERVICE_KEY');
+				return configError('Database', 'Set DATABASE_URL');
 			}
 
 			const schema = await ensureSchema();

@@ -55,7 +55,7 @@ export function registerNoteTool(server: McpServer): void {
 
 			// Check if services are configured
 			if (!isDatabaseConfigured()) {
-				return configError('Database', 'Set SUPABASE_URL and SUPABASE_SERVICE_KEY');
+				return configError('Database', 'Set DATABASE_URL');
 			}
 
 			if (!isOpenAIConfigured()) {

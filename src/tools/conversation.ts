@@ -81,7 +81,7 @@ export function registerConversationTools(server: McpServer): void {
 			});
 
 			if (!isDatabaseConfigured()) {
-				return configError('Database', 'Set SUPABASE_URL and SUPABASE_SERVICE_KEY');
+				return configError('Database', 'Set DATABASE_URL');
 			}
 
 			if (!isOpenAIConfigured()) {
@@ -317,7 +317,7 @@ export function registerConversationTools(server: McpServer): void {
 			logger.info('query_conversations called', { mode, query, sessionId, sessionKey, limit });
 
 			if (!isDatabaseConfigured()) {
-				return configError('Database', 'Set SUPABASE_URL and SUPABASE_SERVICE_KEY');
+				return configError('Database', 'Set DATABASE_URL');
 			}
 
 			try {
@@ -631,7 +631,7 @@ export function registerConversationTools(server: McpServer): void {
 			}
 
 			if (!isDatabaseConfigured()) {
-				return configError('Database', 'Set SUPABASE_URL and SUPABASE_SERVICE_KEY');
+				return configError('Database', 'Set DATABASE_URL');
 			}
 
 			try {
