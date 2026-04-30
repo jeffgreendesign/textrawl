@@ -6,6 +6,51 @@
 -- Run this in Supabase SQL Editor after setting up the base schema and memory schema
 
 -- ============================================
+-- Migration: resize embedding columns to VECTOR(3072)
+-- ============================================
+-- Existing installs (e.g. from text-embedding-004 with VECTOR(768), or any other dimension)
+-- won't have their embedding columns updated by the CREATE TABLE IF NOT EXISTS below.
+-- This block detects a mismatched dimension and recreates the columns.
+-- NOTE: Switching embedding models means the old vectors are in a different vector space
+-- and cannot be meaningfully resized. Old embeddings are dropped; re-embedding is required.
+DO $$
+BEGIN
+  IF EXISTS (
+    SELECT 1 FROM pg_attribute a
+    JOIN pg_class c ON c.oid = a.attrelid
+    JOIN pg_namespace n ON n.oid = c.relnamespace
+    WHERE n.nspname = 'public'
+      AND c.relname = 'conversation_sessions'
+      AND a.attname = 'summary_embedding'
+      AND a.atttypmod <> 3072
+      AND a.attnum > 0
+      AND NOT a.attisdropped
+  ) THEN
+    DROP INDEX IF EXISTS conversation_sessions_embedding_idx;
+    ALTER TABLE conversation_sessions DROP COLUMN summary_embedding;
+    ALTER TABLE conversation_sessions ADD COLUMN summary_embedding VECTOR(3072);
+    RAISE NOTICE 'Resized conversation_sessions.summary_embedding to VECTOR(3072). Re-embedding required.';
+  END IF;
+
+  IF EXISTS (
+    SELECT 1 FROM pg_attribute a
+    JOIN pg_class c ON c.oid = a.attrelid
+    JOIN pg_namespace n ON n.oid = c.relnamespace
+    WHERE n.nspname = 'public'
+      AND c.relname = 'conversation_turns'
+      AND a.attname = 'embedding'
+      AND a.atttypmod <> 3072
+      AND a.attnum > 0
+      AND NOT a.attisdropped
+  ) THEN
+    DROP INDEX IF EXISTS conversation_turns_embedding_idx;
+    ALTER TABLE conversation_turns DROP COLUMN embedding;
+    ALTER TABLE conversation_turns ADD COLUMN embedding VECTOR(3072);
+    RAISE NOTICE 'Resized conversation_turns.embedding to VECTOR(3072). Re-embedding required.';
+  END IF;
+END $$;
+
+-- ============================================
 -- Conversation Sessions
 -- ============================================
 CREATE TABLE IF NOT EXISTS conversation_sessions (

@@ -2,6 +2,21 @@
 -- Use this when using gemini-embedding-2-preview (3072 dimensions)
 -- Run this in Supabase SQL Editor after creating your project
 -- IMPORTANT: After running this schema, run scripts/security-rls.sql to enable Row Level Security
+--
+-- BREAKING CHANGE from text-embedding-004 (vector(768)):
+--   Switching to gemini-embedding-2-preview changes embedding dimensions from 768 to 3072.
+--   These are different vector spaces; old embeddings cannot be resized or reused.
+--
+--   Option A — fresh database: run this file as-is, then security-rls.sql.
+--   Option B — existing database: drop the embedding column, recreate it as vector(3072),
+--     then trigger re-embedding for all documents. Example:
+--       DROP INDEX IF EXISTS chunks_embedding_idx;
+--       ALTER TABLE chunks DROP COLUMN embedding;
+--       ALTER TABLE chunks ADD COLUMN embedding vector(3072);
+--     Then re-run security-rls.sql and re-upload/re-embed all documents.
+--
+-- Verify EMBEDDING_PROVIDER=google and GOOGLE_EMBEDDING_MODEL=gemini-embedding-2-preview
+-- are set before applying this schema.
 
 -- Enable required extensions
 create extension if not exists vector with schema extensions;
