@@ -1,5 +1,5 @@
 -- Textrawl Database Schema (Google AI Version)
--- Use this when using text-embedding-004 (768 dimensions)
+-- Use this when using gemini-embedding-2-preview (3072 dimensions)
 -- Run this in Supabase SQL Editor after creating your project
 -- IMPORTANT: After running this schema, run scripts/security-rls.sql to enable Row Level Security
 
@@ -24,7 +24,7 @@ create table if not exists documents (
   updated_at timestamptz default now()
 );
 
--- Chunks table with embeddings (768 dimensions for text-embedding-004)
+-- Chunks table with embeddings (3072 dimensions for gemini-embedding-2-preview)
 create table if not exists chunks (
   id uuid primary key default gen_random_uuid(),
   document_id uuid not null references documents(id) on delete cascade,
@@ -32,7 +32,7 @@ create table if not exists chunks (
   chunk_index integer not null,
   start_offset integer,
   end_offset integer,
-  embedding vector(768), -- text-embedding-004 dimension (Matryoshka: supports 768, 512, 256)
+  embedding vector(3072), -- gemini-embedding-2-preview dimension (Matryoshka: supports 3072, 1536, 768)
   metadata jsonb default '{}',
   created_at timestamptz default now()
 );
@@ -52,7 +52,7 @@ create index if not exists chunks_embedding_idx on chunks
 -- Hybrid search function using Reciprocal Rank Fusion (RRF)
 create or replace function public.hybrid_search(
   query_text text,
-  query_embedding vector(768),
+  query_embedding vector(3072),
   match_count int default 10,
   full_text_weight float default 1.0,
   semantic_weight float default 1.0,
@@ -114,7 +114,7 @@ $$;
 
 -- Semantic-only search function (when full-text query is empty)
 create or replace function public.semantic_search(
-  query_embedding vector(768),
+  query_embedding vector(3072),
   match_count int default 10
 )
 returns table (

@@ -35,7 +35,7 @@ const envSchema = z.object({
 
 	// Google AI
 	GOOGLE_AI_API_KEY: z.string().optional(),
-	GOOGLE_EMBEDDING_MODEL: z.string().default('text-embedding-004'),
+	GOOGLE_EMBEDDING_MODEL: z.string().default('gemini-embedding-2-preview'),
 
 	// Ollama
 	OLLAMA_BASE_URL: z.string().url().default('http://localhost:11434'),
@@ -67,10 +67,10 @@ const envSchema = z.object({
 	ANTHROPIC_API_KEY: z.string().startsWith('sk-ant-').optional(),
 
 	// Model for memory extraction (fast, cheap model recommended)
-	EXTRACTION_MODEL: z.string().default('claude-haiku-4-5-20250501'),
+	EXTRACTION_MODEL: z.string().default('claude-haiku-4-5-20251001'),
 
 	// Model for insight synthesis (benefits from more capable reasoning)
-	INSIGHT_MODEL: z.string().default('claude-sonnet-4-6-20250514'),
+	INSIGHT_MODEL: z.string().default('claude-sonnet-4-6'),
 
 	// Response format - compact saves 40-60% tokens but uses short keys
 	COMPACT_RESPONSES: z

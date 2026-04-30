@@ -1,5 +1,5 @@
 -- Textrawl Conversation Memory Schema (Google AI Version)
--- Use this when using Google AI embeddings with 768 dimensions (text-embedding-004)
+-- Use this when using Google AI embeddings with 3072 dimensions (gemini-embedding-2-preview)
 -- For OpenAI users: use setup-db-conversation.sql
 -- For Google AI users: use this file
 -- For Ollama v1 users: use setup-db-conversation-ollama.sql
@@ -13,7 +13,7 @@ CREATE TABLE IF NOT EXISTS conversation_sessions (
   session_key TEXT UNIQUE,
   title TEXT,
   summary TEXT,
-  summary_embedding VECTOR(768),
+  summary_embedding VECTOR(3072),
   metadata JSONB DEFAULT '{}',
   turn_count INTEGER DEFAULT 0,
   last_activity TIMESTAMPTZ DEFAULT NOW(),
@@ -28,7 +28,7 @@ CREATE TABLE IF NOT EXISTS conversation_turns (
   session_id UUID NOT NULL REFERENCES conversation_sessions(id) ON DELETE CASCADE,
   role TEXT NOT NULL CHECK (role IN ('user', 'assistant', 'system')),
   content TEXT NOT NULL,
-  embedding VECTOR(768),
+  embedding VECTOR(3072),
   turn_index INTEGER NOT NULL,
   token_count INTEGER,
   metadata JSONB DEFAULT '{}',
@@ -104,12 +104,12 @@ CREATE TRIGGER conversation_turns_delete_activity
 -- ============================================
 -- Search Functions (768 dimensions)
 -- ============================================
-DROP FUNCTION IF EXISTS conversation_semantic_search(VECTOR(768), INT);
-DROP FUNCTION IF EXISTS conversation_hybrid_search(TEXT, VECTOR(768), INT, FLOAT, FLOAT, INT);
-DROP FUNCTION IF EXISTS conversation_turn_search(TEXT, VECTOR(768), INT, FLOAT, FLOAT, INT, UUID);
+DROP FUNCTION IF EXISTS conversation_semantic_search(VECTOR(3072), INT);
+DROP FUNCTION IF EXISTS conversation_hybrid_search(TEXT, VECTOR(3072), INT, FLOAT, FLOAT, INT);
+DROP FUNCTION IF EXISTS conversation_turn_search(TEXT, VECTOR(3072), INT, FLOAT, FLOAT, INT, UUID);
 
 CREATE OR REPLACE FUNCTION public.conversation_semantic_search(
-  query_embedding VECTOR(768),
+  query_embedding VECTOR(3072),
   match_count INT DEFAULT 10
 )
 RETURNS TABLE (
@@ -140,7 +140,7 @@ $$;
 
 CREATE OR REPLACE FUNCTION public.conversation_hybrid_search(
   query_text TEXT,
-  query_embedding VECTOR(768),
+  query_embedding VECTOR(3072),
   match_count INT DEFAULT 10,
   full_text_weight FLOAT DEFAULT 1.0,
   semantic_weight FLOAT DEFAULT 1.0,
@@ -183,7 +183,7 @@ $$;
 
 CREATE OR REPLACE FUNCTION public.conversation_turn_search(
   query_text TEXT,
-  query_embedding VECTOR(768),
+  query_embedding VECTOR(3072),
   match_count INT DEFAULT 20,
   full_text_weight FLOAT DEFAULT 1.0,
   semantic_weight FLOAT DEFAULT 1.0,

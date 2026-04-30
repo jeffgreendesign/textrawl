@@ -72,9 +72,9 @@ function getOllamaDimensions(model: string): number {
 }
 
 // Google AI constants
-const GOOGLE_DIMENSIONS = 768;
+const GOOGLE_DIMENSIONS = 3072;
 const GOOGLE_MAX_BATCH_SIZE = 100;
-const GOOGLE_MAX_INPUT_CHARS = 10_000; // ~2500 tokens conservative limit
+const GOOGLE_MAX_INPUT_CHARS = 30_000; // gemini-embedding-2-preview: 8192 token context (~4 chars/token)
 
 // Ollama API response type
 interface OllamaEmbedResponse {

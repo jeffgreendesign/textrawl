@@ -47,7 +47,7 @@ export async function transcribeAudio(buffer: Buffer, mimeType: string): Promise
 		await writeFile(tempPath, buffer);
 
 		const transcription = await client.audio.transcriptions.create({
-			model: 'whisper-1',
+			model: 'gpt-4o-mini-transcribe',
 			file: createReadStream(tempPath),
 		});
 
