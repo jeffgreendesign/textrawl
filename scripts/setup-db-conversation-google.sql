@@ -147,7 +147,7 @@ CREATE TRIGGER conversation_turns_delete_activity
   FOR EACH ROW EXECUTE FUNCTION update_session_activity_on_delete();
 
 -- ============================================
--- Search Functions (768 dimensions)
+-- Search Functions (3072 dimensions)
 -- ============================================
 DROP FUNCTION IF EXISTS conversation_semantic_search(VECTOR(3072), INT);
 DROP FUNCTION IF EXISTS conversation_hybrid_search(TEXT, VECTOR(3072), INT, FLOAT, FLOAT, INT);
