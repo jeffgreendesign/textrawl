@@ -1,9 +1,54 @@
 -- Textrawl Conversation Memory Schema (Google AI Version)
--- Use this when using Google AI embeddings with 768 dimensions (text-embedding-004)
+-- Use this when using Google AI embeddings with 3072 dimensions (gemini-embedding-2-preview)
 -- For OpenAI users: use setup-db-conversation.sql
 -- For Google AI users: use this file
 -- For Ollama v1 users: use setup-db-conversation-ollama.sql
 -- Run this in Supabase SQL Editor after setting up the base schema and memory schema
+
+-- ============================================
+-- Migration: resize embedding columns to VECTOR(3072)
+-- ============================================
+-- Existing installs (e.g. from text-embedding-004 with VECTOR(768), or any other dimension)
+-- won't have their embedding columns updated by the CREATE TABLE IF NOT EXISTS below.
+-- This block detects a mismatched dimension and recreates the columns.
+-- NOTE: Switching embedding models means the old vectors are in a different vector space
+-- and cannot be meaningfully resized. Old embeddings are dropped; re-embedding is required.
+DO $$
+BEGIN
+  IF EXISTS (
+    SELECT 1 FROM pg_attribute a
+    JOIN pg_class c ON c.oid = a.attrelid
+    JOIN pg_namespace n ON n.oid = c.relnamespace
+    WHERE n.nspname = 'public'
+      AND c.relname = 'conversation_sessions'
+      AND a.attname = 'summary_embedding'
+      AND a.atttypmod <> 3072
+      AND a.attnum > 0
+      AND NOT a.attisdropped
+  ) THEN
+    DROP INDEX IF EXISTS conversation_sessions_embedding_idx;
+    ALTER TABLE conversation_sessions DROP COLUMN summary_embedding;
+    ALTER TABLE conversation_sessions ADD COLUMN summary_embedding VECTOR(3072);
+    RAISE NOTICE 'Resized conversation_sessions.summary_embedding to VECTOR(3072). Re-embedding required.';
+  END IF;
+
+  IF EXISTS (
+    SELECT 1 FROM pg_attribute a
+    JOIN pg_class c ON c.oid = a.attrelid
+    JOIN pg_namespace n ON n.oid = c.relnamespace
+    WHERE n.nspname = 'public'
+      AND c.relname = 'conversation_turns'
+      AND a.attname = 'embedding'
+      AND a.atttypmod <> 3072
+      AND a.attnum > 0
+      AND NOT a.attisdropped
+  ) THEN
+    DROP INDEX IF EXISTS conversation_turns_embedding_idx;
+    ALTER TABLE conversation_turns DROP COLUMN embedding;
+    ALTER TABLE conversation_turns ADD COLUMN embedding VECTOR(3072);
+    RAISE NOTICE 'Resized conversation_turns.embedding to VECTOR(3072). Re-embedding required.';
+  END IF;
+END $$;
 
 -- ============================================
 -- Conversation Sessions
@@ -13,7 +58,7 @@ CREATE TABLE IF NOT EXISTS conversation_sessions (
   session_key TEXT UNIQUE,
   title TEXT,
   summary TEXT,
-  summary_embedding VECTOR(768),
+  summary_embedding VECTOR(3072),
   metadata JSONB DEFAULT '{}',
   turn_count INTEGER DEFAULT 0,
   last_activity TIMESTAMPTZ DEFAULT NOW(),
@@ -28,7 +73,7 @@ CREATE TABLE IF NOT EXISTS conversation_turns (
   session_id UUID NOT NULL REFERENCES conversation_sessions(id) ON DELETE CASCADE,
   role TEXT NOT NULL CHECK (role IN ('user', 'assistant', 'system')),
   content TEXT NOT NULL,
-  embedding VECTOR(768),
+  embedding VECTOR(3072),
   turn_index INTEGER NOT NULL,
   token_count INTEGER,
   metadata JSONB DEFAULT '{}',
@@ -102,14 +147,14 @@ CREATE TRIGGER conversation_turns_delete_activity
   FOR EACH ROW EXECUTE FUNCTION update_session_activity_on_delete();
 
 -- ============================================
--- Search Functions (768 dimensions)
+-- Search Functions (3072 dimensions)
 -- ============================================
-DROP FUNCTION IF EXISTS conversation_semantic_search(VECTOR(768), INT);
-DROP FUNCTION IF EXISTS conversation_hybrid_search(TEXT, VECTOR(768), INT, FLOAT, FLOAT, INT);
-DROP FUNCTION IF EXISTS conversation_turn_search(TEXT, VECTOR(768), INT, FLOAT, FLOAT, INT, UUID);
+DROP FUNCTION IF EXISTS conversation_semantic_search(VECTOR(3072), INT);
+DROP FUNCTION IF EXISTS conversation_hybrid_search(TEXT, VECTOR(3072), INT, FLOAT, FLOAT, INT);
+DROP FUNCTION IF EXISTS conversation_turn_search(TEXT, VECTOR(3072), INT, FLOAT, FLOAT, INT, UUID);
 
 CREATE OR REPLACE FUNCTION public.conversation_semantic_search(
-  query_embedding VECTOR(768),
+  query_embedding VECTOR(3072),
   match_count INT DEFAULT 10
 )
 RETURNS TABLE (
@@ -140,7 +185,7 @@ $$;
 
 CREATE OR REPLACE FUNCTION public.conversation_hybrid_search(
   query_text TEXT,
-  query_embedding VECTOR(768),
+  query_embedding VECTOR(3072),
   match_count INT DEFAULT 10,
   full_text_weight FLOAT DEFAULT 1.0,
   semantic_weight FLOAT DEFAULT 1.0,
@@ -183,7 +228,7 @@ $$;
 
 CREATE OR REPLACE FUNCTION public.conversation_turn_search(
   query_text TEXT,
-  query_embedding VECTOR(768),
+  query_embedding VECTOR(3072),
   match_count INT DEFAULT 20,
   full_text_weight FLOAT DEFAULT 1.0,
   semantic_weight FLOAT DEFAULT 1.0,

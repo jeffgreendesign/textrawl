@@ -176,8 +176,8 @@ pnpm upload -- ./converted/
 | `OPENAI_API_KEY` | If OpenAI | For text-embedding-3-small (1536d) |
 | `OLLAMA_BASE_URL` | If Ollama | Default: `http://localhost:11434` |
 | `OLLAMA_MODEL` | If Ollama | Default: `nomic-embed-text` |
-| `GOOGLE_AI_API_KEY` | If Google | For text-embedding-004 (768d) |
-| `GOOGLE_EMBEDDING_MODEL` | If Google | Default: `text-embedding-004` |
+| `GOOGLE_AI_API_KEY` | If Google | For gemini-embedding-2-preview (3072d) |
+| `GOOGLE_EMBEDDING_MODEL` | If Google | Default: `gemini-embedding-2-preview` |
 | `API_BEARER_TOKEN` | Prod only | Min 32 chars (`openssl rand -hex 32`) |
 | `PORT` | No | Default: 3000 |
 | `LOG_LEVEL` | No | debug, info, warn, error |
@@ -187,8 +187,8 @@ pnpm upload -- ./converted/
 | `ENABLE_INSIGHTS` | No | Enable proactive insight tools (default: true) |
 | `ENABLE_MEMORY_EXTRACTION` | No | Enable LLM-based memory extraction (default: false) |
 | `ANTHROPIC_API_KEY` | If extraction | Required for `extract_memories` tool |
-| `EXTRACTION_MODEL` | No | Model for extraction (default: claude-haiku-4-5-20250501) |
-| `INSIGHT_MODEL` | No | Model for insight synthesis (default: claude-sonnet-4-6-20250514) |
+| `EXTRACTION_MODEL` | No | Model for extraction (default: claude-haiku-4-5-20251001) |
+| `INSIGHT_MODEL` | No | Model for insight synthesis (default: claude-sonnet-4-6) |
 | `COMPACT_RESPONSES` | No | Token-efficient responses (default: true) |
 | `CHUNKING_MODE` | No | `fixed` (default) or `semantic` (embedding-based splits) |
 | `SEMANTIC_SIMILARITY_THRESHOLD` | No | Semantic split sensitivity 0–1 (default: 0.5) |
@@ -234,7 +234,7 @@ Enable with `ENABLE_CONVERSATIONS=true` (default). Requires running one of the c
 - `scripts/setup-db-conversation.sql` (OpenAI embeddings, 1536d)
 - `scripts/setup-db-conversation-ollama.sql` (Ollama v1 - nomic-embed-text, 1024d)
 - `scripts/setup-db-conversation-ollama-v2.sql` (Ollama v2 - nomic-embed-text-v2-moe, 768d)
-- `scripts/setup-db-conversation-google.sql` (Google AI - text-embedding-004, 768d)
+- `scripts/setup-db-conversation-google.sql` (Google AI - gemini-embedding-2-preview, 3072d)
 
 | Tool | Description |
 |------|-------------|
@@ -395,7 +395,7 @@ OLLAMA_MODEL=nomic-embed-text
 
 **Supported Ollama models:** `nomic-embed-text` (1024d), `nomic-embed-text-v2-moe` (768d, recommended for new installs), `mxbai-embed-large` (1024d)
 
-> **Note:** Each provider uses different embedding dimensions: OpenAI 1536d, Ollama 1024d (or 768d for v2-moe), Google AI 768d. Use the matching schema: `setup-db.sql` (OpenAI), `setup-db-ollama.sql` (Ollama 1024d), `setup-db-ollama-v2.sql` (Ollama 768d), or `setup-db-google.sql` (Google AI). You cannot mix providers without re-embedding all documents.
+> **Note:** Each provider uses different embedding dimensions: OpenAI 1536d, Ollama 1024d (or 768d for v2-moe), Google AI 3072d. Use the matching schema: `setup-db.sql` (OpenAI), `setup-db-ollama.sql` (Ollama 1024d), `setup-db-ollama-v2.sql` (Ollama 768d), or `setup-db-google.sql` (Google AI). You cannot mix providers without re-embedding all documents.
 
 ## Troubleshooting
 
