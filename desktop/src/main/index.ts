@@ -230,6 +230,13 @@ function setupIpcHandlers(): void {
 	});
 }
 
+// macOS: suppress non-fatal Chromium driver noise (e.g. `eglQueryDeviceAttribEXT:
+// Bad attribute` floods from gl_display.cc on Intel Macs). Must be set before GPU
+// process init. log-level=3 leaves FATAL through; our own logger is unaffected.
+if (process.platform === 'darwin') {
+	app.commandLine.appendSwitch('log-level', '3');
+}
+
 // App lifecycle
 app.whenReady().then(() => {
 	// Initialize stores after app is ready (safeStorage requires it)
