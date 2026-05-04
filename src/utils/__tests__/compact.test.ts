@@ -198,12 +198,12 @@ describe('compact utilities', () => {
 	describe('configError', () => {
 		it('returns config error with isError: true', () => {
 			(config as { COMPACT_RESPONSES: boolean }).COMPACT_RESPONSES = false;
-			const result = configError('Database', 'Set SUPABASE_URL');
+			const result = configError('Database', 'Set DATABASE_URL');
 			expect(result.isError).toBe(true);
 			const parsed = JSON.parse(result.content[0].text);
 			expect(parsed.error).toBe('Database not configured');
 			expect(parsed.code).toBe('CONFIG_ERROR');
-			expect(parsed.message).toContain('Set SUPABASE_URL');
+			expect(parsed.message).toContain('Set DATABASE_URL');
 			expect(parsed.message).toContain('do not retry');
 		});
 	});
