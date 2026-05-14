@@ -44,11 +44,11 @@ Textrawl ships three independent memory-adjacent subsystems built in isolation:
 Gaps as of this writing:
 
 - No UPDATE / DELETE / MERGE pathway for facts (only insert-or-skip).
-- No bi-temporal model (`valid_from` / `valid_to` / `invalidated_by`).
+- Partial temporal support exists (`valid_from`, `valid_until`), but no bi-temporal lineage model (`invalidated_by`, transaction-time audit, replacement chains).
 - No cross-encoder rerank after `memory_hybrid_search`.
 - No background consolidation / summarization job for memory.
 - No conversations → memory extraction pipeline.
-- No graph traversal at query time (relations exist but are not walked).
+- Relations are retrievable in entity context, but no multi-hop graph traversal/ranking in `query_memory` search mode.
 - No interop with the now-shipped vendor memory APIs (Claude memory tool, Codex Memories, etc.).
 
 ---
@@ -213,12 +213,12 @@ Caveat: with million-token windows, a "stuff everything into context" baseline s
 | Textrawl gap | Concept to adopt | Where it goes |
 |---|---|---|
 | No UPDATE/DELETE for facts | Mem0 ADD/UPDATE/DELETE/NOOP pipeline | `src/services/memory-extraction.ts` |
-| No audit / no temporal facts | Zep/Graphiti bi-temporal columns | additive migration on `memory_observations` |
+| No invalidation lineage / no as-of audit semantics | Zep/Graphiti bi-temporal lineage | additive migration on `memory_observations` |
 | No rerank after RRF | Cross-encoder rerank | new step after `memory_hybrid_search` |
 | No consolidation | Anthropic "Dreaming" / GraphRAG community summaries | new cron mirroring `runInsightScan` |
 | Conversations don't feed memory | Mem0 extraction over saved turns | new hook in `src/tools/conversation.ts:save_conversation_context` |
 | Untyped relations | MAGMA `kind` column (`semantic`/`temporal`/`causal`/`entity`) | additive migration on `memory_relations` |
-| No graph traversal at query time | HippoRAG PPR / LiCoMemory tier-2 | `memory_hybrid_search` follow-up query |
+| No multi-hop traversal/ranking at query time | HippoRAG PPR / LiCoMemory tier-2 | `memory_hybrid_search` follow-up query |
 | No interop with vendor memory | Anthropic `memory_20250818` backend, Codex export shape | new MCP tool in `src/tools/memory.ts` |
 | No procedural memory | CoALA + Reflexion | new tiny `procedural_skills` table |
 | No provenance in results | ChatGPT "memory sources" pattern | `sources[]` field on `query_memory` output |
@@ -240,6 +240,8 @@ Replace the 0.95-cosine dedup with a single LLM call that returns a JSON list of
 
 Schema unchanged. The existing `memory_observations` table gains real mutation semantics for the first time.
 
+**Prerequisite for provider-agnostic delivery:** today `memory-extraction.ts` is Anthropic-specific. Before claiming full provider agnosticism for extraction, add a provider adapter (parallel to `embeddings.ts`) so the Mem0 pipeline can run on OpenAI / Google / Ollama without forking tool behavior.
+
 **b. Cross-encoder rerank after `memory_hybrid_search`.**
 The function in `scripts/setup-db-memory.sql` already returns top-N candidates; rerank in the application layer before returning to the tool caller. Rerank options:
 
@@ -255,7 +257,7 @@ Reuse the `runInsightScan` job pattern in `src/services/insight-analysis.ts`. It
 ### Tier 2 — medium effort, new capabilities
 
 **d. Bi-temporal observations (Zep pattern).**
-Additive migration: add `valid_from`, `valid_to`, `invalidated_by` to `memory_observations`. UPDATE in the Mem0 pipeline becomes "set `valid_to = now()`, `invalidated_by = new_observation_id` on the old row, insert the new row." `memory_hybrid_search` adds an optional `as_of` parameter, default current time. Backward-compatible.
+Additive migration on top of existing temporal fields: keep `valid_from`, evolve `valid_until` semantics (or alias to `valid_to`), and add `invalidated_by` for replacement lineage. UPDATE in the Mem0 pipeline becomes "set old row closed (`valid_until/valid_to`), set `invalidated_by = new_observation_id`, insert the replacement row." Add optional `as_of` query semantics to `memory_hybrid_search` (default: current time). Backward-compatible.
 
 **e. Conversations → memory pipeline.**
 Hook `src/tools/conversation.ts:save_conversation_context` to enqueue a memory-extraction job over the new turns. Add `source_turn_id` (nullable FK) to `memory_observations` for provenance. Closes the loop between the two parallel memory systems Textrawl already has.
@@ -289,13 +291,27 @@ Path-traversal protection per Anthropic's guidance (paths must start with `/memo
 
 **Embeddings.** Textrawl already abstracts these in `src/services/embeddings.ts` across OpenAI (1536d), Google AI (3072d), Ollama (1024d), and Ollama v2 (768d). The `scripts/setup-db-memory*.sql` variants match. None of the recommendations above change embedding dimensions; all are additive on top of the existing vector column.
 
-**Extraction LLM.** Every recommendation that needs an LLM (Mem0 pipeline, consolidation cron, A-MEM link revision) should respect a `MEMORY_LLM` env var resolved by the same provider abstraction. Defaults: GPT-4.1-mini (OpenAI), Gemini 2.5 Flash (Google), Llama 3.1 8B Instruct (Ollama). Keep cost-sensitive — these are background jobs that fire on every memory write.
+**Extraction LLM.** Every recommendation that needs an LLM (Mem0 pipeline, consolidation cron, A-MEM link revision) should respect a `MEMORY_LLM` env var resolved by a dedicated extraction provider abstraction. Defaults: GPT-4.1-mini (OpenAI), Gemini 2.5 Flash (Google), Llama 3.1 8B Instruct (Ollama). Keep cost-sensitive — these are background jobs that fire on every memory write.
 
 **Reranker.** New provider abstraction `src/services/rerank.ts`. Cohere/Voyage for hosted OpenAI users, Vertex AI Ranking for Google, BGE-reranker-v2-m3 for Ollama / self-hosted. The same interface ships in all three.
 
 **MCP tool schemas stay backward-compatible.** All Tier 1–2 changes either add new tools (`claude-memory.ts`) or add optional parameters to existing ones (`as_of`, `observation_kind`, `sources`). No breaking changes to `remember_fact`, `extract_memories`, `build_knowledge`, or `query_memory`.
 
 **Observability.** The Mem0 pipeline's most useful debug signal is the LLM's ADD/UPDATE/DELETE/NOOP decision log. Persist it alongside the operation (`memory_observations.write_decision JSONB`) — same pattern Anthropic recommends for the memory tool's audit trail.
+
+**Consolidation execution model.** Start with a scheduled batch job (nightly/cron, configurable cadence) before introducing lazy low-usage triggering. Batch-first gives predictable cost envelopes, better observability, and simpler rollback; lazy mode can be layered in after write/query correctness stabilizes.
+
+---
+
+## Additional roadmap additions (personal-history quality)
+
+### 1) Semantic entity resolution ("identity layer")
+
+Personal data contains aliases and role-based references ("Textrawl", "the MCP thing", "that project"). Add an entity-linking step during extraction that maps variant mentions to a stable entity ID and records aliases in metadata. This improves recall consistency across documents, conversations, and memory writes without forcing canonical naming in user text.
+
+### 2) Contextual weighting and decay
+
+Personal memory should favor recent, frequently reinforced facts unless the user asks for historical state. Add recency/frequency weighting at retrieval time (and optional decay) with explicit override controls (`historical=true`, `as_of=...`). This reduces stale-memory dominance while preserving auditability and timeline-style queries.
 
 ---
 
