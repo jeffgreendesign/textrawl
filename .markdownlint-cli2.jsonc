@@ -28,5 +28,14 @@
 		"MD060": false
 	},
 	"globs": ["**/*.md", "docs/**/*.mdx"],
-	"ignores": ["node_modules", "**/node_modules", ".next", "dist", "CHANGELOG.md", "converted"]
+	"ignores": [
+		".git",
+		"**/.git/**",
+		"node_modules",
+		"**/node_modules",
+		".next",
+		"dist",
+		"CHANGELOG.md",
+		"converted"
+	]
 }
