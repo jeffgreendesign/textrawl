@@ -1,34 +1,56 @@
 # CLAUDE.md
 
-Claude Code reference for Textrawl.
+This file provides guidance to Claude Code (claude.ai/code) when working with code in this repository.
+
+Textrawl is a personal knowledge MCP server: hybrid (vector + FTS) search over imported documents, a memory graph, conversation recall, and proactive insights. Postgres + pgvector (Neon). Supports OpenAI, Google AI, or Ollama embeddings — **not interchangeable** (different dimensions; you cannot switch without re-embedding).
+
+## Toolchain
+
+- Node.js **>= 22** required. `preinstall` runs `only-allow pnpm` — npm/yarn will be rejected.
+- ESM project (`"type": "module"`). All imports MUST use explicit `.js` extension even for `.ts` files.
+- Package manager: pnpm 9.15+. Workspace includes `website/`, `desktop/`, and `dashboard/`.
 
 ## Commands (from `package.json`)
 
 | Task | Command |
 |---|---|
 | Install deps | `pnpm install` |
-| Interactive env setup | `pnpm setup` |
-| Dev server | `pnpm dev` |
-| Build server | `pnpm build` |
+| Interactive env setup | `pnpm setup` (generates `.env` with secure token) |
+| Dev server (watch) | `pnpm dev` |
+| Build server | `pnpm build` (`tsc` + esbuild bundle to `dist/`) |
 | Start built server | `pnpm start` |
 | Typecheck | `pnpm typecheck` |
-| Lint (TS/JS) | `pnpm lint` |
+| Lint (Biome) | `pnpm lint` / `pnpm lint:fix` |
 | Lint (Markdown) | `pnpm lint:md` |
-| Unit tests | `pnpm test` |
-| Quick quality | `pnpm quality` |
-| Fast local gate | `pnpm verify:fast` |
-| Canonical CI/local gate | `pnpm verify` |
-| MCP inspector | `pnpm inspector` |
+| Unit tests | `pnpm test` (vitest, run once) |
+| Single test file | `pnpm test path/to/file.test.ts` |
+| Test watch mode | `pnpm test:watch` |
+| Quick quality | `pnpm quality` (lint + lint:md + typecheck) |
+| Fast local gate | `pnpm verify:fast` (quality + test + security/docs/tool-sync checks) |
+| Canonical CI gate | `pnpm verify` (verify:fast + build + docs build) |
+| MCP inspector | `pnpm inspector` (against running `localhost:3000/mcp`) |
 | Desktop app dev | `pnpm desktop:dev` |
+| Docs site dev | `pnpm docs:dev` |
 | CLI convert | `pnpm convert -- <subcommand> ...` |
 | CLI upload | `pnpm upload -- <path>` |
+| Postgres analysis | `pnpm pg:analyze` |
+
+The `verify` gates invoke three shell scripts directly: `scripts/security-check.sh` (secret/RLS scan; also exposed as `pnpm security-check`), `scripts/docs-check.sh` (doc freshness; no pnpm alias), and `scripts/tool-sync-check.sh` (also exposed as `pnpm tool-sync`; asserts the MCP tool list stays in sync between `src/tools/`, `README.md`, and `AGENTS.md`).
 
 ## Architecture boundaries
 
-- **Server (`src/`)**: Express + MCP endpoint (`/mcp`) + REST (`/api/upload`, `/health/*`). Holds Supabase service key usage.
-- **Desktop (`desktop/`)**: Electron conversion/upload UX. Must not embed server-only secrets in renderer.
-- **CLI (`scripts/cli/`)**: Batch conversion/upload pipeline for local archives.
-- **Docs site (`website/`, `docs/`)**: Next.js docs and MDX reference content.
+- **Server (`src/`)** — Express + MCP. Entry: `src/index.ts` boots Express; `src/server.ts` builds the MCP `McpServer` and registers tools via `src/tools/index.ts`. Routes mount under `/mcp` (MCP transport), `/api/upload`, `/api/*`, and `/health/*`. This is the **only** layer permitted to hold privileged DB credentials.
+- **Desktop (`desktop/`)** — Electron app (main/preload/renderer). Talks to the server over HTTP/MCP; renderer must never see service-role credentials.
+- **CLI (`scripts/cli/`)** — `convert.ts`, `upload.ts`, `scan.ts`, `split.ts`, `pg-analyze.ts`. Converters live in `scripts/cli/converters/` (mbox, eml, takeout, html, instagram, facebook, reddit, spotify). Shared helpers in `scripts/cli/lib/`.
+- **Dashboard (`dashboard/`)** — Next.js web UI (separate workspace package). Consumes server REST + WebSocket.
+- **Docs site (`website/`, `docs/`)** — Next.js docs and MDX reference content.
+
+## Request/data flow
+
+- **MCP tool call** → `src/server.ts` (McpServer) → handler in `src/tools/<area>.ts` → `src/db/*` or `src/services/*`. Tool handlers return through `toolResponse()` / `toolError()` (see AX rules below).
+- **Upload** → `src/api/upload.ts` → `src/services/processor.ts` (text extraction) → `src/services/chunker.ts` (paragraph-aware, 512 tok / 50 tok overlap; or semantic if `CHUNKING_MODE=semantic`) → `src/services/embeddings.ts` (provider-dispatched) → `src/db/documents.ts` + `src/db/chunks.ts`.
+- **Search** → `src/tools/search.ts` → `src/db/search.ts` → Postgres `hybrid_search()` RPC (RRF fusion of pgvector HNSW + tsvector FTS). RPC body lives in `scripts/setup-db*.sql`.
+- **Memory / conversations / insights** are parallel feature trees with their own schemas, db modules, services, and tools, gated by `ENABLE_MEMORY` / `ENABLE_CONVERSATIONS` / `ENABLE_INSIGHTS`.
 
 ## Feature schemas and SQL scripts
 
@@ -53,15 +75,17 @@ Claude Code reference for Textrawl.
 
 ## MCP tools reference
 
-<!-- Document/search: search, get_document, list_documents, update_document, add_note -->
-<!-- Memory: remember_fact, query_memory, relate_entities, forget_entity, extract_memories -->
-<!-- Conversation: save_conversation_context, query_conversations, delete_conversation -->
-<!-- Stats: get_stats, health_check -->
-<!-- Insights: get_insights, discover_connections, dismiss_insight, build_knowledge -->
-<!-- Unified: ask, daily_briefing, save_url, timeline -->
-<!-- Postgres: pg_analyze, pg_recommendations, pg_report_history -->
+Implementations: `src/tools/*.ts`. Full descriptions and schemas in `README.md`. Groupings:
 
-Tool implementations: `src/tools/*.ts`. See `README.md` for full tool documentation.
+- **Document/search**: `search`, `get_document`, `list_documents`, `update_document`, `add_note`
+- **Memory**: `remember_fact`, `build_knowledge`, `query_memory`, `relate_entities`, `forget_entity`, `extract_memories`
+- **Conversation**: `save_conversation_context`, `query_conversations`, `delete_conversation`
+- **Insights**: `get_insights`, `discover_connections`, `dismiss_insight`
+- **Stats**: `get_stats`, `health_check`
+- **Unified**: `ask`, `daily_briefing`, `save_url`, `timeline`
+- **Postgres**: `pg_analyze`, `pg_recommendations`, `pg_report_history`
+
+`scripts/tool-sync-check.sh` enforces that this list stays in sync with `src/tools/` and `README.md`. When adding/removing a tool, update all three.
 
 ## Postgres analysis tools
 
@@ -73,8 +97,10 @@ Tool implementations: `src/tools/*.ts`. See `README.md` for full tool documentat
 
 ## Conventions
 
-- ESM imports require explicit `.js` extension.
-- Keep MCP stdout clean (avoid arbitrary stdout logging in MCP request path).
+- ESM imports require explicit `.js` extension (even for `.ts` source).
+- **Never `console.log`** in server code — stdout is reserved for MCP JSON-RPC. Use `logger` from `src/utils/logger.js` (routes everything to stderr).
+- Embedding dimensions and schema must match: OpenAI 1536d, Google 3072d, Ollama 1024d (`nomic-embed-text`) or 768d (`nomic-embed-text-v2-moe`). Switching providers requires re-embedding all documents.
+- Biome enforces single quotes, tabs, 100-char width, no unused template literals.
 - Prefer small, PR-shaped changes and keep tool schemas backward compatible.
 - MCP tool handlers MUST return plain JSON-serializable values. Handlers MUST NOT return raw Date, BigInt, Buffer, or class instances. All date fields MUST be ISO 8601 strings or null. All aggregate queries (COUNT, MIN, MAX) MUST handle the empty-table case with sensible defaults (0, null, []). Every scope in get_stats MUST be wrapped in its own try/catch so partial failures MUST NOT cause a crash for scope=all.
 
