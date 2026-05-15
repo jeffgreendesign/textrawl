@@ -87,7 +87,7 @@ conversationRoutes.get('/conversations', bearerAuth, async (req, res) => {
 // GET /api/conversations/:id — get conversation with turns
 // ---------------------------------------------------------------------------
 
-conversationRoutes.get('/conversations/:id', bearerAuth, async (req, res) => {
+conversationRoutes.get<{ id: string }>('/conversations/:id', bearerAuth, async (req, res) => {
 	try {
 		if (!isDatabaseConfigured()) {
 			res.status(503).json({ error: 'Database not available' });

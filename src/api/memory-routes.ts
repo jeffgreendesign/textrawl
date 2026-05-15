@@ -93,7 +93,7 @@ memoryRoutes.get('/memory/entities', bearerAuth, async (req, res) => {
 // GET /api/memory/entities/:name — entity context with observations + relations
 // ---------------------------------------------------------------------------
 
-memoryRoutes.get('/memory/entities/:name', bearerAuth, async (req, res) => {
+memoryRoutes.get<{ name: string }>('/memory/entities/:name', bearerAuth, async (req, res) => {
 	try {
 		if (!isDatabaseConfigured()) {
 			res.status(503).json({ error: 'Database not available' });

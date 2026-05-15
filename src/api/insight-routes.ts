@@ -75,7 +75,7 @@ insightRoutes.get('/insights', bearerAuth, async (req, res) => {
 // PATCH /api/insights/:id/status — update insight status
 // ---------------------------------------------------------------------------
 
-insightRoutes.patch('/insights/:id/status', bearerAuth, async (req, res) => {
+insightRoutes.patch<{ id: string }>('/insights/:id/status', bearerAuth, async (req, res) => {
 	try {
 		if (!isDatabaseConfigured()) {
 			res.status(503).json({ error: 'Database not available' });
