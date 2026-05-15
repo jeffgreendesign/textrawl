@@ -162,7 +162,7 @@ Facts that are semantically similar to existing observations on the same entity 
 |-------|-------|-----|
 | No facts or relations provided | Both arrays empty or missing | Provide at least one fact or relation |
 | Embedding service not configured | Missing `OPENAI_API_KEY` or Ollama config | Set `OPENAI_API_KEY` or configure `OLLAMA_BASE_URL` |
-| Database not configured | Missing Supabase credentials | Set `SUPABASE_URL` and `SUPABASE_SERVICE_KEY` |
+| Database not configured | Missing database connection | Set `DATABASE_URL` |
 | Memory not enabled | `ENABLE_MEMORY` feature flag is false | Set `ENABLE_MEMORY=true` |
 | Array exceeds max size | More than 50 facts or 50 relations | Split into multiple calls |
 

@@ -69,7 +69,7 @@ The `memoryExtraction` field is included only when `extractMemories` is `true` a
 
 | Error | Cause | Fix |
 |-------|-------|-----|
-| `Database not configured` | Missing Supabase credentials | Set `SUPABASE_URL` and `SUPABASE_SERVICE_KEY` |
+| `Database not configured` | Missing database connection | Set `DATABASE_URL` |
 | `Embedding provider not configured` | Missing embedding API key | Set `OPENAI_API_KEY`, configure Ollama, or set `GOOGLE_AI_API_KEY` |
 | `Only http and https URLs are supported` | Non-HTTP URL scheme | Use an `http://` or `https://` URL |
 | `URL targets a private or internal address` | SSRF protection triggered | Use a publicly accessible URL |
