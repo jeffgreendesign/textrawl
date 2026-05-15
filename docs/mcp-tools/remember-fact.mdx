@@ -123,7 +123,7 @@ If you try to remember a fact that's already stored:
 | Error | Cause | Fix |
 |-------|-------|-----|
 | Embedding service not configured | Missing `OPENAI_API_KEY` or Ollama config | Set `OPENAI_API_KEY` or configure `OLLAMA_BASE_URL` |
-| Database not configured | Missing Supabase credentials | Set `SUPABASE_URL` and `SUPABASE_SERVICE_KEY` |
+| Database not configured | Missing database connection | Set `DATABASE_URL` |
 | Invalid entity name | Name empty or exceeds 200 chars | Provide name between 1-200 chars |
 | Invalid observation | Observation empty or exceeds 2000 chars | Provide observation between 1-2000 chars |
 | Invalid entity type | Unknown entity type | Use valid types: person, concept, project, preference, fact, location, organization |
