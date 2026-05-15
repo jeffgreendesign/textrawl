@@ -28,8 +28,8 @@ OPENAI_API_KEY=sk-proj-...
 Use the database schema for 1536 dimensions:
 
 ```bash
-# Run in Supabase SQL Editor
-scripts/setup-db.sql
+# Apply via psql (or any Postgres SQL editor)
+psql "$DATABASE_URL" -f scripts/setup-db.sql
 ```
 
 ## Google AI Setup
@@ -44,8 +44,8 @@ GOOGLE_EMBEDDING_MODEL=text-embedding-004
 Use the database schema for 768 dimensions:
 
 ```bash
-# Run in Supabase SQL Editor
-scripts/setup-db-google.sql
+# Apply via psql (or any Postgres SQL editor)
+psql "$DATABASE_URL" -f scripts/setup-db-google.sql
 ```
 
 ## Ollama Setup
@@ -70,8 +70,8 @@ OLLAMA_MODEL=nomic-embed-text
 Use the database schema for 1024 dimensions:
 
 ```bash
-# Run in Supabase SQL Editor
-scripts/setup-db-ollama.sql
+# Apply via psql (or any Postgres SQL editor)
+psql "$DATABASE_URL" -f scripts/setup-db-ollama.sql
 ```
 
 ## Switching Providers
