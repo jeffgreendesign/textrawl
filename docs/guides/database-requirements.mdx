@@ -1,9 +1,9 @@
 ---
-title: Supabase Requirements
-description: Recommended compute tiers, storage, and database sizing for textrawl
+title: Database Requirements
+description: Recommended compute, storage, and database sizing for textrawl on Neon, Supabase, or self-hosted Postgres
 ---
 
-Choose the right Supabase compute tier and understand your database requirements for textrawl.
+Choose the right Postgres compute for textrawl. Examples below use Neon tier names (the recommended provider); equivalent Supabase Pro compute add-ons are noted inline. The pgvector/HNSW sizing math is provider-agnostic and applies to any Postgres deployment.
 
 ## Vector Dimensions by Provider
 
@@ -50,60 +50,53 @@ Estimated storage per document (assuming OpenAI 1536-dimension embeddings):
 | 10,000 | ~50,000 | ~700 MB | Yes |
 | 50,000 | ~250,000 | ~3.5 GB | Yes |
 | 100,000 | ~500,000 | ~7 GB | Yes |
-| 150,000+ | ~750,000+ | ~10 GB+ | No (overage at $0.125/GB) |
+| 150,000+ | ~750,000+ | ~10 GB+ | No (storage overage on most providers) |
 
 ## Compute Tier Recommendations
 
-Supabase Pro plan ($25/mo) includes $10/mo in compute credits, which covers one Micro instance at no extra cost. Upgrade to a larger tier by paying the difference.
+Pricing accurate as of May 2026 — verify current rates at [neon.com/pricing](https://neon.com/pricing) and [supabase.com/pricing](https://supabase.com/pricing). On Neon, a **Compute Unit (CU)** = 1 vCPU + 4 GB RAM, and compute scales (or autoscales) by fractional CU.
 
-### Micro -- Included with Pro ($10/mo, covered by credits)
+### Neon Free -- $0/mo
 
-2-core shared ARM, 1 GB RAM, 60 direct connections
+100 CU-hours per project per month, 0.5 GB storage, autoscale up to 2 CU (8 GB RAM peak).
 
-- Included at no extra cost on Pro plan via compute credits
-- Suitable for getting started and light personal use
+- Suitable for prototyping and light personal use
 - Handles up to ~30K vectors comfortably
 - HNSW indexes must stay under ~250 MB total
+- *Supabase equivalent:* Free plan + Micro compute (1 GB RAM, $0 with Pro credits)
 
-### Small -- $15/mo
+### Neon Launch -- pay-as-you-go ($5/mo minimum)
 
-2-core shared ARM, 2 GB RAM, 90 direct connections
+$0.106/CU-hour compute, $0.35/GB-month storage, autoscale up to 16 CU (64 GB RAM).
 
-- Good for personal knowledge bases under 10K documents (~50K chunks)
+- Good for personal knowledge bases under 50K documents (~250K chunks)
 - Room for all 6 HNSW indexes at moderate scale
+- *Supabase equivalent:* Pro ($25/mo) + Small or Medium compute add-on (~$15-60/mo)
 
-### Medium -- $60/mo (Recommended)
+### Neon Scale -- pay-as-you-go ($5/mo minimum, Recommended for production)
 
-2-core shared ARM, 4 GB RAM, 120 direct connections
+$0.222/CU-hour compute, $0.35/GB-month storage, autoscale up to 16 CU or fixed sizes up to 56 CU (224 GB RAM). Adds SLAs, advanced security, and compliance features.
 
-- **Best value for production personal use**
-- Handles 10K-50K documents with all features enabled (memory, conversations, insights)
-- 4 GB gives breathing room for all HNSW + GIN indexes
+- **Best fit for production personal use with all features enabled** (memory, conversations, insights)
+- Handles 50K-500K documents with consistent performance
+- Use a fixed-size compute (4+ CU) for predictable HNSW search latency
+- *Supabase equivalent:* Pro + Large compute add-on (~$110+/mo) or Team plan ($599/mo)
 
-### Large -- $110/mo
+### Neon Business -- custom pricing
 
-2-core **dedicated** ARM, 8 GB RAM, 160 direct connections
+Dedicated infrastructure, premium support, custom SLAs. For 500K+ documents or multi-tenant deployments. Consider [pgvectorscale](https://github.com/timescale/pgvectorscale) (DiskANN indexes) at this scale to move vector indexes to SSD instead of RAM.
 
-- First tier with dedicated (non-burst) CPU -- consistent performance
-- For heavy use with 50K+ documents or multiple concurrent users
-- 8 GB RAM keeps all indexes comfortably in memory
+- *Supabase equivalent:* Enterprise plan (custom pricing, HIPAA, BYO cloud)
 
-### XL and Above
+## Storage and Disk
 
-For 100K+ documents or multi-tenant deployments. Consider [pgvectorscale](https://github.com/timescale/pgvectorscale) (DiskANN indexes) at this scale to move vector indexes to SSD instead of RAM.
+Neon storage is $0.35/GB-month with no fixed disk allocation — pay only for what you use. Supabase includes 8 GB of disk on Pro plans, then $0.125/GB. For typical textrawl workloads (read-heavy search + occasional batch writes), either model is fine and disk type/IOPS tuning is not required.
 
-## Disk Type
-
-**General Purpose (gp3)** is recommended for textrawl. Your workload is read-heavy (search queries) with occasional batch writes (uploads). The included 3,000 IOPS baseline handles this well.
-
-- 8 GB included free, then $0.125/GB
-- 3,000 IOPS included, $0.024 per additional IOPS
-
-**High Performance (io2)** is only needed for sustained high-throughput workloads and is not necessary for typical textrawl usage.
+If you self-host, **General Purpose SSD (gp3 or equivalent)** with ~3,000 IOPS baseline is sufficient. High-performance disk (io2) is only needed for sustained high-throughput multi-tenant workloads.
 
 ## Diagnosing Your Current Setup
 
-Run these queries in the Supabase SQL Editor to understand your current database.
+Run these queries via `psql "$DATABASE_URL"` (or your provider's SQL editor) to understand your current database.
 
 ### Database Size
 
@@ -180,16 +173,16 @@ SHOW effective_cache_size;
 SHOW max_connections;
 ```
 
-| shared_buffers | max_connections | Likely Tier |
+| shared_buffers | max_connections | Likely Size |
 |---|---|---|
-| ~128 MB | 60 | Nano / Micro |
-| ~256 MB | 60 | Micro |
-| ~512 MB | 90 | Small |
-| ~1 GB | 120 | Medium |
-| ~2 GB | 160 | Large |
-| ~4 GB | 240 | XL |
+| ~128 MB | ~60 | Free / very small |
+| ~256 MB | ~60 | Small |
+| ~512 MB | ~90 | Medium |
+| ~1 GB | ~120 | Large |
+| ~2 GB | ~160 | XL |
+| ~4 GB+ | ~240 | XXL / dedicated |
 
-If your total HNSW index size approaches `shared_buffers`, it's time to upgrade.
+If your total HNSW index size approaches `shared_buffers`, it's time to upgrade (Neon: increase autoscale ceiling or pick a larger fixed size; Supabase: bump the compute add-on).
 
 ## Scaling Tips
 
@@ -199,6 +192,6 @@ If your total HNSW index size approaches `shared_buffers`, it's time to upgrade.
 
 3. **Temporary compute boosts.** For large batch imports, temporarily upgrade your compute tier (billed hourly), build HNSW indexes faster, then scale back down.
 
-4. **Consider pgvectorscale for 100K+ vectors.** DiskANN indexes use SSD instead of RAM, making them much cheaper to scale. pgvectorscale is not yet a native Supabase extension, but can be used with Supabase via the [pgai Python CLI](https://github.com/timescale/pgai). For self-hosted PostgreSQL, install it directly.
+4. **Consider pgvectorscale for 500K+ vectors.** DiskANN indexes use SSD instead of RAM, making them much cheaper to scale. pgvectorscale is **not currently a native Neon or Supabase extension** — it's available on self-hosted Postgres and on Timescale Cloud. For Neon/Supabase deployments you can experiment with it via the [pgai CLI](https://github.com/timescale/pgai). For most personal-scale (sub-500K vector) deployments, plain pgvector HNSW on Neon Launch/Scale is enough.
 
-5. **Keep the spend cap on** initially. Textrawl is single-tenant -- you won't get surprise traffic spikes.
+5. **Keep autoscaling and spend limits conservative** initially. Textrawl is single-tenant -- you won't get surprise traffic spikes, so there's no reason to leave Neon autoscaling uncapped or Supabase spend caps disabled.

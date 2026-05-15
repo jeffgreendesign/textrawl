@@ -1,7 +1,7 @@
 {
 	"title": "Guides",
 	"pages": [
-		"supabase-requirements",
+		"database-requirements",
 		"email-import",
 		"search-optimization",
 		"docker-deployment",
