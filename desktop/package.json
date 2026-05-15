@@ -34,7 +34,7 @@
 		"xlsx": "https://cdn.sheetjs.com/xlsx-0.20.3/xlsx-0.20.3.tgz"
 	},
 	"devDependencies": {
-		"electron": "^35.7.5",
+		"electron": "^38.8.6",
 		"@preact/preset-vite": "^2.9.3",
 		"@types/node": "^22.10.2",
 		"@types/unzipper": "^0.10.11",
