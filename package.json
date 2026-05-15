@@ -106,7 +106,8 @@
 		"overrides": {
 			"hono": "^4.11.7",
 			"tar": ">=7.5.7",
-			"@isaacs/brace-expansion": ">=5.0.1"
+			"@isaacs/brace-expansion": ">=5.0.1",
+			"postcss@<8.5.10": ">=8.5.10"
 		}
 	},
 	"keywords": ["mcp", "rag", "knowledge-base", "semantic-search", "claude"],
