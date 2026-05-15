@@ -31,8 +31,7 @@ services:
     ports:
       - "3000:3000"
     environment:
-      - SUPABASE_URL=${SUPABASE_URL}
-      - SUPABASE_SERVICE_KEY=${SUPABASE_SERVICE_KEY}
+      - DATABASE_URL=${DATABASE_URL}
       - OPENAI_API_KEY=${OPENAI_API_KEY}
       - API_BEARER_TOKEN=${API_BEARER_TOKEN}
     restart: unless-stopped
@@ -48,8 +47,7 @@ services:
 Required for production:
 
 ```bash
-SUPABASE_URL=https://your-project.supabase.co
-SUPABASE_SERVICE_KEY=your-service-key
+DATABASE_URL=postgresql://user:pass@ep-xxx-pooler.neon.tech/textrawl?sslmode=require
 OPENAI_API_KEY=sk-your-key
 API_BEARER_TOKEN=your-secure-32-char-token
 PORT=3000
