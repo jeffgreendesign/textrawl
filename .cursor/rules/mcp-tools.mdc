@@ -53,10 +53,8 @@ server.registerTool(
         structuredContent,  // Always verbose, canonical keys
       });
     } catch (error) {
-      logger.error('tool_name failed', {
-        error: error instanceof Error ? error.message : String(error),
-      });
-      return toolError(`Operation failed: ${error instanceof Error ? error.message : 'Unknown error'}`);
+      // Structured form — preferred. Logging happens inside toolError().
+      return toolError('tool_name', error, { scope: 'query' });
     }
   }
 );
@@ -69,7 +67,7 @@ logger.debug('Registered tool: tool_name');
 Always use the shared helpers — never build error/response objects inline:
 
 - **`toolResponse({ compact, verbose, structuredContent? })`** — Standard response with compact/verbose branching
-- **`toolError(message)`** — Error response with `isError: true` (prevents LLM retry spirals)
+- **`toolError(toolName, error, context?)`** — Structured error with `isError: true`, error classification, and built-in logging. Prefer this form. (Legacy `toolError(message)` still works but does not classify or log.)
 - **`configError(what, fix)`** — Configuration error (permanent failure)
 - **`toJSON(obj)`** — Compact or pretty JSON based on `COMPACT_RESPONSES`
 - **`formatId(uuid)`** — Truncated (8 chars) or full UUID
@@ -101,8 +99,8 @@ CRITICAL: Error responses MUST include `isError: true` to prevent LLM retry spir
 // Config errors (permanent — do not retry)
 return configError('Database', 'Set SUPABASE_URL and SUPABASE_SERVICE_KEY');
 
-// Runtime errors
-return toolError(`Search failed: ${error.message}`);
+// Runtime errors — structured form (preferred)
+return toolError('search', error, { scope: 'hybrid_search', hint: 'Check DATABASE_URL' });
 ```
 
 ## Zod Schema Guidelines
