@@ -137,11 +137,10 @@ Then search for it:
 
 ### "Database not configured"
 
-Verify your `.env` has valid Supabase credentials:
+Verify your `.env` has a valid `DATABASE_URL`:
 
 ```bash
-SUPABASE_URL=https://your-project.supabase.co
-SUPABASE_SERVICE_KEY=your-service-key
+DATABASE_URL=postgresql://user:pass@ep-xxx-pooler.neon.tech/textrawl?sslmode=require
 ```
 
 ### "OpenAI not configured"
