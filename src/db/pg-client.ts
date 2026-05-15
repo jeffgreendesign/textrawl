@@ -1,4 +1,4 @@
-import { Pool, neonConfig } from '@neondatabase/serverless';
+import { Pool, type QueryResultRow, neonConfig } from '@neondatabase/serverless';
 import { DatabaseError, NotFoundError } from '../utils/errors.js';
 import { logger } from '../utils/logger.js';
 
@@ -37,7 +37,7 @@ export function getPgPool(connectionString?: string): Pool {
 /**
  * Run a query against the Postgres pool.
  */
-export async function pgQuery<T extends Record<string, any> = Record<string, any>>(
+export async function pgQuery<T extends QueryResultRow = Record<string, unknown>>(
 	text: string,
 	params?: unknown[],
 ): Promise<{ rows: T[]; rowCount: number | null }> {
@@ -49,7 +49,7 @@ export async function pgQuery<T extends Record<string, any> = Record<string, any
  * Return the first row or null.
  * Replaces Supabase .maybeSingle().
  */
-export async function queryOne<T extends Record<string, any> = Record<string, any>>(
+export async function queryOne<T extends QueryResultRow = Record<string, unknown>>(
 	text: string,
 	params?: unknown[],
 ): Promise<T | null> {
@@ -61,7 +61,7 @@ export async function queryOne<T extends Record<string, any> = Record<string, an
  * Return the first row or throw NotFoundError.
  * Replaces Supabase .single().
  */
-export async function queryOneOrThrow<T extends Record<string, any> = Record<string, any>>(
+export async function queryOneOrThrow<T extends QueryResultRow = Record<string, unknown>>(
 	text: string,
 	params?: unknown[],
 	entityName = 'Record',
