@@ -21,16 +21,17 @@ Fix:
   - Ollama v2: 768 (`setup-db-ollama-v2.sql`)
 - Re-embed/reload data when changing dimensions.
 
-## Invalid Supabase URL
+## Invalid DATABASE_URL
 
-- `SUPABASE_URL` must be a full `https://<project>.supabase.co` URL.
+- `DATABASE_URL` must be a full Postgres connection string (e.g. `postgresql://user:pass@host:5432/db?sslmode=require`).
+- On Neon and Supabase, prefer the **pooled** connection string for production use.
 - Confirm `.env` value and restart server.
 
 ## RLS blocking reads
 
-- If using service-role key, reads should bypass restrictive RLS policies.
-- If using anon/authenticated clients directly, verify RLS policies and grants.
-- Re-run hardening scripts intentionally and review policy expectations.
+- The application connects via `pg` against `DATABASE_URL` as a single role; RLS is bypassed when that role is the table owner or has `BYPASSRLS`.
+- If you've split connection roles, verify RLS policies and grants against the role in your `DATABASE_URL`.
+- Re-run hardening scripts (`scripts/security-rls.sql`, `scripts/security-rls-memory.sql`) intentionally and review policy expectations.
 
 ## Rate limit exceeded
 
