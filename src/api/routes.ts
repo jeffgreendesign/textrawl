@@ -83,7 +83,7 @@ apiRoutes.get('/documents', bearerAuth, async (req, res) => {
 	}
 });
 
-apiRoutes.get('/documents/:id', bearerAuth, async (req, res) => {
+apiRoutes.get<{ id: string }>('/documents/:id', bearerAuth, async (req, res) => {
 	try {
 		if (!isDatabaseConfigured()) {
 			res.status(503).json({ error: 'Database not available' });
