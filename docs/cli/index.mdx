@@ -12,7 +12,7 @@ textrawl includes CLI tools for converting various file formats to Markdown, the
 pnpm convert -- mbox ~/Mail/archive.mbox
 pnpm convert -- html ./saved-pages/
 
-# Upload to Supabase
+# Upload to knowledge base
 pnpm upload -- ./converted/emails
 ```
 
@@ -32,7 +32,7 @@ Convert HTML files and web pages to searchable markdown.
 
 ### upload
 
-Upload converted files to Supabase with automatic embedding.
+Upload converted files to your knowledge base with automatic embedding.
 
 [Batch upload →](/docs/cli/batch-upload)
 
@@ -67,9 +67,9 @@ All conversion commands support these options:
 
 ```text
 ┌─────────────┐     ┌─────────────┐     ┌─────────────┐
-│   Source    │     │  Converted  │     │  Supabase   │
-│   Files     │ ──► │  Markdown   │ ──► │  Knowledge  │
-│  (MBOX,HTML)│     │   + YAML    │     │    Base     │
+│   Source    │     │  Converted  │     │  Knowledge  │
+│   Files     │ ──► │  Markdown   │ ──► │    Base     │
+│  (MBOX,HTML)│     │   + YAML    │     │ (Postgres)  │
 └─────────────┘     └─────────────┘     └─────────────┘
       │                    │                    │
       │                    │                    │
