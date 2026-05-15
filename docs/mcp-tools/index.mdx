@@ -157,7 +157,7 @@ View knowledge chronologically within a date range, optionally filtered by topic
 
 ## Postgres Analysis Tools
 
-Enabled when `DATABASE_URL` is configured. Connects directly to Postgres (independent of Supabase client).
+Enabled when `DATABASE_URL` is configured. Connects directly to Postgres (independent of the main database client).
 
 ### pg_analyze
 
@@ -346,7 +346,7 @@ Common errors:
 
 | Error | Cause | Fix |
 |-------|-------|-----|
-| `Database not configured` | Missing Supabase credentials | Set `SUPABASE_URL` and `SUPABASE_SERVICE_KEY` |
+| `Database not configured` | Missing database connection | Set `DATABASE_URL` |
 | `Embedding provider not configured` | Missing embedding API | Set `OPENAI_API_KEY`, configure Ollama, or set `GOOGLE_AI_API_KEY` |
 | `Document not found` | Invalid documentId | Verify UUID from search results |
 | `No updates provided` | Empty update request | Provide `title` or `tags` |
