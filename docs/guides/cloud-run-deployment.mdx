@@ -61,7 +61,7 @@ gcloud run deploy textrawl \
   --platform managed \
   --region $REGION \
   --allow-unauthenticated \
-  --set-secrets="SUPABASE_URL=textrawl-supabase-url:latest,SUPABASE_SERVICE_KEY=textrawl-supabase-key:latest,OPENAI_API_KEY=textrawl-openai-key:latest,API_BEARER_TOKEN=textrawl-api-token:latest" \
+  --set-secrets="DATABASE_URL=textrawl-database-url:latest,OPENAI_API_KEY=textrawl-openai-key:latest,API_BEARER_TOKEN=textrawl-api-token:latest" \
   --min-instances 0 \
   --max-instances 10 \
   --memory 512Mi \
@@ -77,8 +77,7 @@ Store secrets in Google Secret Manager:
 
 ```bash
 # Create secrets (use textrawl- prefix for organization)
-echo -n "https://your-project.supabase.co" | gcloud secrets create textrawl-supabase-url --data-file=-
-echo -n "your-service-key" | gcloud secrets create textrawl-supabase-key --data-file=-
+echo -n "postgresql://user:pass@ep-xxx-pooler.neon.tech/textrawl?sslmode=require" | gcloud secrets create textrawl-database-url --data-file=-
 echo -n "sk-your-openai-key" | gcloud secrets create textrawl-openai-key --data-file=-
 echo -n "your-64-char-token" | gcloud secrets create textrawl-api-token --data-file=-
 ```
@@ -98,7 +97,7 @@ Then grant the default Compute Engine service account access to each secret:
 PROJECT_NUMBER=123456789012  # Replace with your project number
 
 # Grant access to each secret
-for SECRET in textrawl-supabase-url textrawl-supabase-key textrawl-openai-key textrawl-api-token; do
+for SECRET in textrawl-database-url textrawl-openai-key textrawl-api-token; do
   gcloud secrets add-iam-policy-binding $SECRET \
     --member="serviceAccount:${PROJECT_NUMBER}-compute@developer.gserviceaccount.com" \
     --role="roles/secretmanager.secretAccessor"
