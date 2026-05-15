@@ -11,15 +11,15 @@ textrawl is configured via environment variables in a `.env` file.
 
 | Variable | Required | Description |
 |----------|----------|-------------|
-| `SUPABASE_URL` | Yes | Your Supabase project URL |
-| `SUPABASE_SERVICE_KEY` | Yes | Service role key (bypasses RLS) |
+| `DATABASE_URL` | Yes | Postgres connection string (Neon pooled URL recommended; Supabase / RDS / self-hosted also work) |
 
 ```bash
-SUPABASE_URL=https://abcdefghijklmnop.supabase.co
-SUPABASE_SERVICE_KEY=eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9...
+DATABASE_URL=postgresql://user:pass@ep-xxx-pooler.neon.tech/textrawl?sslmode=require
 ```
 
-> **Warning**: Never commit your service key to version control. Use `.env` files or secret managers.
+> **Warning**: Never commit your connection string to version control — it contains credentials. Use `.env` files or secret managers.
+>
+> **For Supabase users**: copy the **Connection pooling** URL from Settings → Database, not the direct connection.
 
 ### Embedding Provider
 
@@ -183,17 +183,15 @@ See [Response Format](/docs/mcp-tools#response-format) for the complete key mapp
 
 ### Postgres Analysis
 
+`DATABASE_URL` (defined in the Database Connection section above) enables three Postgres analysis tools: `pg_analyze`, `pg_recommendations`, and `pg_report_history`.
+
 | Variable | Required | Default | Description |
 |----------|----------|---------|-------------|
-| `DATABASE_URL` | No | - | Direct Postgres connection for `pg_analyze` tools |
 | `PG_REPORT_DIR` | No | `./reports/pg-analysis` | Directory for analysis report history |
 
 ```bash
-DATABASE_URL=postgresql://user:pass@localhost:5432/textrawl
 PG_REPORT_DIR=./reports/pg-analysis
 ```
-
-When `DATABASE_URL` is set, three Postgres analysis tools become available: `pg_analyze`, `pg_recommendations`, and `pg_report_history`.
 
 ### Rate Limiting
 
@@ -223,8 +221,7 @@ Built-in rate limiting:
 
 ```bash
 # .env
-SUPABASE_URL=https://your-project.supabase.co
-SUPABASE_SERVICE_KEY=your-service-key
+DATABASE_URL=postgresql://user:pass@ep-xxx-pooler.neon.tech/textrawl?sslmode=require
 OPENAI_API_KEY=sk-your-key
 PORT=3000
 LOG_LEVEL=debug
@@ -234,8 +231,7 @@ LOG_LEVEL=debug
 
 ```bash
 # Set via Secret Manager
-SUPABASE_URL=https://your-project.supabase.co
-SUPABASE_SERVICE_KEY=your-service-key
+DATABASE_URL=postgresql://user:pass@ep-xxx-pooler.neon.tech/textrawl?sslmode=require
 OPENAI_API_KEY=sk-your-key
 API_BEARER_TOKEN=your-secure-production-token
 PORT=8080
@@ -247,8 +243,7 @@ ALLOWED_ORIGINS=https://your-frontend.com
 
 ```bash
 # .env
-SUPABASE_URL=postgresql://textrawl:textrawl@localhost:5432/textrawl
-SUPABASE_SERVICE_KEY=not-used-for-local
+DATABASE_URL=postgresql://textrawl:textrawl@localhost:5432/textrawl
 EMBEDDING_PROVIDER=ollama
 OLLAMA_BASE_URL=http://localhost:11434
 OLLAMA_MODEL=nomic-embed-text
