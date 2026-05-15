@@ -16,10 +16,10 @@ curl -s http://localhost:3000/health/ready
 curl -s http://localhost:3000/health/live
 ```
 
-## 2) Supabase setup
+## 2) Database setup
 
-1. Create a Supabase project.
-2. Pick **one profile** and run the exact SQL scripts:
+1. Create a Postgres database with the `pgvector` extension (Neon recommended; Supabase, AWS RDS, GCP Cloud SQL, or self-hosted also work). Copy the **pooled** connection string into `DATABASE_URL`.
+2. Pick **one profile** and run the exact SQL scripts via `psql "$DATABASE_URL" -f <script>`:
 
 ### OpenAI profile (1536d)
 
@@ -47,21 +47,22 @@ curl -s http://localhost:3000/health/live
 - Base: `scripts/security-rls.sql`
 - Memory hardening (when memory tables are enabled): `scripts/security-rls-memory.sql`
 
-## 3) Local Postgres alternative (without Supabase)
+## 3) Local Postgres alternative
 
 Use `docker-compose.local.yml` (pgvector image):
 
 ```bash
 docker compose -f docker-compose.local.yml up -d
+export DATABASE_URL=postgresql://textrawl:textrawl@localhost:5432/textrawl
 ```
 
 Then initialize schema (example OpenAI):
 
 ```bash
-docker exec -i textrawl-postgres psql -U postgres -d textrawl < scripts/setup-db.sql
+psql "$DATABASE_URL" -f scripts/setup-db.sql
 ```
 
-> Note: application code is built around Supabase client usage; local Postgres setup is useful for SQL/dev experiments and self-hosted alternatives.
+> Note: the application connects via `pg` against `DATABASE_URL`, so this works identically against Neon, the Supabase pooler, RDS, or local Postgres.
 
 ## 4) Ollama profile
 
@@ -113,7 +114,8 @@ Then open the Inspector UI and verify tools load.
 
 ## Why
 
-- Supabase setup and operational guidance. [supabase]
+- Neon: recommended Postgres provider with native pgvector. [neon]
+- Supabase, AWS RDS, GCP Cloud SQL, and self-hosted Postgres are also supported via the same `DATABASE_URL`. [supabase]
 - pgvector extension and vector index behavior. [pgvector]
 - PostgreSQL operational references. [postgresql]
 - MCP transport and client interoperability expectations. [mcp]
@@ -121,6 +123,7 @@ Then open the Inspector UI and verify tools load.
 
 ## References
 
+[neon]: https://neon.com/docs
 [supabase]: https://supabase.com/docs
 [pgvector]: https://github.com/pgvector/pgvector
 [postgresql]: https://www.postgresql.org/docs/
