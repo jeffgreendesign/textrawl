@@ -139,6 +139,43 @@ ChatGPT Desktop supports MCP servers natively (Pro/Plus required):
 
 See [OpenAI MCP documentation](https://platform.openai.com/docs/mcp) for details.
 
+### 3c. Connect Hermes Agent (Alternative)
+
+[Hermes Agent](https://hermes-agent.nousresearch.com/docs/user-guide/features/mcp) connects to Textrawl as a remote HTTP MCP server. Add to `~/.hermes/config.yaml`:
+
+```yaml
+mcp_servers:
+  textrawl:
+    url: "http://localhost:3000/mcp"
+    headers:
+      Authorization: "Bearer ${TEXTRAWL_TOKEN}"
+    supports_parallel_tool_calls: true
+```
+
+Put the token in `~/.hermes/.env` so the `${TEXTRAWL_TOKEN}` placeholder resolves at connect time:
+
+```bash
+TEXTRAWL_TOKEN=your_api_bearer_token
+```
+
+Point `url` at the `/mcp` endpoint — `url`-based servers use StreamableHTTP transport, which is what Textrawl serves. Omit the `headers` block if you haven't set `API_BEARER_TOKEN`. Hermes registers Textrawl's tools as `mcp_textrawl_<tool>` (e.g. `mcp_textrawl_ask`).
+
+**Limit to read-only tools** with `tools.include` (use the original snake_case names):
+
+```yaml
+    tools:
+      include: [ask, search, get_document, list_documents, daily_briefing, timeline, query_memory, query_conversations, get_insights, get_stats, health_check]
+```
+
+**Or just block the destructive ones** with `tools.exclude`:
+
+```yaml
+    tools:
+      exclude: [forget_entity, delete_conversation, dismiss_insight, update_document]
+```
+
+Then run `hermes chat` and ask it to use Textrawl. Use `/reload-mcp` after editing the config.
+
 ### 4. Add Your Documents
 
 **Option A: Desktop App** (easiest)

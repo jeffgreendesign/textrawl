@@ -1,4 +1,5 @@
 import { McpServer } from '@modelcontextprotocol/sdk/server/mcp.js';
+import { isDatabaseConfigured } from './db/pg-client.js';
 import { registerAskTool } from './tools/ask.js';
 import { registerBriefingTool } from './tools/briefing.js';
 import { registerConversationTools } from './tools/conversation.js';
@@ -9,10 +10,11 @@ import { registerMemoryTools } from './tools/memory.js';
 import { registerNoteTool } from './tools/note.js';
 import { registerPgAnalyzeTools } from './tools/pg-analyze.js';
 import { registerSearchTool } from './tools/search.js';
-import { registerStatsTools } from './tools/stats.js';
+import { gatherAllStats, registerStatsTools } from './tools/stats.js';
 import { registerTimelineTool } from './tools/timeline.js';
 import { registerUrlTool } from './tools/url.js';
 import { getKnowledgeStatsHTML, getSearchResultsHTML } from './ui/index.js';
+import { serializeResponse } from './utils/compact.js';
 import { config } from './utils/config.js';
 import { logger } from './utils/logger.js';
 
@@ -61,6 +63,31 @@ function registerUIResources(server: McpServer): void {
 				},
 			],
 		}),
+	);
+
+	// Knowledge stats as structured JSON — lets generic MCP clients (e.g. Hermes
+	// Agent's read_resource) consume stats without scraping the HTML UI.
+	server.registerResource(
+		'knowledge-stats-json',
+		'textrawl://stats.json',
+		{
+			description: 'Knowledge base, memory, conversation, and insight statistics as JSON',
+			mimeType: 'application/json',
+		},
+		async () => {
+			const stats = isDatabaseConfigured()
+				? await gatherAllStats()
+				: { error: true, message: 'Database not configured (set DATABASE_URL)', code: 'CONFIG' };
+			return {
+				contents: [
+					{
+						uri: 'textrawl://stats.json',
+						mimeType: 'application/json',
+						text: JSON.stringify(serializeResponse(stats)),
+					},
+				],
+			};
+		},
 	);
 
 	logger.debug('Registered UI resources for MCP Apps');

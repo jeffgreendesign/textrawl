@@ -44,7 +44,7 @@ import { getInsightStats, validateInsightSchema } from '../../db/insights.js';
 import { getMemoryStats } from '../../db/memory-search.js';
 import { isDatabaseConfigured } from '../../db/pg-client.js';
 import { getKnowledgeStats } from '../../db/stats.js';
-import { GetStatsOutputSchema, registerStatsTools } from '../../tools/stats.js';
+import { gatherAllStats, GetStatsOutputSchema, registerStatsTools } from '../../tools/stats.js';
 import { config } from '../../utils/config.js';
 
 // --- Helpers ---
@@ -454,6 +454,48 @@ describe('get_stats tool', () => {
 			};
 			const parsed = outputSchema.safeParse(result.structuredContent);
 			expect(parsed.success).toBe(true);
+		});
+	});
+});
+
+describe('gatherAllStats (JSON resource source)', () => {
+	beforeEach(() => {
+		vi.clearAllMocks();
+		(config as Record<string, unknown>).ENABLE_MEMORY = false;
+		(config as Record<string, unknown>).ENABLE_CONVERSATIONS = false;
+		(config as Record<string, unknown>).ENABLE_INSIGHTS = false;
+		vi.mocked(getKnowledgeStats).mockResolvedValue({
+			total: 0,
+			bySourceType: {},
+			byContentType: {},
+			topTags: [],
+			dateRange: { oldest: null, newest: null },
+		});
+	});
+
+	it('returns only knowledge stats for an empty DB with all features disabled', async () => {
+		const stats = await gatherAllStats();
+		expect(stats).toEqual({
+			knowledge: {
+				total: 0,
+				bySourceType: {},
+				byContentType: {},
+				topTags: [],
+				dateRange: { oldest: null, newest: null },
+			},
+		});
+		expect(stats).not.toHaveProperty('memory');
+		expect(stats).not.toHaveProperty('conversations');
+		expect(stats).not.toHaveProperty('insights');
+	});
+
+	it('reports a per-scope error object instead of throwing when knowledge fails', async () => {
+		vi.mocked(getKnowledgeStats).mockRejectedValue(new Error('db down'));
+		const stats = await gatherAllStats();
+		expect(stats.knowledge).toEqual({
+			error: true,
+			message: 'db down',
+			code: expect.any(String),
 		});
 	});
 });

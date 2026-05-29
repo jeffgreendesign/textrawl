@@ -97,6 +97,74 @@ function scopeError(message: string, error: unknown) {
 	};
 }
 
+/** Log a per-scope error with message and stack trace. */
+function logScopeError(scopeName: string, scope: string, err: unknown): void {
+	logger.error(`get_stats: ${scopeName} scope failed`, {
+		scope,
+		error: err instanceof Error ? err.message : String(err),
+		stack: err instanceof Error ? err.stack : undefined,
+	});
+}
+
+/**
+ * Gather every enabled stats scope, returning partial results.
+ *
+ * Mirrors get_stats scope="all": knowledge is always included, the
+ * feature-flagged scopes are added when enabled, and any scope that fails is
+ * replaced with a `{ error, message, code }` object rather than throwing.
+ * Shared by the get_stats tool and the knowledge-stats JSON resource.
+ */
+export async function gatherAllStats(): Promise<Record<string, unknown>> {
+	const result: Record<string, unknown> = {};
+
+	try {
+		result.knowledge = await getKnowledgeStats();
+	} catch (err) {
+		logScopeError('knowledge', 'all', err);
+		result.knowledge = scopeError(err instanceof Error ? err.message : 'Unknown error', err);
+	}
+
+	if (config.ENABLE_MEMORY) {
+		try {
+			result.memory = await getMemoryStats();
+		} catch (err) {
+			logScopeError('memory', 'all', err);
+			result.memory = scopeError(err instanceof Error ? err.message : 'Unknown error', err);
+		}
+	}
+
+	if (config.ENABLE_CONVERSATIONS) {
+		try {
+			result.conversations = await getConversationSearchStats();
+		} catch (err) {
+			logScopeError('conversations', 'all', err);
+			result.conversations = scopeError(err instanceof Error ? err.message : 'Unknown error', err);
+		}
+	}
+
+	if (config.ENABLE_INSIGHTS) {
+		try {
+			const schema = await ensureInsightSchema();
+			if (schema.ok) {
+				result.insights = await getInsightStats();
+			} else {
+				result.insights = {
+					error: true,
+					message: schema.error,
+					code: 'SCHEMA_ERROR',
+				};
+			}
+		} catch (err) {
+			logScopeError('insights', 'all', err);
+			// Invalidate stale schema cache so next call re-checks
+			insightSchemaCache = null;
+			result.insights = scopeError(err instanceof Error ? err.message : 'Unknown error', err);
+		}
+	}
+
+	return result;
+}
+
 /**
  * Register the get_stats tool
  *
@@ -104,15 +172,6 @@ function scopeError(message: string, error: unknown) {
  * conversation_stats, and insight_stats.
  */
 export function registerStatsTools(server: McpServer): void {
-	/** Log a per-scope error with message and stack trace. */
-	function logScopeError(scopeName: string, scope: string, err: unknown): void {
-		logger.error(`get_stats: ${scopeName} scope failed`, {
-			scope,
-			error: err instanceof Error ? err.message : String(err),
-			stack: err instanceof Error ? err.stack : undefined,
-		});
-	}
-
 	server.registerTool(
 		'get_stats',
 		{
@@ -150,29 +209,14 @@ export function registerStatsTools(server: McpServer): void {
 				const result: Record<string, unknown> = {};
 				const includeAll = scope === 'all';
 
-				// Knowledge stats (always available)
-				if (includeAll || scope === 'knowledge') {
+				if (includeAll) {
+					Object.assign(result, await gatherAllStats());
+				} else if (scope === 'knowledge') {
 					try {
 						result.knowledge = await getKnowledgeStats();
 					} catch (err) {
 						logScopeError('knowledge', scope, err);
-						if (!includeAll) {
-							return toolError('get_stats', err, { scope: 'knowledge' });
-						}
-						result.knowledge = scopeError(
-							err instanceof Error ? err.message : 'Unknown error',
-							err,
-						);
-					}
-				}
-
-				// Memory stats (feature-flagged)
-				if (includeAll && config.ENABLE_MEMORY) {
-					try {
-						result.memory = await getMemoryStats();
-					} catch (err) {
-						logScopeError('memory', scope, err);
-						result.memory = scopeError(err instanceof Error ? err.message : 'Unknown error', err);
+						return toolError('get_stats', err, { scope: 'knowledge' });
 					}
 				} else if (scope === 'memory') {
 					if (!config.ENABLE_MEMORY) {
@@ -184,19 +228,6 @@ export function registerStatsTools(server: McpServer): void {
 						logScopeError('memory', scope, err);
 						return toolError('get_stats', err, { scope: 'memory' });
 					}
-				}
-
-				// Conversation stats (feature-flagged)
-				if (includeAll && config.ENABLE_CONVERSATIONS) {
-					try {
-						result.conversations = await getConversationSearchStats();
-					} catch (err) {
-						logScopeError('conversations', scope, err);
-						result.conversations = scopeError(
-							err instanceof Error ? err.message : 'Unknown error',
-							err,
-						);
-					}
 				} else if (scope === 'conversations') {
 					if (!config.ENABLE_CONVERSATIONS) {
 						return toolError('Conversations feature is disabled (ENABLE_CONVERSATIONS=false)');
@@ -206,27 +237,6 @@ export function registerStatsTools(server: McpServer): void {
 					} catch (err) {
 						logScopeError('conversations', scope, err);
 						return toolError('get_stats', err, { scope: 'conversations' });
-					}
-				}
-
-				// Insight stats (feature-flagged + schema check)
-				if (includeAll && config.ENABLE_INSIGHTS) {
-					try {
-						const schema = await ensureInsightSchema();
-						if (schema.ok) {
-							result.insights = await getInsightStats();
-						} else {
-							result.insights = {
-								error: true,
-								message: schema.error,
-								code: 'SCHEMA_ERROR',
-							};
-						}
-					} catch (err) {
-						logScopeError('insights', scope, err);
-						// Invalidate stale schema cache so next call re-checks
-						insightSchemaCache = null;
-						result.insights = scopeError(err instanceof Error ? err.message : 'Unknown error', err);
 					}
 				} else if (scope === 'insights') {
 					if (!config.ENABLE_INSIGHTS) {
