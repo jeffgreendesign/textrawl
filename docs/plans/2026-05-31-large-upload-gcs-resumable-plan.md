@@ -104,12 +104,12 @@ Browser ──POST /api/upload/init──────────────►
   │                                              transitions uploaded→queued (txn) + enqueues Cloud Task
   ◄──────────── 202 Accepted { statusUrl } ──────
   │
-Cloud Tasks ──OIDC POST /api/upload/process/:id──► internal endpoint (CPU allocated in-request)
+Cloud Tasks ──OIDC POST /api/upload/process/:uploadId──► internal endpoint (CPU allocated in-request)
   │                                              streams object from GCS → handler registry →
   │                                              extract → chunk → embed → createDocument(s) →
   │                                              update upload + per-entry results
   │
-  └──GET /api/upload/:id/status (poll)────────► API returns upload + processing progress
+  └──GET /api/upload/:uploadId/status (poll)──► API returns upload + processing progress
 ```
 
 Postgres stores **metadata/state/results only**. Bytes live in GCS and are streamed during
