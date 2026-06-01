@@ -142,6 +142,31 @@ const envSchema = z.object({
 		.default('500')
 		.transform((val) => parseInt(val, 10))
 		.refine((val) => val >= 1, 'Must be at least 1'),
+
+	// Large-upload (GCS resumable + Cloud Tasks) workflow — plan §7.
+	// Max size accepted by the resumable `/api/upload/init` path.
+	MAX_UPLOAD_SIZE_MB: z
+		.string()
+		.default('500')
+		.transform((val) => parseInt(val, 10))
+		.refine((val) => val >= 1, 'Must be at least 1 MB'),
+
+	// Dashboard switch point: size ≤ threshold → direct upload, > → resumable.
+	// Unset → falls back to MAX_SINGLE_FILE_SIZE_MB at the use site.
+	UPLOAD_THRESHOLD_MB: z
+		.string()
+		.optional()
+		.transform((val) => (val === undefined ? undefined : parseInt(val, 10))),
+
+	// Resumable session + upload-row expiry (minutes).
+	UPLOAD_SESSION_TTL_MIN: z
+		.string()
+		.default('120')
+		.transform((val) => parseInt(val, 10))
+		.refine((val) => val >= 1, 'Must be at least 1 minute'),
+
+	// GCS bucket for large uploads (required once real GCS storage lands).
+	GCS_UPLOAD_BUCKET: z.string().optional(),
 });
 
 export type Config = z.infer<typeof envSchema>;

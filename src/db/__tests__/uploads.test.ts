@@ -4,7 +4,7 @@
  * The Postgres client (pg-client) is fully mocked — no live database. These
  * tests pin the contract the session API (T2.3) depends on: typed create/get/
  * list, the §5 guarded state-transition graph (legal moves succeed, illegal
- * moves throw ValidationError), and the AX rules (missing id → null, dates
+ * moves throw InvalidUploadStateError), and the AX rules (missing id → null, dates
  * normalized to ISO strings, bigint → number, aggregates default to zero).
  */
 import { beforeEach, describe, expect, it, vi } from 'vitest';
@@ -21,7 +21,7 @@ vi.mock('../pg-client.js', () => ({
 	queryCount: vi.fn(),
 }));
 
-import { ValidationError } from '../../utils/errors.js';
+import { InvalidUploadStateError } from '../../utils/errors.js';
 import { pgQuery, queryCount, queryOne, queryOneOrThrow } from '../pg-client.js';
 import {
 	createUpload,
@@ -171,20 +171,20 @@ describe('transitionUploadState', () => {
 		expect(params).toContain('initialized');
 	});
 
-	it('throws ValidationError on an illegal transition and never updates', async () => {
+	it('throws InvalidUploadStateError on an illegal transition and never updates', async () => {
 		mocked.queryOne.mockResolvedValueOnce(rawUploadRow({ state: 'uploaded' }));
 
 		await expect(transitionUploadState('up-1', 'completed')).rejects.toBeInstanceOf(
-			ValidationError,
+			InvalidUploadStateError,
 		);
 		expect(mocked.pgQuery).not.toHaveBeenCalled();
 	});
 
-	it('throws ValidationError when leaving a terminal state', async () => {
+	it('throws InvalidUploadStateError when leaving a terminal state', async () => {
 		mocked.queryOne.mockResolvedValueOnce(rawUploadRow({ state: 'completed' }));
 
 		await expect(transitionUploadState('up-1', 'processing')).rejects.toBeInstanceOf(
-			ValidationError,
+			InvalidUploadStateError,
 		);
 		expect(mocked.pgQuery).not.toHaveBeenCalled();
 	});
@@ -195,12 +195,14 @@ describe('transitionUploadState', () => {
 		expect(mocked.pgQuery).not.toHaveBeenCalled();
 	});
 
-	it('throws ValidationError when the row moved under us (CAS matched 0 rows)', async () => {
+	it('throws InvalidUploadStateError when the row moved under us (CAS matched 0 rows)', async () => {
 		mocked.queryOne.mockResolvedValueOnce(rawUploadRow({ state: 'initialized' }));
 		// Concurrent transition/delete: the state-gated UPDATE matches nothing.
 		mocked.pgQuery.mockResolvedValueOnce({ rows: [], rowCount: 0 });
 
-		await expect(transitionUploadState('up-1', 'uploaded')).rejects.toBeInstanceOf(ValidationError);
+		await expect(transitionUploadState('up-1', 'uploaded')).rejects.toBeInstanceOf(
+			InvalidUploadStateError,
+		);
 	});
 });
 

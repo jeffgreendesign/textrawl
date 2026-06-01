@@ -1,4 +1,4 @@
-import { DatabaseError, NotFoundError, ValidationError } from '../utils/errors.js';
+import { DatabaseError, InvalidUploadStateError, NotFoundError } from '../utils/errors.js';
 import { logger } from '../utils/logger.js';
 import {
 	isDatabaseConfigured,
@@ -345,13 +345,13 @@ export async function listUploads(
  * Transition an upload to a new state, enforcing the §5 legal graph.
  *
  * - Returns null if no upload with `id` exists (missing id → null, not throw).
- * - Throws {@link ValidationError} for an illegal transition (including any move
- *   out of a terminal state).
+ * - Throws {@link InvalidUploadStateError} for an illegal transition (including
+ *   any move out of a terminal state) or a concurrent compare-and-swap conflict.
  * - Sets `completed_at` when moving into a processing-terminal state
  *   (`completed`/`partial`/`failed`).
  *
  * @throws {DatabaseError} If the database is not configured or the update fails.
- * @throws {ValidationError} If the transition is not permitted.
+ * @throws {InvalidUploadStateError} If the transition is not permitted.
  */
 export async function transitionUploadState(
 	id: string,
@@ -368,7 +368,9 @@ export async function transitionUploadState(
 	}
 
 	if (!isLegalUploadTransition(current.state, toState)) {
-		throw new ValidationError(`Illegal upload state transition: ${current.state} → ${toState}`);
+		throw new InvalidUploadStateError(
+			`Illegal upload state transition: ${current.state} → ${toState}`,
+		);
 	}
 
 	const setClauses = ['state = $2', 'error_code = $3', 'error_message = $4'];
@@ -399,7 +401,7 @@ export async function transitionUploadState(
 	}
 
 	if (!result.rowCount || result.rows.length === 0) {
-		throw new ValidationError(
+		throw new InvalidUploadStateError(
 			`Conflicting upload state transition: ${current.state} → ${toState} (state changed concurrently)`,
 		);
 	}

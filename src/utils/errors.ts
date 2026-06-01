@@ -50,6 +50,42 @@ export class AuthorizationError extends TextrawlError {
 	}
 }
 
+export class FileTooLargeError extends TextrawlError {
+	constructor(message = 'File exceeds the maximum upload size') {
+		super(message, 413, 'FILE_TOO_LARGE');
+		this.name = 'FileTooLargeError';
+	}
+}
+
+/**
+ * An upload-session operation was attempted from a state that does not allow it
+ * — an illegal state-machine transition or a concurrent (compare-and-swap)
+ * conflict. Distinct from {@link ValidationError} (bad input, 400) so callers and
+ * the error middleware surface a 409 with a stable `INVALID_STATE` code.
+ */
+export class InvalidUploadStateError extends TextrawlError {
+	constructor(message = 'Invalid upload state transition') {
+		super(message, 409, 'INVALID_STATE');
+		this.name = 'InvalidUploadStateError';
+	}
+}
+
+/** The caller's owner-token hash does not match the upload's recorded owner. */
+export class ForbiddenOwnerError extends TextrawlError {
+	constructor(message = 'You do not own this upload') {
+		super(message, 403, 'FORBIDDEN_OWNER');
+		this.name = 'ForbiddenOwnerError';
+	}
+}
+
+/** The upload session's TTL elapsed before it was completed. */
+export class UploadExpiredError extends TextrawlError {
+	constructor(message = 'Upload session has expired') {
+		super(message, 410, 'UPLOAD_EXPIRED');
+		this.name = 'UploadExpiredError';
+	}
+}
+
 export class DatabaseError extends TextrawlError {
 	constructor(message = 'Database operation failed') {
 		super(message, 500, 'DATABASE_ERROR');
