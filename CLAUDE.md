@@ -71,6 +71,7 @@ The `verify` gates invoke three shell scripts directly: `scripts/security-check.
   - Google AI 3072d: `scripts/setup-db-insights-google.sql`
   - Ollama 1024d: `scripts/setup-db-insights-ollama.sql`
   - Ollama 768d: `scripts/setup-db-insights-ollama-v2.sql`
+- **Large uploads** (metadata/state only; provider-agnostic, no embeddings): `scripts/setup-db-uploads.sql`
 - **Security hardening**: `scripts/security-rls.sql` (+ `scripts/security-rls-memory.sql`)
 
 ## MCP tools reference
