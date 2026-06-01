@@ -116,6 +116,33 @@ Cloud Run settings:
 - **Min instances**: 0 (scale to zero)
 - **Timeout**: 60s
 
+## Large uploads (GCS)
+
+Uploads above `MAX_SINGLE_FILE_SIZE_MB` use a resumable workflow: the browser
+PUTs bytes **directly to a GCS bucket** (never through Cloud Run or Vercel), then
+the server verifies and processes the object. Storage is selected at runtime —
+set `GCS_UPLOAD_BUCKET` to enable GCS; leave it unset to fall back to the
+in-memory fake (local dev only).
+
+```bash
+# Point the service at the provisioned bucket
+gcloud run services update textrawl --region us-east4 \
+  --update-env-vars GCS_UPLOAD_BUCKET=textrawl-uploads
+# GCS_PROJECT_ID is optional — auto-detected from the runtime service account.
+```
+
+The bucket itself (creation, IAM, **CORS for the dashboard origin**, and the
+abandoned-upload **lifecycle** rule) is provisioned and version-controlled under
+[`infra/gcs/`](https://github.com/jeffgreendesign/textrawl/tree/main/infra/gcs) —
+see its `README.md` for the exact commands. Key points:
+
+- The Cloud Run runtime service account needs `roles/storage.objectAdmin` on the
+  bucket (granted via ADC — no keys).
+- Bucket **CORS** must allow the dashboard origin with methods `PUT/POST/GET/HEAD`
+  and headers `Content-Type, Content-Range, x-goog-*`.
+- A **lifecycle** rule deletes abandoned objects after 1 day; soft-delete is
+  disabled so deleted upload bytes are not retained/billed.
+
 ## Custom Domain
 
 ```bash

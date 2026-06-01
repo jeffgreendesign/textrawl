@@ -7,6 +7,7 @@ import {
 	createUpload,
 	getUpload,
 	getUploadStatus,
+	recordUploadObjectMetadata,
 	transitionUploadState,
 } from '../db/uploads.js';
 import { isSupportedType } from '../services/processor.js';
@@ -18,6 +19,8 @@ import {
 	ForbiddenOwnerError,
 	InvalidUploadStateError,
 	NotFoundError,
+	ObjectNotFoundError,
+	SizeMismatchError,
 	UnsupportedFileTypeError,
 	UploadExpiredError,
 	ValidationError,
@@ -114,6 +117,9 @@ uploadSessionsRouter.post('/upload/init', bearerAuth, uploadLimiter, async (req,
 		const { resumableUri } = await getStorageService().startResumableSession(objectKey, {
 			contentType,
 			size,
+			// Bind the browser origin so cross-origin resumable PUTs are accepted
+			// (the in-memory fake ignores it).
+			origin: req.headers.origin ?? null,
 		});
 
 		const upload = await createUpload({
@@ -192,15 +198,27 @@ uploadSessionsRouter.post('/upload/complete', bearerAuth, uploadLimiter, async (
 			throw new UploadExpiredError();
 		}
 
-		// Verify the object landed (metadata-only). With the in-memory fake this
-		// reflects the declared size; real GCS object/size/crc32c verification and
-		// the OBJECT_NOT_FOUND / SIZE_MISMATCH codes arrive in T3.2.
+		// Verify the object landed (metadata-only — no full read). Missing object →
+		// the client called /complete before finishing the PUT; size drift → the
+		// stored bytes disagree with what was declared at /init.
 		const meta = await getStorageService().headObject(upload.object_key);
-		if (meta && meta.size !== upload.size_bytes) {
-			throw new ValidationError(
+		if (!meta) {
+			throw new ObjectNotFoundError();
+		}
+		if (meta.size !== upload.size_bytes) {
+			throw new SizeMismatchError(
 				`Uploaded object size ${meta.size} does not match declared size ${upload.size_bytes}`,
 			);
 		}
+
+		// Capture the cheap GCS object metadata (generation/crc32c/etag) onto the
+		// row — crc32c is a transport-integrity signal and generation pins the exact
+		// object version the processor will read.
+		await recordUploadObjectMetadata(uploadId, {
+			generation: meta.generation,
+			crc32c: meta.crc32c,
+			etag: meta.etag,
+		});
 
 		// Object-verify passed → uploaded (pre-enqueue).
 		if (upload.state !== 'uploaded') {

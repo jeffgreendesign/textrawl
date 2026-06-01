@@ -1,3 +1,6 @@
+import { config } from '../../utils/config.js';
+import { logger } from '../../utils/logger.js';
+import { GcsStorageService } from './gcs.js';
 import { MemoryStorageService } from './memory.js';
 import type { StorageService } from './types.js';
 
@@ -13,14 +16,24 @@ let instance: StorageService | null = null;
 /**
  * Resolve the active {@link StorageService}.
  *
- * Returns the in-memory fake until the real GCS resumable implementation lands
- * (T3.1), at which point this factory dispatches on `GCS_UPLOAD_BUCKET`. The
- * upload-session router depends only on the interface, so swapping the
- * implementation here requires no router changes.
+ * Dispatches on `GCS_UPLOAD_BUCKET`: when set, real GCS-backed storage; when
+ * unset (local dev / tests), the in-memory fake. The upload-session router
+ * depends only on the interface, so this is the single swap point. Memoized —
+ * call {@link setStorageService} to reset between tests.
  */
 export function getStorageService(): StorageService {
 	if (!instance) {
-		instance = new MemoryStorageService();
+		if (config.GCS_UPLOAD_BUCKET) {
+			logger.info('Storage: using GCS', { bucket: config.GCS_UPLOAD_BUCKET });
+			instance = new GcsStorageService({
+				bucket: config.GCS_UPLOAD_BUCKET,
+				projectId: config.GCS_PROJECT_ID,
+				sessionTtlMinutes: config.UPLOAD_SESSION_TTL_MIN,
+			});
+		} else {
+			logger.info('Storage: GCS_UPLOAD_BUCKET unset — using in-memory fake');
+			instance = new MemoryStorageService();
+		}
 	}
 	return instance;
 }

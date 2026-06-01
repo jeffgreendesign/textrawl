@@ -86,6 +86,26 @@ export class UploadExpiredError extends TextrawlError {
 	}
 }
 
+/**
+ * `/complete` was called but no object exists at the upload's storage key — the
+ * client has not finished (or never started) the resumable PUT. A 409 conflict
+ * with the stored reality, retryable once the bytes actually land.
+ */
+export class ObjectNotFoundError extends TextrawlError {
+	constructor(message = 'Uploaded object not found in storage') {
+		super(message, 409, 'OBJECT_NOT_FOUND');
+		this.name = 'ObjectNotFoundError';
+	}
+}
+
+/** The stored object's size does not match the size declared at `/init`. */
+export class SizeMismatchError extends TextrawlError {
+	constructor(message = 'Uploaded object size does not match the declared size') {
+		super(message, 409, 'SIZE_MISMATCH');
+		this.name = 'SizeMismatchError';
+	}
+}
+
 export class DatabaseError extends TextrawlError {
 	constructor(message = 'Database operation failed') {
 		super(message, 500, 'DATABASE_ERROR');
