@@ -29,6 +29,7 @@ import {
 	getUploadStatus,
 	isLegalUploadTransition,
 	listUploads,
+	recordUploadObjectMetadata,
 	transitionUploadState,
 } from '../uploads.js';
 
@@ -203,6 +204,25 @@ describe('transitionUploadState', () => {
 		await expect(transitionUploadState('up-1', 'uploaded')).rejects.toBeInstanceOf(
 			InvalidUploadStateError,
 		);
+	});
+});
+
+describe('recordUploadObjectMetadata', () => {
+	it('writes generation/crc32c/etag with a plain ungated UPDATE', async () => {
+		mocked.pgQuery.mockResolvedValueOnce({ rows: [], rowCount: 1 });
+
+		await recordUploadObjectMetadata('up-1', {
+			generation: '17803',
+			crc32c: 'AAAAAA==',
+			etag: 'etag-1',
+		});
+
+		expect(mocked.pgQuery).toHaveBeenCalledTimes(1);
+		const [sql, params] = mocked.pgQuery.mock.calls[0];
+		expect(sql).toMatch(/update uploads/i);
+		// Metadata-only: no `state =` predicate, just the object columns by id.
+		expect(sql).not.toMatch(/state\s*=/i);
+		expect(params).toEqual(['up-1', '17803', 'AAAAAA==', 'etag-1']);
 	});
 });
 

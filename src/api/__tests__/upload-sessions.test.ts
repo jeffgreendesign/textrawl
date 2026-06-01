@@ -20,12 +20,19 @@ const { storage, taskQueue, mockConfig } = vi.hoisted(() => ({
 			resumableUri: 'memory://uploads/key?session=abc',
 			expiresAt: '2099-01-01T00:00:00.000Z',
 		})),
-		headObject: vi.fn(async () => ({
-			size: 100,
-			generation: '1',
-			crc32c: 'AAAAAA==',
-			etag: 'e',
-		})),
+		headObject: vi.fn(
+			async (): Promise<{
+				size: number;
+				generation: string;
+				crc32c: string;
+				etag: string;
+			} | null> => ({
+				size: 100,
+				generation: '1',
+				crc32c: 'AAAAAA==',
+				etag: 'e',
+			}),
+		),
 		abortSession: vi.fn(async () => undefined),
 	},
 	taskQueue: {
@@ -76,6 +83,7 @@ vi.mock('../../db/uploads.js', () => ({
 	getUpload: vi.fn(),
 	getUploadStatus: vi.fn(),
 	transitionUploadState: vi.fn(),
+	recordUploadObjectMetadata: vi.fn(),
 }));
 
 // --- Imports (after mocks) ---
@@ -84,6 +92,7 @@ import {
 	createUpload,
 	getUpload,
 	getUploadStatus,
+	recordUploadObjectMetadata,
 	transitionUploadState,
 } from '../../db/uploads.js';
 import { InvalidUploadStateError } from '../../utils/errors.js';
@@ -95,6 +104,7 @@ const db = {
 	getUpload: vi.mocked(getUpload),
 	getUploadStatus: vi.mocked(getUploadStatus),
 	transitionUploadState: vi.mocked(transitionUploadState),
+	recordUploadObjectMetadata: vi.mocked(recordUploadObjectMetadata),
 };
 
 const OWNER_TOKEN = 'owner-token';
@@ -165,18 +175,28 @@ describe('POST /upload/init', () => {
 			}),
 		);
 
-		const res = await request(makeApp()).post('/upload/init').set(auth()).send({
-			filename: 'Gardening.zip',
-			contentType: 'application/zip',
-			size: 100,
-			objectKey: 'evil/client/path.zip', // must be ignored
-		});
+		const res = await request(makeApp())
+			.post('/upload/init')
+			.set(auth())
+			.set('Origin', 'https://dashboard-lilac-one-63.vercel.app')
+			.send({
+				filename: 'Gardening.zip',
+				contentType: 'application/zip',
+				size: 100,
+				objectKey: 'evil/client/path.zip', // must be ignored
+			});
 
 		expect(res.status).toBe(200);
 		expect(res.body.uploadId).toBe('up-new');
 		expect(res.body.resumableUri).toBe('memory://uploads/key?session=abc');
 		expect(res.body.state).toBe('initialized');
 		expect(res.body.useDirectUpload).toBe(true); // 100 bytes ≤ threshold
+
+		// The browser Origin is threaded into the resumable session for CORS.
+		expect(storage.startResumableSession).toHaveBeenCalledWith(
+			expect.any(String),
+			expect.objectContaining({ origin: 'https://dashboard-lilac-one-63.vercel.app' }),
+		);
 
 		// Server-generated key, owner hash bound, client key ignored.
 		const input = db.createUpload.mock.calls[0][0];
@@ -224,6 +244,47 @@ describe('POST /upload/complete', () => {
 		expect(db.transitionUploadState).toHaveBeenCalledWith('up-1', 'uploaded');
 		expect(db.transitionUploadState).toHaveBeenCalledWith('up-1', 'queued');
 		expect(taskQueue.enqueueProcessing).toHaveBeenCalledTimes(1);
+		// Captures the GCS object metadata from headObject onto the row.
+		expect(db.recordUploadObjectMetadata).toHaveBeenCalledWith('up-1', {
+			generation: '1',
+			crc32c: 'AAAAAA==',
+			etag: 'e',
+		});
+	});
+
+	it('rejects with 409 OBJECT_NOT_FOUND when the object never landed', async () => {
+		db.getUpload.mockResolvedValue(buildUpload({ state: 'initialized' }));
+		storage.headObject.mockResolvedValueOnce(null);
+
+		const res = await request(makeApp())
+			.post('/upload/complete')
+			.set(auth())
+			.send({ uploadId: 'up-1' });
+
+		expect(res.status).toBe(409);
+		expect(res.body.error.code).toBe('OBJECT_NOT_FOUND');
+		expect(db.recordUploadObjectMetadata).not.toHaveBeenCalled();
+		expect(taskQueue.enqueueProcessing).not.toHaveBeenCalled();
+	});
+
+	it('rejects with 409 SIZE_MISMATCH when the stored size differs from declared', async () => {
+		db.getUpload.mockResolvedValue(buildUpload({ state: 'initialized', size_bytes: 100 }));
+		storage.headObject.mockResolvedValueOnce({
+			size: 999,
+			generation: '1',
+			crc32c: 'AAAAAA==',
+			etag: 'e',
+		});
+
+		const res = await request(makeApp())
+			.post('/upload/complete')
+			.set(auth())
+			.send({ uploadId: 'up-1' });
+
+		expect(res.status).toBe(409);
+		expect(res.body.error.code).toBe('SIZE_MISMATCH');
+		expect(db.recordUploadObjectMetadata).not.toHaveBeenCalled();
+		expect(taskQueue.enqueueProcessing).not.toHaveBeenCalled();
 	});
 
 	it('is idempotent on an already-queued upload (no second enqueue)', async () => {
