@@ -13,6 +13,12 @@ export interface StartResumableOptions {
 	contentType?: string | null;
 	/** Declared object size in bytes (used by fakes to simulate a completed PUT). */
 	size: number;
+	/**
+	 * Browser `Origin` of the request. GCS binds it into the resumable session so
+	 * the subsequent cross-origin PUTs from that origin are accepted. Optional:
+	 * the in-memory fake ignores it, and server-to-server callers may omit it.
+	 */
+	origin?: string | null;
 }
 
 /** Result of opening a resumable session. */
