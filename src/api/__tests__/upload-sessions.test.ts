@@ -55,6 +55,11 @@ vi.mock('../middleware/auth.js', () => ({
 	bearerAuth: (_req: unknown, _res: unknown, next: () => void) => next(),
 }));
 
+// Rate limiting is pass-through so tests focus on session behavior.
+vi.mock('../middleware/rateLimit.js', () => ({
+	uploadLimiter: (_req: unknown, _res: unknown, next: () => void) => next(),
+}));
+
 vi.mock('../../db/pg-client.js', () => ({
 	isDatabaseConfigured: vi.fn(() => true),
 }));

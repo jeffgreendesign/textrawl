@@ -25,6 +25,7 @@ import {
 import { logger } from '../utils/logger.js';
 import { deriveOwnerTokenHash, ownsUpload } from './lib/owner.js';
 import { bearerAuth } from './middleware/auth.js';
+import { uploadLimiter } from './middleware/rateLimit.js';
 
 export const uploadSessionsRouter: RouterType = Router();
 
@@ -80,7 +81,7 @@ function thresholdBytes(): number {
 	return mb * 1024 * 1024;
 }
 
-uploadSessionsRouter.post('/upload/init', bearerAuth, async (req, res, next) => {
+uploadSessionsRouter.post('/upload/init', bearerAuth, uploadLimiter, async (req, res, next) => {
 	try {
 		if (!isDatabaseConfigured()) {
 			res.status(503).json({ error: 'Database not configured' });
@@ -141,7 +142,7 @@ uploadSessionsRouter.post('/upload/init', bearerAuth, async (req, res, next) => 
 	}
 });
 
-uploadSessionsRouter.post('/upload/complete', bearerAuth, async (req, res, next) => {
+uploadSessionsRouter.post('/upload/complete', bearerAuth, uploadLimiter, async (req, res, next) => {
 	try {
 		if (!isDatabaseConfigured()) {
 			res.status(503).json({ error: 'Database not configured' });
@@ -201,13 +202,17 @@ uploadSessionsRouter.post('/upload/complete', bearerAuth, async (req, res, next)
 			);
 		}
 
-		// Object-verify passed → uploaded (pre-enqueue), then → queued.
+		// Object-verify passed → uploaded (pre-enqueue).
 		if (upload.state !== 'uploaded') {
 			await transitionUploadState(uploadId, 'uploaded');
 		}
-		await transitionUploadState(uploadId, 'queued');
 
+		// Enqueue (idempotent, deduped by upload id) BEFORE flipping to `queued`.
+		// If the enqueue throws, the row stays in `uploaded` — a retry of /complete
+		// re-enqueues and transitions cleanly, rather than being short-circuited by
+		// the idempotent `queued` guard with no task ever created.
 		await getTaskQueue().enqueueProcessing(uploadId);
+		await transitionUploadState(uploadId, 'queued');
 
 		res.status(202).json({ uploadId, state: 'queued', statusUrl });
 	} catch (error) {
