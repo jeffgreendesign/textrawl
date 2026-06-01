@@ -6,14 +6,19 @@ import { isDatabaseConfigured } from '../db/pg-client.js';
 import { smartChunk } from '../services/chunker.js';
 import { generateEmbeddings, isOpenAIConfigured } from '../services/embeddings.js';
 import { extractText, isSupportedType, validateFileType } from '../services/processor.js';
+import { config } from '../utils/config.js';
 import { ValidationError } from '../utils/errors.js';
 import { logger } from '../utils/logger.js';
 import { bearerAuth } from './middleware/auth.js';
 import { uploadLimiter } from './middleware/rateLimit.js';
 
+// Max bytes accepted by the direct upload path, derived from config (not a
+// hardcoded literal). Exported so the limit can be asserted in tests.
+export const maxUploadBytes = config.MAX_SINGLE_FILE_SIZE_MB * 1024 * 1024;
+
 const upload = multer({
 	storage: multer.memoryStorage(),
-	limits: { fileSize: 10 * 1024 * 1024 }, // 10MB
+	limits: { fileSize: maxUploadBytes },
 	fileFilter: (_req, file, cb) => {
 		if (isSupportedType(file.mimetype)) {
 			cb(null, true);

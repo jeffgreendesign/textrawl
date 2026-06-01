@@ -182,7 +182,7 @@ function prepareFile(
 	try {
 		const stats = statSync(filePath);
 		const sizeMB = stats.size / (1024 * 1024);
-		const maxFileSize = options.maxFileSize ?? config.MAX_SINGLE_FILE_SIZE;
+		const maxFileSize = options.maxFileSize ?? config.MAX_SINGLE_FILE_SIZE_MB;
 
 		// Hard limit for very large files
 		if (sizeMB > maxFileSize) {
@@ -651,7 +651,7 @@ async function uploadDocuments(directory: string, options: UploadOptions): Promi
 
 	// Auto-split preprocessing: split oversized files before uploading
 	if (options.autoSplit) {
-		const maxFileSize = options.maxFileSize ?? config.MAX_SINGLE_FILE_SIZE;
+		const maxFileSize = options.maxFileSize ?? config.MAX_SINGLE_FILE_SIZE_MB;
 		const maxChunks = config.MAX_CHUNKS_PER_FILE;
 		const expanded: string[] = [];
 

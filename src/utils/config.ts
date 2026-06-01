@@ -125,7 +125,7 @@ const envSchema = z.object({
 	REDIS_URL: z.string().url().optional(),
 
 	// File size limits
-	MAX_SINGLE_FILE_SIZE: z
+	MAX_SINGLE_FILE_SIZE_MB: z
 		.string()
 		.default('20')
 		.transform((val) => parseInt(val, 10))

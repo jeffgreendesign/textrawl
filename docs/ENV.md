@@ -55,7 +55,7 @@ This file centralizes runtime configuration for Textrawl server, MCP tools, CLI,
 | `PG_REPORT_DIR` | Directory for analysis reports (default: `./reports/pg-analysis`) |
 | `INSIGHT_BATCH_THRESHOLD` | Insight scan tuning (default: `50`) |
 | `INSIGHT_DEBOUNCE_SECONDS` | Insight scan debounce (default: `300`) |
-| `MAX_SINGLE_FILE_SIZE`, `WARN_FILE_SIZE_MB`, `MAX_CHUNKS_PER_FILE` | Upload/chunking guardrails |
+| `MAX_SINGLE_FILE_SIZE_MB`, `WARN_FILE_SIZE_MB`, `MAX_CHUNKS_PER_FILE` | Upload/chunking guardrails |
 
 ## Security notes
 
