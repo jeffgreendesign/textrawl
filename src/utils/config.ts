@@ -167,6 +167,10 @@ const envSchema = z.object({
 
 	// GCS bucket for large uploads (required once real GCS storage lands).
 	GCS_UPLOAD_BUCKET: z.string().optional(),
+
+	// GCP project id for the GCS client. Optional: auto-detected from ADC on
+	// Cloud Run / from the service-account key locally. Set to pin it explicitly.
+	GCS_PROJECT_ID: z.string().optional(),
 });
 
 export type Config = z.infer<typeof envSchema>;

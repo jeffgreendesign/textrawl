@@ -46,6 +46,7 @@
 	"packageManager": "pnpm@9.15.0",
 	"dependencies": {
 		"@anthropic-ai/sdk": "^0.71.2",
+		"@google-cloud/storage": "^7.19.0",
 		"@google/generative-ai": "^0.24.1",
 		"@modelcontextprotocol/ext-apps": "^1.0.0",
 		"@modelcontextprotocol/sdk": "^1.26.0",
