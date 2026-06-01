@@ -1,6 +1,6 @@
 [
 	{
-		"origin": ["https://dashboard-lilac-one-63.vercel.app", "http://localhost:3000"],
+		"origin": ["https://dashboard.example.com", "http://localhost:3000"],
 		"method": ["PUT", "POST", "GET", "HEAD"],
 		"responseHeader": [
 			"Content-Type",

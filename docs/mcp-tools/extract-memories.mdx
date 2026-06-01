@@ -17,7 +17,7 @@ Extract entities, facts, and relationships from text using Claude. Requires `ENA
 
 ```json
 {
-  "text": "Jeff prefers TypeScript and uses Supabase for his projects. He works at Acme Corp.",
+  "text": "Ada prefers TypeScript and uses Supabase for his projects. He works at Acme Corp.",
   "source": "conversation",
   "storeResults": false
 }
@@ -30,10 +30,10 @@ Returns extracted entities with their types, observations, and relationships.
 ```json
 {
   "entities": [
-    { "name": "Jeff", "type": "person", "observations": ["prefers TypeScript", "uses Supabase", "works at Acme Corp"] }
+    { "name": "Ada", "type": "person", "observations": ["prefers TypeScript", "uses Supabase", "works at Acme Corp"] }
   ],
   "relations": [
-    { "from": "Jeff", "relation": "works_at", "to": "Acme Corp" }
+    { "from": "Ada", "relation": "works_at", "to": "Acme Corp" }
   ],
   "stored": false
 }

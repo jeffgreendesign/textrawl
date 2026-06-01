@@ -77,7 +77,7 @@ Enable with ENABLE_MEMORY=true (default). Requires setup-db-memory.sql schema.
 
 Store facts about entities with semantic embeddings.
 
-- entityName (string, REQUIRED): Entity name (e.g., "Jeff", "Project Alpha")
+- entityName (string, REQUIRED): Entity name (e.g., "Ada", "Project Alpha")
 - entityType (enum, REQUIRED): person | concept | project | preference | fact | location | organization
 - observation (string, REQUIRED): Single fact to remember (max 2000 chars)
 - source (enum): conversation | note | document | manual

@@ -19,7 +19,7 @@ Create directed relationships between entities to build a knowledge graph.
 
 | Relation | Example |
 |----------|---------|
-| `works_at` | Jeff works_at Acme Corp |
+| `works_at` | Ada works_at Acme Corp |
 | `knows` | Alice knows Bob |
 | `prefers` | User prefers TypeScript |
 | `created` | Team created Project Alpha |
@@ -32,7 +32,7 @@ Create directed relationships between entities to build a knowledge graph.
 
 ```json
 {
-  "fromEntity": "Jeff",
+  "fromEntity": "Ada",
   "relation": "works_at",
   "toEntity": "Acme Corp"
 }
@@ -45,7 +45,7 @@ Create directed relationships between entities to build a knowledge graph.
 When `COMPACT_RESPONSES=true` (default), responses use short keys to reduce token usage by 40-60%:
 
 ```json
-{"ok":true,"rel":"550e8400","from":{"id":"550e8401","n":"Jeff","t":"person"},"to":{"id":"550e8402","n":"Acme Corp","t":"organization"}}
+{"ok":true,"rel":"550e8400","from":{"id":"550e8401","n":"Ada","t":"person"},"to":{"id":"550e8402","n":"Acme Corp","t":"organization"}}
 ```
 
 **Key mapping:** `ok`=success, `rel`=relationId, `n`=name, `t`=type
@@ -57,11 +57,11 @@ When `COMPACT_RESPONSES=false`:
 ```json
 {
   "success": true,
-  "message": "Created relation: Jeff works_at Acme Corp",
+  "message": "Created relation: Ada works_at Acme Corp",
   "relationId": "550e8400-e29b-41d4-a716-446655440000",
   "fromEntity": {
     "id": "550e8400-e29b-41d4-a716-446655440001",
-    "name": "Jeff",
+    "name": "Ada",
     "type": "person"
   },
   "toEntity": {
@@ -86,7 +86,7 @@ If entities don't exist, they are automatically created:
 
 ```json
 {
-  "fromEntity": "Jeff",
+  "fromEntity": "Ada",
   "relation": "works_at",
   "toEntity": "Engineering Team",
   "fromEntityType": "person",
@@ -120,8 +120,8 @@ If entities don't exist, they are automatically created:
 
 Relations are directed (from → to):
 
-- `Jeff works_at Acme` means Jeff is the employee
-- `Acme employs Jeff` would be the inverse
+- `Ada works_at Acme` means Ada is the employee
+- `Acme employs Ada` would be the inverse
 
 Use `query_memory` with mode="entity" to see both outgoing and incoming relations.
 
@@ -132,7 +132,7 @@ If the same relation already exists, the existing relation is returned:
 ```json
 {
   "success": true,
-  "message": "Created relation: Jeff works_at Acme Corp",
+  "message": "Created relation: Ada works_at Acme Corp",
   "relationId": "existing-relation-id"
 }
 ```
