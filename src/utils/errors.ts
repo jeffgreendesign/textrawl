@@ -29,6 +29,13 @@ export class ValidationError extends TextrawlError {
 	}
 }
 
+export class UnsupportedFileTypeError extends TextrawlError {
+	constructor(message = 'Unsupported file type') {
+		super(message, 400, 'UNSUPPORTED_TYPE');
+		this.name = 'UnsupportedFileTypeError';
+	}
+}
+
 export class AuthenticationError extends TextrawlError {
 	constructor(message = 'Authentication required') {
 		super(message, 401, 'AUTHENTICATION_ERROR');

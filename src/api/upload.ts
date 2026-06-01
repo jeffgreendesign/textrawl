@@ -7,7 +7,7 @@ import { smartChunk } from '../services/chunker.js';
 import { generateEmbeddings, isOpenAIConfigured } from '../services/embeddings.js';
 import { extractText, isSupportedType, validateFileType } from '../services/processor.js';
 import { config } from '../utils/config.js';
-import { ValidationError } from '../utils/errors.js';
+import { UnsupportedFileTypeError, ValidationError } from '../utils/errors.js';
 import { logger } from '../utils/logger.js';
 import { bearerAuth } from './middleware/auth.js';
 import { uploadLimiter } from './middleware/rateLimit.js';
@@ -23,7 +23,7 @@ const upload = multer({
 		if (isSupportedType(file.mimetype)) {
 			cb(null, true);
 		} else {
-			cb(new ValidationError(`Unsupported file type: ${file.mimetype}`));
+			cb(new UnsupportedFileTypeError(`Unsupported file type: ${file.mimetype}`));
 		}
 	},
 });

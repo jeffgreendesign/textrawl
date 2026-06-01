@@ -1,4 +1,5 @@
 import type { NextFunction, Request, Response } from 'express';
+import multer from 'multer';
 import { TextrawlError } from '../../utils/errors.js';
 import { logger } from '../../utils/logger.js';
 
@@ -30,6 +31,24 @@ export function errorHandler(err: Error, _req: Request, res: Response, _next: Ne
 			},
 		};
 		res.status(err.statusCode).json(response);
+		return;
+	}
+
+	// Handle multer upload errors (e.g. oversized request body). Without this
+	// they fall through to a generic 500 that the client surfaces as a bare
+	// "Load failed".
+	if (err instanceof multer.MulterError) {
+		const isTooLarge = err.code === 'LIMIT_FILE_SIZE';
+		const statusCode = isTooLarge ? 413 : 400;
+		const code = isTooLarge ? 'FILE_TOO_LARGE' : 'UPLOAD_ERROR';
+		const response: ErrorResponse = {
+			error: {
+				message: isTooLarge ? 'File exceeds the maximum upload size' : err.message,
+				code,
+				statusCode,
+			},
+		};
+		res.status(statusCode).json(response);
 		return;
 	}
 
