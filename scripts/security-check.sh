@@ -82,6 +82,47 @@ if [ -n "$NULL_BYTE_PATTERNS" ]; then
     echo "$NULL_BYTE_PATTERNS"
 fi
 
+# ---------------------------------------------------------------------------
+# Personal-info guard (this is a PUBLIC repo). Blocks committing personal
+# infrastructure URLs / incidental PII into tracked files. By design this
+# script contains NO personal strings: Part A matches a generic category, and
+# any specific strings live only in the gitignored .security/pii-patterns.txt.
+# ---------------------------------------------------------------------------
+echo "Checking for committed personal info..."
+PII_FOUND=0
+
+# Part A — generic: no Vercel preview hostnames in tracked files (use ALLOWED_ORIGINS).
+VERCEL_HITS=$(git grep -nIE '[a-z0-9-]+\.vercel\.app' -- \
+  ':(exclude)scripts/security-check.sh' ':(exclude)pnpm-lock.yaml' 2>/dev/null || true)
+if [ -n "$VERCEL_HITS" ]; then
+    echo -e "${RED}ERROR:${NC} Vercel preview hostname in tracked files (use ALLOWED_ORIGINS / a placeholder):"
+    echo "$VERCEL_HITS"
+    PII_FOUND=1
+fi
+
+# Part B — optional specifics from a gitignored pattern file (one regex per line;
+# '#' comments and blank lines ignored). Absent/empty → skipped, so CI without the
+# secret still passes. Comments/blanks are stripped and joined into one ERE so a
+# stray blank line can't become an empty pattern that matches everything.
+PII_FILE=".security/pii-patterns.txt"
+if [ -f "$PII_FILE" ]; then
+    PII_RE=$(grep -vE '^[[:space:]]*(#|$)' "$PII_FILE" | paste -sd'|' -)
+    if [ -n "$PII_RE" ]; then
+        SPECIFIC_HITS=$(git grep -nIE "$PII_RE" -- ':(exclude)website/**' \
+          ':(exclude)llms.txt' ':(exclude)llms-full.txt' ':(exclude)pnpm-lock.yaml' 2>/dev/null || true)
+        if [ -n "$SPECIFIC_HITS" ]; then
+            echo -e "${RED}ERROR:${NC} a configured personal-info pattern was found in tracked files:"
+            echo "$SPECIFIC_HITS"
+            PII_FOUND=1
+        fi
+    fi
+fi
+
+if [ "$PII_FOUND" -eq 1 ]; then
+    echo -e "${RED}Personal-info check failed — see above.${NC}"
+    exit 1
+fi
+
 if [ $ISSUES_FOUND -eq 0 ]; then
     echo -e "${GREEN}Security checks passed!${NC}"
     exit 0

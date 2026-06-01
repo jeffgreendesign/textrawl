@@ -64,4 +64,6 @@ package-lock.json
 # Converted files
 converted/
 .mcp.json
-converted/
+
+# Local personal-info guard patterns (never commit these strings)
+.security/

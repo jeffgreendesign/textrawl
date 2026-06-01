@@ -105,6 +105,10 @@ Implementations: `src/tools/*.ts`. Full descriptions and schemas in `README.md`.
 - Prefer small, PR-shaped changes and keep tool schemas backward compatible.
 - MCP tool handlers MUST return plain JSON-serializable values. Handlers MUST NOT return raw Date, BigInt, Buffer, or class instances. All date fields MUST be ISO 8601 strings or null. All aggregate queries (COUNT, MIN, MAX) MUST handle the empty-table case with sensible defaults (0, null, []). Every scope in get_stats MUST be wrapped in its own try/catch so partial failures MUST NOT cause a crash for scope=all.
 
+## Privacy / committed content
+
+This is a **public** repo. Do not commit incidental personal info: personal names (outside the intentional `website/` author branding and the `package.json` author field), real personal filenames, personal infrastructure URLs, or personal incident specifics — in docs, tests, scripts, or examples. Use generic placeholders (`Ada`, `sample.zip`, `https://dashboard.example.com`) and supply real infra origins at deploy time via `ALLOWED_ORIGINS`. `scripts/security-check.sh` blocks any `*.vercel.app` hostname automatically; for specific strings you never want committed, add them (one regex per line) to the gitignored `.security/pii-patterns.txt` (and as a CI secret/file for CI coverage).
+
 ## AX (Agent Experience) rules
 
 - All tool errors must use `toolError(toolName, error, context?)` for structured error objects — never throw generic messages that hide the root cause. The structured form includes `tool`, `message`, `code`, and optional `scope`/`hint` fields.
