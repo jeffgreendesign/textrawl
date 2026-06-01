@@ -1,6 +1,6 @@
 # Large Upload + ZIP Support — GCS Resumable + Cloud Tasks Plan
 
-**Date:** 2026-05-31 · **Status:** Approved for implementation (pending checklist) · **Scope:** plan only
+**Date:** 2026-05-31 · **Status:** In progress — Phases 1–3 merged (PRs #91–#93); Phase 4 next · **Scope:** plan + tracking
 
 ## Context
 
@@ -26,6 +26,23 @@ up to 500 MB.
 - **Integrity:** canonical **app-level SHA-256 verified by streaming during processing** (+ GCS
   `crc32c`/`size`/`generation` captured at complete). Browser MD5 / GCS `md5Hash` explicitly avoided.
 - **File support:** conservative, tiered, honest. Handler registry, not "just ZIP," not "all files."
+
+## Progress tracker
+
+Updated 2026-06-01. Marks what has actually landed so a fresh agent can resume without re-deriving state. Check items off as slices merge.
+
+- [x] **Phase 1 — Small-path fix & error clarity** (T1.1, T1.2) — merged
+- [x] **Phase 2 — Upload contract + state machine + schema** (T2.1–T2.3) — merged (#92)
+- [x] **Phase 3 — GCS resumable** (T3.1–T3.3) — merged (#93)
+- [ ] **Phase 4 — Async processing (Cloud Tasks)** (T4.1–T4.3) — **next**; detailed sub-plan: [2026-06-01-phase4-cloud-tasks-impl.md](2026-06-01-phase4-cloud-tasks-impl.md)
+- [ ] **Phase 5 — Handler registry + Tier 1 + safe ZIP** (T5.1–T5.3)
+- [ ] **Phase 6 — Dashboard large-upload UX** (T6.1, T6.2)
+- [ ] **Phase 7 — Cleanup, observability, deployment docs**
+
+Resolved design decisions (2026-06-01):
+
+- **OIDC (T4.2): strict, no escape hatch (option 1B).** The internal processing endpoint always requires a valid Cloud Tasks OIDC token in every environment; the pipeline is tested at the `processUpload()` function seam and OIDC by mocking `verifyIdToken`. No loopback/dev bypass ships.
+- **Checksum (T4.3): optional in MVP (option 2A).** No `UPLOAD_REQUIRE_CHECKSUM` flag yet; the client SHA-256 stays optional and is compared only when provided. The enforce toggle is deferred to Phase 7.
 
 ## Confirmed repo facts (grounding)
 
@@ -462,7 +479,7 @@ Each task = test-first → expected failing test → implement → verify → co
 agent to execute without re-planning. Run `pnpm verify:fast` before every commit; full `pnpm verify`
 at the end of each phase. **Stop gates** are mandatory pauses for human review.
 
-### Phase 1 — Small-path fix & error clarity
+### Phase 1 — Small-path fix & error clarity ✅ merged
 
 - **T1.1 Wire multer cap to config.**
   - Files: `src/utils/config.ts` (add `MAX_SINGLE_FILE_SIZE_MB`, reuse existing
@@ -481,7 +498,7 @@ at the end of each phase. **Stop gates** are mandatory pauses for human review.
   - Commit: `fix(upload): return structured JSON for Multer/413/type errors`.
 - **🛑 STOP GATE 1:** if any existing small-upload behavior regresses, stop and report. Do not proceed.
 
-### Phase 2 — Upload contract + state machine + schema (GCS/Tasks stubbed)
+### Phase 2 — Upload contract + state machine + schema (GCS/Tasks stubbed) ✅ merged (#92)
 
 - **T2.1 Schema + RLS.** Files: `scripts/setup-db-uploads.sql`, append `scripts/security-rls.sql`.
   Test-first: a SQL-shape unit/snapshot test or `db/uploads` integration guard. Commit:
@@ -496,7 +513,7 @@ at the end of each phase. **Stop gates** are mandatory pauses for human review.
 - **🛑 STOP GATE 2:** review the init/complete/status contract (shapes + codes) **before** any GCS or
   dashboard work.
 
-### Phase 3 — GCS resumable
+### Phase 3 — GCS resumable ✅ merged (#93)
 
 - **T3.1 GCS service.** Add deps `@google-cloud/storage`. Files: `src/services/storage/gcs.ts`
   (`startResumableSession`, `headObject`→size/generation/crc32c/etag, `abortSession`,
@@ -510,7 +527,7 @@ at the end of each phase. **Stop gates** are mandatory pauses for human review.
   `docs: GCS bucket CORS + lifecycle for resumable uploads`.
 - **🛑 STOP GATE 3:** confirm the GCS init/complete contract end-to-end (mocked) before dashboard.
 
-### Phase 4 — Async processing (Cloud Tasks)
+### Phase 4 — Async processing (Cloud Tasks) ▶ next — see [sub-plan](2026-06-01-phase4-cloud-tasks-impl.md)
 
 - **T4.1 Cloud Tasks enqueue + OIDC.** Add dep `@google-cloud/tasks`. Files:
   `src/services/tasks/cloud-tasks.ts` (enqueue keyed by `uploadId`; OIDC token config). Test-first:
@@ -649,16 +666,13 @@ Gates: `pnpm verify:fast` (lint + lint:md + typecheck + test + security/docs/too
 
 ## Ready-for-implementation checklist
 
-- [ ] Maintainer approves async model = **Cloud Tasks** and upload = **GCS resumable**.
-- [ ] GCP project, `GCS_UPLOAD_BUCKET`, service account, Cloud Tasks queue provisioned.
-- [ ] Bucket CORS (dashboard origin) + lifecycle (abandoned-upload TTL) defined.
+- [x] Maintainer approves async model = **Cloud Tasks** and upload = **GCS resumable**.
+- [ ] GCP project, `GCS_UPLOAD_BUCKET`, service account, Cloud Tasks queue provisioned. (Bucket config landed in #93; Tasks queue + service account still the maintainer's to provision before Phase 4 deploy.)
+- [x] Bucket CORS (dashboard origin) + lifecycle (abandoned-upload TTL) defined. (Documented in T3.3.)
 - [ ] Separate/raised-resource processing path (memory/CPU/timeout, concurrency=1) confirmed.
-- [ ] `partial` ZIP policy + per-entry results accepted.
-- [ ] `owner_token_hash` accepted as **interim** binding (not a multi-tenant boundary).
-- [ ] Checksum = canonical **SHA-256 verified by streaming during processing** (+ GCS `crc32c`/size at
-      complete); browser SHA-256 optional. Accepted.
-- [ ] Conservative MVP Tier 1 + honest support matrix accepted; dashboard accept list to match.
-- [ ] **MVP dependencies** approved: `@google-cloud/storage`, `@google-cloud/tasks`,
-      `html-to-text` **or** `cheerio`, and `unzipper` moved to deps (**or** `yauzl`).
-- [ ] **Tier 1.5 dependencies** (later, separate slices) noted: `mailparser`, `fast-xml-parser`,
-      an RTF parser, `officeparser`/PPTX parser, an EPUB parser.
+- [x] `partial` ZIP policy + per-entry results accepted.
+- [x] `owner_token_hash` accepted as **interim** binding (not a multi-tenant boundary). (Implemented in #92.)
+- [x] Checksum = canonical **SHA-256 verified by streaming during processing** (+ GCS `crc32c`/size at complete); browser SHA-256 optional. Accepted. (Refined 2026-06-01: optional in MVP, option 2A — see Progress tracker.)
+- [x] Conservative MVP Tier 1 + honest support matrix accepted; dashboard accept list to match. (Dashboard match lands in Phase 6.)
+- [ ] **MVP dependencies** approved: `@google-cloud/storage`, `@google-cloud/tasks`, `html-to-text` **or** `cheerio`, and `unzipper` moved to deps (**or** `yauzl`). (`@google-cloud/storage` + `unzipper` present; `@google-cloud/tasks` + HTML parser pending in Phases 4–5.)
+- [x] **Tier 1.5 dependencies** (later, separate slices) noted: `mailparser`, `fast-xml-parser`, an RTF parser, `officeparser`/PPTX parser, an EPUB parser.
