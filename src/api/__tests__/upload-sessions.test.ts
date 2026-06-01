@@ -18,7 +18,7 @@ const { storage, taskQueue, mockConfig } = vi.hoisted(() => ({
 	storage: {
 		startResumableSession: vi.fn(async () => ({
 			resumableUri: 'memory://uploads/key?session=abc',
-			expiresAt: '2026-06-01T14:00:00.000Z',
+			expiresAt: '2099-01-01T00:00:00.000Z',
 		})),
 		headObject: vi.fn(async () => ({
 			size: 100,
@@ -138,7 +138,7 @@ function buildUpload(overrides: Record<string, any> = {}): any {
 		metadata: {},
 		created_at: '2026-06-01T12:00:00.000Z',
 		updated_at: '2026-06-01T12:00:00.000Z',
-		expires_at: '2026-06-01T14:00:00.000Z',
+		expires_at: '2099-01-01T00:00:00.000Z',
 		completed_at: null,
 		...overrides,
 	};
