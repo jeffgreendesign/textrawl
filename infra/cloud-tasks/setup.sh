@@ -45,18 +45,24 @@ gcloud services enable cloudtasks.googleapis.com --project="$PROJECT"
 
 # 2. Create the processing queue (low concurrency to protect memory for large files).
 echo "==> Creating queue $QUEUE"
-gcloud tasks queues create "$QUEUE" --project="$PROJECT" --location="$REGION" \
-  --max-concurrent-dispatches=2 \
-  --max-attempts=5 \
-  --min-backoff=10s --max-backoff=300s \
-  2>/dev/null || echo "    queue already exists (ok)"
+if gcloud tasks queues describe "$QUEUE" --project="$PROJECT" --location="$REGION" >/dev/null 2>&1; then
+  echo "    queue already exists (ok)"
+else
+  gcloud tasks queues create "$QUEUE" --project="$PROJECT" --location="$REGION" \
+    --max-concurrent-dispatches=2 \
+    --max-attempts=5 \
+    --min-backoff=10s --max-backoff=300s
+fi
 
 # 3. Dedicated OIDC invoker SA (the identity in the task's OIDC token; the app
 #    verifies payload.email == CLOUD_TASKS_SERVICE_ACCOUNT).
 echo "==> Creating invoker SA $TASKS_SA_NAME"
-gcloud iam service-accounts create "$TASKS_SA_NAME" --project="$PROJECT" \
-  --display-name="Textrawl Cloud Tasks OIDC invoker" \
-  2>/dev/null || echo "    invoker SA already exists (ok)"
+if gcloud iam service-accounts describe "$TASKS_SA" --project="$PROJECT" >/dev/null 2>&1; then
+  echo "    invoker SA already exists (ok)"
+else
+  gcloud iam service-accounts create "$TASKS_SA_NAME" --project="$PROJECT" \
+    --display-name="Textrawl Cloud Tasks OIDC invoker"
+fi
 
 # 4. Runtime SA may enqueue onto this queue (queue-scoped least privilege).
 echo "==> Grant cloudtasks.enqueuer to runtime SA (queue-scoped)"
@@ -70,11 +76,12 @@ gcloud iam service-accounts add-iam-policy-binding "$TASKS_SA" --project="$PROJE
   --condition=None >/dev/null
 
 # 6. Cloud Tasks service agent may mint OIDC tokens as the invoker SA at dispatch.
+#    If this aborts because the agent isn't provisioned yet (race right after the
+#    API enable in step 1), wait ~1 minute and re-run — the script is idempotent.
 echo "==> Grant iam.serviceAccountTokenCreator on invoker SA to Cloud Tasks agent"
 gcloud iam service-accounts add-iam-policy-binding "$TASKS_SA" --project="$PROJECT" \
   --member="serviceAccount:${CLOUD_TASKS_AGENT}" --role="roles/iam.serviceAccountTokenCreator" \
-  --condition=None >/dev/null \
-  || echo "    (if this fails, the Cloud Tasks service agent isn't provisioned yet — wait a minute after step 1 and re-run)"
+  --condition=None >/dev/null
 
 # The service may not exist yet (provisioning can run before the first deploy);
 # guard the describe so set -e doesn't abort right before the summary.
