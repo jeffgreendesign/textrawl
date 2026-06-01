@@ -56,6 +56,10 @@ This file centralizes runtime configuration for Textrawl server, MCP tools, CLI,
 | `INSIGHT_BATCH_THRESHOLD` | Insight scan tuning (default: `50`) |
 | `INSIGHT_DEBOUNCE_SECONDS` | Insight scan debounce (default: `300`) |
 | `MAX_SINGLE_FILE_SIZE_MB`, `WARN_FILE_SIZE_MB`, `MAX_CHUNKS_PER_FILE` | Upload/chunking guardrails |
+| `MAX_UPLOAD_SIZE_MB` | Max size accepted by the resumable `/api/upload/init` path (default: `500`) |
+| `UPLOAD_THRESHOLD_MB` | Direct (≤) vs resumable (>) switch point (default: `MAX_SINGLE_FILE_SIZE_MB`) |
+| `UPLOAD_SESSION_TTL_MIN` | Resumable session + upload-row expiry in minutes (default: `120`) |
+| `GCS_UPLOAD_BUCKET` | GCS bucket for large uploads (required once GCS storage is enabled) |
 
 ## Security notes
 

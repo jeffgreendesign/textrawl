@@ -7,6 +7,7 @@ import { unifiedSearch } from '../services/search.js';
 import { config } from '../utils/config.js';
 import { logger } from '../utils/logger.js';
 import { bearerAuth } from './middleware/auth.js';
+import { uploadSessionsRouter } from './upload-sessions.js';
 import { uploadRouter } from './upload.js';
 
 // ---------------------------------------------------------------------------
@@ -29,6 +30,7 @@ const SearchQuerySchema = z.object({
 export const apiRoutes: RouterType = Router();
 
 apiRoutes.use(uploadRouter);
+apiRoutes.use(uploadSessionsRouter);
 
 // ---------------------------------------------------------------------------
 // REST API endpoints for cross-device access (Enhancement 9)
