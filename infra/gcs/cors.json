@@ -1,0 +1,21 @@
+[
+	{
+		"origin": ["https://dashboard-lilac-one-63.vercel.app", "http://localhost:3000"],
+		"method": ["PUT", "POST", "GET", "HEAD"],
+		"responseHeader": [
+			"Content-Type",
+			"Content-Range",
+			"Content-Length",
+			"Range",
+			"ETag",
+			"Location",
+			"x-goog-resumable",
+			"x-goog-generation",
+			"x-goog-metageneration",
+			"x-goog-hash",
+			"x-goog-upload-status",
+			"x-goog-upload-url"
+		],
+		"maxAgeSeconds": 3600
+	}
+]
