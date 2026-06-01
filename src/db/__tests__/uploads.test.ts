@@ -45,7 +45,7 @@ function rawUploadRow(overrides: Record<string, unknown> = {}) {
 	return {
 		id: 'up-1',
 		owner_token_hash: 'hash-abc',
-		filename: 'Gardening.zip',
+		filename: 'sample.zip',
 		title: null,
 		declared_mimetype: 'application/zip',
 		normalized_type: 'zip',
@@ -56,7 +56,7 @@ function rawUploadRow(overrides: Record<string, unknown> = {}) {
 		checksum_verified_at: null,
 		gcs_crc32c: null,
 		bucket: 'textrawl-uploads',
-		object_key: 'uploads/2026/05/up-1/Gardening.zip',
+		object_key: 'uploads/2026/05/up-1/sample.zip',
 		object_generation: null,
 		object_etag: null,
 		state: 'initialized',
@@ -85,11 +85,11 @@ describe('createUpload', () => {
 
 		const upload = await createUpload({
 			ownerTokenHash: 'hash-abc',
-			filename: 'Gardening.zip',
+			filename: 'sample.zip',
 			declaredMimetype: 'application/zip',
 			sizeBytes: 62914560,
 			bucket: 'textrawl-uploads',
-			objectKey: 'uploads/2026/05/up-1/Gardening.zip',
+			objectKey: 'uploads/2026/05/up-1/sample.zip',
 		});
 
 		expect(mocked.queryOneOrThrow).toHaveBeenCalledTimes(1);

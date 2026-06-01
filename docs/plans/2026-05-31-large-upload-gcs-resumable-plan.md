@@ -4,7 +4,7 @@
 
 ## Context
 
-A ~60 MB `Gardening.zip` upload from the Vercel-hosted dashboard failed in Safari with
+A large ZIP (~60 MB) upload from the Vercel-hosted dashboard failed in the browser with
 `TypeError: Load failed` and produced **no** Vercel logs. The current upload design buffers the whole
 file in memory on Cloud Run and processes synchronously in-request; ZIP is advertised in the dashboard
 but unsupported server-side; and the multer limit is hardcoded at 10 MB while the `MAX_SINGLE_FILE_SIZE`
@@ -55,7 +55,7 @@ up to 500 MB.
 
 **Assumptions (flagged):** single-tenant token model — `owner_token_hash` is an **interim** binding
 (the repo has no real owner/user model); it must not be over-designed into multi-tenant security and
-does not block implementation. GCP project + service account + bucket provisioning is Jeff's to do
+does not block implementation. GCP project + service account + bucket provisioning is the maintainer's to do
 (this plan documents required IAM/CORS/lifecycle). Canonical integrity is an app-level SHA-256 verified
 by streaming (see §4 Checksum strategy).
 
@@ -65,7 +65,7 @@ by streaming (see §4 Checksum strategy).
 
 - **Vercel logs silent:** the dashboard fetches `${getApiBase()}/upload` straight on the
   Textrawl server (Cloud Run) — `NEXT_PUBLIC_API_URL`, not a Vercel route. Bytes never traverse a
-  Vercel function, so Vercel has nothing to log. Safari surfaced only `TypeError: Load failed`
+  Vercel function, so Vercel has nothing to log. The browser surfaced only `TypeError: Load failed`
   (a generic network/connection-reset error) because the connection died mid-upload.
 - **Single-shot 60 MB fails:** `src/api/upload.ts` uses `multer.memoryStorage()` with a hardcoded
   **10 MB** cap. A 60 MB body is rejected/aborted by multer before the handler runs; even absent the
@@ -126,7 +126,7 @@ All endpoints under `/api`, guarded by existing `bearerAuth` except the internal
 ```jsonc
 // request
 {
-  "filename": "Gardening.zip",
+  "filename": "sample.zip",
   "contentType": "application/zip",   // declared; normalized server-side
   "size": 62914560,                    // bytes; validated against MAX_UPLOAD_SIZE_MB
   "checksumAlgo": "sha256",          // canonical app-level algo; optional intent
@@ -135,7 +135,7 @@ All endpoints under `/api`, guarded by existing `bearerAuth` except the internal
 // 200
 {
   "uploadId": "f1e2...uuid",
-  "objectKey": "uploads/2026/05/f1e2.../Gardening.zip", // server-generated, NOT trusted from client
+  "objectKey": "uploads/2026/05/f1e2.../sample.zip", // server-generated, NOT trusted from client
   "bucket": "textrawl-uploads",
   "resumableUri": "https://storage.googleapis.com/upload/storage/v1/b/.../o?uploadType=resumable&upload_id=...",
   "expiresAt": "2026-05-31T18:00:00Z",
@@ -185,7 +185,7 @@ the current state without enqueuing a duplicate.
 {
   "uploadId": "f1e2...",
   "state": "processing",
-  "filename": "Gardening.zip",
+  "filename": "sample.zip",
   "size": 62914560,
   "progress": { "entriesTotal": 42, "entriesProcessed": 17, "entriesFailed": 1 },
   "documentIds": ["...","..."],
@@ -635,7 +635,7 @@ Gates: `pnpm verify:fast` (lint + lint:md + typecheck + test + security/docs/too
 - [ ] Valid ZIP creates **one document per supported entry**; `upload_entries` populated.
 - [ ] ZIP with path traversal fails with a clear code (`ZIP_PATH_TRAVERSAL`), no partial docs.
 - [ ] ZIP with mixed entries ends `partial` with per-entry errors.
-- [ ] Dashboard never shows only Safari `TypeError: Load failed` — errors are structured + readable.
+- [ ] Dashboard never shows only a bare `TypeError: Load failed` — errors are structured + readable.
 - [ ] Internal processing endpoint returns 401/403 when called without a valid Cloud Tasks OIDC token.
 
 ## Non-goals
@@ -649,7 +649,7 @@ Gates: `pnpm verify:fast` (lint + lint:md + typecheck + test + security/docs/too
 
 ## Ready-for-implementation checklist
 
-- [ ] Jeff approves async model = **Cloud Tasks** and upload = **GCS resumable**.
+- [ ] Maintainer approves async model = **Cloud Tasks** and upload = **GCS resumable**.
 - [ ] GCP project, `GCS_UPLOAD_BUCKET`, service account, Cloud Tasks queue provisioned.
 - [ ] Bucket CORS (dashboard origin) + lifecycle (abandoned-upload TTL) defined.
 - [ ] Separate/raised-resource processing path (memory/CPU/timeout, concurrency=1) confirmed.

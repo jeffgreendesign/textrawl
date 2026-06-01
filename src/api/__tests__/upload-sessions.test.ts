@@ -124,7 +124,7 @@ function buildUpload(overrides: Record<string, any> = {}): any {
 	return {
 		id: 'up-1',
 		owner_token_hash: ownerHash,
-		filename: 'Gardening.zip',
+		filename: 'sample.zip',
 		title: null,
 		declared_mimetype: 'application/zip',
 		normalized_type: null,
@@ -135,7 +135,7 @@ function buildUpload(overrides: Record<string, any> = {}): any {
 		checksum_verified_at: null,
 		gcs_crc32c: null,
 		bucket: 'textrawl-uploads',
-		object_key: 'uploads/2026/06/up-1/Gardening.zip',
+		object_key: 'uploads/2026/06/up-1/sample.zip',
 		object_generation: null,
 		object_etag: null,
 		state: 'initialized',
@@ -178,9 +178,9 @@ describe('POST /upload/init', () => {
 		const res = await request(makeApp())
 			.post('/upload/init')
 			.set(auth())
-			.set('Origin', 'https://dashboard-lilac-one-63.vercel.app')
+			.set('Origin', 'https://dashboard.example.com')
 			.send({
-				filename: 'Gardening.zip',
+				filename: 'sample.zip',
 				contentType: 'application/zip',
 				size: 100,
 				objectKey: 'evil/client/path.zip', // must be ignored
@@ -195,12 +195,12 @@ describe('POST /upload/init', () => {
 		// The browser Origin is threaded into the resumable session for CORS.
 		expect(storage.startResumableSession).toHaveBeenCalledWith(
 			expect.any(String),
-			expect.objectContaining({ origin: 'https://dashboard-lilac-one-63.vercel.app' }),
+			expect.objectContaining({ origin: 'https://dashboard.example.com' }),
 		);
 
 		// Server-generated key, owner hash bound, client key ignored.
 		const input = db.createUpload.mock.calls[0][0];
-		expect(input.objectKey).toMatch(/^uploads\/\d{4}\/\d{2}\/[\w-]+\/Gardening\.zip$/);
+		expect(input.objectKey).toMatch(/^uploads\/\d{4}\/\d{2}\/[\w-]+\/sample\.zip$/);
 		expect(input.objectKey).not.toContain('evil');
 		expect(input.ownerTokenHash).toBe(ownerHash);
 	});
@@ -367,7 +367,7 @@ describe('GET /upload/:uploadId/status', () => {
 		expect(res.body).toMatchObject({
 			uploadId: 'up-1',
 			state: 'processing',
-			filename: 'Gardening.zip',
+			filename: 'sample.zip',
 			size: 100,
 			progress: { entriesTotal: 0, entriesProcessed: 0, entriesFailed: 0 },
 			documentIds: [],
@@ -403,7 +403,7 @@ describe('DELETE /upload/:uploadId', () => {
 		expect(res.status).toBe(200);
 		expect(res.body.state).toBe('cancelled');
 		expect(db.transitionUploadState).toHaveBeenCalledWith('up-1', 'cancelled');
-		expect(storage.abortSession).toHaveBeenCalledWith('uploads/2026/06/up-1/Gardening.zip');
+		expect(storage.abortSession).toHaveBeenCalledWith('uploads/2026/06/up-1/sample.zip');
 	});
 
 	it('rejects cancelling a processing upload with 409 INVALID_STATE', async () => {

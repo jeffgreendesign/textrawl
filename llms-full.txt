@@ -146,7 +146,7 @@ Enable with ENABLE_MEMORY=true (default). Requires setup-db-memory.sql (OpenAI) 
 Store facts about entities (people, projects, concepts) with automatic semantic embedding.
 
 Parameters:
-- entityName (string, REQUIRED): Name of entity (e.g., "Jeff", "Project Alpha")
+- entityName (string, REQUIRED): Name of entity (e.g., "Ada", "Project Alpha")
 - entityType (enum, REQUIRED): person | concept | project | preference | fact | location | organization
 - observation (string, REQUIRED): Single atomic fact to remember (max 2000 chars)
 - source (enum): conversation | note | document | manual, default 'conversation'
@@ -155,7 +155,7 @@ Parameters:
 Example:
 ```json
 {
-  "entityName": "Jeff",
+  "entityName": "Ada",
   "entityType": "person",
   "observation": "prefers dark mode in IDEs",
   "source": "conversation"
@@ -184,7 +184,7 @@ Example:
 {
   "facts": [
     {
-      "entityName": "Jeff",
+      "entityName": "Ada",
       "entityType": "person",
       "observation": "leads the backend team"
     },
@@ -196,7 +196,7 @@ Example:
   ],
   "relations": [
     {
-      "fromEntity": "Jeff",
+      "fromEntity": "Ada",
       "relation": "works on",
       "toEntity": "Project Alpha"
     }
@@ -233,7 +233,7 @@ Example (entity mode - replaces get_entity_context):
 ```json
 {
   "mode": "entity",
-  "entityName": "Jeff",
+  "entityName": "Ada",
   "includeRelated": true
 }
 ```
@@ -262,7 +262,7 @@ Parameters:
 Example:
 ```json
 {
-  "fromEntity": "Jeff",
+  "fromEntity": "Ada",
   "relation": "works_at",
   "toEntity": "Acme Corp"
 }

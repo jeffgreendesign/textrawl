@@ -190,7 +190,7 @@ CREATE INDEX memory_observations_entity_idx ON memory_observations(entity_id);
 // Tool: remember_fact
 // Stores a fact about an entity (creates entity if needed)
 server.tool('remember_fact', {
-  entityName: z.string().describe('Name of the entity (e.g., "Jeff", "Project Alpha")'),
+  entityName: z.string().describe('Name of the entity (e.g., "Ada", "Project Alpha")'),
   entityType: z.string().describe('Type: person, concept, project, preference, fact'),
   observation: z.string().describe('The fact to remember'),
   validUntil: z.string().optional().describe('ISO date if this fact expires'),

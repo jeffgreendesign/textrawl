@@ -56,5 +56,6 @@ GCS_PROJECT_ID=textrawl   # optional; auto-detected from ADC otherwise
 
 ## CORS origins
 
-Edit `cors.json` and re-apply when the dashboard origin changes. Current:
-`https://dashboard-lilac-one-63.vercel.app`, `http://localhost:3000`.
+`cors.json` ships with a placeholder origin (`https://dashboard.example.com`). Replace it with your
+real dashboard origin and re-apply whenever the origin changes; `http://localhost:3000` covers local
+browser-direct PUTs.

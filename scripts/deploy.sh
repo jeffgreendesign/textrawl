@@ -5,7 +5,9 @@ PROJECT_ID=${GCP_PROJECT_ID:?"Set GCP_PROJECT_ID"}
 REGION=${GCP_REGION:-"us-east4"}
 SERVICE_NAME="textrawl"
 IMAGE="$REGION-docker.pkg.dev/$PROJECT_ID/textrawl/textrawl"
-ALLOWED_ORIGINS=${ALLOWED_ORIGINS:-"https://dashboard-jeffgreen.vercel.app,https://dashboard-lilac-one-63.vercel.app"}
+# Set ALLOWED_ORIGINS in your deploy environment to your real dashboard origin(s).
+# The committed default is a placeholder so no personal infra URL lives in the repo.
+ALLOWED_ORIGINS=${ALLOWED_ORIGINS:-"https://dashboard.example.com"}
 
 echo "Building and pushing image..."
 docker build -t $IMAGE:latest .

@@ -31,7 +31,7 @@ vi.mock('../../../utils/logger.js', () => ({
 
 import { GcsStorageService } from '../gcs.js';
 
-const OBJECT_KEY = 'uploads/2026/06/abc-123/Gardening.zip';
+const OBJECT_KEY = 'uploads/2026/06/abc-123/sample.zip';
 
 function makeService() {
 	return new GcsStorageService({
@@ -66,7 +66,7 @@ describe('GcsStorageService', () => {
 			const res = await makeService().startResumableSession(OBJECT_KEY, {
 				contentType: 'application/zip',
 				size: 100,
-				origin: 'https://dashboard-lilac-one-63.vercel.app',
+				origin: 'https://dashboard.example.com',
 			});
 
 			// Operates on exactly the key it was handed (server-generated upstream).
@@ -82,13 +82,13 @@ describe('GcsStorageService', () => {
 			await makeService().startResumableSession(OBJECT_KEY, {
 				contentType: 'application/zip',
 				size: 100,
-				origin: 'https://dashboard-lilac-one-63.vercel.app',
+				origin: 'https://dashboard.example.com',
 			});
 
 			expect(file.createResumableUpload).toHaveBeenCalledWith(
 				expect.objectContaining({
 					metadata: expect.objectContaining({ contentType: 'application/zip' }),
-					origin: 'https://dashboard-lilac-one-63.vercel.app',
+					origin: 'https://dashboard.example.com',
 				}),
 			);
 		});

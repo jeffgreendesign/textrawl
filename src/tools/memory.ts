@@ -82,7 +82,7 @@ export function registerMemoryTools(server: McpServer): void {
 					.min(1)
 					.max(200)
 					.describe(
-						'Name of the entity to remember about (e.g., "Jeff", "Project Alpha", "TypeScript")',
+						'Name of the entity to remember about (e.g., "Ada", "Project Alpha", "TypeScript")',
 					),
 				entityType: EntityTypeSchema.describe(
 					'Type of entity: person, concept, project, preference, fact, location, organization',

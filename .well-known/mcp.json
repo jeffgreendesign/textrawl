@@ -434,7 +434,7 @@
 						"type": "string",
 						"minLength": 1,
 						"maxLength": 200,
-						"description": "Name of entity (e.g., 'Jeff', 'Project Alpha')"
+						"description": "Name of entity (e.g., 'Ada', 'Project Alpha')"
 					},
 					"entityType": {
 						"type": "string",
