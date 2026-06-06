@@ -106,6 +106,18 @@ export class SizeMismatchError extends TextrawlError {
 	}
 }
 
+/**
+ * The SHA-256 computed by streaming the stored object during processing does not
+ * match the `checksum_expected` the client supplied. A 422 (the bytes are
+ * intact but fail integrity verification); raised before any document is created.
+ */
+export class ChecksumMismatchError extends TextrawlError {
+	constructor(message = 'Uploaded object checksum does not match the expected value') {
+		super(message, 422, 'CHECKSUM_MISMATCH');
+		this.name = 'ChecksumMismatchError';
+	}
+}
+
 export class DatabaseError extends TextrawlError {
 	constructor(message = 'Database operation failed') {
 		super(message, 500, 'DATABASE_ERROR');

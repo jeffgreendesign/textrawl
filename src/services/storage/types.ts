@@ -3,10 +3,11 @@
  *
  * This interface is deliberately shaped to match the planned GCS resumable
  * implementation (T3.1) so the in-memory fake used in T2.3 can be swapped for
- * real GCS without touching the upload-session router. Only the methods the
- * `/init` → `/complete` → `DELETE` lifecycle needs are declared here; streaming
- * reads for the processing worker arrive with the GCS impl in T3.x.
+ * real GCS without touching the upload-session router. Covers the
+ * `/init` → `/complete` → `DELETE` lifecycle plus the streaming read the
+ * processing worker uses (T4.3).
  */
+import type { Readable } from 'node:stream';
 
 /** Options for starting a resumable upload session. */
 export interface StartResumableOptions {
@@ -54,4 +55,12 @@ export interface StorageService {
 	 * Idempotent: aborting an unknown/already-aborted key is a no-op.
 	 */
 	abortSession(objectKey: string): Promise<void>;
+
+	/**
+	 * Open a streaming read of the stored object for the processing worker
+	 * (T4.3). The processor pipes this through SHA-256 + extraction so bytes are
+	 * never re-buffered through Postgres. Errors surface on the returned stream
+	 * (e.g. a missing object emits an `error` event).
+	 */
+	createReadStream(objectKey: string): Readable;
 }

@@ -14,6 +14,7 @@ const { storageCtor, bucketFn, fileFn, file } = vi.hoisted(() => {
 		createResumableUpload: vi.fn(),
 		getMetadata: vi.fn(),
 		delete: vi.fn(),
+		createReadStream: vi.fn(),
 	};
 	const fileFn = vi.fn(() => file);
 	const bucketFn = vi.fn(() => ({ file: fileFn }));
@@ -148,6 +149,19 @@ describe('GcsStorageService', () => {
 			file.delete.mockRejectedValue(Object.assign(new Error('Not Found'), { code: 404 }));
 
 			await expect(makeService().abortSession(OBJECT_KEY)).resolves.toBeUndefined();
+		});
+	});
+
+	describe('createReadStream', () => {
+		it('opens a read stream on the given object key', () => {
+			const sentinel = { piped: true };
+			file.createReadStream.mockReturnValue(sentinel);
+
+			const stream = makeService().createReadStream(OBJECT_KEY);
+
+			expect(fileFn).toHaveBeenCalledWith(OBJECT_KEY);
+			expect(file.createReadStream).toHaveBeenCalledTimes(1);
+			expect(stream).toBe(sentinel);
 		});
 	});
 });

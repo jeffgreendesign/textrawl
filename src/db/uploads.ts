@@ -446,6 +446,59 @@ export async function recordUploadObjectMetadata(
 	}
 }
 
+/** Result fields the processor records after a single-file run (T4.3). */
+export interface UploadProcessingResult {
+	documentIds: string[];
+	checksumComputed: string;
+	checksumVerifiedAt: string;
+	entriesTotal: number;
+	entriesProcessed: number;
+	entriesFailed: number;
+}
+
+/**
+ * Persist the processing outcome (document ids, computed checksum, entry counts)
+ * onto the upload row. Like {@link recordUploadObjectMetadata} this is a plain
+ * UPDATE with no state gate, so it composes with the surrounding `completed`
+ * transition the processor performs next.
+ *
+ * @throws {DatabaseError} If the database is not configured or the query fails.
+ */
+export async function recordUploadProcessingResult(
+	id: string,
+	result: UploadProcessingResult,
+): Promise<void> {
+	if (!isDatabaseConfigured()) {
+		throw new DatabaseError('Database not configured');
+	}
+
+	try {
+		await pgQuery(
+			`UPDATE uploads
+			 SET document_ids = $2,
+			     checksum_computed = $3,
+			     checksum_verified_at = $4,
+			     entries_total = $5,
+			     entries_processed = $6,
+			     entries_failed = $7
+			 WHERE id = $1`,
+			[
+				id,
+				result.documentIds,
+				result.checksumComputed,
+				result.checksumVerifiedAt,
+				result.entriesTotal,
+				result.entriesProcessed,
+				result.entriesFailed,
+			],
+		);
+	} catch (error) {
+		const message = error instanceof Error ? error.message : String(error);
+		logger.error('Failed to record upload processing result', { id, error: message });
+		throw new DatabaseError('Failed to record upload processing result');
+	}
+}
+
 /**
  * Read an upload plus its per-entry rows and aggregated counts. Returns null if
  * the upload does not exist. Counts default to zero for an upload with no
