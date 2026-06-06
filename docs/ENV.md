@@ -60,6 +60,10 @@ This file centralizes runtime configuration for Textrawl server, MCP tools, CLI,
 | `UPLOAD_THRESHOLD_MB` | Direct (≤) vs resumable (>) switch point (default: `MAX_SINGLE_FILE_SIZE_MB`) |
 | `UPLOAD_SESSION_TTL_MIN` | Resumable session + upload-row expiry in minutes (default: `120`) |
 | `GCS_UPLOAD_BUCKET` | GCS bucket for large uploads (required once GCS storage is enabled) |
+| `CLOUD_TASKS_QUEUE` | Cloud Tasks queue id for async upload processing; set with `UPLOAD_PROCESS_URL` to use the real queue |
+| `CLOUD_TASKS_LOCATION` | Cloud Tasks queue region (default: `us-central1`) |
+| `CLOUD_TASKS_SERVICE_ACCOUNT` | OIDC identity minted into each task; verified by the processing endpoint |
+| `UPLOAD_PROCESS_URL` | Internal processing endpoint base URL (task target `<url>/<uploadId>` + OIDC audience) |
 
 ## Security notes
 

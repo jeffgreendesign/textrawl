@@ -171,6 +171,23 @@ const envSchema = z.object({
 	// GCP project id for the GCS client. Optional: auto-detected from ADC on
 	// Cloud Run / from the service-account key locally. Set to pin it explicitly.
 	GCS_PROJECT_ID: z.string().optional(),
+
+	// Cloud Tasks (async upload processing) — plan §7 / Phase 4.
+	// Queue id; when set together with UPLOAD_PROCESS_URL, the real Cloud Tasks
+	// queue is used instead of the in-memory fake.
+	CLOUD_TASKS_QUEUE: z.string().optional(),
+
+	// Queue location/region. Defaults to us-central1; the live deployment overrides
+	// it to us-east4 to colocate with Cloud Run and the GCS bucket.
+	CLOUD_TASKS_LOCATION: z.string().default('us-central1'),
+
+	// OIDC identity minted into each task; the processing endpoint verifies the
+	// token's email matches this service account.
+	CLOUD_TASKS_SERVICE_ACCOUNT: z.string().optional(),
+
+	// Internal processing endpoint base URL. Task target is `<url>/<uploadId>` and
+	// the URL doubles as the OIDC audience the endpoint verifies.
+	UPLOAD_PROCESS_URL: z.string().url().optional(),
 });
 
 export type Config = z.infer<typeof envSchema>;
