@@ -35,7 +35,11 @@ export function getTaskQueue(): TaskQueue {
 				projectId: config.GCS_PROJECT_ID,
 			});
 		} else {
-			if (config.CLOUD_TASKS_QUEUE || config.UPLOAD_PROCESS_URL) {
+			if (
+				config.CLOUD_TASKS_QUEUE ||
+				config.UPLOAD_PROCESS_URL ||
+				config.CLOUD_TASKS_SERVICE_ACCOUNT
+			) {
 				logger.warn(
 					'Tasks: Cloud Tasks partially configured — need CLOUD_TASKS_QUEUE + UPLOAD_PROCESS_URL + CLOUD_TASKS_SERVICE_ACCOUNT; using in-memory fake',
 				);

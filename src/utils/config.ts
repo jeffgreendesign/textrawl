@@ -187,7 +187,7 @@ const envSchema = z.object({
 
 	// Internal processing endpoint base URL. Task target is `<url>/<uploadId>` and
 	// the URL doubles as the OIDC audience the endpoint verifies.
-	UPLOAD_PROCESS_URL: z.string().optional(),
+	UPLOAD_PROCESS_URL: z.string().url().optional(),
 });
 
 export type Config = z.infer<typeof envSchema>;

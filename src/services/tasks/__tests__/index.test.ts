@@ -62,6 +62,11 @@ describe('getTaskQueue', () => {
 		expect(getTaskQueue()).toBeInstanceOf(MemoryTaskQueue);
 	});
 
+	it('falls back to the fake when only the service account is set (partial config)', () => {
+		mockConfig.CLOUD_TASKS_SERVICE_ACCOUNT = 'tasks@x.iam.gserviceaccount.com';
+		expect(getTaskQueue()).toBeInstanceOf(MemoryTaskQueue);
+	});
+
 	it('memoizes the resolved instance', () => {
 		mockConfig.CLOUD_TASKS_QUEUE = 'textrawl-upload-processing';
 		mockConfig.UPLOAD_PROCESS_URL = 'https://x.run.app/api/upload/process';
