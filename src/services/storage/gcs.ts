@@ -1,3 +1,4 @@
+import type { Readable } from 'node:stream';
 import { Storage, type Storage as StorageClient } from '@google-cloud/storage';
 import { logger } from '../../utils/logger.js';
 import type {
@@ -98,5 +99,10 @@ export class GcsStorageService implements StorageService {
 			throw error;
 		}
 		logger.debug('GcsStorage: aborted/cleaned object', { bucket: this.bucketName, objectKey });
+	}
+
+	createReadStream(objectKey: string): Readable {
+		logger.debug('GcsStorage: opening read stream', { bucket: this.bucketName, objectKey });
+		return this.file(objectKey).createReadStream();
 	}
 }

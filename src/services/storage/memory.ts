@@ -1,4 +1,5 @@
 import { randomUUID } from 'node:crypto';
+import { Readable } from 'node:stream';
 import { logger } from '../../utils/logger.js';
 import type {
 	ObjectMetadata,
@@ -48,5 +49,19 @@ export class MemoryStorageService implements StorageService {
 	async abortSession(objectKey: string): Promise<void> {
 		this.sessions.delete(objectKey);
 		logger.debug('MemoryStorage: aborted session', { objectKey });
+	}
+
+	createReadStream(objectKey: string): Readable {
+		// The fake records metadata only — the resumable PUT goes straight to GCS in
+		// production, so there are no real bytes here. An unknown key errors (like a
+		// missing GCS object); a known key streams nothing. Real single-file
+		// processing requires GCS (set GCS_UPLOAD_BUCKET).
+		if (!this.sessions.has(objectKey)) {
+			const stream = new Readable({ read() {} });
+			stream.destroy(new Error(`MemoryStorage: no object for key ${objectKey}`));
+			return stream;
+		}
+		logger.debug('MemoryStorage: read stream has no bytes (metadata-only fake)', { objectKey });
+		return Readable.from([]);
 	}
 }
