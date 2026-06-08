@@ -13,7 +13,7 @@ Always set `API_BEARER_TOKEN` in production:
 API_BEARER_TOKEN=$(openssl rand -base64 32)
 ```
 
-All API endpoints require `Authorization: Bearer <token>` header.
+Data and write API endpoints require the `Authorization: Bearer ***` header. Health endpoints such as `/health`, `/health/live`, and `/health/ready` remain unauthenticated so uptime checks can probe them.
 
 ## Row Level Security
 

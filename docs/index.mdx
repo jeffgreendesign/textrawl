@@ -33,7 +33,7 @@ Access your knowledge via the web dashboard, MCP for AI assistants, REST API, CL
 
 ### Privacy First
 
-Self-hosted on your infrastructure. Your documents never leave your control.
+Self-hosted on infrastructure and providers you configure. Use Ollama/local Postgres for fully local document text and embeddings; cloud embeddings, extraction, databases, storage, and deployment providers receive the data needed for those features.
 
 ## What is MCP?
 
@@ -41,7 +41,7 @@ The **Model Context Protocol (MCP)** is an open standard for connecting AI assis
 
 - **Tool Use**: Claude can call functions to search, retrieve, and create content
 - **Context Sharing**: Your documents become part of Claude's working knowledge
-- **Privacy**: Data stays on your infrastructure, not uploaded to the cloud
+- **Privacy**: Data stays in the infrastructure/providers you configure
 
 ## Quick Start
 
@@ -59,7 +59,7 @@ pnpm dev
 
 ## Tools
 
-textrawl exposes 25 tools, available via MCP and REST API:
+textrawl exposes 26 tools, available via MCP and REST API:
 
 ### Document Tools
 
@@ -144,7 +144,7 @@ textrawl exposes 25 tools, available via MCP and REST API:
 │        └──────────────┴───────────┴─────────────┘        │
 │                          ▼                               │
 │  ┌─────────────────────────────────────────────────────┐│
-│  │           Supabase PostgreSQL + pgvector            ││
+│  │   PostgreSQL + pgvector (Neon/Supabase/self-hosted) ││
 │  │  • documents + chunks (document search)             ││
 │  │  • memory_entities + observations (memory)          ││
 │  │  • conversation_sessions + turns (conversations)    ││

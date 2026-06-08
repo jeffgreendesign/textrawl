@@ -126,8 +126,8 @@ in-memory fake (local dev only).
 
 ```bash
 # Point the service at the provisioned bucket
-gcloud run services update textrawl --region us-east4 \
-  --update-env-vars GCS_UPLOAD_BUCKET=textrawl-uploads
+gcloud run services update <service-name> --region <your-region> \
+  --update-env-vars GCS_UPLOAD_BUCKET=<your-upload-bucket>
 # GCS_PROJECT_ID is optional — auto-detected from the runtime service account.
 ```
 

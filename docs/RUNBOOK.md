@@ -102,7 +102,7 @@ Add auth header when `API_BEARER_TOKEN` is set.
 
 ### ChatGPT Desktop
 
-Use Settings → Connectors (Developer mode), point to `http://localhost:3000/mcp`, then add `Authorization: Bearer <token>` header if enabled.
+Use Settings → Connectors (Developer mode), point to `http://localhost:3000/mcp`, then add the `Authorization: Bearer <your-token>` header if enabled.
 
 ## 6) MCP Inspector
 

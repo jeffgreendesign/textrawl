@@ -10,7 +10,7 @@ token itself (the service is public for MCP/API, so this is the access control).
 
 | Resource | Value |
 |---|---|
-| Cloud Tasks queue | `textrawl-upload-processing` (location `us-east4`, colocated with Cloud Run + the GCS bucket) |
+| Cloud Tasks queue | `<your-upload-processing-queue>` (colocated with Cloud Run + the GCS bucket) |
 | OIDC invoker SA | `textrawl-tasks@<project>.iam.gserviceaccount.com` (identity in the task's OIDC token) |
 | Enqueuer | the Cloud Run runtime SA (default compute SA) — granted `cloudtasks.enqueuer` (queue-scoped) |
 | actAs | runtime SA granted `iam.serviceAccountUser` on the invoker SA |
@@ -22,15 +22,15 @@ Tasks' first 1M operations/month are free and an idle queue has no standing cost
 
 ## Run it
 
-The script targets `--project=textrawl` explicitly and ignores your active
-gcloud project (which is currently a different project). Review, then:
+Set the target project/region explicitly instead of relying on your active
+gcloud project. Review, then:
 
 ```sh
 bash infra/cloud-tasks/setup.sh
 # overridable: GCP_PROJECT_ID, GCP_REGION, CLOUD_RUN_SERVICE, CLOUD_TASKS_QUEUE, TASKS_SA_NAME
 ```
 
-The runner needs admin on the `textrawl` project (service-usage, Cloud Tasks,
+The runner needs admin on the target project (service-usage, Cloud Tasks,
 service-account, project-IAM admin — or Editor/Owner). If your account lacks
 these, run as the project owner.
 
@@ -44,8 +44,8 @@ re-run.
 they are inert until that code ships, so set them at the same deploy:
 
 ```sh
-gcloud run services update textrawl --project=textrawl --region=us-east4 \
-  --update-env-vars="CLOUD_TASKS_QUEUE=textrawl-upload-processing,CLOUD_TASKS_LOCATION=us-east4,CLOUD_TASKS_SERVICE_ACCOUNT=textrawl-tasks@textrawl.iam.gserviceaccount.com,UPLOAD_PROCESS_URL=<service-url>/api/upload/process,GCS_UPLOAD_BUCKET=textrawl-uploads" \
+gcloud run services update <service-name> --project=<your-project> --region=<your-region> \
+  --update-env-vars="CLOUD_TASKS_QUEUE=<your-upload-processing-queue>,CLOUD_TASKS_LOCATION=<your-region>,CLOUD_TASKS_SERVICE_ACCOUNT=<tasks-sa>@<project>.iam.gserviceaccount.com,UPLOAD_PROCESS_URL=<service-url>/api/upload/process,GCS_UPLOAD_BUCKET=<your-upload-bucket>" \
   --timeout=600
 ```
 
@@ -53,15 +53,14 @@ Notes:
 
 - `UPLOAD_PROCESS_URL` is the live service URL + `/api/upload/process`; it is
   both the task target base and the OIDC audience the app verifies.
-- `GCS_UPLOAD_BUCKET` is **not currently set** on the service, so Phase 3's GCS
-  storage falls back to the in-memory fake in prod — set it here to activate the
-  real bucket.
+- `GCS_UPLOAD_BUCKET` must be set for production large uploads. If it is unset,
+  storage falls back to an in-memory fake intended only for local/dev use.
 - `--timeout=600` raises the request budget for streaming/extraction (currently
   300s).
 
 ## Teardown
 
 ```sh
-gcloud tasks queues delete textrawl-upload-processing --project=textrawl --location=us-east4
-gcloud iam service-accounts delete textrawl-tasks@textrawl.iam.gserviceaccount.com --project=textrawl
+gcloud tasks queues delete <your-upload-processing-queue> --project=<your-project> --location=<your-region>
+gcloud iam service-accounts delete <tasks-sa>@<project>.iam.gserviceaccount.com --project=<your-project>
 ```
