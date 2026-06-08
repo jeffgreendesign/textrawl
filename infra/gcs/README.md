@@ -7,14 +7,14 @@ Infra-as-config for the resumable large-upload workflow
 
 | Setting | Value |
 |---|---|
-| Bucket | `gs://textrawl-uploads` |
-| Project | `textrawl` (607480003712) |
-| Location | `us-east4` (colocated with the Cloud Run `textrawl` service) |
+| Bucket | `gs://<your-upload-bucket>` |
+| Project | `<your-project>` (`<your-project-number>`) |
+| Location | `<your-region>` (colocated with the Cloud Run service) |
 | Uniform bucket-level access | enabled |
 | Public access prevention | enforced |
 | Soft-delete | disabled (transient bytes; avoids paying to retain deleted upload objects) |
 | Lifecycle | delete objects ≥ 1 day old (abandoned-upload cleanup; `UPLOAD_CLEANUP_TTL_HOURS=24`) |
-| IAM | `607480003712-compute@developer.gserviceaccount.com` → `roles/storage.objectAdmin` (bucket-scoped) |
+| IAM | `<runtime-sa>@<project>.iam.gserviceaccount.com` → `roles/storage.objectAdmin` (bucket-scoped) |
 
 The Cloud Run runtime SA (the default compute SA) reads/writes via ADC — no
 service-account keys.
@@ -22,8 +22,8 @@ service-account keys.
 ## Re-apply config
 
 ```sh
-PROJECT=textrawl
-BUCKET=gs://textrawl-uploads
+PROJECT=<your-project>
+BUCKET=gs://<your-upload-bucket>
 
 # CORS (dashboard origin + localhost for browser-direct resumable PUTs)
 gcloud storage buckets update $BUCKET --project=$PROJECT --cors-file=infra/gcs/cors.json
@@ -32,26 +32,31 @@ gcloud storage buckets update $BUCKET --project=$PROJECT --cors-file=infra/gcs/c
 gcloud storage buckets update $BUCKET --project=$PROJECT --lifecycle-file=infra/gcs/lifecycle.json
 ```
 
-## One-time creation (already done)
+## One-time creation
 
 ```sh
-gcloud storage buckets create gs://textrawl-uploads \
-  --project=textrawl --location=us-east4 \
+PROJECT=<your-project>
+REGION=<your-region>
+BUCKET=gs://<your-upload-bucket>
+RUNTIME_SA=<runtime-sa>@<project>.iam.gserviceaccount.com
+
+gcloud storage buckets create $BUCKET \
+  --project=$PROJECT --location=$REGION \
   --uniform-bucket-level-access --public-access-prevention
 
-gcloud storage buckets add-iam-policy-binding gs://textrawl-uploads \
-  --project=textrawl \
-  --member="serviceAccount:607480003712-compute@developer.gserviceaccount.com" \
+gcloud storage buckets add-iam-policy-binding $BUCKET \
+  --project=$PROJECT \
+  --member="serviceAccount:$RUNTIME_SA" \
   --role="roles/storage.objectAdmin"
 
-gcloud storage buckets update gs://textrawl-uploads --project=textrawl --clear-soft-delete
+gcloud storage buckets update $BUCKET --project=$PROJECT --clear-soft-delete
 ```
 
 ## Server env (set on Cloud Run when the GCS StorageService lands, T3.2)
 
 ```sh
-GCS_UPLOAD_BUCKET=textrawl-uploads
-GCS_PROJECT_ID=textrawl   # optional; auto-detected from ADC otherwise
+GCS_UPLOAD_BUCKET=<your-upload-bucket>
+GCS_PROJECT_ID=<your-project>   # optional; auto-detected from ADC otherwise
 ```
 
 ## CORS origins

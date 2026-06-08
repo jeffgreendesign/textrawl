@@ -46,9 +46,9 @@ Textrawl is a personal knowledge server with persistent memory, searchable docum
 
 **Beyond keyword search.** Most search tools only match exact words. Textrawl combines semantic understanding (finds "automobile" when you search "car") with traditional keyword matching — so you get relevant results without missing exact phrases.
 
-**Your data, your choice.** Use OpenAI's embeddings for best accuracy, Google AI for multimodal support, or run completely locally with Ollama — no API costs, no data leaving your machine.
+**Your data, your choice.** Use OpenAI's embeddings for best accuracy, Google AI for multimodal support, or run locally with Ollama and local Postgres to keep document text and embeddings on your machine.
 
-**Import everything.** Emails from Gmail exports, PDFs from your research, saved web pages, images, audio files, Google Takeout archives — Textrawl converts them all into searchable knowledge.
+**Import everything.** Emails from Gmail exports, PDFs from your research, saved web pages, images, audio files, Google Takeout archives — Textrawl converts them into searchable knowledge where the relevant converter/provider is configured.
 
 ## Features
 
@@ -69,7 +69,11 @@ Textrawl is a personal knowledge server with persistent memory, searchable docum
 | **Flexible Embeddings** | OpenAI, Google AI, or Ollama (free, local) |
 | **Smart Chunking** | Paragraph-aware splitting with overlap for context |
 | **CLI Tools** | Batch processing for large archives |
-| **Cloud Ready** | Deploy to Docker, Cloud Run, or any container platform |
+| **Cloud Ready** | Deploy to Docker, Cloud Run, or any container platform; large uploads require GCS/Cloud Tasks configuration |
+
+## Privacy Model
+
+Textrawl is self-hosted, but data leaves your machine when you configure cloud services. Document text, chunks, embeddings, extracted memories, conversation summaries, images, or audio may be sent to providers such as OpenAI/Google embeddings, Anthropic/OpenAI/Google extraction, Neon/Supabase/RDS, Cloud Run, or GCS. For sensitive data, prefer Ollama/local Postgres and disable cloud LLM extraction/insights.
 
 ## Quick Start
 
@@ -124,7 +128,7 @@ If you've set `API_BEARER_TOKEN` in `.env`, add the auth header:
 
 ```json
 "--header",
-"Authorization: Bearer YOUR_TOKEN_HERE"
+"Authorization: Bearer <your-token>"
 ```
 
 Restart Claude Desktop - you'll now see Textrawl's tools available.
@@ -135,11 +139,13 @@ ChatGPT Desktop supports MCP servers natively (Pro/Plus required):
 
 1. Open **Settings → Connectors → Advanced → Developer mode**
 2. Add a new connector with your server URL: `http://localhost:3000/mcp`
-3. If using auth, add the `Authorization: Bearer YOUR_TOKEN` header
+3. If using auth, add the `Authorization: Bearer <your-token>` header
 
 See [OpenAI MCP documentation](https://platform.openai.com/docs/mcp) for details.
 
 ### 4. Add Your Documents
+
+Imported documents, extracted memories, and conversation summaries are stored in your configured database/storage until deleted. Treat a Textrawl server as single-tenant unless you have added your own user isolation. Set `API_BEARER_TOKEN`, restrict CORS with `ALLOWED_ORIGINS`, and avoid importing third-party or private data without consent. Use `forget_entity` and `delete_conversation` to remove memory/conversation data, and `list_documents`/`update_document` to audit imported documents.
 
 **Option A: Desktop App** (easiest)
 
@@ -160,7 +166,7 @@ pnpm upload -- ./converted/
 
 | Guide | Description |
 |-------|-------------|
-| [Database Sizing](docs/guides/supabase-requirements.mdx) | Vector dimensions, index counts, and storage estimates by embedding provider |
+| [Database Sizing](docs/guides/database-requirements.mdx) | Vector dimensions, index counts, and storage estimates by embedding provider |
 | [CLI Tools](docs/cli/) | Batch conversion and upload from command line |
 | [Security](docs/guides/security-hardening.mdx) | Row Level Security and access controls |
 
@@ -296,7 +302,7 @@ Enabled when `DATABASE_URL` is configured. Connects directly to Postgres.
 
 ```bash
 curl -X POST http://localhost:3000/api/upload \
-  -H "Authorization: Bearer YOUR_TOKEN" \
+  -H "Authorization: Bearer <your-token>" \
   -F "file=@document.pdf" \
   -F "title=Optional Title" \
   -F "tags=tag1,tag2"

@@ -8,8 +8,8 @@ Get textrawl running in 5 minutes.
 ## Prerequisites
 
 - **Node.js 22+** ([Download](https://nodejs.org/))
-- **Supabase account** ([Sign up free](https://supabase.com/))
-- **OpenAI API key** ([Get one](https://platform.openai.com/api-keys))
+- **PostgreSQL with pgvector** (Neon, Supabase, RDS, or self-hosted)
+- **Embedding provider**: OpenAI, Google AI, or Ollama for local embeddings
 
 ## Step 1: Clone and Install
 
@@ -29,23 +29,25 @@ pnpm run setup
 
 You'll be prompted for:
 
-- Supabase URL
-- Supabase Service Key
-- OpenAI API Key
+- `DATABASE_URL` (use a pooled Postgres connection string for the server)
+- Embedding provider credentials, or Ollama settings for local embeddings
+- `API_BEARER_TOKEN` for authenticated clients
 
 ## Step 3: Initialize Database
 
-In the Supabase SQL Editor, run:
+Run the schema against your configured database:
 
-```sql
--- Paste contents of scripts/setup-db.sql
+```bash
+psql $DATABASE_URL -f scripts/setup-db.sql
 ```
 
-Then run the security script:
+Use the provider-specific schema if needed (`setup-db-ollama.sql`, `setup-db-ollama-v2.sql`, or `setup-db-google.sql`). Then run the security script:
 
-```sql
--- Paste contents of scripts/security-rls.sql
+```bash
+psql $DATABASE_URL -f scripts/security-rls.sql
 ```
+
+Supabase is supported as one Postgres option, but never expose Supabase service-role credentials to browser, desktop, or other client code. Prefer a pooled `DATABASE_URL` used only by the server.
 
 ## Step 4: Start the Server
 
@@ -84,7 +86,7 @@ Restart Claude Desktop to connect.
 Query textrawl directly over HTTP (the setup script generates `API_BEARER_TOKEN` in your `.env`):
 
 ```bash
-curl -H "Authorization: Bearer $API_BEARER_TOKEN" http://localhost:3000/api/documents
+curl -H "Authorization: Bearer <your-token>" http://localhost:3000/api/documents
 ```
 
 ## Verify It Works
@@ -93,6 +95,8 @@ curl -H "Authorization: Bearer $API_BEARER_TOKEN" http://localhost:3000/api/docu
 
 Open `http://localhost:3000`. Try uploading a document or creating a note from the dashboard.
 
+Imported documents, extracted memories, and conversation summaries remain in your configured database/storage until deleted. Set `API_BEARER_TOKEN`, restrict CORS for production, and avoid importing third-party/private data without consent.
+
 ### Using the REST API
 
 ```bash
@@ -100,7 +104,7 @@ Open `http://localhost:3000`. Try uploading a document or creating a note from t
 curl http://localhost:3000/health
 
 # Search for documents
-curl -H "Authorization: Bearer $API_BEARER_TOKEN" \
+curl -H "Authorization: Bearer <your-token>" \
   "http://localhost:3000/api/search?q=test&limit=5"
 ```
 
