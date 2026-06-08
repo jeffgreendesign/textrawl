@@ -38,13 +38,13 @@ You'll be prompted for:
 Run the schema against your configured database:
 
 ```bash
-psql $DATABASE_URL -f scripts/setup-db.sql
+psql "$DATABASE_URL" -f scripts/setup-db.sql
 ```
 
 Use the provider-specific schema if needed (`setup-db-ollama.sql`, `setup-db-ollama-v2.sql`, or `setup-db-google.sql`). Then run the security script:
 
 ```bash
-psql $DATABASE_URL -f scripts/security-rls.sql
+psql "$DATABASE_URL" -f scripts/security-rls.sql
 ```
 
 Supabase is supported as one Postgres option, but never expose Supabase service-role credentials to browser, desktop, or other client code. Prefer a pooled `DATABASE_URL` used only by the server.
@@ -86,7 +86,8 @@ Restart Claude Desktop to connect.
 Query textrawl directly over HTTP (the setup script generates `API_BEARER_TOKEN` in your `.env`):
 
 ```bash
-curl -H "Authorization: Bearer <your-token>" http://localhost:3000/api/documents
+curl -H "Authorization: Bearer $API_BEARER_TOKEN" \
+  "http://localhost:3000/api/documents"
 ```
 
 ## Verify It Works
@@ -104,7 +105,7 @@ Imported documents, extracted memories, and conversation summaries remain in you
 curl http://localhost:3000/health
 
 # Search for documents
-curl -H "Authorization: Bearer <your-token>" \
+curl -H "Authorization: Bearer $API_BEARER_TOKEN" \
   "http://localhost:3000/api/search?q=test&limit=5"
 ```
 
