@@ -96,7 +96,13 @@ curl -H "Authorization: Bearer $API_BEARER_TOKEN" \
 
 Open `http://localhost:3000`. Try uploading a document or creating a note from the dashboard.
 
-Imported documents, extracted memories, and conversation summaries remain in your configured database/storage until deleted. Set `API_BEARER_TOKEN`, restrict CORS for production, and avoid importing third-party/private data without consent.
+Imported documents, extracted memories, and conversation summaries remain in your configured database/storage until deleted.
+
+For production:
+
+- Set `API_BEARER_TOKEN`.
+- Restrict CORS.
+- Avoid importing third-party/private data without consent.
 
 ### Using the REST API
 
