@@ -40,6 +40,11 @@ re-run.
 
 ## Configure Cloud Run (do this when the T4.1–T4.3 code is deployed)
 
+> **The T4.1–T4.3 code is now merged and deployed.** For the remaining activation
+> steps — which env vars are still missing, how to resolve the live service URL,
+> and a copy-paste agent prompt — see
+> [docs/plans/2026-06-06-phase4-cloud-run-activation.md](../../docs/plans/2026-06-06-phase4-cloud-run-activation.md).
+
 `setup.sh` prints the exact values. The processing code reads these env vars;
 they are inert until that code ships, so set them at the same deploy:
 
