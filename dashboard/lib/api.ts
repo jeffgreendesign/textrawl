@@ -53,7 +53,12 @@ export function getWsBase(): string {
 	if (process.env.NEXT_PUBLIC_WS_URL) {
 		return process.env.NEXT_PUBLIC_WS_URL;
 	}
-	return `${getServerBase().replace(/^http/, 'ws')}/ws`;
+	// Normalize a trailing `/api` or `/api/` (and any stray trailing slash) so the
+	// derived path is exactly `/ws` — the server's upgrade handler rejects anything else.
+	const base = getServerBase()
+		.replace(/\/api\/?$/, '')
+		.replace(/\/+$/, '');
+	return `${base.replace(/^http/, 'ws')}/ws`;
 }
 
 // --- Health ---
