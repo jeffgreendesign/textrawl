@@ -35,8 +35,8 @@ Updated 2026-06-01. Marks what has actually landed so a fresh agent can resume w
 - [x] **Phase 2 — Upload contract + state machine + schema** (T2.1–T2.3) — merged (#92)
 - [x] **Phase 3 — GCS resumable** (T3.1–T3.3) — merged (#93)
 - [x] **Phase 4 — Async processing (Cloud Tasks)** (T4.1–T4.3) — merged (PRs #99, #102, #101). Sub-plan: [2026-06-01-phase4-cloud-tasks-impl.md](2026-06-01-phase4-cloud-tasks-impl.md). **Prod activation pending** (set Cloud Run env): [2026-06-06-phase4-cloud-run-activation.md](2026-06-06-phase4-cloud-run-activation.md)
-- [ ] **Phase 5 — Handler registry + Tier 1 + safe ZIP** (T5.1–T5.3)
-- [ ] **Phase 6 — Dashboard large-upload UX** (T6.1, T6.2)
+- [ ] **Phase 5 — Handler registry + Tier 1 + safe ZIP** (T5.1–T5.3) — granular sub-plan: [2026-06-10-phase5-handler-registry-zip-impl.md](2026-06-10-phase5-handler-registry-zip-impl.md)
+- [ ] **Phase 6 — Dashboard large-upload UX** (T6.1, T6.2) — granular sub-plan: [2026-06-10-phase6-dashboard-upload-ux-impl.md](2026-06-10-phase6-dashboard-upload-ux-impl.md)
 - [ ] **Phase 7 — Cleanup, observability, deployment docs**
 
 Resolved design decisions (2026-06-01):
