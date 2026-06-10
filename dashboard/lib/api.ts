@@ -4,7 +4,6 @@
  */
 
 const ENV_API_BASE = process.env.NEXT_PUBLIC_API_URL ?? 'http://localhost:3000/api';
-const WS_BASE = process.env.NEXT_PUBLIC_WS_URL ?? 'ws://localhost:3000/ws';
 
 /** Resolve API base URL: localStorage override → env var → localhost default. */
 export function getApiBase(): string {
@@ -43,6 +42,18 @@ async function apiFetch<T>(path: string, init?: RequestInit): Promise<T> {
 /** Server origin without /api suffix. Used for health checks and status. */
 export function getServerBase(): string {
 	return getApiBase().replace(/\/api$/, '');
+}
+
+/**
+ * WebSocket URL. Prefers an explicit `NEXT_PUBLIC_WS_URL`, otherwise derives it
+ * from the resolved server origin (`http(s)` → `ws(s)`, `/ws` path) so production
+ * never falls back to `ws://localhost:3000` when only the API URL is configured.
+ */
+export function getWsBase(): string {
+	if (process.env.NEXT_PUBLIC_WS_URL) {
+		return process.env.NEXT_PUBLIC_WS_URL;
+	}
+	return `${getServerBase().replace(/^http/, 'ws')}/ws`;
 }
 
 // --- Health ---
@@ -385,7 +396,7 @@ export type EventHandler = (event: { event: string; data: unknown }) => void;
 export function connectWebSocket(onEvent: EventHandler): WebSocket | null {
 	const token = typeof window !== 'undefined' ? localStorage.getItem('textrawl_token') : null;
 
-	const url = WS_BASE;
+	const url = getWsBase();
 
 	try {
 		// Auth via subprotocol to avoid exposing token in URL/logs
