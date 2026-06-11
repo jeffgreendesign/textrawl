@@ -53,6 +53,12 @@ describe('registry resolution', () => {
 		expect(resolveByMime('application/x-msdownload')).toBeUndefined();
 	});
 
+	it('ignores MIME parameters and casing (e.g. charset)', () => {
+		expect(resolveByMime('text/html; charset=utf-8')?.key).toBe('html');
+		expect(resolveByMime('TEXT/PLAIN; charset=UTF-8')?.key).toBe('text');
+		expect(isSupportedMime('application/json; charset=utf-8')).toBe(true);
+	});
+
 	it('resolves by extension, case-insensitively', () => {
 		expect(resolveByExtension('NOTES.MD')?.key).toBe('text');
 		expect(resolveByExtension('report.pdf')?.key).toBe('pdf');

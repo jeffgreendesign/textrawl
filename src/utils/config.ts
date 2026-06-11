@@ -201,11 +201,13 @@ const envSchema = z.object({
 		.refine((val) => val >= 1, 'Must be at least 1'),
 
 	// Max compressed archive size (bytes). Unset → falls back to
-	// MAX_UPLOAD_SIZE_MB at the use site.
+	// MAX_UPLOAD_SIZE_MB at the use site. A non-numeric value is rejected (rather
+	// than parsing to NaN and silently disabling the compressed-size bomb guard).
 	ZIP_MAX_COMPRESSED_BYTES: z
 		.string()
 		.optional()
-		.transform((val) => (val === undefined ? undefined : parseInt(val, 10))),
+		.transform((val) => (val === undefined ? undefined : parseInt(val, 10)))
+		.refine((val) => val === undefined || (Number.isFinite(val) && val >= 1), 'Must be at least 1'),
 
 	// Max total uncompressed (expanded) size across all entries (bytes) — bomb guard.
 	ZIP_MAX_EXPANDED_BYTES: z

@@ -146,6 +146,12 @@ describe('validateZip — path safety (archive-level)', () => {
 		mockZip([entry(`${'x'.repeat(40)}.txt`)]);
 		await expect(validateZip(BUF)).rejects.toMatchObject({ code: 'ZIP_PATH_TRAVERSAL' });
 	});
+
+	it('rejects a hostile path hiding behind an OS-junk basename (path safety wins)', async () => {
+		// `../../Thumbs.db` would pass `isOsJunk`; path safety must run first.
+		mockZip([entry('../../Thumbs.db')]);
+		await expect(validateZip(BUF)).rejects.toMatchObject({ code: 'ZIP_PATH_TRAVERSAL' });
+	});
 });
 
 describe('validateZip — nested archives (archive-level)', () => {

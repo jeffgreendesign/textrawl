@@ -29,6 +29,11 @@ for (const handler of builtinHandlers) {
 	register(handler);
 }
 
+/** Canonical MIME: parameters (`; charset=…`) stripped, trimmed, lower-cased. */
+function normalizeMime(mime: string): string {
+	return mime.split(';', 1)[0]?.trim().toLowerCase() ?? '';
+}
+
 /** Lower-case extension (no dot) of a filename or path segment, or '' if none. */
 function extensionOf(name: string): string {
 	const base = name.split(/[/\\]/).pop() ?? name;
@@ -40,7 +45,7 @@ function extensionOf(name: string): string {
 }
 
 export function resolveByMime(mime: string): FileHandler | undefined {
-	return byMime.get(mime.toLowerCase());
+	return byMime.get(normalizeMime(mime));
 }
 
 export function resolveByExtension(name: string): FileHandler | undefined {
@@ -49,7 +54,7 @@ export function resolveByExtension(name: string): FileHandler | undefined {
 }
 
 export function isSupportedMime(mime: string): boolean {
-	return byMime.has(mime.toLowerCase());
+	return byMime.has(normalizeMime(mime));
 }
 
 export function supportedExtensions(): string[] {

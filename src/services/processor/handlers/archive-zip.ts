@@ -49,7 +49,6 @@ export interface ZipValidationResult {
 
 // Unix mode bits (from externalFileAttributes >>> 16).
 const S_IFMT = 0o170000;
-const S_IFLNK = 0o120000;
 const S_IFREG = 0o100000;
 
 // Extensions treated as nested archives (rejected in MVP).
@@ -134,8 +133,10 @@ export async function validateZip(buffer: Buffer): Promise<ZipValidationResult> 
 
 	for (const f of files) {
 		const path = f.path;
-		if (isOsJunk(path)) continue;
 
+		// Path safety is enforced before the OS-junk filter so a hostile entry
+		// hiding behind a junk basename (e.g. `../../Thumbs.db`) still fails the
+		// archive rather than being silently skipped.
 		if (isUnsafePath(path)) {
 			throw new ZipPathTraversalError(`Unsafe entry path: ${path}`);
 		}
@@ -147,6 +148,9 @@ export async function validateZip(buffer: Buffer): Promise<ZipValidationResult> 
 		if (isNonRegular(f.externalFileAttributes)) {
 			throw new ZipPathTraversalError(`Entry is not a regular file (symlink/device): ${path}`);
 		}
+
+		if (isOsJunk(path)) continue;
+
 		if (NESTED_ARCHIVE_EXTENSIONS.has(extensionOf(path))) {
 			throw new ZipNestedArchiveError(`Nested archive not supported: ${path}`);
 		}
