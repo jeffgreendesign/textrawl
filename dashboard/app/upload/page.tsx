@@ -1,19 +1,39 @@
 /**
- * Upload — drag-and-drop file upload with progress tracking.
+ * Upload — drag-and-drop file upload with real progress tracking.
+ *
+ * Small files (≤ UPLOAD_THRESHOLD_MB) take the direct single-shot POST; larger
+ * files use the resumable flow (init → chunked PUT to GCS → complete → poll
+ * processing status). Progress is real: byte-based during upload, entry-based
+ * during processing.
  */
 'use client';
 
-import { AlertCircle, Archive, CheckCircle, FileText, Image, Music, Upload, X } from 'lucide-react';
-import { useCallback, useState } from 'react';
+import {
+	AlertCircle,
+	AlertTriangle,
+	Archive,
+	CheckCircle,
+	FileText,
+	Image,
+	Music,
+	Upload,
+	X,
+} from 'lucide-react';
+import { useCallback, useRef, useState } from 'react';
 
-import { getApiBase } from '@/lib/api';
+import { UPLOAD_THRESHOLD_MB, cancelUpload, getApiBase, resumableUpload } from '@/lib/api';
+
+type UploadStatus = 'pending' | 'uploading' | 'processing' | 'complete' | 'partial' | 'error';
 
 interface UploadFile {
 	id: string;
 	file: File;
-	status: 'pending' | 'uploading' | 'complete' | 'error';
+	status: UploadStatus;
+	/** 0–100 for a known fraction; -1 for an indeterminate bar. */
 	progress: number;
+	detail?: string;
 	error?: string;
+	uploadId?: string;
 }
 
 const FILE_ICONS: Record<string, typeof FileText> = {
@@ -26,11 +46,27 @@ const FILE_ICONS: Record<string, typeof FileText> = {
 	'application/zip': Archive,
 };
 
+const LOCAL_HOSTS = new Set(['localhost', '127.0.0.1', '::1']);
+
+function isLocalUnconfigured(apiBase: string): boolean {
+	return (
+		apiBase === 'http://localhost:3000/api' &&
+		typeof window !== 'undefined' &&
+		!LOCAL_HOSTS.has(window.location.hostname)
+	);
+}
+
 export default function UploadPage() {
 	const [files, setFiles] = useState<UploadFile[]>([]);
 	const [isDragging, setIsDragging] = useState(false);
 	const [tags, setTags] = useState('');
 	const [isUploading, setIsUploading] = useState(false);
+	// AbortControllers for in-flight resumable uploads, keyed by file id.
+	const controllers = useRef<Map<string, AbortController>>(new Map());
+
+	const patchFile = useCallback((id: string, patch: Partial<UploadFile>) => {
+		setFiles((prev) => prev.map((f) => (f.id === id ? { ...f, ...patch } : f)));
+	}, []);
 
 	const addFiles = useCallback((fileList: FileList) => {
 		const newFiles: UploadFile[] = Array.from(fileList).map((file) => ({
@@ -42,13 +78,9 @@ export default function UploadPage() {
 		setFiles((prev) => [...prev, ...newFiles]);
 	}, []);
 
-	const removeFile = useCallback(
-		(id: string) => {
-			if (isUploading) return;
-			setFiles((prev) => prev.filter((f) => f.id !== id));
-		},
-		[isUploading],
-	);
+	const removeFile = useCallback((id: string) => {
+		setFiles((prev) => prev.filter((f) => f.id !== id));
+	}, []);
 
 	const handleDrop = useCallback(
 		(e: React.DragEvent) => {
@@ -59,91 +91,166 @@ export default function UploadPage() {
 		[addFiles],
 	);
 
-	const handleUploadAll = useCallback(async () => {
-		if (isUploading) return;
-		setIsUploading(true);
-		try {
-			const pending = files.filter((f) => f.status === 'pending');
+	const uploadDirect = useCallback(
+		async (uploadFile: UploadFile, apiBase: string, token: string | null, tagList: string[]) => {
+			patchFile(uploadFile.id, { status: 'uploading', progress: -1, detail: undefined });
+
+			const formData = new FormData();
+			formData.append('file', uploadFile.file);
+			if (tagList.length) formData.append('tags', JSON.stringify(tagList));
+
+			const res = await fetch(`${apiBase}/upload`, {
+				method: 'POST',
+				headers: token ? { Authorization: `Bearer ${token}` } : {},
+				body: formData,
+			});
+
+			if (!res.ok) {
+				let errorMsg = res.statusText;
+				try {
+					const body = await res.json();
+					errorMsg =
+						body?.error?.message ||
+						(typeof body?.error === 'string' ? body.error : undefined) ||
+						body?.message ||
+						errorMsg;
+				} catch {}
+				throw new Error(errorMsg);
+			}
+
+			patchFile(uploadFile.id, { status: 'complete', progress: 100 });
+		},
+		[patchFile],
+	);
+
+	const uploadResumable = useCallback(
+		async (uploadFile: UploadFile) => {
+			const controller = new AbortController();
+			controllers.current.set(uploadFile.id, controller);
+			patchFile(uploadFile.id, {
+				status: 'uploading',
+				progress: 0,
+				detail: undefined,
+				error: undefined,
+			});
+
+			try {
+				const final = await resumableUpload(uploadFile.file, {
+					signal: controller.signal,
+					onInit: (init) => patchFile(uploadFile.id, { uploadId: init.uploadId }),
+					onUploadProgress: (loaded, total) =>
+						patchFile(uploadFile.id, {
+							status: 'uploading',
+							progress: total ? Math.round((loaded / total) * 100) : -1,
+						}),
+					onProcessingUpdate: (status) => {
+						const { entriesTotal, entriesProcessed } = status.progress;
+						patchFile(uploadFile.id, {
+							status: 'processing',
+							progress: entriesTotal ? Math.round((entriesProcessed / entriesTotal) * 100) : -1,
+							detail: entriesTotal ? `${entriesProcessed}/${entriesTotal} entries` : 'Processing…',
+						});
+					},
+				});
+
+				if (final.state === 'completed') {
+					patchFile(uploadFile.id, { status: 'complete', progress: 100, detail: undefined });
+				} else if (final.state === 'partial') {
+					const { entriesProcessed, entriesTotal, entriesFailed } = final.progress;
+					patchFile(uploadFile.id, {
+						status: 'partial',
+						progress: 100,
+						detail: `${entriesProcessed}/${entriesTotal} imported · ${entriesFailed} failed`,
+					});
+				} else {
+					// failed | expired | cancelled
+					patchFile(uploadFile.id, {
+						status: 'error',
+						error: final.error?.message ?? `Upload ${final.state}`,
+						detail: undefined,
+					});
+				}
+			} catch (err) {
+				if (err instanceof DOMException && err.name === 'AbortError') {
+					patchFile(uploadFile.id, {
+						status: 'error',
+						error: 'Upload cancelled',
+						detail: undefined,
+					});
+				} else {
+					patchFile(uploadFile.id, {
+						status: 'error',
+						error: err instanceof Error ? err.message : 'Upload failed',
+						detail: undefined,
+					});
+				}
+			} finally {
+				controllers.current.delete(uploadFile.id);
+			}
+		},
+		[patchFile],
+	);
+
+	const uploadOne = useCallback(
+		async (uploadFile: UploadFile) => {
+			const apiBase = getApiBase();
+			const token = typeof window !== 'undefined' ? localStorage.getItem('textrawl_token') : null;
+
+			if (isLocalUnconfigured(apiBase)) {
+				patchFile(uploadFile.id, {
+					status: 'error',
+					error: 'No server configured. Go to Settings to set your server URL.',
+				});
+				return;
+			}
+
 			const tagList = tags
 				.split(',')
 				.map((t) => t.trim())
 				.filter(Boolean);
 
-			const apiBase = getApiBase();
-			const token = typeof window !== 'undefined' ? localStorage.getItem('textrawl_token') : null;
-
-			// Detect unconfigured server on deployed sites
-			const localHosts = new Set(['localhost', '127.0.0.1', '::1']);
-			if (
-				apiBase === 'http://localhost:3000/api' &&
-				typeof window !== 'undefined' &&
-				!localHosts.has(window.location.hostname)
-			) {
-				const pendingIds = new Set(pending.map((f) => f.id));
-				setFiles((prev) =>
-					prev.map((p) =>
-						pendingIds.has(p.id)
-							? {
-									...p,
-									status: 'error' as const,
-									error: 'No server configured. Go to Settings to set your server URL.',
-								}
-							: p,
-					),
-				);
-				return;
-			}
-
-			for (const uploadFile of pending) {
-				setFiles((prev) =>
-					prev.map((f) =>
-						f.id === uploadFile.id ? { ...f, status: 'uploading' as const, progress: 30 } : f,
-					),
-				);
-
-				try {
-					const formData = new FormData();
-					formData.append('file', uploadFile.file);
-					if (tagList.length) formData.append('tags', JSON.stringify(tagList));
-
-					const res = await fetch(`${apiBase}/upload`, {
-						method: 'POST',
-						headers: token ? { Authorization: `Bearer ${token}` } : {},
-						body: formData,
-					});
-
-					if (!res.ok) {
-						let errorMsg = res.statusText;
-						try {
-							const body = await res.json();
-							errorMsg = body.error || body.message || errorMsg;
-						} catch {}
-						throw new Error(`Upload failed: ${errorMsg}`);
-					}
-
-					setFiles((prev) =>
-						prev.map((f) =>
-							f.id === uploadFile.id ? { ...f, status: 'complete' as const, progress: 100 } : f,
-						),
-					);
-				} catch (err) {
-					setFiles((prev) =>
-						prev.map((f) =>
-							f.id === uploadFile.id
-								? {
-										...f,
-										status: 'error' as const,
-										error: err instanceof Error ? err.message : 'Upload failed',
-									}
-								: f,
-						),
-					);
+			const thresholdBytes = UPLOAD_THRESHOLD_MB * 1024 * 1024;
+			try {
+				if (uploadFile.file.size <= thresholdBytes) {
+					await uploadDirect(uploadFile, apiBase, token, tagList);
+				} else {
+					await uploadResumable(uploadFile);
 				}
+			} catch (err) {
+				patchFile(uploadFile.id, {
+					status: 'error',
+					error: err instanceof Error ? err.message : 'Upload failed',
+					detail: undefined,
+				});
+			}
+		},
+		[tags, patchFile, uploadDirect, uploadResumable],
+	);
+
+	const handleUploadAll = useCallback(async () => {
+		if (isUploading) return;
+		setIsUploading(true);
+		try {
+			const pending = files.filter((f) => f.status === 'pending');
+			for (const uploadFile of pending) {
+				await uploadOne(uploadFile);
 			}
 		} finally {
 			setIsUploading(false);
 		}
-	}, [files, tags, isUploading]);
+	}, [files, isUploading, uploadOne]);
+
+	const retryFile = useCallback(
+		(uploadFile: UploadFile) => {
+			void uploadOne({ ...uploadFile, status: 'pending', progress: 0, error: undefined });
+		},
+		[uploadOne],
+	);
+
+	const cancelFile = useCallback((uploadFile: UploadFile) => {
+		controllers.current.get(uploadFile.id)?.abort();
+		if (uploadFile.uploadId) void cancelUpload(uploadFile.uploadId).catch(() => {});
+	}, []);
 
 	const getIcon = (mimeType: string) => FILE_ICONS[mimeType] || FileText;
 
@@ -239,6 +346,7 @@ export default function UploadPage() {
 				>
 					{files.map((f) => {
 						const Icon = getIcon(f.file.type);
+						const inFlight = f.status === 'uploading' || f.status === 'processing';
 						return (
 							<div
 								key={f.id}
@@ -266,6 +374,7 @@ export default function UploadPage() {
 									</p>
 									<p style={{ fontSize: '0.75rem', color: 'var(--text-muted)' }}>
 										{(f.file.size / 1024).toFixed(1)} KB
+										{f.detail ? ` · ${f.detail}` : ''}
 									</p>
 									{f.error && (
 										<p style={{ fontSize: '0.75rem', color: '#ef4444', marginTop: '0.125rem' }}>
@@ -273,31 +382,71 @@ export default function UploadPage() {
 										</p>
 									)}
 								</div>
+
 								{f.status === 'complete' && (
 									<CheckCircle size={18} style={{ color: '#22c55e', flexShrink: 0 }} />
 								)}
-								{f.status === 'error' && (
-									<AlertCircle size={18} style={{ color: '#ef4444', flexShrink: 0 }} />
+								{f.status === 'partial' && (
+									<AlertTriangle size={18} style={{ color: '#eab308', flexShrink: 0 }} />
 								)}
-								{f.status === 'uploading' && (
+								{f.status === 'error' && (
+									<>
+										<AlertCircle size={18} style={{ color: '#ef4444', flexShrink: 0 }} />
+										<button
+											type="button"
+											onClick={() => retryFile(f)}
+											style={{
+												background: 'none',
+												border: '1px solid var(--border-default)',
+												borderRadius: '0.375rem',
+												cursor: 'pointer',
+												color: 'var(--text-primary)',
+												fontSize: '0.75rem',
+												padding: '0.25rem 0.5rem',
+											}}
+										>
+											Retry
+										</button>
+									</>
+								)}
+								{inFlight && (
 									<div
 										style={{
 											width: 60,
 											height: 4,
 											backgroundColor: 'var(--bg-tertiary)',
 											borderRadius: 2,
+											overflow: 'hidden',
+											flexShrink: 0,
 										}}
 									>
 										<div
 											style={{
-												width: `${f.progress}%`,
+												width: f.progress < 0 ? '100%' : `${f.progress}%`,
 												height: '100%',
 												backgroundColor: 'var(--text-accent)',
 												borderRadius: 2,
+												opacity: f.progress < 0 ? 0.5 : 1,
 												transition: 'width 0.3s',
 											}}
 										/>
 									</div>
+								)}
+								{inFlight && (
+									<button
+										type="button"
+										aria-label={`Cancel ${f.file.name}`}
+										onClick={() => cancelFile(f)}
+										style={{
+											background: 'none',
+											border: 'none',
+											cursor: 'pointer',
+											color: 'var(--text-muted)',
+											padding: '0.25rem',
+										}}
+									>
+										<X size={16} />
+									</button>
 								)}
 								{f.status === 'pending' && (
 									<button
@@ -345,7 +494,7 @@ export default function UploadPage() {
 						}}
 					>
 						{isUploading
-							? 'Uploading\u2026'
+							? 'Uploading…'
 							: `Upload ${pendingCount} file${pendingCount !== 1 ? 's' : ''}`}
 					</button>
 				);
