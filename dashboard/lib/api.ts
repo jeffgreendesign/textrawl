@@ -210,6 +210,336 @@ export async function uploadFile(
 	return res.json();
 }
 
+// --- Large / resumable upload (GCS resumable session) ---
+
+/**
+ * Client switch point: files at or below this size keep the direct single-shot
+ * POST; larger files use the resumable init → PUT → complete → poll flow.
+ * Mirrors the server's `MAX_SINGLE_FILE_SIZE_MB` default (20).
+ */
+const PARSED_UPLOAD_THRESHOLD_MB = Number(process.env.NEXT_PUBLIC_UPLOAD_THRESHOLD_MB);
+export const UPLOAD_THRESHOLD_MB = Number.isFinite(PARSED_UPLOAD_THRESHOLD_MB)
+	? PARSED_UPLOAD_THRESHOLD_MB
+	: 20;
+
+/** GCS requires every non-final resumable chunk to be a multiple of 256 KiB. */
+const GCS_CHUNK_ALIGNMENT = 256 * 1024;
+/** Default resumable chunk size: 8 MiB (a 256 KiB multiple). */
+const RESUMABLE_CHUNK_SIZE = 8 * 1024 * 1024;
+
+export interface InitUploadResponse {
+	uploadId: string;
+	objectKey: string;
+	bucket: string;
+	resumableUri: string;
+	expiresAt: string | null;
+	state: string;
+	useDirectUpload: boolean;
+}
+
+export type UploadSessionState =
+	| 'initialized'
+	| 'uploading'
+	| 'uploaded'
+	| 'queued'
+	| 'processing'
+	| 'completed'
+	| 'partial'
+	| 'failed'
+	| 'expired'
+	| 'cancelled';
+
+export interface UploadEntryStatus {
+	name: string;
+	state: string;
+	documentId: string | null;
+	code: string | null;
+}
+
+export interface UploadStatusResponse {
+	uploadId: string;
+	state: UploadSessionState;
+	filename: string;
+	size: number;
+	progress: { entriesTotal: number; entriesProcessed: number; entriesFailed: number };
+	documentIds: string[];
+	entries: UploadEntryStatus[];
+	error: { code: string; message: string } | null;
+	createdAt: string | null;
+	updatedAt: string | null;
+	completedAt: string | null;
+}
+
+/** Terminal upload states — polling stops once one is reached. */
+const TERMINAL_UPLOAD_STATES = new Set<UploadSessionState>([
+	'completed',
+	'partial',
+	'failed',
+	'expired',
+	'cancelled',
+]);
+
+/**
+ * Error carrying the server's stable `code` (from `{ error: { code, message } }`)
+ * so the UI can map it to friendly text. The friendly mapping arrives in T6.2.
+ */
+export class UploadError extends Error {
+	code: string | null;
+	status: number;
+	constructor(message: string, code: string | null, status: number) {
+		super(message);
+		this.name = 'UploadError';
+		this.code = code;
+		this.status = status;
+	}
+}
+
+/** Read the server's nested `{ error: { message, code } }` body into a typed error. */
+async function uploadErrorFromResponse(res: Response): Promise<UploadError> {
+	let message = res.statusText || `Request failed (${res.status})`;
+	let code: string | null = null;
+	try {
+		const body = await res.json();
+		const err = body?.error;
+		if (err && typeof err === 'object') {
+			if (typeof err.message === 'string') message = err.message;
+			if (typeof err.code === 'string') code = err.code;
+		} else if (typeof body?.message === 'string') {
+			message = body.message;
+		}
+	} catch {
+		// Non-JSON body — keep the status-derived message.
+	}
+	return new UploadError(message, code, res.status);
+}
+
+/** Start a resumable upload session for `file`. */
+export async function initUpload(
+	file: File,
+	opts: { checksum?: string } = {},
+): Promise<InitUploadResponse> {
+	const res = await fetch(`${getApiBase()}/upload/init`, {
+		method: 'POST',
+		headers: getHeaders(),
+		body: JSON.stringify({
+			filename: file.name,
+			contentType: file.type || undefined,
+			size: file.size,
+			...(opts.checksum ? { checksum: opts.checksum, checksumAlgo: 'sha256' } : {}),
+		}),
+	});
+	if (!res.ok) throw await uploadErrorFromResponse(res);
+	return res.json() as Promise<InitUploadResponse>;
+}
+
+/** GCS returns `Range: bytes=0-<lastByte>`; the next byte to send is lastByte + 1. */
+function parseCommittedOffset(rangeHeader: string | null): number {
+	if (!rangeHeader) return 0;
+	const match = /bytes=0-(\d+)/.exec(rangeHeader);
+	return match ? Number(match[1]) + 1 : 0;
+}
+
+function abortError(): DOMException {
+	return new DOMException('Upload aborted', 'AbortError');
+}
+
+/** Promise that resolves after `ms`, or rejects if `signal` aborts first. */
+function delay(ms: number, signal?: AbortSignal): Promise<void> {
+	return new Promise((resolve, reject) => {
+		if (signal?.aborted) {
+			reject(abortError());
+			return;
+		}
+		const onAbort = () => {
+			clearTimeout(timer);
+			reject(abortError());
+		};
+		const timer = setTimeout(() => {
+			signal?.removeEventListener('abort', onAbort);
+			resolve();
+		}, ms);
+		signal?.addEventListener('abort', onAbort, { once: true });
+	});
+}
+
+export interface PutResumableOptions {
+	onProgress?: (loaded: number, total: number) => void;
+	signal?: AbortSignal;
+	chunkSize?: number;
+	maxRetries?: number;
+	retryDelayMs?: number;
+}
+
+/** Probe the resumable session for how many bytes GCS has already committed. */
+async function probeCommittedOffset(
+	resumableUri: string,
+	total: number,
+	signal?: AbortSignal,
+): Promise<number> {
+	const res = await fetch(resumableUri, {
+		method: 'PUT',
+		headers: { 'Content-Range': `bytes */${total}` },
+		signal,
+	});
+	if (res.status === 308) return parseCommittedOffset(res.headers.get('Range'));
+	if (res.ok) return total; // Already fully committed.
+	throw await uploadErrorFromResponse(res);
+}
+
+/**
+ * Upload `file` to a GCS resumable session URI in 256 KiB-aligned chunks,
+ * honoring `308 Resume Incomplete` + `Range` and resuming after transient
+ * failures. Sends NO bearer header (the URI itself is the capability). Progress
+ * is reported per committed chunk.
+ */
+export async function putResumable(
+	resumableUri: string,
+	file: File,
+	opts: PutResumableOptions = {},
+): Promise<void> {
+	const total = file.size;
+	const chunkSize = Math.max(GCS_CHUNK_ALIGNMENT, opts.chunkSize ?? RESUMABLE_CHUNK_SIZE);
+	const maxRetries = opts.maxRetries ?? 5;
+	const retryDelayMs = opts.retryDelayMs ?? 500;
+
+	let offset = 0;
+	let attempt = 0;
+
+	while (offset < total) {
+		if (opts.signal?.aborted) throw abortError();
+
+		const end = Math.min(offset + chunkSize, total);
+		const chunk = file.slice(offset, end);
+		try {
+			const res = await fetch(resumableUri, {
+				method: 'PUT',
+				headers: { 'Content-Range': `bytes ${offset}-${end - 1}/${total}` },
+				body: chunk,
+				signal: opts.signal,
+			});
+
+			if (res.status === 308) {
+				const rangeHeader = res.headers.get('Range');
+				const committed = parseCommittedOffset(rangeHeader);
+				// A successful parse is always >= 1, so a present-but-zero result means
+				// the Range header was malformed. Throw (→ retry/re-probe) rather than
+				// optimistically assuming the whole chunk landed and skipping bytes. A
+				// genuinely absent header keeps the `end` fallback.
+				if (rangeHeader && committed === 0) {
+					throw new Error(`Malformed resumable Range header: ${rangeHeader}`);
+				}
+				offset = committed || end;
+				attempt = 0;
+				opts.onProgress?.(offset, total);
+				continue;
+			}
+			if (res.ok) {
+				opts.onProgress?.(total, total);
+				return;
+			}
+			// 308 is handled above; any other non-OK (4xx/5xx) throws here and is
+			// classified in the catch — 4xx surfaces, 5xx/network retries.
+			throw await uploadErrorFromResponse(res);
+		} catch (err) {
+			if (err instanceof DOMException && err.name === 'AbortError') throw err;
+			// 4xx (expired/gone/forbidden) is not resumable — surface immediately.
+			if (err instanceof UploadError && err.status >= 400 && err.status < 500) throw err;
+			if (attempt >= maxRetries) throw err;
+			attempt += 1;
+			await delay(retryDelayMs * attempt, opts.signal);
+			// Re-probe how far GCS actually got before retrying.
+			offset = await probeCommittedOffset(resumableUri, total, opts.signal);
+			opts.onProgress?.(offset, total);
+		}
+	}
+	opts.onProgress?.(total, total);
+}
+
+/** Finalize a resumable upload — fast validate-and-enqueue; returns 202 + status URL. */
+export async function completeUpload(
+	uploadId: string,
+	checksum?: string,
+): Promise<{ uploadId: string; state: string; statusUrl: string }> {
+	const res = await fetch(`${getApiBase()}/upload/complete`, {
+		method: 'POST',
+		headers: getHeaders(),
+		body: JSON.stringify({
+			uploadId,
+			...(checksum ? { checksum, checksumAlgo: 'sha256' } : {}),
+		}),
+	});
+	if (!res.ok) throw await uploadErrorFromResponse(res);
+	return res.json() as Promise<{ uploadId: string; state: string; statusUrl: string }>;
+}
+
+/** Fetch the current processing status for an upload session. */
+export async function getUploadStatus(uploadId: string): Promise<UploadStatusResponse> {
+	const res = await fetch(`${getApiBase()}/upload/${encodeURIComponent(uploadId)}/status`, {
+		headers: getHeaders(),
+	});
+	if (!res.ok) throw await uploadErrorFromResponse(res);
+	return res.json() as Promise<UploadStatusResponse>;
+}
+
+/** Cancel/abort an upload session. 404/409 are treated as benign races. */
+export async function cancelUpload(uploadId: string): Promise<void> {
+	const res = await fetch(`${getApiBase()}/upload/${encodeURIComponent(uploadId)}`, {
+		method: 'DELETE',
+		headers: getHeaders(),
+	});
+	if (!res.ok && res.status !== 404 && res.status !== 409) {
+		throw await uploadErrorFromResponse(res);
+	}
+}
+
+/** Poll `GET /status` until the upload reaches a terminal state, then resolve it. */
+export async function pollUploadStatus(
+	uploadId: string,
+	opts: {
+		onUpdate?: (status: UploadStatusResponse) => void;
+		signal?: AbortSignal;
+		intervalMs?: number;
+	} = {},
+): Promise<UploadStatusResponse> {
+	const intervalMs = opts.intervalMs ?? 2000;
+	for (;;) {
+		if (opts.signal?.aborted) throw abortError();
+		const status = await getUploadStatus(uploadId);
+		opts.onUpdate?.(status);
+		if (TERMINAL_UPLOAD_STATES.has(status.state)) return status;
+		await delay(intervalMs, opts.signal);
+	}
+}
+
+/**
+ * Drive a large file through the full resumable flow:
+ * init → resumable PUT (byte progress) → complete → poll (processing progress).
+ * Resolves with the terminal status. `onInit` exposes the `uploadId` early so the
+ * caller can offer Cancel during the upload/processing phases.
+ */
+export async function resumableUpload(
+	file: File,
+	opts: {
+		onInit?: (init: InitUploadResponse) => void;
+		onUploadProgress?: (loaded: number, total: number) => void;
+		onProcessingUpdate?: (status: UploadStatusResponse) => void;
+		signal?: AbortSignal;
+		checksum?: string;
+	} = {},
+): Promise<UploadStatusResponse> {
+	const init = await initUpload(file, { checksum: opts.checksum });
+	opts.onInit?.(init);
+	await putResumable(init.resumableUri, file, {
+		onProgress: opts.onUploadProgress,
+		signal: opts.signal,
+	});
+	await completeUpload(init.uploadId, opts.checksum);
+	return pollUploadStatus(init.uploadId, {
+		onUpdate: opts.onProcessingUpdate,
+		signal: opts.signal,
+	});
+}
+
 // --- Memory ---
 
 export interface MemoryGraphNode {
