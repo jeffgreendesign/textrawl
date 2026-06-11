@@ -64,6 +64,12 @@ This file centralizes runtime configuration for Textrawl server, MCP tools, CLI,
 | `CLOUD_TASKS_LOCATION` | Cloud Tasks queue region (default: `us-central1`) |
 | `CLOUD_TASKS_SERVICE_ACCOUNT` | OIDC identity minted into each task; verified by the processing endpoint |
 | `UPLOAD_PROCESS_URL` | Internal processing endpoint base URL (task target `<url>/<uploadId>` + OIDC audience) |
+| `ZIP_MAX_ENTRIES` | Max file entries per archive (default: `2000`) |
+| `ZIP_MAX_COMPRESSED_BYTES` | Max compressed archive size in bytes (default: `MAX_UPLOAD_SIZE_MB`) |
+| `ZIP_MAX_EXPANDED_BYTES` | Max total uncompressed size in bytes — bomb guard (default: `2000000000`) |
+| `ZIP_MAX_ENTRY_BYTES` | Max uncompressed size of a single entry in bytes (default: `50000000`) |
+| `ZIP_MAX_COMPRESSION_RATIO` | Max expanded/compressed ratio — bomb guard (default: `100`) |
+| `ZIP_MAX_FILENAME_LEN` | Max entry-path length in characters (default: `255`) |
 
 ## Security notes
 

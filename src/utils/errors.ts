@@ -118,6 +118,74 @@ export class ChecksumMismatchError extends TextrawlError {
 	}
 }
 
+/**
+ * A ZIP entry resolves to no supported handler (unknown extension, or its
+ * content does not match its extension). Per-entry and non-fatal — the entry is
+ * recorded `skipped` and the archive continues. 400.
+ */
+export class UnsupportedEntryError extends TextrawlError {
+	constructor(message = 'Unsupported archive entry') {
+		super(message, 400, 'UNSUPPORTED_ENTRY');
+		this.name = 'UnsupportedEntryError';
+	}
+}
+
+/**
+ * A ZIP entry has an unsafe path: `../` traversal, an absolute path or Windows
+ * drive prefix, a backslash separator, a symlink/non-regular entry, or a name
+ * exceeding `ZIP_MAX_FILENAME_LEN`. Archive-level — fails the whole upload
+ * before any document is created. 400.
+ */
+export class ZipPathTraversalError extends TextrawlError {
+	constructor(message = 'Archive contains an unsafe entry path') {
+		super(message, 400, 'ZIP_PATH_TRAVERSAL');
+		this.name = 'ZipPathTraversalError';
+	}
+}
+
+/**
+ * The archive trips a zip-bomb guard: total expanded size, compressed size, or
+ * the expanded/compressed ratio exceeds its configured limit. Archive-level. 413.
+ */
+export class ZipBombError extends TextrawlError {
+	constructor(message = 'Archive exceeds safe expansion limits') {
+		super(message, 413, 'ZIP_BOMB');
+		this.name = 'ZipBombError';
+	}
+}
+
+/** The archive holds more entries than `ZIP_MAX_ENTRIES`. Archive-level. 400. */
+export class ZipTooManyEntriesError extends TextrawlError {
+	constructor(message = 'Archive contains too many entries') {
+		super(message, 400, 'ZIP_TOO_MANY_ENTRIES');
+		this.name = 'ZipTooManyEntriesError';
+	}
+}
+
+/** A single entry's uncompressed size exceeds `ZIP_MAX_ENTRY_BYTES`. Archive-level. 413. */
+export class ZipEntryTooLargeError extends TextrawlError {
+	constructor(message = 'Archive entry exceeds the maximum entry size') {
+		super(message, 413, 'ZIP_ENTRY_TOO_LARGE');
+		this.name = 'ZipEntryTooLargeError';
+	}
+}
+
+/** The archive nests another archive (`.zip`/`.tar`/`.gz`/`.7z`…), unsupported in MVP. Archive-level. 400. */
+export class ZipNestedArchiveError extends TextrawlError {
+	constructor(message = 'Nested archives are not supported') {
+		super(message, 400, 'ZIP_NESTED_ARCHIVE');
+		this.name = 'ZipNestedArchiveError';
+	}
+}
+
+/** The archive contains no entries that resolve to a supported handler. Archive-level. 422. */
+export class ZipNoSupportedEntriesError extends TextrawlError {
+	constructor(message = 'Archive contains no supported files') {
+		super(message, 422, 'ZIP_NO_SUPPORTED_ENTRIES');
+		this.name = 'ZipNoSupportedEntriesError';
+	}
+}
+
 export class DatabaseError extends TextrawlError {
 	constructor(message = 'Database operation failed') {
 		super(message, 500, 'DATABASE_ERROR');

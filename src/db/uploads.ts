@@ -499,6 +499,92 @@ export async function recordUploadProcessingResult(
 	}
 }
 
+/** Input for {@link recordUploadEntry}. */
+export interface RecordUploadEntryInput {
+	uploadId: string;
+	entryPath: string;
+	normalizedType?: string | null;
+	sizeBytes?: number | null;
+	state: UploadEntryState;
+	documentId?: string | null;
+	errorCode?: string | null;
+	errorMessage?: string | null;
+}
+
+/**
+ * Upsert one per-entry result for an archive upload, keyed on the
+ * `(upload_id, entry_path)` unique index so a Cloud Task retry re-records the
+ * same entry in place rather than duplicating rows (plan §6).
+ *
+ * @throws {DatabaseError} If the database is not configured or the query fails.
+ */
+export async function recordUploadEntry(input: RecordUploadEntryInput): Promise<UploadEntry> {
+	if (!isDatabaseConfigured()) {
+		throw new DatabaseError('Database not configured');
+	}
+
+	try {
+		const row = await queryOneOrThrow<Record<string, unknown>>(
+			`INSERT INTO upload_entries (
+				upload_id, entry_path, normalized_type, size_bytes, state,
+				document_id, error_code, error_message
+			)
+			VALUES ($1, $2, $3, $4, $5, $6, $7, $8)
+			ON CONFLICT (upload_id, entry_path) DO UPDATE SET
+				normalized_type = EXCLUDED.normalized_type,
+				size_bytes = EXCLUDED.size_bytes,
+				state = EXCLUDED.state,
+				document_id = EXCLUDED.document_id,
+				error_code = EXCLUDED.error_code,
+				error_message = EXCLUDED.error_message
+			RETURNING *`,
+			[
+				input.uploadId,
+				input.entryPath,
+				input.normalizedType ?? null,
+				input.sizeBytes ?? null,
+				input.state,
+				input.documentId ?? null,
+				input.errorCode ?? null,
+				input.errorMessage ?? null,
+			],
+			'UploadEntry',
+		);
+		return mapEntry(row);
+	} catch (error) {
+		if (error instanceof NotFoundError) {
+			throw new DatabaseError('Failed to record upload entry: no row returned');
+		}
+		const message = error instanceof Error ? error.message : String(error);
+		logger.error('Failed to record upload entry', { error: message });
+		throw new DatabaseError(`Failed to record upload entry: ${message}`);
+	}
+}
+
+/**
+ * List an upload's per-entry rows (ordered by path). Used to skip already
+ * `completed` entries on a retry, so a re-run creates no duplicate documents.
+ *
+ * @throws {DatabaseError} If the database is not configured or the query fails.
+ */
+export async function listUploadEntries(uploadId: string): Promise<UploadEntry[]> {
+	if (!isDatabaseConfigured()) {
+		throw new DatabaseError('Database not configured');
+	}
+
+	try {
+		const result = await pgQuery<Record<string, unknown>>(
+			'SELECT * FROM upload_entries WHERE upload_id = $1 ORDER BY entry_path ASC',
+			[uploadId],
+		);
+		return result.rows.map(mapEntry);
+	} catch (error) {
+		const message = error instanceof Error ? error.message : String(error);
+		logger.error('Failed to list upload entries', { uploadId, error: message });
+		throw new DatabaseError('Failed to list upload entries');
+	}
+}
+
 /**
  * Read an upload plus its per-entry rows and aggregated counts. Returns null if
  * the upload does not exist. Counts default to zero for an upload with no
