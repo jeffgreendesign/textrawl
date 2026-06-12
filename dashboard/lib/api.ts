@@ -222,6 +222,41 @@ export const UPLOAD_THRESHOLD_MB = Number.isFinite(PARSED_UPLOAD_THRESHOLD_MB)
 	? PARSED_UPLOAD_THRESHOLD_MB
 	: 20;
 
+/**
+ * Honest support matrix — the file types the product actually ingests today
+ * (parent plan §8a "Supported now"). Single source of truth for the picker
+ * `accept` attribute and the help copy so the two can't drift or over-promise.
+ */
+export const SUPPORTED_UPLOAD_EXTENSIONS = [
+	'.txt',
+	'.md',
+	'.pdf',
+	'.docx',
+	'.csv',
+	'.xlsx',
+	'.json',
+	'.html',
+	'.htm',
+	'.zip',
+] as const;
+
+/** `accept` attribute value for the upload file picker. */
+export const UPLOAD_ACCEPT_ATTR = SUPPORTED_UPLOAD_EXTENSIONS.join(',');
+
+/** Help copy describing what can be uploaded — ZIP is "of supported entries". */
+export const SUPPORTED_UPLOAD_COPY =
+	'TXT, MD, PDF, DOCX, CSV, XLSX, JSON, HTML — or a ZIP containing supported document/text files';
+
+/**
+ * Browsers report ZIP as `application/zip`, `application/x-zip-compressed`, or
+ * `''`. Normalize by extension so `/init` receives a consistent `contentType`;
+ * otherwise pass through the browser-declared type (or undefined).
+ */
+export function normalizeUploadContentType(file: File): string | undefined {
+	if (file.name.toLowerCase().endsWith('.zip')) return 'application/zip';
+	return file.type || undefined;
+}
+
 /** GCS requires every non-final resumable chunk to be a multiple of 256 KiB. */
 const GCS_CHUNK_ALIGNMENT = 256 * 1024;
 /** Default resumable chunk size: 8 MiB (a 256 KiB multiple). */
@@ -281,7 +316,7 @@ const TERMINAL_UPLOAD_STATES = new Set<UploadSessionState>([
 
 /**
  * Error carrying the server's stable `code` (from `{ error: { code, message } }`)
- * so the UI can map it to friendly text. The friendly mapping arrives in T6.2.
+ * so the UI can map it to friendly text via `describeUploadError`.
  */
 export class UploadError extends Error {
 	code: string | null;
@@ -294,8 +329,49 @@ export class UploadError extends Error {
 	}
 }
 
+/** Friendly, user-facing text for each stable server error code. */
+const UPLOAD_ERROR_MESSAGES: Record<string, string> = {
+	FILE_TOO_LARGE: 'File exceeds the maximum upload size.',
+	UNSUPPORTED_TYPE: "This file type isn't supported yet.",
+	UNSUPPORTED_ENTRY: "The archive contains a file type that isn't supported.",
+	SIZE_MISMATCH: "Upload didn't finish cleanly — please retry.",
+	OBJECT_NOT_FOUND: "Upload didn't finish — please retry.",
+	CHECKSUM_MISMATCH: 'The uploaded file failed an integrity check — please retry.',
+	UPLOAD_EXPIRED: 'This upload session expired — please start over.',
+	INVALID_STATE: "This upload can't be continued — please start over.",
+	FORBIDDEN_OWNER: "You don't have access to this upload.",
+	ZIP_PATH_TRAVERSAL: 'The ZIP contains an unsafe file path and was rejected.',
+	ZIP_BOMB: 'The ZIP expands too much to be processed safely and was rejected.',
+	ZIP_TOO_MANY_ENTRIES: 'The ZIP has too many files and was rejected.',
+	ZIP_ENTRY_TOO_LARGE: 'A file inside the ZIP is too large and was rejected.',
+	ZIP_NESTED_ARCHIVE: "Archives nested inside a ZIP aren't supported.",
+	ZIP_NO_SUPPORTED_ENTRIES: 'The ZIP has no supported files to import.',
+};
+
+/** Map a stable server `code` to friendly text, falling back when unknown/absent. */
+export function friendlyUploadCode(code: string | null | undefined, fallback: string): string {
+	return (code && UPLOAD_ERROR_MESSAGES[code]) || fallback;
+}
+
+/**
+ * Turn any thrown upload error into readable text. Maps known server codes to
+ * friendly copy, treats fetch `TypeError`s as connectivity failures, and never
+ * yields bare `[object Object]` or `Load failed`.
+ */
+export function describeUploadError(err: unknown): string {
+	if (err instanceof UploadError) {
+		return friendlyUploadCode(err.code, err.message);
+	}
+	// A failed fetch (DNS/CORS/offline) surfaces as TypeError ("Load failed").
+	if (err instanceof TypeError) {
+		return "Couldn't reach the server. Check your connection and server URL.";
+	}
+	if (err instanceof Error) return err.message;
+	return 'Upload failed.';
+}
+
 /** Read the server's nested `{ error: { message, code } }` body into a typed error. */
-async function uploadErrorFromResponse(res: Response): Promise<UploadError> {
+export async function uploadErrorFromResponse(res: Response): Promise<UploadError> {
 	let message = res.statusText || `Request failed (${res.status})`;
 	let code: string | null = null;
 	try {
@@ -323,7 +399,7 @@ export async function initUpload(
 		headers: getHeaders(),
 		body: JSON.stringify({
 			filename: file.name,
-			contentType: file.type || undefined,
+			contentType: normalizeUploadContentType(file),
 			size: file.size,
 			...(opts.checksum ? { checksum: opts.checksum, checksumAlgo: 'sha256' } : {}),
 		}),

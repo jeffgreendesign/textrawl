@@ -21,7 +21,17 @@ import {
 } from 'lucide-react';
 import { useCallback, useRef, useState } from 'react';
 
-import { UPLOAD_THRESHOLD_MB, cancelUpload, getApiBase, resumableUpload } from '@/lib/api';
+import {
+	SUPPORTED_UPLOAD_COPY,
+	UPLOAD_ACCEPT_ATTR,
+	UPLOAD_THRESHOLD_MB,
+	cancelUpload,
+	describeUploadError,
+	friendlyUploadCode,
+	getApiBase,
+	resumableUpload,
+	uploadErrorFromResponse,
+} from '@/lib/api';
 
 type UploadStatus = 'pending' | 'uploading' | 'processing' | 'complete' | 'partial' | 'error';
 
@@ -105,18 +115,7 @@ export default function UploadPage() {
 				body: formData,
 			});
 
-			if (!res.ok) {
-				let errorMsg = res.statusText;
-				try {
-					const body = await res.json();
-					errorMsg =
-						body?.error?.message ||
-						(typeof body?.error === 'string' ? body.error : undefined) ||
-						body?.message ||
-						errorMsg;
-				} catch {}
-				throw new Error(errorMsg);
-			}
+			if (!res.ok) throw await uploadErrorFromResponse(res);
 
 			patchFile(uploadFile.id, { status: 'complete', progress: 100 });
 		},
@@ -166,7 +165,10 @@ export default function UploadPage() {
 					// failed | expired | cancelled
 					patchFile(uploadFile.id, {
 						status: 'error',
-						error: final.error?.message ?? `Upload ${final.state}`,
+						error: friendlyUploadCode(
+							final.error?.code,
+							final.error?.message ?? `Upload ${final.state}`,
+						),
 						detail: undefined,
 					});
 				}
@@ -180,7 +182,7 @@ export default function UploadPage() {
 				} else {
 					patchFile(uploadFile.id, {
 						status: 'error',
-						error: err instanceof Error ? err.message : 'Upload failed',
+						error: describeUploadError(err),
 						detail: undefined,
 					});
 				}
@@ -219,7 +221,7 @@ export default function UploadPage() {
 			} catch (err) {
 				patchFile(uploadFile.id, {
 					status: 'error',
-					error: err instanceof Error ? err.message : 'Upload failed',
+					error: describeUploadError(err),
 					detail: undefined,
 				});
 			}
@@ -291,13 +293,12 @@ export default function UploadPage() {
 				<p style={{ fontSize: '1rem', fontWeight: 500, marginBottom: '0.5rem' }}>
 					Drop files here or click to browse
 				</p>
-				<p style={{ color: 'var(--text-muted)', fontSize: '0.8125rem' }}>
-					PDF, DOCX, TXT, MD, HTML, images, audio, MBOX, EML, ZIP
-				</p>
+				<p style={{ color: 'var(--text-muted)', fontSize: '0.8125rem' }}>{SUPPORTED_UPLOAD_COPY}</p>
 				<input
 					id="file-input"
 					type="file"
 					multiple
+					accept={UPLOAD_ACCEPT_ATTR}
 					onChange={(e) => {
 						if (e.target.files) addFiles(e.target.files);
 						e.target.value = '';

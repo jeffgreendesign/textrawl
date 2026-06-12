@@ -1,12 +1,17 @@
 import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest';
 
 import {
+	SUPPORTED_UPLOAD_EXTENSIONS,
+	UPLOAD_ACCEPT_ATTR,
 	UPLOAD_THRESHOLD_MB,
 	UploadError,
 	cancelUpload,
 	completeUpload,
+	describeUploadError,
+	friendlyUploadCode,
 	getUploadStatus,
 	initUpload,
+	normalizeUploadContentType,
 	pollUploadStatus,
 	putResumable,
 	resumableUpload,
@@ -346,5 +351,96 @@ describe('resumableUpload (orchestrator)', () => {
 		expect(urls[1]).toBe('https://gcs.example/r');
 		expect(urls[2]).toContain('/upload/complete');
 		expect(urls[3]).toContain('/upload/u9/status');
+	});
+});
+
+describe('support matrix (§8a "Supported now")', () => {
+	it('accept attribute matches exactly the supported extension set', () => {
+		expect(UPLOAD_ACCEPT_ATTR).toBe('.txt,.md,.pdf,.docx,.csv,.xlsx,.json,.html,.htm,.zip');
+		expect([...SUPPORTED_UPLOAD_EXTENSIONS]).toEqual([
+			'.txt',
+			'.md',
+			'.pdf',
+			'.docx',
+			'.csv',
+			'.xlsx',
+			'.json',
+			'.html',
+			'.htm',
+			'.zip',
+		]);
+	});
+
+	it('does not advertise images, audio, MBOX, or EML', () => {
+		for (const banned of ['.png', '.jpg', '.mp3', '.wav', '.mbox', '.eml']) {
+			expect(UPLOAD_ACCEPT_ATTR).not.toContain(banned);
+		}
+	});
+});
+
+describe('normalizeUploadContentType', () => {
+	it('normalizes ZIP by extension regardless of the browser-declared type', () => {
+		expect(normalizeUploadContentType(makeFile(1, 'a.zip', ''))).toBe('application/zip');
+		expect(normalizeUploadContentType(makeFile(1, 'a.zip', 'application/x-zip-compressed'))).toBe(
+			'application/zip',
+		);
+		expect(normalizeUploadContentType(makeFile(1, 'A.ZIP', ''))).toBe('application/zip');
+	});
+
+	it('passes through a known type and maps empty type to undefined', () => {
+		expect(normalizeUploadContentType(makeFile(1, 'a.pdf', 'application/pdf'))).toBe(
+			'application/pdf',
+		);
+		expect(normalizeUploadContentType(makeFile(1, 'a.bin', ''))).toBeUndefined();
+	});
+
+	it('initUpload sends the normalized ZIP contentType', async () => {
+		(global.fetch as ReturnType<typeof vi.fn>).mockResolvedValueOnce(
+			fakeRes({ status: 200, json: { uploadId: 'z', resumableUri: 'r' } }),
+		);
+		await initUpload(makeFile(10, 'archive.zip', ''));
+		const body = JSON.parse(calls()[0][1].body as string);
+		expect(body.contentType).toBe('application/zip');
+	});
+});
+
+describe('describeUploadError / friendlyUploadCode', () => {
+	it('maps each stable server code to friendly text (never [object Object])', () => {
+		const cases: Array<[string, RegExp]> = [
+			['FILE_TOO_LARGE', /maximum upload size/i],
+			['UNSUPPORTED_TYPE', /isn't supported/i],
+			['UNSUPPORTED_ENTRY', /archive contains/i],
+			['SIZE_MISMATCH', /didn't finish/i],
+			['OBJECT_NOT_FOUND', /didn't finish/i],
+			['CHECKSUM_MISMATCH', /integrity check/i],
+			['UPLOAD_EXPIRED', /expired/i],
+			['ZIP_PATH_TRAVERSAL', /unsafe file path/i],
+			['ZIP_BOMB', /expands too much/i],
+			['ZIP_TOO_MANY_ENTRIES', /too many files/i],
+			['ZIP_ENTRY_TOO_LARGE', /too large/i],
+			['ZIP_NESTED_ARCHIVE', /nested/i],
+			['ZIP_NO_SUPPORTED_ENTRIES', /no supported files/i],
+		];
+		for (const [code, pattern] of cases) {
+			const text = describeUploadError(new UploadError('raw', code, 400));
+			expect(text).toMatch(pattern);
+			expect(text).not.toContain('[object Object]');
+		}
+	});
+
+	it('falls back to the raw message for an unknown code', () => {
+		expect(describeUploadError(new UploadError('something specific', 'WEIRD_CODE', 400))).toBe(
+			'something specific',
+		);
+	});
+
+	it('treats a fetch TypeError as a connectivity failure', () => {
+		expect(describeUploadError(new TypeError('Load failed'))).toMatch(/couldn't reach the server/i);
+	});
+
+	it('friendlyUploadCode returns the fallback when code is null/unknown', () => {
+		expect(friendlyUploadCode(null, 'fallback')).toBe('fallback');
+		expect(friendlyUploadCode('NOPE', 'fallback')).toBe('fallback');
+		expect(friendlyUploadCode('FILE_TOO_LARGE', 'fallback')).toMatch(/maximum upload size/i);
 	});
 });
