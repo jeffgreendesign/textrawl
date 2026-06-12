@@ -63,7 +63,6 @@ export const xlsxHandler: FileHandler = {
 					// Remaining budget can't cover even one full row — stop without
 					// rendering it (a forced row would overshoot MAX_XLSX_CELLS).
 					truncated = true;
-					budget = 0;
 					break;
 				}
 				const capped = {
