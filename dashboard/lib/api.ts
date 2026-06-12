@@ -587,22 +587,41 @@ export async function pollUploadStatus(
 	}
 }
 
+export interface ResumableUploadHandlers {
+	onInit?: (init: InitUploadResponse) => void;
+	onUploadProgress?: (loaded: number, total: number) => void;
+	/**
+	 * Bytes are uploaded and the server has accepted + queued processing (202). The
+	 * upload is "done" from the user's perspective; processing continues in the
+	 * background and is reported via the callbacks below.
+	 */
+	onQueued?: () => void;
+	onProcessingUpdate?: (status: UploadStatusResponse) => void;
+	/** Background processing reached a terminal state (completed/partial/failed/…). */
+	onProcessingComplete?: (status: UploadStatusResponse) => void;
+	/** Background processing poll failed or was aborted. */
+	onProcessingError?: (err: unknown) => void;
+	signal?: AbortSignal;
+	checksum?: string;
+}
+
 /**
- * Drive a large file through the full resumable flow:
- * init → resumable PUT (byte progress) → complete → poll (processing progress).
- * Resolves with the terminal status. `onInit` exposes the `uploadId` early so the
- * caller can offer Cancel during the upload/processing phases.
+ * Drive a large file through init → resumable PUT (byte progress) → complete.
+ *
+ * Resolves as soon as the bytes are uploaded and the server has **queued**
+ * processing — the file is "uploaded ✓" and the caller is free to start the next
+ * one. Processing then happens in the background: a status poll is started but
+ * intentionally **not awaited**, delivering progress via `onProcessingUpdate` and
+ * the terminal result via `onProcessingComplete` / `onProcessingError`.
+ *
+ * `onInit` exposes the `uploadId` early so the caller can offer Cancel; keep the
+ * AbortController alive until a terminal callback fires so cancel still works during
+ * the background processing phase.
  */
 export async function resumableUpload(
 	file: File,
-	opts: {
-		onInit?: (init: InitUploadResponse) => void;
-		onUploadProgress?: (loaded: number, total: number) => void;
-		onProcessingUpdate?: (status: UploadStatusResponse) => void;
-		signal?: AbortSignal;
-		checksum?: string;
-	} = {},
-): Promise<UploadStatusResponse> {
+	opts: ResumableUploadHandlers = {},
+): Promise<void> {
 	const init = await initUpload(file, { checksum: opts.checksum });
 	opts.onInit?.(init);
 	await putResumable(init.resumableUri, file, {
@@ -610,10 +629,16 @@ export async function resumableUpload(
 		signal: opts.signal,
 	});
 	await completeUpload(init.uploadId, opts.checksum);
-	return pollUploadStatus(init.uploadId, {
+	opts.onQueued?.();
+
+	// Background processing poll — NOT awaited, so the upload resolves now. Terminal
+	// state and errors flow through callbacks rather than the returned promise.
+	void pollUploadStatus(init.uploadId, {
 		onUpdate: opts.onProcessingUpdate,
 		signal: opts.signal,
-	});
+	})
+		.then((status) => opts.onProcessingComplete?.(status))
+		.catch((err) => opts.onProcessingError?.(err));
 }
 
 // --- Memory ---

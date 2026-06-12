@@ -342,10 +342,27 @@ describe('resumableUpload (orchestrator)', () => {
 			); // status
 
 		const onInit = vi.fn();
-		const final = await resumableUpload(makeFile(1000), { onInit });
+		const onQueued = vi.fn();
+		let resolveDone: (s: { state: string }) => void = () => {};
+		const done = new Promise<{ state: string }>((r) => {
+			resolveDone = r;
+		});
 
+		// Resolves at "queued" (after complete) — NOT after processing finishes.
+		const ret = await resumableUpload(makeFile(1000), {
+			onInit,
+			onQueued,
+			onProcessingComplete: (s) => resolveDone(s),
+		});
+
+		expect(ret).toBeUndefined();
 		expect(onInit).toHaveBeenCalledWith(expect.objectContaining({ uploadId: 'u9' }));
+		expect(onQueued).toHaveBeenCalledTimes(1);
+
+		// The background poll then delivers the terminal status via callback.
+		const final = await done;
 		expect(final.state).toBe('completed');
+
 		const urls = calls().map(([u]) => u);
 		expect(urls[0]).toContain('/upload/init');
 		expect(urls[1]).toBe('https://gcs.example/r');

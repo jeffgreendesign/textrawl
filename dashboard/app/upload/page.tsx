@@ -133,14 +133,34 @@ export default function UploadPage() {
 				error: undefined,
 			});
 
+			// Keep the controller alive until a terminal callback fires (cancel must
+			// still work during the background processing phase).
+			const fail = (err: unknown) => {
+				controllers.current.delete(uploadFile.id);
+				const aborted = err instanceof DOMException && err.name === 'AbortError';
+				patchFile(uploadFile.id, {
+					status: 'error',
+					error: aborted ? 'Upload cancelled' : describeUploadError(err),
+					detail: undefined,
+				});
+			};
+
 			try {
-				const final = await resumableUpload(uploadFile.file, {
+				// Resolves once bytes are uploaded + queued; processing then continues in
+				// the background and reports through the callbacks below.
+				await resumableUpload(uploadFile.file, {
 					signal: controller.signal,
 					onInit: (init) => patchFile(uploadFile.id, { uploadId: init.uploadId }),
 					onUploadProgress: (loaded, total) =>
 						patchFile(uploadFile.id, {
 							status: 'uploading',
 							progress: total ? Math.round((loaded / total) * 100) : -1,
+						}),
+					onQueued: () =>
+						patchFile(uploadFile.id, {
+							status: 'processing',
+							progress: -1,
+							detail: 'Processing…',
 						}),
 					onProcessingUpdate: (status) => {
 						const { entriesTotal, entriesProcessed } = status.progress;
@@ -150,44 +170,34 @@ export default function UploadPage() {
 							detail: entriesTotal ? `${entriesProcessed}/${entriesTotal} entries` : 'Processing…',
 						});
 					},
+					onProcessingComplete: (final) => {
+						controllers.current.delete(uploadFile.id);
+						if (final.state === 'completed') {
+							patchFile(uploadFile.id, { status: 'complete', progress: 100, detail: undefined });
+						} else if (final.state === 'partial') {
+							const { entriesProcessed, entriesTotal, entriesFailed } = final.progress;
+							patchFile(uploadFile.id, {
+								status: 'partial',
+								progress: 100,
+								detail: `${entriesProcessed}/${entriesTotal} imported · ${entriesFailed} failed`,
+							});
+						} else {
+							// failed | expired | cancelled
+							patchFile(uploadFile.id, {
+								status: 'error',
+								error: friendlyUploadCode(
+									final.error?.code,
+									final.error?.message ?? `Upload ${final.state}`,
+								),
+								detail: undefined,
+							});
+						}
+					},
+					onProcessingError: fail,
 				});
-
-				if (final.state === 'completed') {
-					patchFile(uploadFile.id, { status: 'complete', progress: 100, detail: undefined });
-				} else if (final.state === 'partial') {
-					const { entriesProcessed, entriesTotal, entriesFailed } = final.progress;
-					patchFile(uploadFile.id, {
-						status: 'partial',
-						progress: 100,
-						detail: `${entriesProcessed}/${entriesTotal} imported · ${entriesFailed} failed`,
-					});
-				} else {
-					// failed | expired | cancelled
-					patchFile(uploadFile.id, {
-						status: 'error',
-						error: friendlyUploadCode(
-							final.error?.code,
-							final.error?.message ?? `Upload ${final.state}`,
-						),
-						detail: undefined,
-					});
-				}
 			} catch (err) {
-				if (err instanceof DOMException && err.name === 'AbortError') {
-					patchFile(uploadFile.id, {
-						status: 'error',
-						error: 'Upload cancelled',
-						detail: undefined,
-					});
-				} else {
-					patchFile(uploadFile.id, {
-						status: 'error',
-						error: describeUploadError(err),
-						detail: undefined,
-					});
-				}
-			} finally {
-				controllers.current.delete(uploadFile.id);
+				// Failure during init / PUT / complete (before queued).
+				fail(err);
 			}
 		},
 		[patchFile],
