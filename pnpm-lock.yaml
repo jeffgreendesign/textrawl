@@ -93,6 +93,9 @@ importers:
       turndown:
         specifier: ^7.2.2
         version: 7.2.4
+      unzipper:
+        specifier: ^0.12.0
+        version: 0.12.3
       ws:
         specifier: ^8.20.0
         version: 8.20.1
@@ -196,9 +199,6 @@ importers:
       typescript:
         specifier: ^5.7.0
         version: 5.7.2
-      unzipper:
-        specifier: ^0.12.0
-        version: 0.12.3
       vitest:
         specifier: ^4.0.18
         version: 4.1.6(@types/node@22.10.5)(jsdom@29.1.1(@noble/hashes@1.8.0))(vite@6.4.2(@types/node@22.10.5)(tsx@4.22.0))
