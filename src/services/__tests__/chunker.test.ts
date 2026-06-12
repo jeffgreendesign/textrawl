@@ -127,7 +127,10 @@ describe('chunkTextSemantic (fallback guards)', () => {
 	it('falls back to fixed chunking without embedding when sentence count is huge', async () => {
 		// > MAX_SEMANTIC_SENTENCES (25k) sentences. If semantic embedding ran it would
 		// call generateEmbeddings once with ~10^4+ sentences — the catastrophic path.
-		const text = 'x. '.repeat(25_001);
+		// Capital sentence starts are required: splitIntoSentencesWithSpans only treats
+		// '. ' as a boundary when the next sentence begins with an uppercase letter, so
+		// 'x. ' would collapse to a single sentence and miss the guard entirely.
+		const text = 'X. '.repeat(30_000);
 		const generateEmbeddings = vi.fn(async (texts: string[]) => texts.map(() => [0, 0, 0]));
 
 		const chunks = await chunkTextSemantic(text, { maxChunkSize: 512, generateEmbeddings });

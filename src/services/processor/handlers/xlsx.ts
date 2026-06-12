@@ -58,7 +58,14 @@ export const xlsxHandler: FileHandler = {
 				// Render only as many full rows as the remaining budget allows by
 				// narrowing the sheet's declared range (`sheet_to_csv` honors `!ref`),
 				// so cells beyond the budget are never materialized.
-				const allowedRows = Math.max(1, Math.floor(budget / Math.max(cols, 1)));
+				const allowedRows = Math.floor(budget / Math.max(cols, 1));
+				if (allowedRows <= 0) {
+					// Remaining budget can't cover even one full row — stop without
+					// rendering it (a forced row would overshoot MAX_XLSX_CELLS).
+					truncated = true;
+					budget = 0;
+					break;
+				}
 				const capped = {
 					s: range.s,
 					e: { c: range.e.c, r: range.s.r + allowedRows - 1 },
