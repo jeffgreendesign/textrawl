@@ -127,36 +127,52 @@ export function chunkText(text: string, options: ChunkOptions = {}): Chunk[] {
 		currentChunk += paragraphWithSep;
 		currentOffset += paragraphWithSep.length;
 
-		// Force-split if the chunk exceeds maxChars (handles oversized paragraphs)
-		while (currentChunk.length > maxChars) {
-			// Find a split point: prefer sentence boundary, fall back to word boundary
-			let splitAt = maxChars;
-			const searchRegion = currentChunk.slice(Math.floor(maxChars * 0.8), maxChars);
-			const sentenceEnd = searchRegion.search(/[.!?]\s/);
-			if (sentenceEnd !== -1) {
-				splitAt = Math.floor(maxChars * 0.8) + sentenceEnd + 2;
-			} else {
-				const lastSpace = currentChunk.lastIndexOf(' ', maxChars);
-				if (lastSpace > maxChars * 0.5) {
-					splitAt = lastSpace + 1;
+		// Force-split if the chunk exceeds maxChars (handles oversized paragraphs).
+		// Drain with a forward cursor over the buffer instead of rebuilding
+		// `currentChunk` by slicing off its front each iteration: that reassignment
+		// copies the whole remaining string every loop — O(n^2) memory that balloons
+		// the heap and OOMs on large single-paragraph text (e.g. a pretty-printed
+		// JSON export with no blank-line paragraph breaks). The cursor only ever
+		// allocates one ~maxChars piece at a time.
+		if (currentChunk.length > maxChars) {
+			const source = currentChunk;
+			let pos = 0;
+
+			while (source.length - pos > maxChars) {
+				const windowEnd = pos + maxChars;
+				// Find a split point: prefer sentence boundary, fall back to word boundary.
+				let splitAt = windowEnd;
+				const searchRegion = source.slice(pos + Math.floor(maxChars * 0.8), windowEnd);
+				const sentenceEnd = searchRegion.search(/[.!?]\s/);
+				if (sentenceEnd !== -1) {
+					splitAt = pos + Math.floor(maxChars * 0.8) + sentenceEnd + 2;
+				} else {
+					const lastSpace = source.lastIndexOf(' ', windowEnd);
+					if (lastSpace > pos + maxChars * 0.5) {
+						splitAt = lastSpace + 1;
+					}
 				}
+
+				const piece = source.slice(pos, splitAt).trim();
+				if (piece.length > 0) {
+					chunks.push({
+						content: piece,
+						index: chunks.length,
+						startOffset: chunkStartOffset,
+						endOffset: chunkStartOffset + (splitAt - pos),
+						tokenCount: Math.ceil(piece.length / CHARS_PER_TOKEN),
+					});
+				}
+
+				// Advance the cursor, overlapping the previous piece by overlapChars.
+				// `pos + 1` guards forward progress so the loop always terminates.
+				const nextPos = Math.max(pos + 1, splitAt - overlapChars);
+				chunkStartOffset += nextPos - pos;
+				pos = nextPos;
 			}
 
-			const piece = currentChunk.slice(0, splitAt).trim();
-			if (piece.length > 0) {
-				chunks.push({
-					content: piece,
-					index: chunks.length,
-					startOffset: chunkStartOffset,
-					endOffset: chunkStartOffset + splitAt,
-					tokenCount: Math.ceil(piece.length / CHARS_PER_TOKEN),
-				});
-			}
-
-			const overlapStart = Math.max(0, splitAt - overlapChars);
-			const overlapText = currentChunk.slice(overlapStart, splitAt);
-			currentChunk = overlapText + currentChunk.slice(splitAt);
-			chunkStartOffset = chunkStartOffset + overlapStart;
+			// Keep the remainder (<= maxChars) as the running chunk for the next paragraph.
+			currentChunk = source.slice(pos);
 		}
 	}
 

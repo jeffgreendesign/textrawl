@@ -57,6 +57,21 @@ describe('chunkText (fixed chunking)', () => {
 		}
 	});
 
+	it('chunks a large single-paragraph text in O(n) without memory blowup', () => {
+		// One ~3MB run of text with NO blank-line breaks — a single giant paragraph
+		// that goes through the force-split path (e.g. a pretty-printed JSON export).
+		// The previous implementation rebuilt the entire remaining string on every
+		// split (O(n^2)), ballooning the heap to multiple GB and OOMing on inputs this
+		// size. The tight timeout fails if that quadratic behaviour returns.
+		const big = 'lorem ipsum dolor sit amet '.repeat(120_000); // ~3.2MB, no "\n\n"
+		const chunks = chunkText(big, { maxChunkSize: 512, overlap: 50 });
+		expect(chunks.length).toBeGreaterThan(1000);
+		chunks.forEach((c, i) => {
+			expect(c.index).toBe(i);
+			expect(c.content.length).toBeLessThanOrEqual(512 * 4 + 50);
+		});
+	}, 3000);
+
 	it('normalizes CRLF to LF', () => {
 		const text = 'Line one.\r\nLine two.\r\n\r\nParagraph two.';
 		const chunks = chunkText(text);
