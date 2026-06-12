@@ -8,6 +8,7 @@ import {
 import { isDatabaseConfigured, pgQuery, queryOne } from '../db/pg-client.js';
 import type { SearchResult } from '../types/database.js';
 import { config } from '../utils/config.js';
+import { stripCodeFence } from '../utils/json.js';
 import { logger } from '../utils/logger.js';
 import { generateEmbedding, isEmbeddingsConfigured } from './embeddings.js';
 
@@ -404,8 +405,8 @@ async function synthesizeInsights(
 			.map((b) => b.text)
 			.join('');
 
-		// Parse JSON from response
-		const jsonMatch = text.match(/\[[\s\S]*\]/);
+		// Parse JSON from response, tolerating Markdown code fences.
+		const jsonMatch = stripCodeFence(text).match(/\[[\s\S]*\]/);
 		if (!jsonMatch) {
 			logger.error('LLM insight response did not contain JSON array');
 			return generateRuleBasedInsights(connections, outliers);

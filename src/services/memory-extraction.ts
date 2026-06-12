@@ -7,6 +7,7 @@ import {
 } from '../db/memory-observations.js';
 import { getOrCreateRelation } from '../db/memory-relations.js';
 import { config } from '../utils/config.js';
+import { stripCodeFence } from '../utils/json.js';
 import { logger } from '../utils/logger.js';
 import { generateEmbedding, isEmbeddingsConfigured } from './embeddings.js';
 
@@ -139,7 +140,9 @@ export async function extractMemoriesFromText(text: string): Promise<ExtractionR
 	try {
 		const response = await client.messages.create({
 			model: config.EXTRACTION_MODEL,
-			max_tokens: 2000,
+			// Raised from 2000: long entity lists were truncated mid-JSON, leaving an
+			// unclosed code fence that failed to parse (memories silently lost).
+			max_tokens: 4096,
 			messages: [
 				{
 					role: 'user',
@@ -162,15 +165,9 @@ export async function extractMemoriesFromText(text: string): Promise<ExtractionR
 			return { entities: [], relations: [] };
 		}
 
-		// Parse JSON from response
-		const jsonText = textContent.text.trim();
-
-		// Try to extract JSON from the response (it might be wrapped in markdown)
-		let jsonContent = jsonText;
-		const jsonMatch = jsonText.match(/```(?:json)?\s*([\s\S]*?)\s*```/);
-		if (jsonMatch) {
-			jsonContent = jsonMatch[1];
-		}
+		// Parse JSON from response, tolerating Markdown fences and a truncated
+		// (unclosed-fence) response — see stripCodeFence.
+		const jsonContent = stripCodeFence(textContent.text);
 
 		try {
 			const parsed = JSON.parse(jsonContent) as ExtractionResult;
