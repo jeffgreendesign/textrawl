@@ -34,6 +34,7 @@
 		"upload": "tsx scripts/cli/upload.ts",
 		"scan": "tsx scripts/cli/scan.ts",
 		"split": "tsx scripts/cli/split.ts",
+		"probe:cors": "tsx scripts/cli/probe-resumable-cors.ts",
 		"ui": "tsx scripts/ui/server.ts",
 		"docs:dev": "pnpm --filter textrawl-website dev",
 		"docs:build": "pnpm --filter textrawl-website build",
