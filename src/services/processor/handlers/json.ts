@@ -1,20 +1,19 @@
 import type { FileHandler } from '../types.js';
 
 /**
- * JSON — pretty-printed when it parses (stable, readable structure for chunking),
- * else the raw UTF-8 text. No magic signature.
+ * JSON — the raw UTF-8 text, as-is. No magic signature.
+ *
+ * We deliberately do NOT `JSON.stringify(JSON.parse(text), null, 2)`: re-indenting
+ * inflates dense exports 2–5× (a minified or already-pretty 5MB Spotify export
+ * balloons transient heap and the chunk/embedding/row count downstream) and
+ * destroys the original byte offsets the chunker records. Passing the bytes
+ * through keeps memory ≈ 1× input and offsets faithful.
  */
 export const jsonHandler: FileHandler = {
 	key: 'json',
 	extensions: ['json'],
 	mimeTypes: ['application/json'],
 	async extract(buffer: Buffer): Promise<string> {
-		const text = buffer.toString('utf-8');
-		try {
-			return JSON.stringify(JSON.parse(text), null, 2);
-		} catch {
-			// Not valid JSON — keep the bytes as text rather than failing the file.
-			return text;
-		}
+		return buffer.toString('utf-8');
 	},
 };

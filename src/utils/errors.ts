@@ -186,6 +186,29 @@ export class ZipNoSupportedEntriesError extends TextrawlError {
 	}
 }
 
+/**
+ * A single document produced more chunks than `MAX_CHUNKS_HARD_CAP` allows.
+ * Raised by the chunker before any embedding/DB work so a pathological or
+ * oversized input cannot create unbounded chunks, embeddings, or rows. Per-entry
+ * in the ZIP path (the entry is recorded `failed` and the archive continues);
+ * fails the whole upload in the single-file path. 413.
+ */
+export class ChunkLimitError extends TextrawlError {
+	public readonly chunkCount: number;
+	public readonly limit: number;
+
+	constructor(chunkCount: number, limit: number) {
+		super(
+			`Document produced more than ${limit} chunks (cap: MAX_CHUNKS_HARD_CAP). Split the document or raise the limit.`,
+			413,
+			'CHUNK_LIMIT_EXCEEDED',
+		);
+		this.name = 'ChunkLimitError';
+		this.chunkCount = chunkCount;
+		this.limit = limit;
+	}
+}
+
 export class DatabaseError extends TextrawlError {
 	constructor(message = 'Database operation failed') {
 		super(message, 500, 'DATABASE_ERROR');

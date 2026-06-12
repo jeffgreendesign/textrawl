@@ -55,7 +55,8 @@ This file centralizes runtime configuration for Textrawl server, MCP tools, CLI,
 | `PG_REPORT_DIR` | Directory for analysis reports (default: `./reports/pg-analysis`) |
 | `INSIGHT_BATCH_THRESHOLD` | Insight scan tuning (default: `50`) |
 | `INSIGHT_DEBOUNCE_SECONDS` | Insight scan debounce (default: `300`) |
-| `MAX_SINGLE_FILE_SIZE_MB`, `WARN_FILE_SIZE_MB`, `MAX_CHUNKS_PER_FILE` | Upload/chunking guardrails |
+| `MAX_SINGLE_FILE_SIZE_MB`, `WARN_FILE_SIZE_MB`, `MAX_CHUNKS_PER_FILE` | Upload/chunking guardrails (`WARN_FILE_SIZE_MB` logs large docs; `MAX_CHUNKS_PER_FILE` is an advisory soft threshold) |
+| `MAX_CHUNKS_HARD_CAP` | Hard ceiling on chunks per document; the chunker rejects past it to bound memory (default: `50000`) |
 | `MAX_UPLOAD_SIZE_MB` | Max size accepted by the resumable `/api/upload/init` path (default: `500`) |
 | `UPLOAD_THRESHOLD_MB` | Direct (≤) vs resumable (>) switch point (default: `MAX_SINGLE_FILE_SIZE_MB`) |
 | `UPLOAD_SESSION_TTL_MIN` | Resumable session + upload-row expiry in minutes (default: `120`) |

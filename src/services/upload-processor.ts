@@ -1,6 +1,5 @@
 import { createHash } from 'node:crypto';
 import type { Readable } from 'node:stream';
-import { createChunks } from '../db/chunks.js';
 import { createDocument } from '../db/documents.js';
 import { isDatabaseConfigured } from '../db/pg-client.js';
 import {
@@ -12,6 +11,7 @@ import {
 	recordUploadProcessingResult,
 	transitionUploadState,
 } from '../db/uploads.js';
+import { config } from '../utils/config.js';
 import {
 	ChecksumMismatchError,
 	SizeMismatchError,
@@ -22,6 +22,7 @@ import {
 } from '../utils/errors.js';
 import { logger } from '../utils/logger.js';
 import { smartChunk } from './chunker.js';
+import { embedAndStoreChunks } from './embed-store.js';
 import { generateEmbeddings, isEmbeddingsConfigured } from './embeddings.js';
 import { onDocumentIngested } from './pipeline.js';
 import { extractText, isSupportedType, validateFileType } from './processor.js';
@@ -44,6 +45,23 @@ const TERMINAL_STATES: readonly UploadState[] = [
 /** Stable failure code carried into the `failed` transition. */
 function failureCode(error: unknown): string {
 	return error instanceof TextrawlError ? error.code : 'PROCESSING_FAILED';
+}
+
+/**
+ * Advisory log when an extracted document exceeds `WARN_FILE_SIZE_MB` — wires the
+ * previously-unused config knob so large entries are visible in logs before the
+ * (much higher) `MAX_CHUNKS_HARD_CAP` ceiling would reject them.
+ */
+function warnIfLargeContent(label: string, content: string): void {
+	const bytes = Buffer.byteLength(content, 'utf-8');
+	const warnBytes = config.WARN_FILE_SIZE_MB * 1024 * 1024;
+	if (bytes > warnBytes) {
+		logger.warn('processUpload: large document', {
+			label,
+			bytes,
+			warnFileSizeMb: config.WARN_FILE_SIZE_MB,
+		});
+	}
 }
 
 /** Normalize a stored checksum (`sha256:abc…` or bare hex) to lowercase hex. */
@@ -203,18 +221,9 @@ export async function processUpload(uploadId: string): Promise<void> {
 			},
 		});
 
+		warnIfLargeContent(upload.filename, content);
 		const chunks = await smartChunk(content, generateEmbeddings);
-		const embeddings = await generateEmbeddings(chunks.map((c) => c.content));
-		await createChunks(
-			chunks.map((chunk, i) => ({
-				documentId: document.id,
-				content: chunk.content,
-				chunkIndex: chunk.index,
-				startOffset: chunk.startOffset,
-				endOffset: chunk.endOffset,
-				embedding: embeddings[i],
-			})),
-		);
+		await embedAndStoreChunks(document.id, chunks, generateEmbeddings);
 
 		// Defer memory extraction off the critical path; await it after the upload is
 		// marked completed so the dashboard sees the terminal state promptly.
@@ -348,18 +357,9 @@ async function processZipUpload(
 				},
 			});
 
+			warnIfLargeContent(candidate.entryPath, content);
 			const chunks = await smartChunk(content, generateEmbeddings);
-			const embeddings = await generateEmbeddings(chunks.map((c) => c.content));
-			await createChunks(
-				chunks.map((chunk, i) => ({
-					documentId: document.id,
-					content: chunk.content,
-					chunkIndex: chunk.index,
-					startOffset: chunk.startOffset,
-					endOffset: chunk.endOffset,
-					embedding: embeddings[i],
-				})),
-			);
+			await embedAndStoreChunks(document.id, chunks, generateEmbeddings);
 
 			await onDocumentIngested(document.id, document.title, content, chunks.length, {
 				deferMemory: (p) => backgroundWork.push(p),
