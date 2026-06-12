@@ -211,9 +211,14 @@ export default function UploadPage() {
 				.map((t) => t.trim())
 				.filter(Boolean);
 
+			// ZIP is extracted asynchronously (resumable upload → Cloud Tasks). The
+			// synchronous direct path only handles single-file types and rejects
+			// `application/zip`, so route every ZIP through the resumable flow
+			// regardless of size.
+			const isZip = uploadFile.file.name.toLowerCase().endsWith('.zip');
 			const thresholdBytes = UPLOAD_THRESHOLD_MB * 1024 * 1024;
 			try {
-				if (uploadFile.file.size <= thresholdBytes) {
+				if (!isZip && uploadFile.file.size <= thresholdBytes) {
 					await uploadDirect(uploadFile, apiBase, token, tagList);
 				} else {
 					await uploadResumable(uploadFile);
