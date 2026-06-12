@@ -83,6 +83,22 @@ async function readAndHash(
 }
 
 /**
+ * Await deferred per-document background work (memory extraction) after the upload
+ * has already been marked terminal. Runs inside the Cloud Task request so CPU stays
+ * allocated, but off the per-entry critical path — the upload reaches
+ * `completed`/`partial` before these LLM calls settle. The promises already swallow
+ * their own errors, so this only waits.
+ */
+async function settleBackgroundWork(work: Promise<unknown>[], uploadId: string): Promise<void> {
+	if (work.length === 0) return;
+	await Promise.allSettled(work);
+	logger.info('processUpload: background ingestion work settled', {
+		uploadId,
+		tasks: work.length,
+	});
+}
+
+/**
  * Process a queued single-file upload into a document (plan §3/§4, T4.3).
  *
  * Stream from GCS → SHA-256 (verified **before** extraction) → extract → chunk →
@@ -183,7 +199,12 @@ export async function processUpload(uploadId: string): Promise<void> {
 			})),
 		);
 
-		await onDocumentIngested(document.id, document.title, content, chunks.length);
+		// Defer memory extraction off the critical path; await it after the upload is
+		// marked completed so the dashboard sees the terminal state promptly.
+		const backgroundWork: Promise<unknown>[] = [];
+		await onDocumentIngested(document.id, document.title, content, chunks.length, {
+			deferMemory: (p) => backgroundWork.push(p),
+		});
 
 		await recordUploadProcessingResult(uploadId, {
 			documentIds: [document.id],
@@ -196,6 +217,7 @@ export async function processUpload(uploadId: string): Promise<void> {
 
 		await transitionUploadState(uploadId, 'completed');
 		logger.info('processUpload: completed', { uploadId, documentId: document.id });
+		await settleBackgroundWork(backgroundWork, uploadId);
 	} catch (error) {
 		const code = failureCode(error);
 		const message = error instanceof Error ? error.message : String(error);
@@ -265,6 +287,9 @@ async function processZipUpload(
 	const documentIds: string[] = [];
 	let processed = 0;
 	let failed = 0;
+	// Per-document memory extraction is deferred off the per-entry loop so a ZIP of
+	// N entries is not serialized on N LLM calls; settled once at the end.
+	const backgroundWork: Promise<unknown>[] = [];
 
 	for (const candidate of candidates) {
 		const existingDocId = priorCompleted.get(candidate.entryPath);
@@ -319,7 +344,9 @@ async function processZipUpload(
 				})),
 			);
 
-			await onDocumentIngested(document.id, document.title, content, chunks.length);
+			await onDocumentIngested(document.id, document.title, content, chunks.length, {
+				deferMemory: (p) => backgroundWork.push(p),
+			});
 
 			await recordUploadEntry({
 				uploadId,
@@ -382,4 +409,5 @@ async function processZipUpload(
 		failed,
 		documents: documentIds.length,
 	});
+	await settleBackgroundWork(backgroundWork, uploadId);
 }

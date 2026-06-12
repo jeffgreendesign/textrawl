@@ -171,6 +171,8 @@ describe('processUpload', () => {
 			expect.any(String),
 			'hello world',
 			1,
+			// memory extraction is deferred off the critical path via deferMemory
+			expect.objectContaining({ deferMemory: expect.any(Function) }),
 		);
 		expect(m.recordUploadProcessingResult).toHaveBeenCalledWith(
 			'up-1',
