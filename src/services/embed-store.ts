@@ -1,4 +1,5 @@
 import { createChunks } from '../db/chunks.js';
+import { ValidationError } from '../utils/errors.js';
 import type { Chunk } from './chunker.js';
 
 /**
@@ -22,6 +23,14 @@ export async function embedAndStoreChunks(
 	for (let i = 0; i < chunks.length; i += EMBED_WINDOW) {
 		const window = chunks.slice(i, i + EMBED_WINDOW);
 		const embeddings = await generateEmbeddings(window.map((c) => c.content));
+		// Guard against a provider returning a short/misaligned batch: without this
+		// the tail rows get `embeddings[j] === undefined` and createChunks persists
+		// them as NULL embeddings, silently storing unsearchable chunks.
+		if (embeddings.length !== window.length) {
+			throw new ValidationError(
+				`Embedding count mismatch: expected ${window.length}, got ${embeddings.length}`,
+			);
+		}
 		await createChunks(
 			window.map((chunk, j) => ({
 				documentId,

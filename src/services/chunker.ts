@@ -31,6 +31,13 @@ export interface SemanticChunkOptions {
 	similarityThreshold?: number;
 	/** Function to generate embeddings for sentences */
 	generateEmbeddings: (texts: string[]) => Promise<number[][]>;
+	/**
+	 * Hard ceiling on chunks produced for one document; throws {@link ChunkLimitError}
+	 * once exceeded. Defaults to `config.MAX_CHUNKS_HARD_CAP`. Kept consistent with
+	 * the fixed-mode `ChunkOptions.maxChunks` so `smartChunk(..., { maxChunks })` is
+	 * honored in semantic mode too.
+	 */
+	maxChunks?: number;
 }
 
 /**
@@ -68,8 +75,7 @@ function resolveMaxChunks(explicit?: number): number {
 }
 
 /** Throw {@link ChunkLimitError} when a produced chunk count exceeds the cap. */
-function enforceChunkCap(chunkCount: number): void {
-	const cap = resolveMaxChunks();
+function enforceChunkCap(chunkCount: number, cap: number): void {
 	if (chunkCount > cap) {
 		throw new ChunkLimitError(chunkCount, cap);
 	}
@@ -397,6 +403,10 @@ export async function chunkTextSemantic(
 
 	const maxChars = maxChunkSize * CHARS_PER_TOKEN;
 	const minChars = minChunkSize * CHARS_PER_TOKEN;
+	// Honor the per-call hard cap in semantic mode too (and propagate it into the
+	// fixed-chunking fallbacks below) so `smartChunk(..., { maxChunks })` behaves
+	// the same regardless of CHUNKING_MODE.
+	const maxChunks = resolveMaxChunks(options.maxChunks);
 
 	// Fall back to fixed chunking for oversized text to avoid silent truncation
 	if (text.length > MAX_SEMANTIC_TEXT_LENGTH) {
@@ -404,7 +414,7 @@ export async function chunkTextSemantic(
 			length: text.length,
 			maxLength: MAX_SEMANTIC_TEXT_LENGTH,
 		});
-		return chunkText(text, { maxChunkSize });
+		return chunkText(text, { maxChunkSize, maxChunks });
 	}
 
 	// Split into sentences with position tracking
@@ -421,7 +431,7 @@ export async function chunkTextSemantic(
 			sentenceCount: sentenceSpans.length,
 			maxSentences: MAX_SEMANTIC_SENTENCES,
 		});
-		return chunkText(text, { maxChunkSize });
+		return chunkText(text, { maxChunkSize, maxChunks });
 	}
 
 	// If text is small, return as a single chunk containing all sentences
@@ -456,7 +466,7 @@ export async function chunkTextSemantic(
 			});
 			if (end === text.length) break;
 		}
-		enforceChunkCap(chunks.length);
+		enforceChunkCap(chunks.length, maxChunks);
 		return chunks;
 	}
 
@@ -605,7 +615,7 @@ export async function chunkTextSemantic(
 		similarityThreshold: effectiveThreshold.toFixed(3),
 	});
 
-	enforceChunkCap(finalChunks.length);
+	enforceChunkCap(finalChunks.length, maxChunks);
 	return finalChunks;
 }
 
@@ -632,6 +642,7 @@ export async function smartChunk(
 			minChunkSize: 100,
 			similarityThreshold: config.SEMANTIC_SIMILARITY_THRESHOLD,
 			generateEmbeddings,
+			maxChunks: options.maxChunks,
 		});
 	}
 
