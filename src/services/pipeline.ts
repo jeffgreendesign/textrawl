@@ -6,14 +6,15 @@ import { extractAndStoreMemories, isExtractionConfigured } from './memory-extrac
 
 export interface IngestionOptions {
 	/**
-	 * When provided, memory extraction runs as a background task handed to this
-	 * collector instead of being awaited inline. Bulk ingestion (e.g. a ZIP of N
-	 * entries) therefore does NOT serialize on a per-document LLM call — the caller
-	 * collects the promises and awaits them once, after marking the upload terminal,
-	 * so processing finishes fast while CPU stays allocated for the Cloud Task
-	 * request. Omit it (the default) to await inline as before.
+	 * When provided, memory extraction is handed to this collector as a **thunk**
+	 * (not started here) instead of being awaited inline. Bulk ingestion (e.g. a ZIP
+	 * of N entries) therefore does NOT serialize on a per-document LLM call, but the
+	 * caller controls when and how many run — it executes the thunks with bounded
+	 * concurrency after marking the upload terminal, so a large archive cannot pile
+	 * up N concurrent LLM calls + N retained documents and exhaust memory. Omit it
+	 * (the default) to run inline as before.
 	 */
-	deferMemory?: (work: Promise<void>) => void;
+	deferMemory?: (task: () => Promise<void>) => void;
 }
 
 /**
@@ -36,29 +37,37 @@ export async function onDocumentIngested(
 	// Auto-extract memories if configured. This is an LLM call (~1-3s); keep it off
 	// the per-document critical path when the caller supplies `deferMemory`.
 	if (config.ENABLE_MEMORY_EXTRACTION && isExtractionConfigured()) {
-		const memoryWork = extractAndStoreMemories(content, 'document')
-			.then(({ extraction, storage }) => {
-				logger.info('Pipeline: memories extracted', {
-					documentId,
-					entitiesFound: extraction.entities.length,
-					observationsCreated: storage.observationsCreated,
+		// Extraction truncates to ~30k chars internally; capture a slice (not a
+		// multi-MB document) so a deferred thunk's retained memory stays flat even
+		// across a large archive.
+		const memoryInput = content.length > 30_000 ? content.slice(0, 30_000) : content;
+		const runMemoryExtraction = (): Promise<void> =>
+			extractAndStoreMemories(memoryInput, 'document')
+				.then(({ extraction, storage }) => {
+					logger.info('Pipeline: memories extracted', {
+						documentId,
+						entitiesFound: extraction.entities.length,
+						observationsCreated: storage.observationsCreated,
+					});
+					events.emit('extraction_complete', {
+						documentId,
+						entitiesFound: extraction.entities.length,
+						relationsFound: extraction.relations.length,
+					});
+				})
+				.catch((error) => {
+					logger.error('Pipeline: memory extraction failed', {
+						documentId,
+						error: error instanceof Error ? error.message : String(error),
+					});
 				});
-				events.emit('extraction_complete', {
-					documentId,
-					entitiesFound: extraction.entities.length,
-					relationsFound: extraction.relations.length,
-				});
-			})
-			.catch((error) => {
-				logger.error('Pipeline: memory extraction failed', {
-					documentId,
-					error: error instanceof Error ? error.message : String(error),
-				});
-			});
 		if (opts.deferMemory) {
-			opts.deferMemory(memoryWork);
+			// Hand over the thunk (do NOT start it here) so the caller can bound how
+			// many run at once — starting it eagerly would let a large archive pile up
+			// N concurrent LLM calls and OOM the instance.
+			opts.deferMemory(runMemoryExtraction);
 		} else {
-			await memoryWork;
+			await runMemoryExtraction();
 		}
 	}
 

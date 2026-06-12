@@ -82,19 +82,36 @@ async function readAndHash(
 	return { buffer: Buffer.concat(parts), digest: hash.digest('hex') };
 }
 
+/** Max deferred memory-extraction tasks to run at once — bounds peak memory (each
+ * retains its document content + an in-flight LLM call) so a large archive cannot
+ * OOM the instance. */
+const MEMORY_TASK_CONCURRENCY = 2;
+
 /**
- * Await deferred per-document background work (memory extraction) after the upload
- * has already been marked terminal. Runs inside the Cloud Task request so CPU stays
- * allocated, but off the per-entry critical path — the upload reaches
- * `completed`/`partial` before these LLM calls settle. The promises already swallow
- * their own errors, so this only waits.
+ * Run deferred per-document background work (memory extraction) after the upload has
+ * already been marked terminal, with **bounded concurrency**. Runs inside the Cloud
+ * Task request so CPU stays allocated, but off the per-entry critical path — the
+ * upload reaches `completed`/`partial` before these LLM calls settle. The thunks
+ * swallow their own errors, so this only drives them.
  */
-async function settleBackgroundWork(work: Promise<unknown>[], uploadId: string): Promise<void> {
-	if (work.length === 0) return;
-	await Promise.allSettled(work);
+async function settleBackgroundWork(
+	tasks: Array<() => Promise<void>>,
+	uploadId: string,
+): Promise<void> {
+	if (tasks.length === 0) return;
+	let next = 0;
+	const worker = async (): Promise<void> => {
+		while (next < tasks.length) {
+			const task = tasks[next++];
+			await task();
+		}
+	};
+	await Promise.all(
+		Array.from({ length: Math.min(MEMORY_TASK_CONCURRENCY, tasks.length) }, worker),
+	);
 	logger.info('processUpload: background ingestion work settled', {
 		uploadId,
-		tasks: work.length,
+		tasks: tasks.length,
 	});
 }
 
@@ -201,7 +218,7 @@ export async function processUpload(uploadId: string): Promise<void> {
 
 		// Defer memory extraction off the critical path; await it after the upload is
 		// marked completed so the dashboard sees the terminal state promptly.
-		const backgroundWork: Promise<unknown>[] = [];
+		const backgroundWork: Array<() => Promise<void>> = [];
 		await onDocumentIngested(document.id, document.title, content, chunks.length, {
 			deferMemory: (p) => backgroundWork.push(p),
 		});
@@ -289,7 +306,7 @@ async function processZipUpload(
 	let failed = 0;
 	// Per-document memory extraction is deferred off the per-entry loop so a ZIP of
 	// N entries is not serialized on N LLM calls; settled once at the end.
-	const backgroundWork: Promise<unknown>[] = [];
+	const backgroundWork: Array<() => Promise<void>> = [];
 
 	for (const candidate of candidates) {
 		const existingDocId = priorCompleted.get(candidate.entryPath);
