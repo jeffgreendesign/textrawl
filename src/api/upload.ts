@@ -1,9 +1,9 @@
 import { Router, type Router as RouterType } from 'express';
 import multer from 'multer';
-import { createChunks } from '../db/chunks.js';
 import { createDocument } from '../db/documents.js';
 import { isDatabaseConfigured } from '../db/pg-client.js';
 import { smartChunk } from '../services/chunker.js';
+import { embedAndStoreChunks } from '../services/embed-store.js';
 import { generateEmbeddings, isOpenAIConfigured } from '../services/embeddings.js';
 import { extractText, isSupportedType, validateFileType } from '../services/processor.js';
 import { config } from '../utils/config.js';
@@ -107,20 +107,10 @@ uploadRouter.post(
 				metadata: { originalName: sanitizedFilename, mimetype, size: buffer.length, tags },
 			});
 
-			// Chunk and embed (uses semantic or fixed chunking based on CHUNKING_MODE)
+			// Chunk and embed (uses semantic or fixed chunking based on CHUNKING_MODE).
+			// embedAndStoreChunks streams embed+insert in windows to bound memory.
 			const chunks = await smartChunk(content, generateEmbeddings);
-			const embeddings = await generateEmbeddings(chunks.map((c) => c.content));
-
-			await createChunks(
-				chunks.map((chunk, i) => ({
-					documentId: document.id,
-					content: chunk.content,
-					chunkIndex: chunk.index,
-					startOffset: chunk.startOffset,
-					endOffset: chunk.endOffset,
-					embedding: embeddings[i],
-				})),
-			);
+			await embedAndStoreChunks(document.id, chunks, generateEmbeddings);
 
 			res.json({
 				success: true,

@@ -137,9 +137,22 @@ const envSchema = z.object({
 		.transform((val) => parseInt(val, 10))
 		.refine((val) => val >= 1, 'Must be at least 1 MB'),
 
+	// Soft threshold: documents estimated to exceed this many chunks are logged as
+	// large (the CLI warns; the server logs). Advisory only — not a rejection.
 	MAX_CHUNKS_PER_FILE: z
 		.string()
 		.default('500')
+		.transform((val) => parseInt(val, 10))
+		.refine((val) => val >= 1, 'Must be at least 1'),
+
+	// Hard ceiling: the chunker throws ChunkLimitError once a single document
+	// produces more than this many chunks, bounding chunks/embeddings/DB rows for
+	// pathological or oversized inputs. Set well above what a max-size legitimate
+	// upload yields (a 20MB text file is ~10k chunks) so normal large files still
+	// process; this is a backstop, not a routine limit.
+	MAX_CHUNKS_HARD_CAP: z
+		.string()
+		.default('50000')
 		.transform((val) => parseInt(val, 10))
 		.refine((val) => val >= 1, 'Must be at least 1'),
 

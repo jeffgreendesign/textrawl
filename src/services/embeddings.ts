@@ -23,6 +23,11 @@ const OPENAI_EST_CHARS_PER_TOKEN = 3;
 const OPENAI_MAX_INPUT_CHARS = 8191 * 4;
 
 const OLLAMA_MAX_BATCH_SIZE = 100;
+// Aggregate token ceiling per request. Like OpenAI (see OPENAI_MAX_BATCH_TOKENS),
+// item-count alone is not enough: 100 dense items can be a multi-million-char
+// request that bloats memory and risks server limits. Split by tokens too.
+const OLLAMA_MAX_BATCH_TOKENS = 200_000;
+const OLLAMA_EST_CHARS_PER_TOKEN = 3;
 
 // Ollama model context windows (max tokens per input)
 // Used to truncate oversized inputs before sending to the API.
@@ -82,6 +87,44 @@ function getOllamaDimensions(model: string): number {
 const GOOGLE_DIMENSIONS = 3072;
 const GOOGLE_MAX_BATCH_SIZE = 100;
 const GOOGLE_MAX_INPUT_CHARS = 30_000; // gemini-embedding-2-preview: 8192 token context (~4 chars/token)
+// Aggregate token ceiling per batchEmbedContents request (see OPENAI_MAX_BATCH_TOKENS).
+const GOOGLE_MAX_BATCH_TOKENS = 200_000;
+const GOOGLE_EST_CHARS_PER_TOKEN = 3;
+
+/**
+ * Group inputs into batches bounded by BOTH an item count and an aggregate
+ * estimated-token ceiling (tokens ≈ chars / `charsPerToken`). Mirrors the
+ * OpenAI batcher so every provider splits dense content before it exceeds a
+ * per-request limit. Inputs are assumed already per-item truncated.
+ */
+export function buildTokenBoundedBatches(
+	texts: string[],
+	maxItems: number,
+	maxTokens: number,
+	charsPerToken: number,
+): string[][] {
+	const batches: string[][] = [];
+	let current: string[] = [];
+	let currentTokens = 0;
+
+	for (const text of texts) {
+		const estimatedTokens = Math.ceil(text.length / charsPerToken);
+		if (
+			current.length > 0 &&
+			(current.length >= maxItems || currentTokens + estimatedTokens > maxTokens)
+		) {
+			batches.push(current);
+			current = [];
+			currentTokens = 0;
+		}
+		current.push(text);
+		currentTokens += estimatedTokens;
+	}
+	if (current.length > 0) {
+		batches.push(current);
+	}
+	return batches;
+}
 
 // Ollama API response type
 interface OllamaEmbedResponse {
@@ -202,10 +245,12 @@ async function generateOllamaEmbeddings(texts: string[]): Promise<number[][]> {
 	// Truncate oversized inputs before batching
 	const safeTexts = texts.map((t) => (t.length > maxChars ? t.slice(0, maxChars) : t));
 
-	const batches: string[][] = [];
-	for (let i = 0; i < safeTexts.length; i += OLLAMA_MAX_BATCH_SIZE) {
-		batches.push(safeTexts.slice(i, i + OLLAMA_MAX_BATCH_SIZE));
-	}
+	const batches = buildTokenBoundedBatches(
+		safeTexts,
+		OLLAMA_MAX_BATCH_SIZE,
+		OLLAMA_MAX_BATCH_TOKENS,
+		OLLAMA_EST_CHARS_PER_TOKEN,
+	);
 
 	try {
 		const allEmbeddings: number[][] = [];
@@ -355,10 +400,12 @@ async function generateGoogleEmbeddings(texts: string[]): Promise<number[][]> {
 		t.length > GOOGLE_MAX_INPUT_CHARS ? t.slice(0, GOOGLE_MAX_INPUT_CHARS) : t,
 	);
 
-	const batches: string[][] = [];
-	for (let i = 0; i < safeTexts.length; i += GOOGLE_MAX_BATCH_SIZE) {
-		batches.push(safeTexts.slice(i, i + GOOGLE_MAX_BATCH_SIZE));
-	}
+	const batches = buildTokenBoundedBatches(
+		safeTexts,
+		GOOGLE_MAX_BATCH_SIZE,
+		GOOGLE_MAX_BATCH_TOKENS,
+		GOOGLE_EST_CHARS_PER_TOKEN,
+	);
 
 	try {
 		const allEmbeddings: number[][] = [];

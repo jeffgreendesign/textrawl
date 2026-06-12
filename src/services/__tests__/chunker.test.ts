@@ -9,7 +9,8 @@ vi.mock('../../utils/logger.js', () => ({
 	logger: { debug: vi.fn(), info: vi.fn(), warn: vi.fn(), error: vi.fn() },
 }));
 
-import { chunkText } from '../chunker.js';
+import { ChunkLimitError } from '../../utils/errors.js';
+import { chunkText, chunkTextSemantic } from '../chunker.js';
 
 describe('chunkText (fixed chunking)', () => {
 	it('returns empty array for empty input', () => {
@@ -109,4 +110,29 @@ describe('chunkText (fixed chunking)', () => {
 		// ~11 chars / 4 = ~3 tokens (rounded up)
 		expect(chunks[0].tokenCount).toBe(Math.ceil(text.length / 4));
 	});
+
+	it('throws ChunkLimitError once the hard cap is exceeded', () => {
+		// Many paragraphs at a small chunk size → well over the explicit cap of 3.
+		const text = Array.from({ length: 50 }, (_, i) => `Para ${i}. ${'w'.repeat(400)}`).join('\n\n');
+		expect(() => chunkText(text, { maxChunkSize: 100, maxChunks: 3 })).toThrow(ChunkLimitError);
+	});
+
+	it('does not throw when chunk count stays within the cap', () => {
+		const text = 'A short paragraph.\n\nAnother short one.';
+		expect(() => chunkText(text, { maxChunks: 10 })).not.toThrow();
+	});
+});
+
+describe('chunkTextSemantic (fallback guards)', () => {
+	it('falls back to fixed chunking without embedding when sentence count is huge', async () => {
+		// > MAX_SEMANTIC_SENTENCES (25k) sentences. If semantic embedding ran it would
+		// call generateEmbeddings once with ~10^4+ sentences — the catastrophic path.
+		const text = 'x. '.repeat(25_001);
+		const generateEmbeddings = vi.fn(async (texts: string[]) => texts.map(() => [0, 0, 0]));
+
+		const chunks = await chunkTextSemantic(text, { maxChunkSize: 512, generateEmbeddings });
+
+		expect(generateEmbeddings).not.toHaveBeenCalled();
+		expect(chunks.length).toBeGreaterThan(0);
+	}, 5000);
 });

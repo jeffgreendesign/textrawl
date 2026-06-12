@@ -1,5 +1,5 @@
 import { config } from '../utils/config.js';
-import { ValidationError } from '../utils/errors.js';
+import { ChunkLimitError, ValidationError } from '../utils/errors.js';
 import { logger } from '../utils/logger.js';
 
 /**
@@ -12,6 +12,11 @@ export interface ChunkOptions {
 	overlap?: number;
 	/** Paragraph separator pattern */
 	separator?: string;
+	/**
+	 * Hard ceiling on chunks produced for one document; throws {@link ChunkLimitError}
+	 * once exceeded. Defaults to `config.MAX_CHUNKS_HARD_CAP`. Pass explicitly in tests.
+	 */
+	maxChunks?: number;
 }
 
 /**
@@ -48,6 +53,29 @@ export interface Chunk {
 const CHARS_PER_TOKEN = 4;
 
 /**
+ * Resolve the hard chunk ceiling: an explicit option wins, else
+ * `config.MAX_CHUNKS_HARD_CAP`, else no cap (Infinity). The Infinity fallback
+ * keeps the chunker working when `config` is partially stubbed (e.g. unit tests).
+ */
+function resolveMaxChunks(explicit?: number): number {
+	if (typeof explicit === 'number' && Number.isFinite(explicit)) {
+		return explicit;
+	}
+	const fromConfig = config.MAX_CHUNKS_HARD_CAP;
+	return typeof fromConfig === 'number' && Number.isFinite(fromConfig)
+		? fromConfig
+		: Number.POSITIVE_INFINITY;
+}
+
+/** Throw {@link ChunkLimitError} when a produced chunk count exceeds the cap. */
+function enforceChunkCap(chunkCount: number): void {
+	const cap = resolveMaxChunks();
+	if (chunkCount > cap) {
+		throw new ChunkLimitError(chunkCount, cap);
+	}
+}
+
+/**
  * A sentence with its position in the original text
  */
 interface SentenceSpan {
@@ -67,6 +95,7 @@ export function chunkText(text: string, options: ChunkOptions = {}): Chunk[] {
 
 	const maxChars = maxChunkSize * CHARS_PER_TOKEN;
 	const overlapChars = overlap * CHARS_PER_TOKEN;
+	const maxChunks = resolveMaxChunks(options.maxChunks);
 
 	// Normalize whitespace
 	const normalizedText = text.replace(/\r\n/g, '\n').trim();
@@ -91,6 +120,16 @@ export function chunkText(text: string, options: ChunkOptions = {}): Chunk[] {
 	const chunks: Chunk[] = [];
 	const paragraphs = normalizedText.split(separator);
 
+	// Push a chunk and enforce the hard ceiling as chunks are produced, so a
+	// pathological input fails fast instead of materializing an unbounded array
+	// (and then unbounded embeddings/DB rows downstream).
+	const pushChunk = (chunk: Chunk) => {
+		chunks.push(chunk);
+		if (chunks.length > maxChunks) {
+			throw new ChunkLimitError(chunks.length, maxChunks);
+		}
+	};
+
 	let currentChunk = '';
 	let chunkStartOffset = 0;
 	let currentOffset = 0;
@@ -99,7 +138,7 @@ export function chunkText(text: string, options: ChunkOptions = {}): Chunk[] {
 	const flushChunk = () => {
 		const trimmedContent = currentChunk.trim();
 		if (trimmedContent.length > 0) {
-			chunks.push({
+			pushChunk({
 				content: trimmedContent,
 				index: chunks.length,
 				startOffset: chunkStartOffset,
@@ -155,7 +194,7 @@ export function chunkText(text: string, options: ChunkOptions = {}): Chunk[] {
 
 				const piece = source.slice(pos, splitAt).trim();
 				if (piece.length > 0) {
-					chunks.push({
+					pushChunk({
 						content: piece,
 						index: chunks.length,
 						startOffset: chunkStartOffset,
@@ -179,7 +218,7 @@ export function chunkText(text: string, options: ChunkOptions = {}): Chunk[] {
 	// Don't forget the last chunk
 	const trimmedContent = currentChunk.trim();
 	if (trimmedContent.length > 0) {
-		chunks.push({
+		pushChunk({
 			content: trimmedContent,
 			index: chunks.length,
 			startOffset: chunkStartOffset,
@@ -337,6 +376,14 @@ function cosineSimilarity(a: number[], b: number[]): number {
 // Larger texts fall back to fixed chunking to prevent DoS and memory issues
 const MAX_SEMANTIC_TEXT_LENGTH = 10_000_000;
 
+// Maximum sentence count for semantic chunking. Semantic mode embeds EVERY
+// sentence and holds all sentence embeddings (N × dims floats) plus an
+// N-length similarity array in memory at once. A dense ~9.9MB doc slips under
+// MAX_SEMANTIC_TEXT_LENGTH yet splits into ~10^5 sentences (~1GB of float
+// embeddings) — so cap sentence count independently and fall back to cheap
+// fixed chunking past the bound. ~25k sentences keeps peak well under control.
+const MAX_SEMANTIC_SENTENCES = 25_000;
+
 export async function chunkTextSemantic(
 	text: string,
 	options: SemanticChunkOptions,
@@ -365,6 +412,16 @@ export async function chunkTextSemantic(
 
 	if (sentenceSpans.length === 0) {
 		return [];
+	}
+
+	// Too many sentences → embedding every one would balloon the heap. Fall back
+	// to fixed chunking (cheap, bounded) rather than embedding 10^5 sentences.
+	if (sentenceSpans.length > MAX_SEMANTIC_SENTENCES) {
+		logger.info('Too many sentences for semantic chunking; falling back to fixed chunking', {
+			sentenceCount: sentenceSpans.length,
+			maxSentences: MAX_SEMANTIC_SENTENCES,
+		});
+		return chunkText(text, { maxChunkSize });
 	}
 
 	// If text is small, return as a single chunk containing all sentences
@@ -399,6 +456,7 @@ export async function chunkTextSemantic(
 			});
 			if (end === text.length) break;
 		}
+		enforceChunkCap(chunks.length);
 		return chunks;
 	}
 
@@ -547,6 +605,7 @@ export async function chunkTextSemantic(
 		similarityThreshold: effectiveThreshold.toFixed(3),
 	});
 
+	enforceChunkCap(finalChunks.length);
 	return finalChunks;
 }
 
