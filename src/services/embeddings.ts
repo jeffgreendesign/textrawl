@@ -8,9 +8,16 @@ import { logger } from '../utils/logger.js';
 const OPENAI_MODEL = 'text-embedding-3-small';
 const OPENAI_DIMENSIONS = 1536;
 const OPENAI_MAX_BATCH_SIZE = 2048;
-// OpenAI enforces a max of 300K tokens per embedding request.
-// Use a conservative limit to stay safely under the cap.
-const OPENAI_MAX_BATCH_TOKENS = 250_000;
+// OpenAI enforces a max of 300K tokens per embedding request. The per-chunk token
+// count is only ESTIMATED from character length (see OPENAI_EST_CHARS_PER_TOKEN), and
+// dense content (JSON: timestamps, numbers, punctuation) tokenizes well above the
+// estimate — a batch estimated at 250K was really >300K and got rejected. Keep a wide
+// margin so the worst-case actual count stays under the hard cap.
+const OPENAI_MAX_BATCH_TOKENS = 200_000;
+// Conservative chars-per-token for batch sizing. English prose is ~4; dense JSON is
+// ~3.3. Estimating low (3) over-counts tokens so batches split sooner and the real
+// request stays under OpenAI's 300K limit.
+const OPENAI_EST_CHARS_PER_TOKEN = 3;
 // text-embedding-3-small accepts max 8191 tokens per input.
 // Truncate at a conservative character limit (~4 chars/token).
 const OPENAI_MAX_INPUT_CHARS = 8191 * 4;
@@ -268,7 +275,7 @@ async function generateOpenAIEmbeddings(texts: string[]): Promise<number[][]> {
 	const client = getOpenAIClient();
 
 	// Build batches respecting both item count and token limits.
-	// Estimate tokens as text.length / 4 (conservative approximation).
+	// Tokens are estimated from char length (OPENAI_EST_CHARS_PER_TOKEN).
 	const batches: string[][] = [];
 	let currentBatch: string[] = [];
 	let currentTokens = 0;
@@ -277,7 +284,7 @@ async function generateOpenAIEmbeddings(texts: string[]): Promise<number[][]> {
 		// Truncate individual inputs that exceed the model's context window
 		const text =
 			rawText.length > OPENAI_MAX_INPUT_CHARS ? rawText.slice(0, OPENAI_MAX_INPUT_CHARS) : rawText;
-		const estimatedTokens = Math.ceil(text.length / 4);
+		const estimatedTokens = Math.ceil(text.length / OPENAI_EST_CHARS_PER_TOKEN);
 
 		if (
 			currentBatch.length > 0 &&
