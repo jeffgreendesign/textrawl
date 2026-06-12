@@ -28,7 +28,9 @@ import {
 	getUpload,
 	getUploadStatus,
 	isLegalUploadTransition,
+	listUploadEntries,
 	listUploads,
+	recordUploadEntry,
 	recordUploadObjectMetadata,
 	transitionUploadState,
 } from '../uploads.js';
@@ -255,5 +257,89 @@ describe('getUploadStatus', () => {
 			pending: 0,
 			skipped: 0,
 		});
+	});
+});
+
+/** A raw upload_entries row as the Neon driver returns it. */
+function rawEntryRow(overrides: Record<string, unknown> = {}) {
+	return {
+		id: 'ent-1',
+		upload_id: 'up-1',
+		entry_path: 'notes/a.md',
+		normalized_type: 'text',
+		size_bytes: '42',
+		state: 'completed',
+		document_id: 'doc-1',
+		error_code: null,
+		error_message: null,
+		created_at: new Date('2026-06-10T12:00:00.000Z'),
+		...overrides,
+	};
+}
+
+describe('recordUploadEntry', () => {
+	it('upserts on the (upload_id, entry_path) unique index and returns the mapped row', async () => {
+		mocked.queryOneOrThrow.mockResolvedValueOnce(rawEntryRow());
+
+		const entry = await recordUploadEntry({
+			uploadId: 'up-1',
+			entryPath: 'notes/a.md',
+			normalizedType: 'text',
+			sizeBytes: 42,
+			state: 'completed',
+			documentId: 'doc-1',
+		});
+
+		expect(mocked.queryOneOrThrow).toHaveBeenCalledTimes(1);
+		const [sql, params] = mocked.queryOneOrThrow.mock.calls[0];
+		expect(sql).toMatch(/insert into upload_entries/i);
+		expect(sql).toMatch(/on conflict \(upload_id, entry_path\) do update/i);
+		expect(params).toEqual(['up-1', 'notes/a.md', 'text', 42, 'completed', 'doc-1', null, null]);
+		// Normalized: bigint string → number, Date → ISO string.
+		expect(entry.size_bytes).toBe(42);
+		expect(entry.created_at).toBe('2026-06-10T12:00:00.000Z');
+		expect(entry.document_id).toBe('doc-1');
+	});
+
+	it('defaults optional fields to null (e.g. a skipped entry with no document)', async () => {
+		mocked.queryOneOrThrow.mockResolvedValueOnce(
+			rawEntryRow({ state: 'skipped', document_id: null, error_code: 'UNSUPPORTED_ENTRY' }),
+		);
+
+		await recordUploadEntry({
+			uploadId: 'up-1',
+			entryPath: 'pic.png',
+			state: 'skipped',
+			errorCode: 'UNSUPPORTED_ENTRY',
+			errorMessage: 'No handler',
+		});
+
+		const [, params] = mocked.queryOneOrThrow.mock.calls[0];
+		expect(params).toEqual([
+			'up-1',
+			'pic.png',
+			null,
+			null,
+			'skipped',
+			null,
+			'UNSUPPORTED_ENTRY',
+			'No handler',
+		]);
+	});
+});
+
+describe('listUploadEntries', () => {
+	it('returns an empty array when an upload has no entries', async () => {
+		mocked.pgQuery.mockResolvedValueOnce({ rows: [], rowCount: 0 });
+		await expect(listUploadEntries('up-1')).resolves.toEqual([]);
+	});
+
+	it('maps entry rows (bigint → number, Date → ISO string)', async () => {
+		mocked.pgQuery.mockResolvedValueOnce({ rows: [rawEntryRow()], rowCount: 1 });
+		const entries = await listUploadEntries('up-1');
+		expect(entries).toHaveLength(1);
+		expect(entries[0].entry_path).toBe('notes/a.md');
+		expect(entries[0].size_bytes).toBe(42);
+		expect(entries[0].created_at).toBe('2026-06-10T12:00:00.000Z');
 	});
 });

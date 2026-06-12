@@ -51,14 +51,22 @@ vi.mock('../chunker.js', () => ({
 	]),
 }));
 vi.mock('../pipeline.js', () => ({ onDocumentIngested: vi.fn(async () => undefined) }));
+vi.mock('../processor/handlers/archive-zip.js', () => ({ validateZip: vi.fn() }));
+vi.mock('../processor/registry.js', () => ({ resolveForEntry: vi.fn() }));
+let docSeq = 0;
 vi.mock('../../db/documents.js', () => ({
-	createDocument: vi.fn(async () => ({ id: 'doc-1', title: 'sample.txt' })),
+	createDocument: vi.fn(async (input: { title?: string }) => ({
+		id: `doc-${++docSeq}`,
+		title: input.title ?? 'sample.txt',
+	})),
 }));
 vi.mock('../../db/chunks.js', () => ({ createChunks: vi.fn(async () => undefined) }));
 vi.mock('../../db/uploads.js', () => ({
 	getUpload: vi.fn(),
 	transitionUploadState: vi.fn(async () => undefined),
 	recordUploadProcessingResult: vi.fn(async () => undefined),
+	recordUploadEntry: vi.fn(async () => ({})),
+	listUploadEntries: vi.fn(async () => []),
 }));
 
 // --- Imports (after mocks) ---
@@ -67,22 +75,31 @@ import { createChunks } from '../../db/chunks.js';
 import { createDocument } from '../../db/documents.js';
 import {
 	getUpload,
+	listUploadEntries,
+	recordUploadEntry,
 	recordUploadProcessingResult,
 	transitionUploadState,
 } from '../../db/uploads.js';
+import { ZipPathTraversalError } from '../../utils/errors.js';
 import { onDocumentIngested } from '../pipeline.js';
 import { extractText, isSupportedType } from '../processor.js';
+import { validateZip } from '../processor/handlers/archive-zip.js';
+import { resolveForEntry } from '../processor/registry.js';
 import { processUpload } from '../upload-processor.js';
 
 const m = {
 	getUpload: vi.mocked(getUpload),
 	transitionUploadState: vi.mocked(transitionUploadState),
 	recordUploadProcessingResult: vi.mocked(recordUploadProcessingResult),
+	recordUploadEntry: vi.mocked(recordUploadEntry),
+	listUploadEntries: vi.mocked(listUploadEntries),
 	createDocument: vi.mocked(createDocument),
 	createChunks: vi.mocked(createChunks),
 	onDocumentIngested: vi.mocked(onDocumentIngested),
 	extractText: vi.mocked(extractText),
 	isSupportedType: vi.mocked(isSupportedType),
+	validateZip: vi.mocked(validateZip),
+	resolveForEntry: vi.mocked(resolveForEntry),
 };
 
 // biome-ignore lint/suspicious/noExplicitAny: loose Upload fixture
@@ -103,9 +120,35 @@ function buildUpload(overrides: Record<string, any> = {}): any {
 
 beforeEach(() => {
 	vi.clearAllMocks();
+	docSeq = 0;
 	storage.createReadStream.mockImplementation(() => Readable.from([Buffer.from('hello world')]));
 	m.isSupportedType.mockReturnValue(true);
+	m.listUploadEntries.mockResolvedValue([]);
+	m.recordUploadEntry.mockResolvedValue({} as never);
 });
+
+/** A supported ZIP candidate whose bytes read lazily. */
+function zipCandidate(entryPath: string, normalizedType = 'text') {
+	return {
+		entryPath,
+		normalizedType,
+		sizeBytes: 42,
+		read: vi.fn(async () => Buffer.from(`bytes:${entryPath}`)),
+	};
+}
+
+/** A handler stub that extracts fixed text (or throws to simulate a corrupt entry). */
+function handlerStub(key = 'text', extract: () => Promise<string> = async () => 'entry text') {
+	return { key, extensions: [], mimeTypes: [], extract: vi.fn(extract) } as never;
+}
+
+function zipUpload(overrides: Record<string, unknown> = {}) {
+	return buildUpload({
+		filename: 'archive.zip',
+		declared_mimetype: 'application/zip',
+		...overrides,
+	});
+}
 
 describe('processUpload', () => {
 	it('reads the object as a stream (not a buffered headObject) and verifies before extracting', async () => {
@@ -188,5 +231,162 @@ describe('processUpload', () => {
 		await processUpload('missing');
 		expect(m.createDocument).not.toHaveBeenCalled();
 		expect(m.transitionUploadState).not.toHaveBeenCalled();
+	});
+});
+
+describe('processUpload (ZIP)', () => {
+	it('creates one document per supported entry and completes', async () => {
+		m.getUpload.mockResolvedValueOnce(zipUpload());
+		m.validateZip.mockResolvedValueOnce({
+			candidates: [zipCandidate('notes/a.md'), zipCandidate('data/b.json', 'json')],
+			skipped: [],
+		});
+		m.resolveForEntry.mockResolvedValue(handlerStub());
+
+		await processUpload('up-zip');
+
+		expect(m.createDocument).toHaveBeenCalledTimes(2);
+		expect(m.recordUploadEntry).toHaveBeenCalledWith(
+			expect.objectContaining({ entryPath: 'notes/a.md', state: 'completed', documentId: 'doc-1' }),
+		);
+		expect(m.recordUploadProcessingResult).toHaveBeenCalledWith(
+			'up-zip',
+			expect.objectContaining({
+				entriesProcessed: 2,
+				entriesFailed: 0,
+				documentIds: ['doc-1', 'doc-2'],
+			}),
+		);
+		expect(m.transitionUploadState).toHaveBeenLastCalledWith('up-zip', 'completed');
+	});
+
+	it('records unsupported entries as skipped', async () => {
+		m.getUpload.mockResolvedValueOnce(zipUpload());
+		m.validateZip.mockResolvedValueOnce({
+			candidates: [zipCandidate('good.txt')],
+			skipped: [
+				{
+					entryPath: 'pic.png',
+					sizeBytes: 10,
+					errorCode: 'UNSUPPORTED_ENTRY',
+					reason: 'No handler',
+				},
+			],
+		});
+		m.resolveForEntry.mockResolvedValue(handlerStub());
+
+		await processUpload('up-zip');
+
+		expect(m.recordUploadEntry).toHaveBeenCalledWith(
+			expect.objectContaining({
+				entryPath: 'pic.png',
+				state: 'skipped',
+				errorCode: 'UNSUPPORTED_ENTRY',
+			}),
+		);
+		expect(m.transitionUploadState).toHaveBeenLastCalledWith('up-zip', 'completed');
+	});
+
+	it('ends partial when one entry succeeds and another fails extraction', async () => {
+		m.getUpload.mockResolvedValueOnce(zipUpload());
+		m.validateZip.mockResolvedValueOnce({
+			candidates: [zipCandidate('good.txt'), zipCandidate('bad.txt')],
+			skipped: [],
+		});
+		m.resolveForEntry.mockImplementation(async (name: string) =>
+			name === 'bad.txt'
+				? handlerStub('text', async () => {
+						throw new Error('corrupt entry');
+					})
+				: handlerStub(),
+		);
+
+		await processUpload('up-zip');
+
+		expect(m.createDocument).toHaveBeenCalledTimes(1);
+		expect(m.recordUploadEntry).toHaveBeenCalledWith(
+			expect.objectContaining({ entryPath: 'bad.txt', state: 'failed' }),
+		);
+		expect(m.recordUploadProcessingResult).toHaveBeenCalledWith(
+			'up-zip',
+			expect.objectContaining({ entriesProcessed: 1, entriesFailed: 1 }),
+		);
+		expect(m.transitionUploadState).toHaveBeenLastCalledWith('up-zip', 'partial');
+	});
+
+	it('skips (not fails) an entry whose content contradicts its extension', async () => {
+		m.getUpload.mockResolvedValueOnce(zipUpload());
+		m.validateZip.mockResolvedValueOnce({
+			candidates: [zipCandidate('real.txt'), zipCandidate('fake.pdf', 'pdf')],
+			skipped: [],
+		});
+		m.resolveForEntry.mockImplementation(async (name: string) =>
+			name === 'fake.pdf' ? undefined : handlerStub(),
+		);
+
+		await processUpload('up-zip');
+
+		expect(m.createDocument).toHaveBeenCalledTimes(1);
+		expect(m.recordUploadEntry).toHaveBeenCalledWith(
+			expect.objectContaining({
+				entryPath: 'fake.pdf',
+				state: 'skipped',
+				errorCode: 'UNSUPPORTED_ENTRY',
+			}),
+		);
+		expect(m.transitionUploadState).toHaveBeenLastCalledWith('up-zip', 'completed');
+	});
+
+	it('fails the whole archive on an archive-level violation, creating no documents', async () => {
+		m.getUpload.mockResolvedValueOnce(zipUpload());
+		m.validateZip.mockRejectedValueOnce(new ZipPathTraversalError('Unsafe entry path: ../x'));
+
+		await processUpload('up-zip');
+
+		expect(m.createDocument).not.toHaveBeenCalled();
+		expect(m.recordUploadProcessingResult).not.toHaveBeenCalled();
+		expect(m.transitionUploadState).toHaveBeenCalledWith(
+			'up-zip',
+			'failed',
+			expect.objectContaining({ errorCode: 'ZIP_PATH_TRAVERSAL' }),
+		);
+	});
+
+	it('fails with ZIP_NO_SUPPORTED_ENTRIES when nothing is supported', async () => {
+		m.getUpload.mockResolvedValueOnce(zipUpload());
+		m.validateZip.mockResolvedValueOnce({
+			candidates: [],
+			skipped: [
+				{ entryPath: 'a.png', sizeBytes: 1, errorCode: 'UNSUPPORTED_ENTRY', reason: 'No handler' },
+			],
+		});
+
+		await processUpload('up-zip');
+
+		expect(m.createDocument).not.toHaveBeenCalled();
+		expect(m.transitionUploadState).toHaveBeenCalledWith(
+			'up-zip',
+			'failed',
+			expect.objectContaining({ errorCode: 'ZIP_NO_SUPPORTED_ENTRIES' }),
+		);
+	});
+
+	it('is idempotent: a retry reuses prior-completed entries without re-creating documents', async () => {
+		m.getUpload.mockResolvedValueOnce(zipUpload());
+		const candidate = zipCandidate('notes/a.md');
+		m.validateZip.mockResolvedValueOnce({ candidates: [candidate], skipped: [] });
+		m.listUploadEntries.mockResolvedValueOnce([
+			{ entry_path: 'notes/a.md', state: 'completed', document_id: 'doc-existing' } as never,
+		]);
+
+		await processUpload('up-zip');
+
+		expect(candidate.read).not.toHaveBeenCalled();
+		expect(m.createDocument).not.toHaveBeenCalled();
+		expect(m.recordUploadProcessingResult).toHaveBeenCalledWith(
+			'up-zip',
+			expect.objectContaining({ documentIds: ['doc-existing'], entriesProcessed: 1 }),
+		);
+		expect(m.transitionUploadState).toHaveBeenLastCalledWith('up-zip', 'completed');
 	});
 });

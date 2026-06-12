@@ -4,8 +4,11 @@ import { createChunks } from '../db/chunks.js';
 import { createDocument } from '../db/documents.js';
 import { isDatabaseConfigured } from '../db/pg-client.js';
 import {
+	type Upload,
 	type UploadState,
 	getUpload,
+	listUploadEntries,
+	recordUploadEntry,
 	recordUploadProcessingResult,
 	transitionUploadState,
 } from '../db/uploads.js';
@@ -15,13 +18,19 @@ import {
 	TextrawlError,
 	UnsupportedFileTypeError,
 	ValidationError,
+	ZipNoSupportedEntriesError,
 } from '../utils/errors.js';
 import { logger } from '../utils/logger.js';
 import { smartChunk } from './chunker.js';
 import { generateEmbeddings, isEmbeddingsConfigured } from './embeddings.js';
 import { onDocumentIngested } from './pipeline.js';
 import { extractText, isSupportedType, validateFileType } from './processor.js';
+import { validateZip } from './processor/handlers/archive-zip.js';
+import { resolveForEntry } from './processor/registry.js';
 import { getStorageService } from './storage/index.js';
+
+/** ZIP MIME types this processor extracts (mirrors the `/init` accept-list). */
+const ZIP_MIME_TYPES = new Set(['application/zip', 'application/x-zip-compressed']);
 
 // A processing run that lands here is already finished — never re-run it.
 const TERMINAL_STATES: readonly UploadState[] = [
@@ -109,7 +118,12 @@ export async function processUpload(uploadId: string): Promise<void> {
 		}
 
 		const mimetype = upload.declared_mimetype;
-		if (!mimetype || !isSupportedType(mimetype)) {
+		const isZip = !!mimetype && ZIP_MIME_TYPES.has(mimetype);
+
+		// Reject unsupported single-file types before streaming the object. ZIP is
+		// not an `isSupportedType` (it is not a single-file handler) but is valid
+		// here — it routes to the archive branch below.
+		if (!isZip && (!mimetype || !isSupportedType(mimetype))) {
 			throw new UnsupportedFileTypeError(`Unsupported file type: ${mimetype ?? 'unknown'}`);
 		}
 
@@ -119,20 +133,29 @@ export async function processUpload(uploadId: string): Promise<void> {
 			upload.size_bytes,
 		);
 
-		// Verify content matches the claimed MIME type (magic-number sniff), mirroring
-		// the direct-upload path.
-		if (!(await validateFileType(buffer, mimetype))) {
-			throw new ValidationError(`File content does not match claimed type: ${mimetype}`);
-		}
-
 		// Canonical integrity check — only when the client supplied an expectation.
+		// Verified before any extraction so a corrupt object creates no document.
 		if (upload.checksum_expected && digest !== normalizeChecksum(upload.checksum_expected)) {
 			throw new ChecksumMismatchError(
 				'Computed SHA-256 does not match the client-supplied checksum',
 			);
 		}
 
-		const content = await extractText(buffer, mimetype);
+		if (isZip) {
+			await processZipUpload(uploadId, upload, buffer, digest);
+			return;
+		}
+
+		// Single-file path. `mimetype` is a supported type here (guarded above).
+		const singleMime = mimetype as string;
+
+		// Verify content matches the claimed MIME type (magic-number sniff), mirroring
+		// the direct-upload path.
+		if (!(await validateFileType(buffer, singleMime))) {
+			throw new ValidationError(`File content does not match claimed type: ${singleMime}`);
+		}
+
+		const content = await extractText(buffer, singleMime);
 		const title = upload.title ?? upload.filename;
 
 		const document = await createDocument({
@@ -142,7 +165,7 @@ export async function processUpload(uploadId: string): Promise<void> {
 			metadata: {
 				uploadId,
 				originalName: upload.filename,
-				mimetype,
+				mimetype: singleMime,
 				size: upload.size_bytes,
 			},
 		});
@@ -189,4 +212,174 @@ export async function processUpload(uploadId: string): Promise<void> {
 			});
 		});
 	}
+}
+
+/**
+ * Process a queued ZIP into one document per supported entry (plan §9, T5.3).
+ *
+ * The archive is validated against every §9 safety rule first ({@link validateZip}
+ * throws a `ZIP_*` error for any archive-level violation, which the caller turns
+ * into a `failed` transition with no documents). Supported entries are then
+ * extracted one at a time (memory bounded to a single entry); per-entry failures
+ * are recorded and the upload ends `partial`, or `completed` when all succeed.
+ *
+ * Idempotent on retry: entries already `completed` in a prior attempt are skipped
+ * (their bytes are never re-decompressed), and per-entry rows upsert on the
+ * `(upload_id, entry_path)` unique index — so a re-run creates no duplicate
+ * documents or rows.
+ *
+ * @throws {ZipNoSupportedEntriesError} If the archive holds no supported entries.
+ */
+async function processZipUpload(
+	uploadId: string,
+	upload: Upload,
+	buffer: Buffer,
+	digest: string,
+): Promise<void> {
+	// Archive-level validation — throws (→ caller marks `failed`) before any document.
+	const { candidates, skipped } = await validateZip(buffer);
+
+	// Record unsupported (non-junk) entries so the status response is honest.
+	for (const entry of skipped) {
+		await recordUploadEntry({
+			uploadId,
+			entryPath: entry.entryPath,
+			sizeBytes: entry.sizeBytes,
+			state: 'skipped',
+			errorCode: entry.errorCode,
+			errorMessage: entry.reason,
+		});
+	}
+
+	if (candidates.length === 0) {
+		throw new ZipNoSupportedEntriesError('Archive contains no supported files');
+	}
+
+	// Idempotent retry: reuse documents from entries a prior attempt already completed.
+	const priorCompleted = new Map(
+		(await listUploadEntries(uploadId))
+			.filter((e) => e.state === 'completed' && e.document_id)
+			.map((e) => [e.entry_path, e.document_id as string]),
+	);
+
+	const documentIds: string[] = [];
+	let processed = 0;
+	let failed = 0;
+
+	for (const candidate of candidates) {
+		const existingDocId = priorCompleted.get(candidate.entryPath);
+		if (existingDocId) {
+			documentIds.push(existingDocId);
+			processed++;
+			continue;
+		}
+
+		try {
+			const entryBuffer = await candidate.read();
+
+			// Content magic-sniff: an entry whose bytes contradict its extension is
+			// skipped (not failed) — it is not a corrupt supported file.
+			const handler = await resolveForEntry(candidate.entryPath, entryBuffer);
+			if (!handler) {
+				await recordUploadEntry({
+					uploadId,
+					entryPath: candidate.entryPath,
+					sizeBytes: candidate.sizeBytes,
+					state: 'skipped',
+					errorCode: 'UNSUPPORTED_ENTRY',
+					errorMessage: 'Entry content does not match its extension',
+				});
+				continue;
+			}
+
+			const content = await handler.extract(entryBuffer);
+			const document = await createDocument({
+				title: candidate.entryPath,
+				sourceType: 'file',
+				rawContent: content,
+				metadata: {
+					uploadId,
+					originalName: upload.filename,
+					entryPath: candidate.entryPath,
+					normalizedType: handler.key,
+					size: candidate.sizeBytes,
+				},
+			});
+
+			const chunks = await smartChunk(content, generateEmbeddings);
+			const embeddings = await generateEmbeddings(chunks.map((c) => c.content));
+			await createChunks(
+				chunks.map((chunk, i) => ({
+					documentId: document.id,
+					content: chunk.content,
+					chunkIndex: chunk.index,
+					startOffset: chunk.startOffset,
+					endOffset: chunk.endOffset,
+					embedding: embeddings[i],
+				})),
+			);
+
+			await onDocumentIngested(document.id, document.title, content, chunks.length);
+
+			await recordUploadEntry({
+				uploadId,
+				entryPath: candidate.entryPath,
+				normalizedType: handler.key,
+				sizeBytes: candidate.sizeBytes,
+				state: 'completed',
+				documentId: document.id,
+			});
+			documentIds.push(document.id);
+			processed++;
+		} catch (error) {
+			const code = failureCode(error);
+			const message = error instanceof Error ? error.message : String(error);
+			logger.error('processZipUpload: entry failed', {
+				uploadId,
+				entryPath: candidate.entryPath,
+				code,
+				message,
+			});
+			await recordUploadEntry({
+				uploadId,
+				entryPath: candidate.entryPath,
+				normalizedType: candidate.normalizedType,
+				sizeBytes: candidate.sizeBytes,
+				state: 'failed',
+				errorCode: code,
+				errorMessage: message,
+			});
+			failed++;
+		}
+	}
+
+	await recordUploadProcessingResult(uploadId, {
+		documentIds,
+		checksumComputed: digest,
+		checksumVerifiedAt: new Date().toISOString(),
+		entriesTotal: candidates.length + skipped.length,
+		entriesProcessed: processed,
+		entriesFailed: failed,
+	});
+
+	if (documentIds.length === 0) {
+		// Every supported entry failed extraction (or was content-skipped) — no
+		// documents were created, so this is a failed upload, not a partial one.
+		await transitionUploadState(uploadId, 'failed', {
+			errorCode: 'PROCESSING_FAILED',
+			errorMessage: 'No archive entries could be processed',
+		});
+		logger.info('processZipUpload: failed (no documents)', { uploadId, failed });
+		return;
+	}
+
+	const finalState: UploadState = failed > 0 ? 'partial' : 'completed';
+	await transitionUploadState(uploadId, finalState);
+	logger.info('processZipUpload: done', {
+		uploadId,
+		state: finalState,
+		processed,
+		failed,
+		documents: documentIds.length,
+	});
 }
