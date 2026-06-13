@@ -3,6 +3,7 @@ import OpenAI from 'openai';
 import { config } from '../utils/config.js';
 import { ExternalServiceError } from '../utils/errors.js';
 import { logger } from '../utils/logger.js';
+import { withRetry } from '../utils/retry.js';
 
 // Provider-specific constants
 const OPENAI_MODEL = 'text-embedding-3-small';
@@ -201,21 +202,32 @@ async function generateOllamaEmbedding(text: string): Promise<number[]> {
 	const input = text.length > maxChars ? text.slice(0, maxChars) : text;
 
 	try {
-		const response = await fetch(url, {
-			method: 'POST',
-			headers: { 'Content-Type': 'application/json' },
-			body: JSON.stringify({
-				model: config.OLLAMA_MODEL,
-				input,
-			}),
-		});
+		const data = await withRetry(
+			async () => {
+				const response = await fetch(url, {
+					method: 'POST',
+					headers: { 'Content-Type': 'application/json' },
+					body: JSON.stringify({
+						model: config.OLLAMA_MODEL,
+						input,
+					}),
+				});
 
-		if (!response.ok) {
-			const errorText = await response.text();
-			throw new Error(`Ollama returned ${response.status}: ${errorText}`);
-		}
+				if (!response.ok) {
+					const errorText = await response.text();
+					const httpError = new Error(
+						`Ollama returned ${response.status}: ${errorText}`,
+					) as Error & {
+						status?: number;
+					};
+					httpError.status = response.status;
+					throw httpError;
+				}
 
-		const data = (await response.json()) as OllamaEmbedResponse;
+				return (await response.json()) as OllamaEmbedResponse;
+			},
+			{ label: 'Ollama embedding' },
+		);
 
 		// Ollama returns { embeddings: [[...]] } for single input
 		if (data.embeddings && data.embeddings.length > 0) {
@@ -256,21 +268,30 @@ async function generateOllamaEmbeddings(texts: string[]): Promise<number[][]> {
 		const allEmbeddings: number[][] = [];
 
 		for (const batch of batches) {
-			const response = await fetch(url, {
-				method: 'POST',
-				headers: { 'Content-Type': 'application/json' },
-				body: JSON.stringify({
-					model: config.OLLAMA_MODEL,
-					input: batch,
-				}),
-			});
+			const data = await withRetry(
+				async () => {
+					const response = await fetch(url, {
+						method: 'POST',
+						headers: { 'Content-Type': 'application/json' },
+						body: JSON.stringify({
+							model: config.OLLAMA_MODEL,
+							input: batch,
+						}),
+					});
 
-			if (!response.ok) {
-				const errorText = await response.text();
-				throw new Error(`Ollama returned ${response.status}: ${errorText}`);
-			}
+					if (!response.ok) {
+						const errorText = await response.text();
+						const httpError = new Error(
+							`Ollama returned ${response.status}: ${errorText}`,
+						) as Error & { status?: number };
+						httpError.status = response.status;
+						throw httpError;
+					}
 
-			const data = (await response.json()) as OllamaEmbedResponse;
+					return (await response.json()) as OllamaEmbedResponse;
+				},
+				{ label: 'Ollama embeddings' },
+			);
 
 			if (data.embeddings) {
 				allEmbeddings.push(...data.embeddings);
@@ -299,11 +320,15 @@ async function generateOpenAIEmbedding(text: string): Promise<number[]> {
 	const client = getOpenAIClient();
 
 	try {
-		const response = await client.embeddings.create({
-			model: OPENAI_MODEL,
-			input: text,
-			encoding_format: 'float',
-		});
+		const response = await withRetry(
+			() =>
+				client.embeddings.create({
+					model: OPENAI_MODEL,
+					input: text,
+					encoding_format: 'float',
+				}),
+			{ label: 'OpenAI embedding' },
+		);
 
 		return response.data[0].embedding;
 	} catch (error) {
@@ -352,11 +377,15 @@ async function generateOpenAIEmbeddings(texts: string[]): Promise<number[][]> {
 		const allEmbeddings: number[][] = [];
 
 		for (const batch of batches) {
-			const response = await client.embeddings.create({
-				model: OPENAI_MODEL,
-				input: batch,
-				encoding_format: 'float',
-			});
+			const response = await withRetry(
+				() =>
+					client.embeddings.create({
+						model: OPENAI_MODEL,
+						input: batch,
+						encoding_format: 'float',
+					}),
+				{ label: 'OpenAI embeddings' },
+			);
 
 			const sortedData = response.data.sort((a, b) => a.index - b.index);
 			allEmbeddings.push(...sortedData.map((item) => item.embedding));
@@ -379,7 +408,7 @@ async function generateGoogleEmbedding(text: string): Promise<number[]> {
 	const input = text.length > GOOGLE_MAX_INPUT_CHARS ? text.slice(0, GOOGLE_MAX_INPUT_CHARS) : text;
 
 	try {
-		const result = await model.embedContent(input);
+		const result = await withRetry(() => model.embedContent(input), { label: 'Google embedding' });
 		return result.embedding.values;
 	} catch (error) {
 		throw new ExternalServiceError(
@@ -411,11 +440,15 @@ async function generateGoogleEmbeddings(texts: string[]): Promise<number[][]> {
 		const allEmbeddings: number[][] = [];
 
 		for (const batch of batches) {
-			const result = await model.batchEmbedContents({
-				requests: batch.map((text) => ({
-					content: { role: 'user', parts: [{ text }] },
-				})),
-			});
+			const result = await withRetry(
+				() =>
+					model.batchEmbedContents({
+						requests: batch.map((text) => ({
+							content: { role: 'user', parts: [{ text }] },
+						})),
+					}),
+				{ label: 'Google embeddings' },
+			);
 			allEmbeddings.push(...result.embeddings.map((e) => e.values));
 		}
 
