@@ -286,7 +286,7 @@ View past Postgres analysis reports and compare trends.
 
 ## Quick Facts
 
-- 26 MCP tools available (5 document/search + 6 memory + 3 conversation + 2 stats/diagnostics + 3 insight + 4 unified + 3 Postgres analysis)
+- MCP tool count varies by surface (set via MCP_TOOLSET): `normal` (default) advertises the compact workflow tools (`ask`, `search`, `get_document`, `capture`, `remember`, `daily_briefing`, `timeline`); `full` and `legacy` advertise the full granular set. See README.md and src/tools/ for the canonical list.
 - Embedding: OpenAI (1536 dim), Google AI (3072 dim), or Ollama (1024 dim / 768 dim)
 - Database: Neon PostgreSQL with pgvector
 - Chunking: 512 tokens, 50 token overlap, paragraph-aware

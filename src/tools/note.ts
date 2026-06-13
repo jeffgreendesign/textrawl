@@ -4,7 +4,7 @@ import { createChunks } from '../db/chunks.js';
 import { createDocument } from '../db/documents.js';
 import { isDatabaseConfigured } from '../db/pg-client.js';
 import { smartChunk } from '../services/chunker.js';
-import { generateEmbeddings, isOpenAIConfigured } from '../services/embeddings.js';
+import { generateEmbeddings, isEmbeddingsConfigured } from '../services/embeddings.js';
 import { extractAndStoreMemories, isExtractionConfigured } from '../services/memory-extraction.js';
 import { configError, toolError } from '../utils/compact.js';
 import { config } from '../utils/config.js';
@@ -155,11 +155,8 @@ export function registerNoteTool(server: McpServer): void {
 				return configError('Database', 'Set DATABASE_URL');
 			}
 
-			if (!isOpenAIConfigured()) {
-				return configError(
-					'Embeddings',
-					'Set OPENAI_API_KEY to enable embedding generation for search',
-				);
+			if (!isEmbeddingsConfigured()) {
+				return configError('Embeddings', 'Configure an embedding provider');
 			}
 
 			try {

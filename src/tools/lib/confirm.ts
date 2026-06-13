@@ -21,8 +21,9 @@ export async function confirmDestructive(
 	opts: { summary: string; confirmParam: boolean },
 ): Promise<ConfirmResult> {
 	const caps = server.server.getClientCapabilities();
+	const canElicit = Boolean(caps?.elicitation);
 
-	if (caps?.elicitation) {
+	if (canElicit) {
 		try {
 			const res = await server.server.elicitInput({
 				message: `Confirm: ${opts.summary} This cannot be undone.`,
@@ -56,6 +57,6 @@ export async function confirmDestructive(
 
 	return {
 		confirmed: opts.confirmParam === true,
-		via: opts.confirmParam ? 'param' : 'unsupported',
+		via: canElicit || opts.confirmParam ? 'param' : 'unsupported',
 	};
 }

@@ -608,7 +608,7 @@ export function registerConversationTools(server: McpServer): void {
 		{
 			title: 'Delete Conversation',
 			description:
-				'Permanently delete a conversation session and all its turns. Defaults to a dry run (preview). Set dryRun=false and confirm (or accept the confirmation prompt) to actually delete.',
+				'Permanently delete a conversation session and all its turns. Use dryRun=true for a preview. Actual deletion requires dryRun=false and confirmation (confirm=true or accepting the confirmation prompt).',
 			inputSchema: {
 				sessionId: z.string().optional().describe('Session ID to delete'),
 				sessionKey: z.string().optional().describe('Session key to delete'),

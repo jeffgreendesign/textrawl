@@ -14,7 +14,7 @@ describe('resolveAccess', () => {
 		expect(d.sources).toEqual(['documents']);
 		expect(d.sensitivity).toBe('family');
 		expect(d.warnings.length).toBeGreaterThan(0);
-		expect(d.warnings[0]).toContain('allow_cross_profile');
+		expect(d.warnings[0]).toContain('allowCrossProfile');
 	});
 
 	it('restricts a public-safe audience to documents', () => {

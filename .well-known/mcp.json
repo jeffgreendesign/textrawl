@@ -470,8 +470,10 @@
 		{
 			"name": "remember",
 			"description": "Workflow tool (compact surface): write structured knowledge to the memory graph. Provide facts and/or relations (at least one). Consolidates remember_fact + build_knowledge + relate_entities.",
+			"featureFlag": "ENABLE_MEMORY",
 			"inputSchema": {
 				"type": "object",
+				"anyOf": [{ "required": ["facts"] }, { "required": ["relations"] }],
 				"properties": {
 					"facts": {
 						"type": "array",
@@ -497,7 +499,8 @@
 								"observation": { "type": "string" },
 								"source": {
 									"type": "string",
-									"enum": ["conversation", "note", "document", "manual"]
+									"enum": ["conversation", "note", "document", "manual"],
+									"default": "conversation"
 								}
 							}
 						}
@@ -512,7 +515,9 @@
 							"properties": {
 								"fromEntity": { "type": "string" },
 								"relation": { "type": "string" },
-								"toEntity": { "type": "string" }
+								"toEntity": { "type": "string" },
+								"fromEntityType": { "type": ["string", "null"] },
+								"toEntityType": { "type": ["string", "null"] }
 							}
 						}
 					}

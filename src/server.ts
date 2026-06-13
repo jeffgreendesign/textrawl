@@ -87,6 +87,8 @@ export function createMcpServer(): McpServer {
 	registerUIResources(server);
 
 	const toolset = config.MCP_TOOLSET;
+	// Effective admin-tools exposure (always on under legacy/full).
+	const adminToolsExposed = toolset === 'legacy' || toolset === 'full' || config.EXPOSE_ADMIN_TOOLS;
 
 	if (toolset === 'legacy') {
 		// `legacy`: exactly the original tool set — strict backward compatibility.
@@ -96,8 +98,7 @@ export function createMcpServer(): McpServer {
 		registerWorkflowTools(server);
 
 		// Admin/diagnostic tools: always under `full`, opt-in under `normal`.
-		const exposeAdmin = toolset === 'full' || config.EXPOSE_ADMIN_TOOLS;
-		if (exposeAdmin) {
+		if (adminToolsExposed) {
 			registerAdminTools(server);
 		}
 
@@ -112,7 +113,7 @@ export function createMcpServer(): McpServer {
 		name: 'textrawl',
 		version: PKG_VERSION,
 		toolset,
-		exposeAdminTools: config.EXPOSE_ADMIN_TOOLS,
+		exposeAdminTools: adminToolsExposed,
 		memoryEnabled: config.ENABLE_MEMORY,
 		conversationsEnabled: config.ENABLE_CONVERSATIONS,
 		insightsEnabled: config.ENABLE_INSIGHTS,
