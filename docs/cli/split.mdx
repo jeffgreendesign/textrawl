@@ -35,7 +35,7 @@ pnpm split -- ./converted/ -r --only-oversized
 | `--max-chunks <n>` | `500` | Oversized chunk-count threshold (with `--only-oversized`) |
 | `--pattern <glob>` | `**/*.md` | Glob pattern when given a directory |
 | `-r, --recursive` | `false` | Process directories recursively |
-| `-o, --output <dir>` | `./converted` | Output directory for split parts (defaults alongside source) |
+| `-o, --output <dir>` | `source dir` | Output directory for split parts (defaults to the source file's directory) |
 | `--dry-run` | `false` | Preview the split plan without writing files |
 | `-v, --verbose` | `false` | Verbose logging |
 
