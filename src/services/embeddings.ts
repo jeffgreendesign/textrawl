@@ -1,7 +1,7 @@
 import { GoogleGenerativeAI } from '@google/generative-ai';
 import OpenAI from 'openai';
 import { config } from '../utils/config.js';
-import { ExternalServiceError } from '../utils/errors.js';
+import { ExternalServiceError, ProviderHttpError } from '../utils/errors.js';
 import { logger } from '../utils/logger.js';
 import { withRetry } from '../utils/retry.js';
 
@@ -24,6 +24,9 @@ const OPENAI_EST_CHARS_PER_TOKEN = 3;
 const OPENAI_MAX_INPUT_CHARS = 8191 * 4;
 
 const OLLAMA_MAX_BATCH_SIZE = 100;
+// Abort a hung Ollama request so it rejects and `withRetry` can back off rather
+// than stalling indefinitely (the raw fetch has no built-in timeout).
+const OLLAMA_REQUEST_TIMEOUT_MS = 30_000;
 // Aggregate token ceiling per request. Like OpenAI (see OPENAI_MAX_BATCH_TOKENS),
 // item-count alone is not enough: 100 dense items can be a multi-million-char
 // request that bloats memory and risks server limits. Split by tokens too.
@@ -207,6 +210,7 @@ async function generateOllamaEmbedding(text: string): Promise<number[]> {
 				const response = await fetch(url, {
 					method: 'POST',
 					headers: { 'Content-Type': 'application/json' },
+					signal: AbortSignal.timeout(OLLAMA_REQUEST_TIMEOUT_MS),
 					body: JSON.stringify({
 						model: config.OLLAMA_MODEL,
 						input,
@@ -215,13 +219,10 @@ async function generateOllamaEmbedding(text: string): Promise<number[]> {
 
 				if (!response.ok) {
 					const errorText = await response.text();
-					const httpError = new Error(
+					throw new ProviderHttpError(
 						`Ollama returned ${response.status}: ${errorText}`,
-					) as Error & {
-						status?: number;
-					};
-					httpError.status = response.status;
-					throw httpError;
+						response.status,
+					);
 				}
 
 				return (await response.json()) as OllamaEmbedResponse;
@@ -273,6 +274,7 @@ async function generateOllamaEmbeddings(texts: string[]): Promise<number[][]> {
 					const response = await fetch(url, {
 						method: 'POST',
 						headers: { 'Content-Type': 'application/json' },
+						signal: AbortSignal.timeout(OLLAMA_REQUEST_TIMEOUT_MS),
 						body: JSON.stringify({
 							model: config.OLLAMA_MODEL,
 							input: batch,
@@ -281,11 +283,10 @@ async function generateOllamaEmbeddings(texts: string[]): Promise<number[][]> {
 
 					if (!response.ok) {
 						const errorText = await response.text();
-						const httpError = new Error(
+						throw new ProviderHttpError(
 							`Ollama returned ${response.status}: ${errorText}`,
-						) as Error & { status?: number };
-						httpError.status = response.status;
-						throw httpError;
+							response.status,
+						);
 					}
 
 					return (await response.json()) as OllamaEmbedResponse;
