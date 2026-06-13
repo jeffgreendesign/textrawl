@@ -1,4 +1,4 @@
 {
 	"title": "CLI Tools",
-	"pages": ["index", "mbox-conversion", "html-conversion", "batch-upload"]
+	"pages": ["index", "mbox-conversion", "html-conversion", "scan", "split", "batch-upload"]
 }

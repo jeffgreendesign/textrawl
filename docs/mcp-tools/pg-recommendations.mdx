@@ -91,7 +91,7 @@ Each recommendation includes:
 ## Notes
 
 - This tool is **read-only** and **not destructive** — it does not modify your database.
-- Requires the `DATABASE_URL` environment variable to be set (direct `pg` connection, independent of Supabase).
+- Requires the `DATABASE_URL` environment variable to be set (direct `pg` connection, independent of the main database client).
 - Use `severity` filtering to focus on the most impactful issues first.
 - For the full analysis report (table stats, index health, etc.), use [`pg_analyze`](/docs/mcp-tools/pg-analyze) instead.
 

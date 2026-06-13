@@ -1,9 +1,9 @@
 ---
 title: MCP Tools Overview
-description: Complete reference for textrawl's 25 MCP tools
+description: Complete reference for textrawl's 26 MCP tools
 ---
 
-textrawl exposes 25 tools via the Model Context Protocol (MCP). These tools allow Claude and other MCP clients to search, retrieve, create, and manage documents, memories, conversations, and insights in your knowledge base.
+textrawl exposes 26 tools via the Model Context Protocol (MCP). These tools allow Claude and other MCP clients to search, retrieve, create, and manage documents, memories, conversations, and insights in your knowledge base.
 
 ## Document Tools
 
@@ -121,13 +121,19 @@ Dismiss an insight so it no longer appears in results.
 
 [View documentation →](/docs/mcp-tools/dismiss-insight)
 
-## Stats
+## Stats & Diagnostics
 
 ### get_stats
 
 Get statistics across all features with scope selection: `all`, `knowledge`, `memory`, `conversations`, `insights`.
 
 [View documentation →](/docs/mcp-tools/get-stats)
+
+### health_check
+
+Per-component diagnostic check (database, documents, chunks, memory, conversations, insights). Use as the first step when diagnosing infrastructure issues.
+
+[View documentation →](/docs/mcp-tools/health-check)
 
 ## Unified Tools
 

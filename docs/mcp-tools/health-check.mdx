@@ -1,0 +1,99 @@
+---
+title: health_check
+description: Per-component diagnostic check across all textrawl subsystems
+---
+
+Quick diagnostic check across all textrawl subsystems. Returns a pass/fail result for each component with error details on failure. Use this as the **first call** when other tools are misbehaving — it isolates whether the problem is the database connection, a missing schema, or a specific feature.
+
+This tool is **read-only** and is always registered (independent of the `ENABLE_*` feature flags).
+
+## Parameters
+
+None. Call with an empty object:
+
+```json
+{}
+```
+
+## Components Checked
+
+| Component | What it verifies |
+|-----------|------------------|
+| `database` | A `SELECT 1` round-trip succeeds; reports `latencyMs` |
+| `documents` | The `documents` table is readable; reports row `count` |
+| `chunks` | The `chunks` table is readable; reports row `count` |
+| `memory` | The `memory_entities` table is readable; reports `entities` count |
+| `conversations` | The `conversation_sessions` table is readable; reports `sessions` count |
+| `insights` | The `proactive_insights` table is readable; reports `count` |
+
+## Response
+
+```json
+{
+  "status": "healthy",
+  "checks": {
+    "database": { "ok": true, "latencyMs": 12 },
+    "documents": { "ok": true, "count": 150 },
+    "chunks": { "ok": true, "count": 1840 },
+    "memory": { "ok": true, "entities": 25 },
+    "conversations": { "ok": true, "sessions": 15 },
+    "insights": { "ok": true, "count": 8 }
+  },
+  "timestamp": "2026-06-13T01:00:00.000Z"
+}
+```
+
+### Degraded example
+
+When some components fail (for example, an optional schema was never installed), the failing checks include an `error` and the overall `status` becomes `degraded`:
+
+```json
+{
+  "status": "degraded",
+  "checks": {
+    "database": { "ok": true, "latencyMs": 14 },
+    "documents": { "ok": true, "count": 150 },
+    "chunks": { "ok": true, "count": 1840 },
+    "memory": { "ok": false, "error": "relation \"memory_entities\" does not exist" },
+    "conversations": { "ok": false, "error": "relation \"conversation_sessions\" does not exist" },
+    "insights": { "ok": false, "error": "relation \"proactive_insights\" does not exist" }
+  },
+  "timestamp": "2026-06-13T01:00:00.000Z"
+}
+```
+
+## Output Schema
+
+This tool returns `structuredContent` alongside the text response, using the same canonical keys regardless of the `COMPACT_RESPONSES` setting.
+
+| Field | Type | Description |
+|-------|------|-------------|
+| `status` | enum | Overall status: `healthy` (all pass), `degraded` (some pass), `unhealthy` (none pass) |
+| `checks` | object | Map of component name → check result |
+| `checks.<name>.ok` | boolean | Whether the component check passed |
+| `checks.<name>.latencyMs` | integer? | Database round-trip latency (database check only) |
+| `checks.<name>.count` | integer? | Row count (documents, chunks, insights) |
+| `checks.<name>.entities` | integer? | Entity count (memory check) |
+| `checks.<name>.sessions` | integer? | Session count (conversations check) |
+| `checks.<name>.error` | string? | Error message when `ok` is false |
+| `timestamp` | string | ISO 8601 timestamp of the check |
+
+## Status Logic
+
+| Status | Condition |
+|--------|-----------|
+| `healthy` | Every component check passed |
+| `degraded` | At least one passed and at least one failed |
+| `unhealthy` | Every component check failed |
+
+## Errors
+
+| Error | Cause | Fix |
+|-------|-------|-----|
+| Database not configured | Missing database connection | Set `DATABASE_URL` |
+
+A missing optional schema (memory, conversations, insights) does **not** raise an error — it surfaces as a failed component check in the response so partial outages remain visible.
+
+## Related Tools
+
+- [`get_stats`](/docs/mcp-tools/get-stats) - Detailed per-feature statistics once the system is healthy

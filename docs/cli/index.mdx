@@ -30,6 +30,18 @@ Convert HTML files and web pages to searchable markdown.
 
 [HTML conversion →](/docs/cli/html-conversion)
 
+### scan
+
+Analyze converted markdown files for upload readiness and flag oversized files.
+
+[Scan →](/docs/cli/scan)
+
+### split
+
+Break large markdown files into uploadable parts at heading boundaries.
+
+[Split →](/docs/cli/split)
+
 ### upload
 
 Upload converted files to your knowledge base with automatic embedding.
@@ -50,6 +62,10 @@ pnpm convert -- <command> <path> [options]
 | `eml <path>` | Convert EML file(s) or directory |
 | `html <path>` | Convert HTML file(s) or directory |
 | `takeout <path>` | Convert Google Takeout archive |
+| `spotify <path>` | Convert Spotify data export |
+| `reddit <path>` | Convert Reddit data export |
+| `facebook <path>` | Convert Facebook data export |
+| `instagram <path>` | Convert Instagram data export |
 | `auto <path>` | Auto-detect format and convert |
 
 ## Common Options
@@ -135,4 +151,6 @@ pnpm ui
 
 - [MBOX Conversion](/docs/cli/mbox-conversion) - Import email archives
 - [HTML Conversion](/docs/cli/html-conversion) - Convert web pages
+- [Scan](/docs/cli/scan) - Check files for upload readiness
+- [Split](/docs/cli/split) - Break large files into parts
 - [Batch Upload](/docs/cli/batch-upload) - Upload to knowledge base

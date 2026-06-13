@@ -11,8 +11,8 @@ textrawl supports three embedding providers: OpenAI (cloud), Google AI (cloud), 
 |---------|--------|-----------|--------|
 | Location | Cloud | Cloud | Local |
 | Privacy | Data sent to API | Data sent to API | Data stays local |
-| Dimensions | 1536 | 768 | 1024 or 768 |
-| Model | text-embedding-3-small | text-embedding-004 | nomic-embed-text / v2-moe |
+| Dimensions | 1536 | 3072 | 1024 or 768 |
+| Model | text-embedding-3-small | gemini-embedding-2-preview | nomic-embed-text / v2-moe |
 | Cost | Pay per token | Free tier available | Free |
 | Speed | ~100ms/request | ~80ms/request | ~50ms/request |
 | Setup | API key | API key | Docker container |
@@ -38,10 +38,10 @@ psql "$DATABASE_URL" -f scripts/setup-db.sql
 # .env
 EMBEDDING_PROVIDER=google
 GOOGLE_AI_API_KEY=your-google-ai-api-key
-GOOGLE_EMBEDDING_MODEL=text-embedding-004
+GOOGLE_EMBEDDING_MODEL=gemini-embedding-2-preview
 ```
 
-Use the database schema for 768 dimensions:
+Use the database schema for 3072 dimensions:
 
 ```bash
 # Apply via psql (or any Postgres SQL editor)
@@ -87,7 +87,7 @@ To switch:
 
 ## Quality Comparison
 
-The table below compares published MTEB benchmarks for OpenAI and Ollama's nomic-embed-text. Google AI's text-embedding-004 performs comparably on standard retrieval benchmarks but is not included due to differing evaluation methodology.
+The table below compares published MTEB benchmarks for OpenAI and Ollama's nomic-embed-text. Google AI's gemini-embedding-2-preview performs comparably on standard retrieval benchmarks but is not included due to differing evaluation methodology.
 
 | Benchmark | OpenAI | nomic-embed-text |
 |-----------|--------|------------------|
@@ -108,7 +108,7 @@ OpenAI has a slight edge in benchmarks, but Ollama offers privacy and no API cos
 **Choose Google AI if:**
 
 - You want cloud convenience with a free tier
-- 768-dimension embeddings are sufficient
+- High-dimensional (3072d) embeddings suit your retrieval quality needs
 - You already use Google Cloud
 
 **Choose Ollama if:**

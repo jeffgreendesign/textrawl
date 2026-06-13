@@ -10,7 +10,7 @@ This section covers the technical details of how textrawl works under the hood.
 textrawl is built on a modern stack optimized for semantic search:
 
 - **Runtime:** Node.js 22+ with ES modules
-- **Database:** Supabase PostgreSQL with pgvector extension
+- **Database:** Neon PostgreSQL with pgvector extension (any Postgres with pgvector works)
 - **Transport:** HTTP (REST API, MCP over StreamableHTTP, WebSocket events)
 - **Embeddings:** OpenAI, Google AI, or Ollama (configurable)
 
@@ -37,7 +37,7 @@ textrawl is built on a modern stack optimized for semantic search:
                 ┌─────┴─────┐
                 ▼           ▼
            ┌─────────┐ ┌─────────┐
-           │ Supabase│ │ OpenAI/ │
+           │ Postgres│ │ OpenAI/ │
            │   DB    │ │ Ollama  │
            └─────────┘ └─────────┘
 ```
@@ -67,7 +67,7 @@ Vector representations that capture semantic meaning, enabling similarity search
 | Provider | Model | Dimensions |
 |----------|-------|------------|
 | OpenAI | text-embedding-3-small | 1536 |
-| Google AI | text-embedding-004 | 768 |
+| Google AI | gemini-embedding-2-preview | 3072 |
 | Ollama | nomic-embed-text | 1024 |
 | Ollama | nomic-embed-text-v2-moe | 768 |
 
@@ -100,7 +100,7 @@ Vector representations that capture semantic meaning, enabling similarity search
 
 ## Transport Layer
 
-textrawl exposes three transport interfaces: MCP (for AI assistants), REST API (for programmatic access), and WebSocket (for real-time events).
+textrawl exposes four transport interfaces: MCP (for AI assistants), REST API (for programmatic access), WebSocket (for real-time events), and the A2A protocol (for agent-to-agent discovery).
 
 ### MCP
 
@@ -121,6 +121,12 @@ Standard HTTP endpoints for direct integration:
 ### WebSocket
 
 Real-time event streaming for document ingestion, insight discovery, and other background operations.
+
+### A2A Protocol
+
+Agent-to-agent discovery via a public agent card at `GET /.well-known/agent.json`, letting orchestrator agents find the server and its capabilities.
+
+[Learn about the A2A protocol →](/docs/architecture/a2a-protocol)
 
 ## Rate Limiting
 

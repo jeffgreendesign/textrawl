@@ -90,7 +90,7 @@ Implementations: `src/tools/*.ts`. Full descriptions and schemas in `README.md`.
 
 ## Postgres analysis tools
 
-- Gated on `DATABASE_URL` env var (direct `pg` connection, independent of Supabase)
+- Gated on `DATABASE_URL` env var (direct `pg` connection, independent of the main database client)
 - MCP tools: `src/tools/pg-analyze.ts`
 - Analysis engine: `src/services/pg-analyze/`
 - CLI: `pnpm pg:analyze` (`scripts/cli/pg-analyze.ts`)

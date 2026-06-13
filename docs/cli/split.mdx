@@ -1,0 +1,53 @@
+---
+title: Split
+description: Break large markdown files into uploadable parts
+---
+
+`split` breaks large markdown files into smaller parts at heading boundaries. It preserves YAML frontmatter on every part and adds linking metadata so the parts stay associated. Use it on files that [`scan`](/docs/cli/scan) flags as oversized.
+
+## Usage
+
+```bash
+pnpm split -- <file-or-directory> [options]
+```
+
+```bash
+# Split a single file at h2 headings (default)
+pnpm split -- ./converted/large-file.md
+
+# Preview the split without writing files
+pnpm split -- ./converted/large-file.md --dry-run
+
+# Split only files that exceed upload limits, recursively
+pnpm split -- ./converted/ -r --only-oversized
+```
+
+## Options
+
+| Option | Default | Description |
+|--------|---------|-------------|
+| `--split-level <n>` | `2` | Heading level (1–6) to split at |
+| `--target-size <mb>` | `15` | Target maximum size per part (MB) |
+| `--target-chunks <n>` | `400` | Target maximum estimated chunks per part |
+| `--suffix <pattern>` | `-part-{n}` | Filename suffix for parts (`{n}` = part number) |
+| `--only-oversized` | `false` | Only split files that exceed the upload limits below |
+| `--max-file-size <mb>` | `20` | Oversized file-size threshold (with `--only-oversized`) |
+| `--max-chunks <n>` | `500` | Oversized chunk-count threshold (with `--only-oversized`) |
+| `--pattern <glob>` | `**/*.md` | Glob pattern when given a directory |
+| `-r, --recursive` | `false` | Process directories recursively |
+| `-o, --output <dir>` | `./converted` | Output directory for split parts (defaults alongside source) |
+| `--dry-run` | `false` | Preview the split plan without writing files |
+| `-v, --verbose` | `false` | Verbose logging |
+
+## How It Works
+
+1. The file is split at the chosen heading level (default `##`/h2). If a single section still exceeds the target size or chunk count, it is further split at paragraph boundaries.
+2. Each part keeps the original frontmatter, with added linking metadata so the parts remain grouped.
+3. Parts are named with the `--suffix` pattern — e.g. `notes-part-1.md`, `notes-part-2.md`.
+
+A 2000-line file with four `##` sections splits into roughly four parts, each small enough to upload.
+
+## Next Steps
+
+- [Scan](/docs/cli/scan) - Identify which files need splitting
+- [Batch Upload](/docs/cli/batch-upload) - Upload the split parts

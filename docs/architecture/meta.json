@@ -1,4 +1,4 @@
 {
 	"title": "Architecture",
-	"pages": ["index", "hybrid-search", "chunking", "embeddings"]
+	"pages": ["index", "hybrid-search", "chunking", "embeddings", "a2a-protocol"]
 }

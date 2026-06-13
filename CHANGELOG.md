@@ -4,6 +4,52 @@ All notable changes to Textrawl are documented in this file.
 
 The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.1.0/).
 
+## [0.4.0] - 2026-06-13
+
+### Added
+
+- **Large-upload pipeline**: GCS-backed resumable upload sessions (server initiates the session, the browser PUTs directly to the returned URI) with `/api/upload/init` and `/api/upload/complete`, an idempotent upload state machine, and the `uploads` / `upload_entries` metadata schema (`scripts/setup-db-uploads.sql`)
+- **Cloud Tasks processing**: background processing queue with OIDC authentication and dedupe, plus an internal Cloud Run processing endpoint for async single-file ingestion
+- **Processor handler registry**: pluggable converter registry covering Tier-1 file types (pdf, docx, html, xlsx, csv, json, text) with safe streaming ZIP extraction
+- **Dashboard resumable upload UX**: large-upload flow that resolves at `queued` so processing runs in the background, an honest file-type support matrix, and clear structured upload errors
+- **`scan` and `split` CLI commands**: analyze converted markdown for upload readiness and split oversized files at heading boundaries before upload
+- **Social export converters**: Spotify, Reddit, Facebook, and Instagram data-export converters
+- **Optional Redis-backed rate limiting**: set `REDIS_URL` to share rate-limit counters across server instances (falls back to in-memory)
+- **`health_check` MCP tool**: per-component diagnostic (database, documents, chunks, memory, conversations, insights) — tool count is now 26
+
+### Changed
+
+- **Google AI embedding default** → `gemini-embedding-2-preview` (3072 dimensions). **Breaking**: changing from the previous `text-embedding-004` (768d) requires re-embedding all documents with `scripts/setup-db-google.sql`
+- **Default `EXTRACTION_MODEL`** → `claude-haiku-4-5-20251001`
+- **Provider resilience**: retry transient embedding/Anthropic failures with exponential backoff; Ollama fetch timeout with typed provider errors
+- **Bounded ingestion memory**: cap memory across the upload→process pipeline and defer per-document memory extraction off the processing critical path
+
+### Fixed
+
+- Chunker O(n) force-split to stop OOM on large single-paragraph text
+- Keep OpenAI embedding batches under the 300K-token request cap
+- Tolerate truncated/fenced LLM JSON during memory extraction; raise extraction `max_tokens`
+- Return structured JSON for Multer/413/file-type upload errors; wire `MAX_SINGLE_FILE_SIZE_MB` into the multer limit
+- Dashboard: derive the WebSocket URL from the API base (no localhost fallback in production), route ZIP uploads through the resumable path, and suppress the React #418 hydration warning
+- Move `unzipper` to runtime dependencies so ZIP processing boots on Cloud Run
+- Remove a dead xlsx budget assignment flagged by CodeQL
+
+### Documentation
+
+- Synced docs to code: replaced Supabase setup with Neon / `DATABASE_URL` across installation, configuration, RUNBOOK, troubleshooting, Docker and Cloud Run guides, and per-tool error tables
+- Corrected the Google AI embedding model and dimensions (3072d) across all documentation
+- Added the `health_check` tool reference and updated the tool count from 25 to 26
+- Added `scan` and `split` CLI reference pages and documented the Spotify/Reddit/Facebook/Instagram converters
+- Added an Agent-to-Agent (A2A) protocol reference page
+- Archived completed implementation plans (`docs/plans/`) and the improvement tracker to `docs/archive/`
+
+### Dependencies
+
+- Add `@google-cloud/storage` for GCS resumable uploads
+- Add `@google-cloud/tasks` and `google-auth-library` for Cloud Tasks queueing and OIDC
+- Add `redis` and `rate-limit-redis` for optional shared rate limiting
+- Move `unzipper` to runtime dependencies
+
 ## [0.3.0] - 2026-03-26
 
 ### Added
