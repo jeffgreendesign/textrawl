@@ -839,7 +839,7 @@ export function registerMemoryTools(server: McpServer): void {
 		{
 			title: 'Forget Entity',
 			description:
-				'Permanently delete an entity and all its associated observations and relations. Defaults to a dry run (preview). Set dryRun=false and confirm (or accept the confirmation prompt) to actually delete. Cannot be undone.',
+				'Permanently delete an entity and all its associated observations and relations. Use dryRun=true for a preview. Actual deletion requires dryRun=false and confirmation (confirm=true or accepting the confirmation prompt). Cannot be undone.',
 			inputSchema: {
 				entityName: z.string().min(1).max(200).describe('Name of the entity to forget'),
 				dryRun: z

@@ -220,7 +220,7 @@ tool-filtering primitive, so `MCP_TOOLSET` is a server-local convention; host/ha
 
 | `MCP_TOOLSET` | Tools advertised |
 |---|---|
-| `normal` (**default**) | 7 workflow tools: `ask`, `search`, `get_document`, `capture`, `remember`, `daily_briefing`, `timeline`. Set `EXPOSE_ADMIN_TOOLS=true` to also expose read-only diagnostics (`health_check`, `get_stats`, insight + Postgres tools). |
+| `normal` (**default**) | Workflow tools: `ask`, `search`, `get_document`, `capture`, `daily_briefing`, `timeline` (+ `remember` when `ENABLE_MEMORY=true`). Set `EXPOSE_ADMIN_TOOLS=true` to also expose read-only diagnostics (`health_check`, `get_stats`, insight + Postgres tools). |
 | `full` | Workflow tools + diagnostics + all original granular tools (backward compatible). |
 | `legacy` | Exactly the original tool set (no workflow tools). |
 
@@ -247,8 +247,9 @@ Read-only tools (`search`, `get_document`, `list_documents`, `query_memory`, `qu
 | `remember` | Write structured knowledge to the memory graph — `facts` and/or `relations`. Consolidates `remember_fact` + `build_knowledge` + `relate_entities`. |
 
 `ask`, `search`, `get_document`, `daily_briefing`, and `timeline` (documented below)
-complete the workflow surface. `ask`/`search` accept `audience` + `allowCrossProfile`
-for privacy scoping.
+complete the workflow surface. `remember` is only advertised when `ENABLE_MEMORY=true`
+(omitted otherwise). `ask`/`search` accept `audience` + `allowCrossProfile` for
+privacy scoping.
 
 ### Document Tools
 

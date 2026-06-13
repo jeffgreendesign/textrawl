@@ -103,8 +103,8 @@ typed, well-named tools (not a single intent dispatcher).
 - `MCP_TOOLSET=legacy`: exactly the original tool set (strict backward compat).
 
 Destructive tools (`forget_entity`, `delete_conversation`) live only in
-`full`/`legacy`, default to `dryRun`, and confirm via MCP elicitation (with a
-`confirm` parameter fallback). `capture` and `remember` reuse the legacy tools'
+`full`/`legacy`, support `dryRun` previews, and confirm via MCP elicitation (with
+a `confirm` parameter fallback). `capture` and `remember` reuse the legacy tools'
 extracted core functions, so behavior stays identical.
 
 `scripts/tool-sync-check.sh` enforces that this list stays in sync with `src/tools/` and `README.md`. When adding/removing a tool, update all three.

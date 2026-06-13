@@ -94,7 +94,7 @@ export function resolveAccess(input: ResolveAccessInput = {}): AccessDecision {
 		sources = sources.filter((s) => !PRIVATE_SOURCES.includes(s));
 		if (sources.length < before) {
 			warnings.push(
-				`audience="${audience}": restricted to shared documents; personal memory, conversations, and insights were excluded. Set allow_cross_profile=true to override.`,
+				`audience="${audience}": restricted to shared documents; personal memory, conversations, and insights were excluded. Set allowCrossProfile=true to override.`,
 			);
 		}
 		// Never resolve to an empty set — fall back to documents.

@@ -98,7 +98,9 @@ export function registerRememberTool(server: McpServer): void {
 			if (!isDatabaseConfigured()) {
 				return configError('Database', 'Set DATABASE_URL');
 			}
-			if (!isEmbeddingsConfigured()) {
+			// Embeddings are only needed to store facts (observations get embedded);
+			// relation-only writes don't require an embedding provider.
+			if (facts?.length && !isEmbeddingsConfigured()) {
 				return configError('Embeddings', 'Configure an embedding provider');
 			}
 

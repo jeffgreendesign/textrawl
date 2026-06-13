@@ -70,4 +70,16 @@ describe('confirmDestructive', () => {
 		const r = await confirmDestructive(server, { summary: 'delete X.', confirmParam: true });
 		expect(r).toEqual({ confirmed: true, via: 'param' });
 	});
+
+	it('does not confirm when elicitation throws and confirmParam=false (still param path)', async () => {
+		const server = fakeServer({
+			capabilities: { elicitation: {} },
+			elicit: async () => {
+				throw new Error('transport closed');
+			},
+		});
+		const r = await confirmDestructive(server, { summary: 'delete X.', confirmParam: false });
+		// Elicitation was attempted, so the decision source is the param path, not 'unsupported'.
+		expect(r).toEqual({ confirmed: false, via: 'param' });
+	});
 });
