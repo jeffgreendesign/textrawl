@@ -31,9 +31,19 @@ describe('isRetryableProviderError', () => {
 		expect(isRetryableProviderError(new Error('Invalid response format'))).toBe(false);
 	});
 
+	it('retries timeout/abort errors (AbortSignal.timeout)', () => {
+		expect(isRetryableProviderError({ name: 'TimeoutError' })).toBe(true);
+		expect(isRetryableProviderError({ name: 'AbortError' })).toBe(true);
+	});
+
 	it('parses status out of common message shapes', () => {
 		expect(httpStatusOf(new Error('Ollama returned 429: rate limited'))).toBe(429);
 		expect(httpStatusOf(new Error('[503 Service Unavailable]'))).toBe(503);
+	});
+
+	it('extracts status from a nested response object (axios-style)', () => {
+		expect(httpStatusOf({ response: { status: 502 } })).toBe(502);
+		expect(isRetryableProviderError({ response: { status: 502 } })).toBe(true);
 	});
 });
 
@@ -45,6 +55,13 @@ describe('retryAfterMs', () => {
 	it('parses a Headers object', () => {
 		const headers = new Headers({ 'retry-after': '5' });
 		expect(retryAfterMs({ headers })).toBe(5000);
+	});
+
+	it('parses an HTTP-date Retry-After', () => {
+		const future = new Date(Date.now() + 3000).toUTCString();
+		const result = retryAfterMs({ headers: { 'retry-after': future } });
+		expect(result).toBeGreaterThan(1500);
+		expect(result).toBeLessThanOrEqual(3000);
 	});
 
 	it('returns undefined when absent', () => {

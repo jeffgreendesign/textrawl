@@ -229,3 +229,16 @@ export class ServiceUnavailableError extends TextrawlError {
 		this.name = 'ServiceUnavailableError';
 	}
 }
+
+/**
+ * A non-OK HTTP response from an external provider (e.g. Ollama's raw `fetch`
+ * path, which has no SDK to surface a status). The upstream HTTP status is
+ * stored as `statusCode` so retry classification (`withRetry`) can decide
+ * whether to back off (429/5xx) or fail fast (4xx).
+ */
+export class ProviderHttpError extends TextrawlError {
+	constructor(message: string, upstreamStatus: number) {
+		super(message, upstreamStatus, 'PROVIDER_HTTP_ERROR');
+		this.name = 'ProviderHttpError';
+	}
+}

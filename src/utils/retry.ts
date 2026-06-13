@@ -73,11 +73,17 @@ export function retryAfterMs(err: unknown): number | undefined {
 	return Number.isFinite(date) ? Math.max(0, date - Date.now()) : undefined;
 }
 
-/** True for HTTP 429 / 5xx or a recognized transient network error. */
+// Aborted/timed-out requests (e.g. AbortSignal.timeout on the Ollama fetch)
+// surface as a DOMException with one of these names and no HTTP status.
+const TRANSIENT_ERROR_NAMES = new Set(['TimeoutError', 'AbortError']);
+
+/** True for HTTP 429 / 5xx, a recognized transient network error, or a timeout. */
 export function isRetryableProviderError(err: unknown): boolean {
 	const status = httpStatusOf(err);
 	if (status !== undefined) return status === 429 || status >= 500;
-	return NETWORK_ERROR_CODES.has(errorCode(err) ?? '');
+	if (NETWORK_ERROR_CODES.has(errorCode(err) ?? '')) return true;
+	const name = (err as { name?: unknown })?.name;
+	return typeof name === 'string' && TRANSIENT_ERROR_NAMES.has(name);
 }
 
 const sleep = (ms: number): Promise<void> => new Promise((resolve) => setTimeout(resolve, ms));
