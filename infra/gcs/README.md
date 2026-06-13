@@ -1,7 +1,7 @@
 # GCS provisioning — large-upload bucket
 
 Infra-as-config for the resumable large-upload workflow
-(`docs/plans/2026-05-31-large-upload-gcs-resumable-plan.md`, §3–§7).
+(`docs/archive/2026-05-31-large-upload-gcs-resumable-plan.md`, §3–§7).
 
 ## Resource
 

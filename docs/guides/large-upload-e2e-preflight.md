@@ -25,8 +25,8 @@ here):
   `lifecycle.json`, `README.md`)
 - Cloud Tasks queue + OIDC invoker SA + IAM → [`infra/cloud-tasks/`](../../infra/cloud-tasks/)
   (`setup.sh`, `README.md`)
-- Cloud Run env activation → [`docs/plans/2026-06-06-phase4-cloud-run-activation.md`](../plans/2026-06-06-phase4-cloud-run-activation.md)
-- API contract + smoke checklist → [`docs/plans/2026-05-31-large-upload-gcs-resumable-plan.md`](../plans/2026-05-31-large-upload-gcs-resumable-plan.md) §4, §13
+- Cloud Run env activation → [`docs/archive/2026-06-06-phase4-cloud-run-activation.md`](../archive/2026-06-06-phase4-cloud-run-activation.md)
+- API contract + smoke checklist → [`docs/archive/2026-05-31-large-upload-gcs-resumable-plan.md`](../archive/2026-05-31-large-upload-gcs-resumable-plan.md) §4, §13
 - Deployment reference → [`docs/guides/cloud-run-deployment.mdx`](./cloud-run-deployment.mdx)
 
 ---

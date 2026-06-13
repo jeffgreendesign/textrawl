@@ -22,7 +22,7 @@ textrawl combines two search strategies for best results:
 Vector embeddings are numerical representations of text that capture semantic meaning:
 
 - OpenAI's `text-embedding-3-small` (1536 dimensions)
-- Google AI's `text-embedding-004` (768 dimensions)
+- Google AI's `gemini-embedding-2-preview` (3072 dimensions)
 - Ollama's `nomic-embed-text` (1024 dimensions) or `nomic-embed-text-v2-moe` (768 dimensions)
 - Stored in PostgreSQL with pgvector
 
@@ -65,7 +65,7 @@ Documents (PDF, MBOX, HTML, MD)
          └────────┬─────────┘
                   ▼
            ┌──────────┐
-           │ Supabase │
+           │ Postgres │
            │ (pgvector)│
            └──────────┘
 ```

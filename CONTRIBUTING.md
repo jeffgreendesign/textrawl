@@ -8,7 +8,7 @@ Thanks for your interest in contributing! This guide will help you get started.
 
 - Node.js >= 22.0.0
 - Docker (for local database)
-- A Supabase account OR local PostgreSQL with pgvector
+- A Neon account (or any pgvector-enabled Postgres) OR local PostgreSQL with pgvector
 - OpenAI API key OR [Ollama](https://ollama.com) (free, local) for embeddings
 
 ### Quick Start
@@ -24,7 +24,7 @@ pnpm install
 # Run the setup script (generates .env with secure token)
 pnpm setup
 
-# Start local database (optional - or use Supabase)
+# Start local database (optional - or use a hosted Postgres like Neon)
 docker-compose -f docker-compose.local.yml up -d postgres
 
 # Initialize the database
@@ -44,7 +44,7 @@ pnpm inspector   # Test with MCP Inspector
 
 # File conversion (see docs/cli/)
 pnpm convert     # Convert files (mbox, eml, html, takeout)
-pnpm upload      # Upload converted markdown to Supabase
+pnpm upload      # Upload converted markdown to your knowledge base
 pnpm ui          # Web UI for conversion
 ```
 
@@ -107,7 +107,7 @@ server.tool('tool_name', {
 ```text
 src/
 ├── api/           # Express routes and middleware
-├── db/            # Database queries (Supabase)
+├── db/            # Database queries (Postgres)
 ├── services/      # Business logic (embeddings, chunking)
 ├── tools/         # MCP tool definitions
 ├── types/         # TypeScript type definitions

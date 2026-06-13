@@ -2,7 +2,7 @@
 
 > Personal knowledge server — your documents, searchable and AI-ready
 
-Textrawl is a personal knowledge server with persistent memory, searchable documents, and proactive insights. Access it through the web dashboard, MCP for AI assistants, or the REST API. Backed by Supabase PostgreSQL with vector embeddings.
+Textrawl is a personal knowledge server with persistent memory, searchable documents, and proactive insights. Access it through the web dashboard, MCP for AI assistants, or the REST API. Backed by Neon PostgreSQL with vector embeddings.
 
 ## Server Interfaces
 
@@ -237,7 +237,7 @@ Browse knowledge chronologically within a date range, optionally filtered by top
 
 ## Postgres Analysis Tools
 
-Enabled when DATABASE_URL is configured. Connects directly to Postgres (independent of Supabase client).
+Enabled when DATABASE_URL is configured. Connects directly to Postgres (independent of the main database client).
 
 ### pg_analyze
 
@@ -268,9 +268,9 @@ View past Postgres analysis reports and compare trends.
 
 ## Quick Facts
 
-- 25 MCP tools available (5 document/search + 6 memory + 3 conversation + 1 stats + 3 insight + 4 unified + 3 Postgres analysis)
-- Embedding: OpenAI (1536 dim), Google AI (768 dim), or Ollama (1024 dim / 768 dim)
-- Database: Supabase PostgreSQL with pgvector
+- 26 MCP tools available (5 document/search + 6 memory + 3 conversation + 2 stats/diagnostics + 3 insight + 4 unified + 3 Postgres analysis)
+- Embedding: OpenAI (1536 dim), Google AI (3072 dim), or Ollama (1024 dim / 768 dim)
+- Database: Neon PostgreSQL with pgvector
 - Chunking: 512 tokens, 50 token overlap, paragraph-aware
 - Node.js >= 22.0.0 required
 

@@ -1,0 +1,66 @@
+---
+title: Scan
+description: Analyze converted markdown files for upload readiness
+---
+
+`scan` inspects converted markdown files before upload. It reports file sizes, estimated chunk counts, and heading structure, and flags files that exceed the upload limits so you can split them first.
+
+It is **read-only** — it never modifies or uploads anything.
+
+## Usage
+
+```bash
+pnpm scan -- <directory-or-file> [options]
+```
+
+```bash
+# Scan a directory, showing only problematic files
+pnpm scan -- ./converted/
+
+# Show every file, not just oversized ones
+pnpm scan -- ./converted/ --all
+
+# Detailed analysis of a single file (heading tree + split suggestions)
+pnpm scan -- ./converted/large-file.md
+```
+
+## Options
+
+| Option | Default | Description |
+|--------|---------|-------------|
+| `-r, --recursive` | `true` | Scan subdirectories |
+| `--pattern <glob>` | `**/*.md` | Glob pattern for files to scan |
+| `--max-file-size <mb>` | `20` | File size threshold (MB) before a file is flagged |
+| `--max-chunks <n>` | `500` | Estimated chunk-count threshold before a file is flagged |
+| `--all` | `false` | Show all files, not just ones that exceed limits |
+| `--format <type>` | `table` | Output format: `table` or `json` |
+
+## Example Output
+
+```text
+=== Upload Readiness Scan ===
+File size limit: 20 MB | Chunk limit: 500
+
+  STATUS              SIZE   CHUNKS  FILE
+  ✓ OK             1.2 MB     ~180  emails/2024-01.md
+  ✗ CHUNKS         4.8 MB     ~720  archive/all-threads.md
+
+=== Summary ===
+Total: 2 | Uploadable: 1 | Need splitting: 1
+Estimated total chunks: ~900
+
+=== Suggested Splits ===
+archive/all-threads.md: 6 h2 headings -> split at h2 would create ~7 parts
+  Run: pnpm split -- archive/all-threads.md
+```
+
+A file is flagged when it exceeds either `--max-file-size` (`✗ SIZE`) or `--max-chunks` (`✗ CHUNKS`). For a single file, the scan additionally prints the full heading tree and suggested split points.
+
+## Use Case
+
+Run `scan` after `pnpm convert` and before `pnpm upload` to find files that would fail the upload chunk limit. For any flagged file, run [`split`](/docs/cli/split) to break it into uploadable parts.
+
+## Next Steps
+
+- [Split](/docs/cli/split) - Break large files into uploadable parts
+- [Batch Upload](/docs/cli/batch-upload) - Upload converted files

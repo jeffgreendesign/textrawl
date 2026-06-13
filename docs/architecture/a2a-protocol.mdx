@@ -1,0 +1,91 @@
+---
+title: Agent-to-Agent (A2A) Protocol
+description: Agent discovery and task delegation via the A2A protocol
+---
+
+textrawl implements the **Agent-to-Agent (A2A) protocol**, a standard discovery mechanism that lets other AI agents find this knowledge server, learn its capabilities, and delegate natural-language tasks to it. This makes Textrawl usable as a knowledge backend inside a larger multi-agent system, not just as an MCP server for a single client.
+
+## Agent Card
+
+```text
+GET /.well-known/agent.json
+```
+
+A public, unauthenticated endpoint returning the agent card — a JSON description of the agent's identity, capabilities, and skills. An orchestrator agent points at the server URL and reads this card to auto-discover what Textrawl can do.
+
+### Example agent card
+
+```json
+{
+  "name": "Textrawl",
+  "description": "Personal knowledge base agent — search, store, and discover connections across your documents, memories, and conversations.",
+  "url": "https://your-server.example.com",
+  "version": "0.2.0",
+  "capabilities": {
+    "streaming": false,
+    "pushNotifications": false
+  },
+  "skills": [
+    { "id": "search", "name": "Search Knowledge", "description": "Search across all personal knowledge including documents, memories, conversations, and insights." },
+    { "id": "save", "name": "Save Knowledge", "description": "Save notes, URLs, or documents to the knowledge base." },
+    { "id": "memory", "name": "Memory Graph", "description": "Store and query facts about entities — people, projects, concepts, and their relationships." },
+    { "id": "insights", "name": "Discover Insights", "description": "Find connections and patterns across your knowledge base." }
+  ],
+  "defaultInputModes": ["text"],
+  "defaultOutputModes": ["text"],
+  "authentication": { "schemes": ["bearer"] }
+}
+```
+
+The `url` field is derived from `OAUTH_SERVER_URL` (falling back to `http://localhost:<PORT>`), so set that env var in production to advertise the correct origin.
+
+## Task Delegation
+
+```text
+POST /.well-known/agent/tasks
+```
+
+Accepts an A2A task message and routes its text through Textrawl's unified search pipeline (documents + memories + conversations, gated by `ENABLE_MEMORY` / `ENABLE_CONVERSATIONS`). Unlike the agent card, this endpoint **requires authentication** — send `Authorization: Bearer <API_BEARER_TOKEN>`.
+
+### Request
+
+```json
+{
+  "message": {
+    "parts": [{ "type": "text", "text": "What did I learn about pgvector indexing?" }]
+  }
+}
+```
+
+### Response
+
+```json
+{
+  "id": "task-1718240000000",
+  "status": { "state": "completed" },
+  "output": {
+    "parts": [{ "type": "text", "text": "[1] [document] pgvector notes: HNSW indexes trade build time for query speed..." }]
+  },
+  "metadata": {
+    "resultCount": 3,
+    "counts": { "documents": 2, "memories": 1, "conversations": 0 },
+    "sources": [{ "type": "document", "id": "550e8400-...", "title": "pgvector notes" }]
+  }
+}
+```
+
+## Security
+
+- `GET /.well-known/agent.json` is **publicly readable by design** — the agent card exposes only capability metadata, no knowledge content.
+- `POST /.well-known/agent/tasks` is protected by bearer auth. Discovery is open; actually querying your knowledge still requires `API_BEARER_TOKEN`.
+
+## How to Use
+
+1. Deploy Textrawl with `OAUTH_SERVER_URL` (or a reverse-proxy origin) and `API_BEARER_TOKEN` set.
+2. Point an orchestrator agent at the server origin; it fetches `/.well-known/agent.json` and registers the four skills.
+3. The orchestrator delegates natural-language tasks via `POST /.well-known/agent/tasks` with the bearer token.
+
+## Related
+
+- [MCP Tools Overview](/docs/mcp-tools) - The full tool surface available over MCP
+- [Architecture Overview](/docs/architecture) - Transports, request flow, and components

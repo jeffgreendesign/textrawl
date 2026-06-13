@@ -1,9 +1,9 @@
 ---
 title: Batch Upload
-description: Upload converted files to Supabase with automatic embedding
+description: Upload converted files to your knowledge base with automatic embedding
 ---
 
-Upload converted markdown files to your Supabase knowledge base with automatic chunking and embedding.
+Upload converted markdown files to your knowledge base with automatic chunking and embedding.
 
 ## Usage
 
@@ -40,7 +40,7 @@ pnpm upload -- ./converted/ --dry-run
 3. **Parse Frontmatter**: Extract metadata
 4. **Chunk Content**: Split into ~512 token chunks
 5. **Generate Embeddings**: Via OpenAI or Ollama
-6. **Store in Supabase**: Documents + chunks + embeddings
+6. **Store in Postgres**: Documents + chunks + embeddings
 7. **Update Manifest**: Track uploaded files
 
 ## Manifest File
@@ -67,7 +67,7 @@ Use `--force` to ignore the manifest and re-upload everything.
 Uploads are rate-limited to avoid API throttling:
 
 - **Embedding API**: 60 requests/minute
-- **Supabase**: 100 requests/minute
+- **Server API**: 100 requests/minute
 
 ## Error Handling
 

@@ -1,6 +1,6 @@
 {
 	"name": "textrawl",
-	"version": "0.3.0",
+	"version": "0.4.0",
 	"description": "Personal knowledge server - semantic search, persistent memory, and proactive insights for your documents",
 	"type": "module",
 	"engines": {

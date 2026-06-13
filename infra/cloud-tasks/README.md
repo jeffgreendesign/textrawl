@@ -1,7 +1,7 @@
 # Cloud Tasks provisioning — async upload processing
 
 Infra-as-config for the Phase 4 async pipeline
-(`docs/plans/2026-06-01-phase4-cloud-tasks-impl.md`). Cloud Tasks delivers an
+(`docs/archive/2026-06-01-phase4-cloud-tasks-impl.md`). Cloud Tasks delivers an
 OIDC-authenticated request to the internal `POST /api/upload/process/:uploadId`
 endpoint on the existing `textrawl` Cloud Run service; the app verifies the OIDC
 token itself (the service is public for MCP/API, so this is the access control).
@@ -43,7 +43,7 @@ re-run.
 > **The T4.1–T4.3 code is now merged and deployed.** For the remaining activation
 > steps — which env vars are still missing, how to resolve the live service URL,
 > and a copy-paste agent prompt — see
-> [docs/plans/2026-06-06-phase4-cloud-run-activation.md](../../docs/plans/2026-06-06-phase4-cloud-run-activation.md).
+> [docs/archive/2026-06-06-phase4-cloud-run-activation.md](../../docs/archive/2026-06-06-phase4-cloud-run-activation.md).
 
 `setup.sh` prints the exact values. The processing code reads these env vars;
 they are inert until that code ships, so set them at the same deploy:

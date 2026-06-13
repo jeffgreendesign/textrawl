@@ -17,9 +17,9 @@ pnpm inspector
 
 ## Safety rules
 
-- Never log, print, or commit `SUPABASE_SERVICE_KEY` or `API_BEARER_TOKEN`.
-- Keep server-only secrets server-side. Do not place service-role credentials in desktop renderer code, website bundles, or client config files.
-- Treat desktop distribution as client-like: only call server APIs from the desktop app, never embed privileged Supabase keys.
+- Never log, print, or commit `DATABASE_URL` or `API_BEARER_TOKEN`.
+- Keep server-only secrets server-side. Do not place database credentials in desktop renderer code, website bundles, or client config files.
+- Treat desktop distribution as client-like: only call server APIs from the desktop app, never embed privileged database credentials.
 
 ## MCP tool inventory
 

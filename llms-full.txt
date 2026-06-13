@@ -4,7 +4,7 @@
 
 ## Overview
 
-Textrawl is a personal knowledge server with persistent memory, searchable documents, and proactive insights. Access it through the web dashboard, MCP for AI assistants, or the REST API. Backed by Supabase PostgreSQL with vector embeddings.
+Textrawl is a personal knowledge server with persistent memory, searchable documents, and proactive insights. Access it through the web dashboard, MCP for AI assistants, or the REST API. Backed by Neon PostgreSQL with vector embeddings.
 
 ## Quick Start
 
@@ -480,7 +480,7 @@ Example:
 
 ## Postgres Analysis Tools
 
-Enabled when `DATABASE_URL` is configured. Connects directly to Postgres via `pg` (independent of Supabase client).
+Enabled when `DATABASE_URL` is configured. Connects directly to Postgres via `pg` (independent of the main database client).
 
 ### pg_analyze
 
@@ -506,15 +506,13 @@ Parameters:
 
 ## Environment Variables
 
-Required (for Supabase-backed features — not needed for standalone Postgres analysis):
-- SUPABASE_URL: Database connection URL
-- SUPABASE_SERVICE_KEY: Service role authentication
+Required (for database-backed features):
+- DATABASE_URL: Postgres connection string (Neon pooled URL recommended; any pgvector-enabled Postgres works). Also powers the pg_analyze tools.
 
 Conditional:
 - OPENAI_API_KEY: For cloud embeddings (text-embedding-3-small, 1536 dims)
-- GOOGLE_AI_API_KEY: For Google AI embeddings (text-embedding-004, 768 dims)
+- GOOGLE_AI_API_KEY: For Google AI embeddings (gemini-embedding-2-preview, 3072 dims)
 - OLLAMA_BASE_URL + OLLAMA_MODEL: For local embeddings (nomic-embed-text 1024d, nomic-embed-text-v2-moe 768d)
-- DATABASE_URL: Direct Postgres connection for pg_analyze tools (pg_analyze, pg_recommendations, pg_report_history); standalone — does not require Supabase credentials
 
 Optional:
 - PG_REPORT_DIR: Directory for Postgres analysis report files (default ./reports/pg-analysis)
@@ -527,7 +525,7 @@ Optional:
 - ENABLE_INSIGHTS: Enable proactive insight tools (default true)
 - ENABLE_MEMORY_EXTRACTION: Enable LLM-based memory extraction (default false)
 - ANTHROPIC_API_KEY: Required for extract_memories tool
-- EXTRACTION_MODEL: Model for extraction (default claude-haiku-4-5-20250501)
+- EXTRACTION_MODEL: Model for extraction (default claude-haiku-4-5-20251001)
 - INSIGHT_MODEL: Model for insight synthesis (default claude-sonnet-4-6-20250514)
 
 ## CLI Tools
@@ -540,7 +538,7 @@ pnpm convert -- html ./saved-pages/ -r
 pnpm convert -- takeout ./Takeout.zip
 ```
 
-### Upload to Supabase
+### Upload to Knowledge Base
 
 ```bash
 pnpm upload -- ./converted/
