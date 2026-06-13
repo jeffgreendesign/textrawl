@@ -20,6 +20,7 @@ import { isDatabaseConfigured } from '../db/pg-client.js';
 import { generateEmbedding, isOpenAIConfigured } from '../services/embeddings.js';
 import { configError, formatId, isCompact, toJSON, toolError } from '../utils/compact.js';
 import { logger } from '../utils/logger.js';
+import { confirmDestructive } from './lib/confirm.js';
 
 /**
  * Register all conversation-related MCP tools
@@ -607,11 +608,20 @@ export function registerConversationTools(server: McpServer): void {
 		{
 			title: 'Delete Conversation',
 			description:
-				'Permanently delete a conversation session and all its turns. Requires confirm=true to proceed.',
+				'Permanently delete a conversation session and all its turns. Defaults to a dry run (preview). Set dryRun=false and confirm (or accept the confirmation prompt) to actually delete.',
 			inputSchema: {
 				sessionId: z.string().optional().describe('Session ID to delete'),
 				sessionKey: z.string().optional().describe('Session key to delete'),
-				confirm: z.boolean().describe('Must be true to confirm deletion'),
+				dryRun: z
+					.boolean()
+					.default(false)
+					.describe('Preview only — report what would be deleted without deleting.'),
+				confirm: z
+					.boolean()
+					.default(false)
+					.describe(
+						'Confirm deletion. Fallback when the client does not support interactive confirmation (elicitation).',
+					),
 			},
 			annotations: {
 				readOnlyHint: false,
@@ -619,12 +629,8 @@ export function registerConversationTools(server: McpServer): void {
 				openWorldHint: false,
 			},
 		},
-		async ({ sessionId, sessionKey, confirm }) => {
-			logger.info('delete_conversation called', { sessionId, sessionKey, confirm });
-
-			if (!confirm) {
-				return toolError('Set confirm=true to delete');
-			}
+		async ({ sessionId, sessionKey, dryRun, confirm }) => {
+			logger.info('delete_conversation called', { sessionId, sessionKey, dryRun, confirm });
 
 			if (!sessionId && !sessionKey) {
 				return toolError('Either sessionId or sessionKey is required');
@@ -647,6 +653,35 @@ export function registerConversationTools(server: McpServer): void {
 
 				if (!resolvedSessionId) {
 					return toolError('No session ID resolved');
+				}
+
+				if (dryRun) {
+					return {
+						content: [
+							{
+								type: 'text' as const,
+								text: toJSON({
+									dryRun: true,
+									wouldDelete: { sessionId: formatId(resolvedSessionId) },
+									message:
+										'Dry run — nothing deleted. Set dryRun=false and confirm to permanently delete this conversation and all its turns.',
+								}),
+							},
+						],
+					};
+				}
+
+				const confirmation = await confirmDestructive(server, {
+					summary: 'permanently delete this conversation and all its turns.',
+					confirmParam: confirm,
+				});
+				if (!confirmation.confirmed) {
+					return toolError(
+						'delete_conversation',
+						new Error(
+							'Deletion not confirmed. Set confirm=true (or accept the confirmation prompt) to delete.',
+						),
+					);
 				}
 
 				await deleteSession(resolvedSessionId);

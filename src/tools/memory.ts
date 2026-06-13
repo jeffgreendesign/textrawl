@@ -26,6 +26,7 @@ import {
 	toolResponse,
 } from '../utils/compact.js';
 import { logger } from '../utils/logger.js';
+import { confirmDestructive } from './lib/confirm.js';
 
 const EntityTypeSchema = z.enum([
 	'person',
@@ -61,6 +62,183 @@ function sanitizeEntityType(value: unknown): EntityType | undefined {
 	}
 	// Unknown type — return undefined so we fall back to auto-detection
 	return undefined;
+}
+
+type MemorySource = 'conversation' | 'note' | 'document' | 'manual';
+
+export interface RunRememberFactInput {
+	entityName: string;
+	entityType: EntityType;
+	observation: string;
+	source?: MemorySource;
+	validUntil?: string | null;
+}
+
+export interface RunRememberFactResult {
+	entityId: string;
+	entityName: string;
+	entityType: string;
+	observationId: string;
+	duplicate: boolean;
+}
+
+/**
+ * Core single-fact write. Shared by the legacy `remember_fact` tool and the
+ * consolidated `remember` tool. Throws on failure; callers do config checks.
+ */
+export async function runRememberFact(input: RunRememberFactInput): Promise<RunRememberFactResult> {
+	const { entityName, entityType, observation, source = 'conversation', validUntil } = input;
+
+	const entity = await getOrCreateEntity({ name: entityName, entityType });
+	const embedding = await generateEmbedding(observation);
+
+	const existing = await findSimilarObservation(entity.id, observation, 0.95, embedding);
+	if (existing) {
+		return {
+			entityId: entity.id,
+			entityName: entity.name,
+			entityType: entity.entity_type,
+			observationId: existing.id,
+			duplicate: true,
+		};
+	}
+
+	const obs = await createObservation({
+		entityId: entity.id,
+		content: observation,
+		source,
+		embedding,
+		validUntil: validUntil || null,
+	});
+
+	return {
+		entityId: entity.id,
+		entityName: entity.name,
+		entityType: entity.entity_type,
+		observationId: obs.id,
+		duplicate: false,
+	};
+}
+
+export interface RunRelateInput {
+	fromEntity: string;
+	relation: string;
+	toEntity: string;
+	fromEntityType?: EntityType | null;
+	toEntityType?: EntityType | null;
+}
+
+export interface RunRelateResult {
+	relationId: string;
+	fromEntity: { id: string; name: string; type: string };
+	toEntity: { id: string; name: string; type: string };
+}
+
+/**
+ * Core relation write (entities auto-created, type inferred). Shared by the
+ * legacy `relate_entities` tool and the consolidated `remember` tool.
+ */
+export async function runRelate(input: RunRelateInput): Promise<RunRelateResult> {
+	const cleanFromType = sanitizeEntityType(input.fromEntityType);
+	const cleanToType = sanitizeEntityType(input.toEntityType);
+
+	const fromEntityObj = await getOrCreateEntity({
+		name: input.fromEntity,
+		entityType:
+			cleanFromType || (await findEntityByName(input.fromEntity))?.entity_type || 'concept',
+	});
+	const toEntityObj = await getOrCreateEntity({
+		name: input.toEntity,
+		entityType: cleanToType || (await findEntityByName(input.toEntity))?.entity_type || 'concept',
+	});
+
+	const rel = await getOrCreateRelation({
+		fromEntityId: fromEntityObj.id,
+		toEntityId: toEntityObj.id,
+		relationType: input.relation,
+	});
+
+	return {
+		relationId: rel.id,
+		fromEntity: { id: fromEntityObj.id, name: fromEntityObj.name, type: fromEntityObj.entity_type },
+		toEntity: { id: toEntityObj.id, name: toEntityObj.name, type: toEntityObj.entity_type },
+	};
+}
+
+export interface RunBuildKnowledgeInput {
+	facts?: Array<{
+		entityName: string;
+		entityType: EntityType;
+		observation: string;
+		source?: MemorySource;
+	}>;
+	relations?: Array<{
+		fromEntity: string;
+		relation: string;
+		toEntity: string;
+		fromEntityType?: EntityType | null;
+		toEntityType?: EntityType | null;
+	}>;
+}
+
+export interface RunBuildKnowledgeResult {
+	factsCreated: number;
+	factsDuplicate: number;
+	relationsCreated: number;
+	errors: string[];
+}
+
+/**
+ * Core batch write of facts + relations. Shared by the legacy `build_knowledge`
+ * tool and the consolidated `remember` tool. Per-item failures are collected
+ * into `errors` rather than aborting the batch.
+ */
+export async function runBuildKnowledge(
+	input: RunBuildKnowledgeInput,
+): Promise<RunBuildKnowledgeResult> {
+	const { facts, relations } = input;
+	let factsCreated = 0;
+	let factsDuplicate = 0;
+	let relationsCreated = 0;
+	const errors: string[] = [];
+
+	if (facts?.length) {
+		for (const fact of facts) {
+			try {
+				const result = await runRememberFact({
+					entityName: fact.entityName,
+					entityType: fact.entityType,
+					observation: fact.observation,
+					source: fact.source,
+				});
+				if (result.duplicate) factsDuplicate++;
+				else factsCreated++;
+			} catch (error) {
+				const msg = `fact "${fact.entityName}": ${error instanceof Error ? error.message : String(error)}`;
+				logger.error('build_knowledge fact failed', { entity: fact.entityName, error: msg });
+				errors.push(msg);
+			}
+		}
+	}
+
+	if (relations?.length) {
+		for (const rel of relations) {
+			try {
+				await runRelate(rel);
+				relationsCreated++;
+			} catch (error) {
+				const msg = `relation "${rel.fromEntity} ${rel.relation} ${rel.toEntity}": ${error instanceof Error ? error.message : String(error)}`;
+				logger.error('build_knowledge relation failed', {
+					from: rel.fromEntity,
+					to: rel.toEntity,
+					error: msg,
+				});
+				errors.push(msg);
+			}
+		}
+	}
+
+	return { factsCreated, factsDuplicate, relationsCreated, errors };
 }
 
 /**
@@ -129,27 +307,18 @@ export function registerMemoryTools(server: McpServer): void {
 			}
 
 			try {
-				// Get or create the entity
-				const entity = await getOrCreateEntity({
-					name: entityName,
-					entityType: entityType as EntityType,
-				});
-
-				// Generate embedding first so we can use it for semantic dedup
-				const embedStart = Date.now();
-				const embedding = await generateEmbedding(observation);
-				logger.debug('embedding generated', {
-					operation: 'remember_fact',
+				const result = await runRememberFact({
 					entityName,
-					latencyMs: Date.now() - embedStart,
+					entityType: entityType as EntityType,
+					observation,
+					source,
+					validUntil,
 				});
 
-				// Check for duplicate observation (exact match + semantic similarity)
-				const existing = await findSimilarObservation(entity.id, observation, 0.95, embedding);
-				if (existing) {
+				if (result.duplicate) {
 					logger.debug('Duplicate observation skipped', {
-						entityId: entity.id,
-						observationId: existing.id,
+						entityId: result.entityId,
+						observationId: result.observationId,
 					});
 					return {
 						content: [
@@ -157,13 +326,13 @@ export function registerMemoryTools(server: McpServer): void {
 								type: 'text' as const,
 								text: toJSON(
 									isCompact()
-										? { ok: true, dup: true, id: formatId(existing.id) }
+										? { ok: true, dup: true, id: formatId(result.observationId) }
 										: {
 												success: true,
 												duplicate: true,
 												message: 'This fact was already remembered.',
-												entityId: formatId(entity.id),
-												observationId: formatId(existing.id),
+												entityId: formatId(result.entityId),
+												observationId: formatId(result.observationId),
 											},
 								),
 							},
@@ -171,18 +340,9 @@ export function registerMemoryTools(server: McpServer): void {
 					};
 				}
 
-				// Create the observation (reuse embedding from above)
-				const obs = await createObservation({
-					entityId: entity.id,
-					content: observation,
-					source,
-					embedding,
-					validUntil: validUntil || null,
-				});
-
 				logger.info('Fact remembered', {
-					entityId: entity.id,
-					observationId: obs.id,
+					entityId: result.entityId,
+					observationId: result.observationId,
 				});
 
 				return {
@@ -191,14 +351,18 @@ export function registerMemoryTools(server: McpServer): void {
 							type: 'text' as const,
 							text: toJSON(
 								isCompact()
-									? { ok: true, entity: formatId(entity.id), obs: formatId(obs.id) }
+									? {
+											ok: true,
+											entity: formatId(result.entityId),
+											obs: formatId(result.observationId),
+										}
 									: {
 											success: true,
 											message: `Remembered: "${observation}" about ${entityName}`,
-											entityId: formatId(entity.id),
-											entityName: entity.name,
-											entityType: entity.entity_type,
-											observationId: formatId(obs.id),
+											entityId: formatId(result.entityId),
+											entityName: result.entityName,
+											entityType: result.entityType,
+											observationId: formatId(result.observationId),
 										},
 							),
 						},
@@ -616,32 +780,16 @@ export function registerMemoryTools(server: McpServer): void {
 			}
 
 			try {
-				// Sanitize optional entity types:
-				// LLMs sometimes pass null, "null", or undefined for optional params.
-				const cleanFromType = sanitizeEntityType(fromEntityType);
-				const cleanToType = sanitizeEntityType(toEntityType);
-
-				// Get or create entities (with type inference from existing entities)
-				const fromEntityObj = await getOrCreateEntity({
-					name: fromEntity,
-					entityType:
-						cleanFromType || (await findEntityByName(fromEntity))?.entity_type || 'concept',
-				});
-
-				const toEntityObj = await getOrCreateEntity({
-					name: toEntity,
-					entityType: cleanToType || (await findEntityByName(toEntity))?.entity_type || 'concept',
-				});
-
-				// Create the relation
-				const rel = await getOrCreateRelation({
-					fromEntityId: fromEntityObj.id,
-					toEntityId: toEntityObj.id,
-					relationType: relation,
+				const rel = await runRelate({
+					fromEntity,
+					relation,
+					toEntity,
+					fromEntityType,
+					toEntityType,
 				});
 
 				logger.info('Relation created', {
-					relationId: rel.id,
+					relationId: rel.relationId,
 					from: fromEntity,
 					to: toEntity,
 					type: relation,
@@ -653,20 +801,20 @@ export function registerMemoryTools(server: McpServer): void {
 							type: 'text' as const,
 							text: toJSON(
 								isCompact()
-									? { ok: true, id: formatId(rel.id) }
+									? { ok: true, id: formatId(rel.relationId) }
 									: {
 											success: true,
 											message: `Created relation: ${fromEntity} ${relation} ${toEntity}`,
-											relationId: formatId(rel.id),
+											relationId: formatId(rel.relationId),
 											fromEntity: {
-												id: formatId(fromEntityObj.id),
-												name: fromEntityObj.name,
-												type: fromEntityObj.entity_type,
+												id: formatId(rel.fromEntity.id),
+												name: rel.fromEntity.name,
+												type: rel.fromEntity.type,
 											},
 											toEntity: {
-												id: formatId(toEntityObj.id),
-												name: toEntityObj.name,
-												type: toEntityObj.entity_type,
+												id: formatId(rel.toEntity.id),
+												name: rel.toEntity.name,
+												type: rel.toEntity.type,
 											},
 										},
 							),
@@ -691,10 +839,19 @@ export function registerMemoryTools(server: McpServer): void {
 		{
 			title: 'Forget Entity',
 			description:
-				'Permanently delete an entity and all its associated observations and relations. Requires confirm=true. This action cannot be undone.',
+				'Permanently delete an entity and all its associated observations and relations. Defaults to a dry run (preview). Set dryRun=false and confirm (or accept the confirmation prompt) to actually delete. Cannot be undone.',
 			inputSchema: {
 				entityName: z.string().min(1).max(200).describe('Name of the entity to forget'),
-				confirm: z.boolean().describe('Must be true to confirm deletion'),
+				dryRun: z
+					.boolean()
+					.default(false)
+					.describe('Preview only — report what would be deleted without deleting.'),
+				confirm: z
+					.boolean()
+					.default(false)
+					.describe(
+						'Confirm deletion. Fallback when the client does not support interactive confirmation (elicitation).',
+					),
 			},
 			annotations: {
 				readOnlyHint: false,
@@ -703,17 +860,8 @@ export function registerMemoryTools(server: McpServer): void {
 				openWorldHint: false,
 			},
 		},
-		async ({ entityName, confirm }) => {
-			logger.info('forget_entity called', { entityName, confirm });
-
-			if (!confirm) {
-				return toolError(
-					'forget_entity',
-					new Error(
-						'Deletion not confirmed. Set confirm=true to delete. This action is irreversible.',
-					),
-				);
-			}
+		async ({ entityName, dryRun, confirm }) => {
+			logger.info('forget_entity called', { entityName, dryRun, confirm });
 
 			if (!isDatabaseConfigured()) {
 				return configError('Database', 'Set DATABASE_URL');
@@ -727,6 +875,35 @@ export function registerMemoryTools(server: McpServer): void {
 						'forget_entity',
 						new Error(
 							`Entity "${entityName}" not found. Use query_memory with mode="list" to see available entities.`,
+						),
+					);
+				}
+
+				if (dryRun) {
+					return {
+						content: [
+							{
+								type: 'text' as const,
+								text: toJSON({
+									dryRun: true,
+									wouldDelete: { entityId: formatId(entity.id), entityName },
+									message:
+										'Dry run — nothing deleted. Set dryRun=false and confirm to permanently delete this entity and all its memories.',
+								}),
+							},
+						],
+					};
+				}
+
+				const confirmation = await confirmDestructive(server, {
+					summary: `permanently delete the entity "${entityName}" and all its memories.`,
+					confirmParam: confirm,
+				});
+				if (!confirmation.confirmed) {
+					return toolError(
+						'forget_entity',
+						new Error(
+							'Deletion not confirmed. Set confirm=true (or accept the confirmation prompt) to delete.',
 						),
 					);
 				}
@@ -961,90 +1138,10 @@ export function registerMemoryTools(server: McpServer): void {
 					return configError('Embedding provider', 'Set OPENAI_API_KEY or configure Ollama');
 				}
 
-				let factsCreated = 0;
-				let factsDuplicate = 0;
-				let relationsCreated = 0;
-				const errors: string[] = [];
-
-				// Process facts
-				if (facts?.length) {
-					for (const fact of facts) {
-						try {
-							const entity = await getOrCreateEntity({
-								name: fact.entityName,
-								entityType: fact.entityType as EntityType,
-							});
-
-							// Generate embedding first for semantic dedup
-							const embedding = await generateEmbedding(fact.observation);
-
-							// Check for duplicate (exact match + semantic similarity)
-							const existing = await findSimilarObservation(
-								entity.id,
-								fact.observation,
-								0.95,
-								embedding,
-							);
-							if (existing) {
-								factsDuplicate++;
-								continue;
-							}
-
-							// Create observation (reuse embedding from above)
-							await createObservation({
-								entityId: entity.id,
-								content: fact.observation,
-								source: fact.source,
-								embedding,
-								validUntil: null,
-							});
-							factsCreated++;
-						} catch (error) {
-							const msg = `fact "${fact.entityName}": ${error instanceof Error ? error.message : String(error)}`;
-							logger.error('build_knowledge fact failed', { entity: fact.entityName, error: msg });
-							errors.push(msg);
-						}
-					}
-				}
-
-				// Process relations
-				if (relations?.length) {
-					for (const rel of relations) {
-						try {
-							const cleanFromType = sanitizeEntityType(rel.fromEntityType);
-							const cleanToType = sanitizeEntityType(rel.toEntityType);
-
-							const fromEntityObj = await getOrCreateEntity({
-								name: rel.fromEntity,
-								entityType:
-									cleanFromType ||
-									(await findEntityByName(rel.fromEntity))?.entity_type ||
-									'concept',
-							});
-
-							const toEntityObj = await getOrCreateEntity({
-								name: rel.toEntity,
-								entityType:
-									cleanToType || (await findEntityByName(rel.toEntity))?.entity_type || 'concept',
-							});
-
-							await getOrCreateRelation({
-								fromEntityId: fromEntityObj.id,
-								toEntityId: toEntityObj.id,
-								relationType: rel.relation,
-							});
-							relationsCreated++;
-						} catch (error) {
-							const msg = `relation "${rel.fromEntity} ${rel.relation} ${rel.toEntity}": ${error instanceof Error ? error.message : String(error)}`;
-							logger.error('build_knowledge relation failed', {
-								from: rel.fromEntity,
-								to: rel.toEntity,
-								error: msg,
-							});
-							errors.push(msg);
-						}
-					}
-				}
+				const { factsCreated, factsDuplicate, relationsCreated, errors } = await runBuildKnowledge({
+					facts,
+					relations,
+				});
 
 				const hasErrors = errors.length > 0;
 				logger.info('build_knowledge completed', {

@@ -69,6 +69,24 @@ Create markdown notes with automatic embedding.
 - content (string, REQUIRED): Markdown content (max 1MB)
 - tags (string[]): Tags for organization
 
+### capture
+
+Workflow tool (compact `normal` surface). Save content to the knowledge base; consolidates add_note + save_url.
+
+- kind (enum, REQUIRED): "note" or "url"
+- title (string): note title (required for kind=note) or url title override
+- content (string): markdown body (required for kind=note)
+- url (string): web page URL (required for kind=url)
+- tags (string[]): tags for organization
+- audience (enum): private_jeff | family_shared | public_safe
+
+### remember
+
+Workflow tool (compact `normal` surface). Write structured knowledge to the memory graph; consolidates remember_fact + build_knowledge + relate_entities. Requires at least one of facts/relations.
+
+- facts (array): [{ entityName, entityType, observation, source? }] (a single fact is a one-element array)
+- relations (array): [{ fromEntity, relation, toEntity }]
+
 ## Memory Tools (Persistent Memory)
 
 Enable with ENABLE_MEMORY=true (default). Requires setup-db-memory.sql schema.

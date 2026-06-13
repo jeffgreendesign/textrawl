@@ -1,5 +1,6 @@
 import type { McpServer } from '@modelcontextprotocol/sdk/server/mcp.js';
 import { z } from 'zod';
+import { resolveAccess } from '../services/access-policy.js';
 import { unifiedSearch } from '../services/search.js';
 import { formatId, toolError, toolResponse } from '../utils/compact.js';
 import { logger } from '../utils/logger.js';
@@ -39,6 +40,8 @@ const SearchOutputSchema = {
 			conversations: z.number(),
 		})
 		.optional(),
+	sensitivity: z.string().optional(),
+	warnings: z.array(z.string()).optional(),
 };
 
 /**
@@ -111,6 +114,16 @@ export function registerSearchTool(server: McpServer): void {
 					.describe(
 						'Also search past conversations (requires ENABLE_CONVERSATIONS). Results are fused with document results by score.',
 					),
+				audience: z
+					.enum(['private_jeff', 'family_shared', 'public_safe'])
+					.default('private_jeff')
+					.describe(
+						'Who the results are for. "family_shared"/"public_safe" exclude private memories and conversations unless allowCrossProfile=true.',
+					),
+				allowCrossProfile: z
+					.boolean()
+					.default(false)
+					.describe('Allow a family/public audience to read private memories/conversations.'),
 				memoryWeight: z
 					.number()
 					.min(0)
@@ -144,6 +157,8 @@ export function registerSearchTool(server: McpServer): void {
 			includeConversations,
 			memoryWeight,
 			conversationWeight,
+			audience,
+			allowCrossProfile,
 		}) => {
 			logger.info('search called', {
 				query,
@@ -156,7 +171,21 @@ export function registerSearchTool(server: McpServer): void {
 				minScore,
 				includeMemories,
 				includeConversations,
+				audience,
 			});
+
+			// Central privacy/audience enforcement — may downgrade private sources.
+			const access = resolveAccess({ scope: 'auto', audience, allowCrossProfile });
+			const effectiveIncludeMemories = includeMemories && access.sources.includes('memory');
+			const effectiveIncludeConversations =
+				includeConversations && access.sources.includes('conversations');
+			const warnings = [...access.warnings];
+			if (includeMemories && !effectiveIncludeMemories) {
+				warnings.push('Memory search was disabled for this audience.');
+			}
+			if (includeConversations && !effectiveIncludeConversations) {
+				warnings.push('Conversation search was disabled for this audience.');
+			}
 
 			try {
 				const response = await unifiedSearch({
@@ -168,8 +197,8 @@ export function registerSearchTool(server: McpServer): void {
 					sourceType,
 					contentType,
 					minScore,
-					includeMemories,
-					includeConversations,
+					includeMemories: effectiveIncludeMemories,
+					includeConversations: effectiveIncludeConversations,
 					memoryWeight,
 					conversationWeight,
 				});
@@ -179,6 +208,8 @@ export function registerSearchTool(server: McpServer): void {
 					totalResults: response.totalResults,
 					...(response.counts ? { counts: response.counts } : {}),
 					results: response.results,
+					sensitivity: access.sensitivity,
+					...(warnings.length > 0 ? { warnings } : {}),
 				};
 
 				return toolResponse({

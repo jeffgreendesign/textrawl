@@ -1,13 +1,19 @@
 import { McpServer } from '@modelcontextprotocol/sdk/server/mcp.js';
 import { registerAskTool } from './tools/ask.js';
 import { registerBriefingTool } from './tools/briefing.js';
+import { registerCaptureTool } from './tools/capture.js';
 import { registerConversationTools } from './tools/conversation.js';
-import { registerDocumentTools } from './tools/document.js';
+import {
+	registerDocumentManagementTools,
+	registerDocumentTools,
+	registerGetDocumentTool,
+} from './tools/document.js';
 import { registerHealthTool } from './tools/health.js';
 import { registerInsightTools } from './tools/insights.js';
 import { registerMemoryTools } from './tools/memory.js';
 import { registerNoteTool } from './tools/note.js';
 import { registerPgAnalyzeTools } from './tools/pg-analyze.js';
+import { registerRememberTool } from './tools/remember.js';
 import { registerSearchTool } from './tools/search.js';
 import { registerStatsTools } from './tools/stats.js';
 import { registerTimelineTool } from './tools/timeline.js';
@@ -80,7 +86,105 @@ export function createMcpServer(): McpServer {
 	// Register UI resources for MCP Apps
 	registerUIResources(server);
 
-	// Register core tools (always available)
+	const toolset = config.MCP_TOOLSET;
+
+	if (toolset === 'legacy') {
+		// `legacy`: exactly the original tool set — strict backward compatibility.
+		registerLegacyTools(server);
+	} else {
+		// `normal` (default) and `full` both advertise the compact workflow surface.
+		registerWorkflowTools(server);
+
+		// Admin/diagnostic tools: always under `full`, opt-in under `normal`.
+		const exposeAdmin = toolset === 'full' || config.EXPOSE_ADMIN_TOOLS;
+		if (exposeAdmin) {
+			registerAdminTools(server);
+		}
+
+		// `full` additionally advertises the original granular tools for
+		// backward compatibility (alongside the workflow surface).
+		if (toolset === 'full') {
+			registerLegacyGranularTools(server);
+		}
+	}
+
+	logger.info('MCP server created', {
+		name: 'textrawl',
+		version: PKG_VERSION,
+		toolset,
+		exposeAdminTools: config.EXPOSE_ADMIN_TOOLS,
+		memoryEnabled: config.ENABLE_MEMORY,
+		conversationsEnabled: config.ENABLE_CONVERSATIONS,
+		insightsEnabled: config.ENABLE_INSIGHTS,
+		pgAnalyzeEnabled: !!config.DATABASE_URL,
+	});
+
+	return server;
+}
+
+/**
+ * Compact workflow surface — the recommended model-facing tools for personal /
+ * family assistants. Distinct, well-named, typed tools consolidated by workflow
+ * (per Anthropic's tool-design guidance), not a single intent dispatcher.
+ */
+function registerWorkflowTools(server: McpServer): void {
+	registerAskTool(server);
+	registerSearchTool(server);
+	registerGetDocumentTool(server);
+	registerCaptureTool(server);
+	registerBriefingTool(server);
+	registerTimelineTool(server);
+
+	if (config.ENABLE_MEMORY) {
+		registerRememberTool(server);
+		logger.info('Memory write tool (remember) enabled');
+	} else {
+		logger.info('Memory write tool (remember) disabled (ENABLE_MEMORY=false)');
+	}
+}
+
+/**
+ * Diagnostic/maintenance tools kept out of the default normal surface. Read-only
+ * diagnostics and Postgres analysis — destructive operations live in the granular
+ * tools (`full`/`legacy` only).
+ */
+function registerAdminTools(server: McpServer): void {
+	registerHealthTool(server);
+	registerStatsTools(server);
+
+	if (config.ENABLE_INSIGHTS) {
+		registerInsightTools(server);
+		logger.info('Insight tools enabled');
+	}
+
+	if (config.DATABASE_URL) {
+		registerPgAnalyzeTools(server);
+		logger.info('Postgres analysis tools enabled');
+	}
+}
+
+/**
+ * Original granular tools (pre-consolidation). Advertised under `full` alongside
+ * the workflow surface, and as the entire surface under `legacy`.
+ */
+function registerLegacyGranularTools(server: McpServer): void {
+	registerDocumentManagementTools(server); // list_documents, update_document (get_document via workflow)
+	registerNoteTool(server);
+	registerUrlTool(server);
+
+	if (config.ENABLE_MEMORY) {
+		registerMemoryTools(server);
+	}
+	if (config.ENABLE_CONVERSATIONS) {
+		registerConversationTools(server);
+	}
+}
+
+/**
+ * Exactly the pre-consolidation tool set (no workflow tools). Used by
+ * `MCP_TOOLSET=legacy` for clients that must keep the original surface.
+ */
+function registerLegacyTools(server: McpServer): void {
 	registerAskTool(server);
 	registerSearchTool(server);
 	registerDocumentTools(server);
@@ -91,46 +195,20 @@ export function createMcpServer(): McpServer {
 	registerStatsTools(server);
 	registerHealthTool(server);
 
-	// Register memory tools (feature flagged)
 	if (config.ENABLE_MEMORY) {
 		registerMemoryTools(server);
 		logger.info('Memory tools enabled');
-	} else {
-		logger.info('Memory tools disabled (ENABLE_MEMORY=false)');
 	}
-
-	// Register conversation tools (feature flagged)
 	if (config.ENABLE_CONVERSATIONS) {
 		registerConversationTools(server);
 		logger.info('Conversation tools enabled');
-	} else {
-		logger.info('Conversation tools disabled (ENABLE_CONVERSATIONS=false)');
 	}
-
-	// Register insight tools (feature flagged)
 	if (config.ENABLE_INSIGHTS) {
 		registerInsightTools(server);
 		logger.info('Insight tools enabled');
-	} else {
-		logger.info('Insight tools disabled (ENABLE_INSIGHTS=false)');
 	}
-
-	// Register Postgres analysis tools (gated on DATABASE_URL)
 	if (config.DATABASE_URL) {
 		registerPgAnalyzeTools(server);
 		logger.info('Postgres analysis tools enabled');
-	} else {
-		logger.info('Postgres analysis tools disabled (DATABASE_URL not set)');
 	}
-
-	logger.info('MCP server created', {
-		name: 'textrawl',
-		version: PKG_VERSION,
-		memoryEnabled: config.ENABLE_MEMORY,
-		conversationsEnabled: config.ENABLE_CONVERSATIONS,
-		insightsEnabled: config.ENABLE_INSIGHTS,
-		pgAnalyzeEnabled: !!config.DATABASE_URL,
-	});
-
-	return server;
 }

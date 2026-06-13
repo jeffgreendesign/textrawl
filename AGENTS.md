@@ -25,6 +25,7 @@ pnpm inspector
 
 Kept here so `scripts/tool-sync-check.sh` can verify the list stays in sync with `src/tools/` and `README.md`. See CLAUDE.md for groupings and `README.md` for full descriptions.
 
+- Workflow (compact `normal` surface): `ask`, `search`, `get_document`, `capture`, `remember`, `daily_briefing`, `timeline`
 - Document/search: `search`, `get_document`, `list_documents`, `update_document`, `add_note`
 - Memory: `remember_fact`, `build_knowledge`, `query_memory`, `relate_entities`, `forget_entity`, `extract_memories`
 - Conversation: `save_conversation_context`, `query_conversations`, `delete_conversation`

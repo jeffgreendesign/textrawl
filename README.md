@@ -206,15 +206,55 @@ pnpm upload -- ./converted/
 | `OAUTH_SERVER_URL` | OAuth | Public server URL for OAuth redirect |
 | `PG_REPORT_DIR` | No | pg_analyze report directory (default: ./reports/pg-analysis) |
 
-## MCP Tools (26 tools)
+## Tool surfaces (compact vs full)
+
+Textrawl advertises one of three tool surfaces via the `MCP_TOOLSET` environment
+variable. The default **`normal`** surface is a small set of workflow tools — the
+recommended interface for personal/family assistants. This follows the current MCP
+maintainer guidance (Anthropic, _Writing effective tools for AI agents_): **fewer
+tools, consolidated by workflow into distinct, typed, well-named tools** — not a
+single "intent" dispatcher (which would discard per-tool schemas, annotations, and
+the name signals models use to pick tools). The MCP spec defines no standard
+tool-filtering primitive, so `MCP_TOOLSET` is a server-local convention; host/harness
+**lazy tool loading** remains the canonical way to surface fewer tools at a time.
+
+| `MCP_TOOLSET` | Tools advertised |
+|---|---|
+| `normal` (**default**) | 7 workflow tools: `ask`, `search`, `get_document`, `capture`, `remember`, `daily_briefing`, `timeline`. Set `EXPOSE_ADMIN_TOOLS=true` to also expose read-only diagnostics (`health_check`, `get_stats`, insight + Postgres tools). |
+| `full` | Workflow tools + diagnostics + all original granular tools (backward compatible). |
+| `legacy` | Exactly the original tool set (no workflow tools). |
+
+**Recommended exposure:** personal/family bots → `MCP_TOOLSET=normal` and
+`EXPOSE_ADMIN_TOOLS=false` (so destructive `forget_entity`/`delete_conversation` are
+never reachable); admin/dev contexts → `MCP_TOOLSET=full`.
+
+**Model guidance (GPT-5.5, Claude Sonnet, Claude Haiku):** express intent through the
+workflow tool that matches the job — `ask` to answer a question across sources,
+`search` for raw matches, `capture` to save a note or URL, `remember` to store facts,
+`timeline`/`daily_briefing` for temporal/briefing views. Use `audience` to scope who
+an answer is for; `family_shared`/`public_safe` automatically exclude private memory,
+conversations, and insights.
+
+## MCP Tools
 
 Read-only tools (`search`, `get_document`, `list_documents`, `query_memory`, `query_conversations`, `get_stats`, `health_check`) include `outputSchema` and return `structuredContent` for programmatic consumption alongside the text `content` response.
+
+### Workflow Tools (compact `normal` surface)
+
+| Tool | Description |
+|------|-------------|
+| `capture` | Save content to the knowledge base — `kind="note"` (title+content) or `kind="url"` (fetch + clip). Consolidates `add_note` + `save_url`. |
+| `remember` | Write structured knowledge to the memory graph — `facts` and/or `relations`. Consolidates `remember_fact` + `build_knowledge` + `relate_entities`. |
+
+`ask`, `search`, `get_document`, `daily_briefing`, and `timeline` (documented below)
+complete the workflow surface. `ask`/`search` accept `audience` + `allowCrossProfile`
+for privacy scoping.
 
 ### Document Tools
 
 | Tool | Description |
 |------|-------------|
-| `search` | Hybrid semantic + full-text search. Set `includeMemories`/`includeConversations` for cross-source fusion. |
+| `search` | Hybrid semantic + full-text search. Set `includeMemories`/`includeConversations` for cross-source fusion. `audience` scopes private sources. |
 | `get_document` | Retrieve document by ID |
 | `list_documents` | List with pagination and filtering |
 | `update_document` | Update title and/or tags |

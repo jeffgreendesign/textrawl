@@ -78,6 +78,7 @@ The `verify` gates invoke three shell scripts directly: `scripts/security-check.
 
 Implementations: `src/tools/*.ts`. Full descriptions and schemas in `README.md`. Groupings:
 
+- **Workflow (compact surface)**: `ask`, `search`, `get_document`, `capture`, `remember`, `daily_briefing`, `timeline`
 - **Document/search**: `search`, `get_document`, `list_documents`, `update_document`, `add_note`
 - **Memory**: `remember_fact`, `build_knowledge`, `query_memory`, `relate_entities`, `forget_entity`, `extract_memories`
 - **Conversation**: `save_conversation_context`, `query_conversations`, `delete_conversation`
@@ -85,6 +86,26 @@ Implementations: `src/tools/*.ts`. Full descriptions and schemas in `README.md`.
 - **Stats**: `get_stats`, `health_check`
 - **Unified**: `ask`, `daily_briefing`, `save_url`, `timeline`
 - **Postgres**: `pg_analyze`, `pg_recommendations`, `pg_report_history`
+
+### Tool surfaces (`MCP_TOOLSET`)
+
+The server advertises one of three surfaces (a server-local convention — the MCP
+spec defines no tool-filtering primitive). The compact surface follows Anthropic's
+tool-design guidance: fewer tools, consolidated **by workflow** into distinct,
+typed, well-named tools (not a single intent dispatcher).
+
+- `MCP_TOOLSET=normal` (**default**): the 7 workflow tools above. `capture`
+  consolidates `add_note`+`save_url`; `remember` consolidates
+  `remember_fact`+`build_knowledge`+`relate_entities`. Recommended for
+  personal/family assistants. `EXPOSE_ADMIN_TOOLS=true` additionally exposes
+  read-only diagnostics (`health_check`, `get_stats`, insight + Postgres tools).
+- `MCP_TOOLSET=full`: workflow tools + diagnostics + all original granular tools.
+- `MCP_TOOLSET=legacy`: exactly the original tool set (strict backward compat).
+
+Destructive tools (`forget_entity`, `delete_conversation`) live only in
+`full`/`legacy`, default to `dryRun`, and confirm via MCP elicitation (with a
+`confirm` parameter fallback). `capture` and `remember` reuse the legacy tools'
+extracted core functions, so behavior stays identical.
 
 `scripts/tool-sync-check.sh` enforces that this list stays in sync with `src/tools/` and `README.md`. When adding/removing a tool, update all three.
 

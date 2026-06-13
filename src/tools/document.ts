@@ -56,9 +56,9 @@ const ListDocumentsOutputSchema = {
 };
 
 /**
- * Register document-related tools: get_document, list_documents, update_document
+ * Register only the `get_document` tool (used by the compact `normal` surface).
  */
-export function registerDocumentTools(server: McpServer): void {
+export function registerGetDocumentTool(server: McpServer): void {
 	// ============================================
 	// Tool: get_document
 	// ============================================
@@ -153,7 +153,22 @@ export function registerDocumentTools(server: McpServer): void {
 	);
 
 	logger.debug('Registered tool: get_document');
+}
 
+/**
+ * Register document-related tools: get_document, list_documents, update_document
+ */
+export function registerDocumentTools(server: McpServer): void {
+	registerGetDocumentTool(server);
+	registerDocumentManagementTools(server);
+}
+
+/**
+ * Register only the browse/edit document tools (`list_documents`,
+ * `update_document`) — used by the `full` surface, where `get_document` is
+ * already provided by the workflow surface.
+ */
+export function registerDocumentManagementTools(server: McpServer): void {
 	// ============================================
 	// Tool: list_documents
 	// ============================================
