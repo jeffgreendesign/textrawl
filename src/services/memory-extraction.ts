@@ -9,6 +9,7 @@ import { getOrCreateRelation } from '../db/memory-relations.js';
 import { config } from '../utils/config.js';
 import { stripCodeFence } from '../utils/json.js';
 import { logger } from '../utils/logger.js';
+import { withRetry } from '../utils/retry.js';
 import { generateEmbedding, isEmbeddingsConfigured } from './embeddings.js';
 
 /**
@@ -138,18 +139,22 @@ export async function extractMemoriesFromText(text: string): Promise<ExtractionR
 	const startTime = Date.now();
 
 	try {
-		const response = await client.messages.create({
-			model: config.EXTRACTION_MODEL,
-			// Raised from 2000: long entity lists were truncated mid-JSON, leaving an
-			// unclosed code fence that failed to parse (memories silently lost).
-			max_tokens: 4096,
-			messages: [
-				{
-					role: 'user',
-					content: `${EXTRACTION_PROMPT}\n\n${truncatedText}`,
-				},
-			],
-		});
+		const response = await withRetry(
+			() =>
+				client.messages.create({
+					model: config.EXTRACTION_MODEL,
+					// Raised from 2000: long entity lists were truncated mid-JSON, leaving an
+					// unclosed code fence that failed to parse (memories silently lost).
+					max_tokens: 4096,
+					messages: [
+						{
+							role: 'user',
+							content: `${EXTRACTION_PROMPT}\n\n${truncatedText}`,
+						},
+					],
+				}),
+			{ label: 'Anthropic memory extraction' },
+		);
 
 		const latencyMs = Date.now() - startTime;
 		logger.debug('Extraction API call completed', {
