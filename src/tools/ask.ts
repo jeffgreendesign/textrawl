@@ -5,6 +5,7 @@ import { searchInsights } from '../db/insights.js';
 import { hybridMemorySearch } from '../db/memory-search.js';
 import { isDatabaseConfigured } from '../db/pg-client.js';
 import { hybridSearch } from '../db/search.js';
+import { resolveAccess } from '../services/access-policy.js';
 import { generateEmbedding, isEmbeddingsConfigured } from '../services/embeddings.js';
 import { configError, toolError } from '../utils/compact.js';
 import { config } from '../utils/config.js';
@@ -28,9 +29,21 @@ export function registerAskTool(server: McpServer): void {
 					.max(10000)
 					.describe('Natural language question to search your knowledge base'),
 				scope: z
-					.enum(['auto', 'documents', 'memory', 'conversations', 'insights'])
+					.enum(['auto', 'personal', 'family', 'documents', 'memory', 'conversations', 'insights'])
 					.default('auto')
-					.describe('Which sources to search. "auto" searches all enabled sources.'),
+					.describe(
+						'Which sources to search. "auto"/"personal" search all enabled sources; "family" limits to shared documents; or name a single source.',
+					),
+				audience: z
+					.enum(['private_jeff', 'family_shared', 'public_safe'])
+					.default('private_jeff')
+					.describe(
+						'Who the answer is for. "family_shared"/"public_safe" exclude private memory, conversations, and insights unless allow_cross_profile=true.',
+					),
+				allowCrossProfile: z
+					.boolean()
+					.default(false)
+					.describe('Allow a family/public audience to read private sources. Use with care.'),
 				limit: z.number().int().min(1).max(50).default(10).describe('Maximum results per source'),
 			},
 			annotations: {
@@ -40,8 +53,8 @@ export function registerAskTool(server: McpServer): void {
 				openWorldHint: false,
 			},
 		},
-		async ({ question, scope, limit }) => {
-			logger.info('ask called', { question: question.slice(0, 100), scope, limit });
+		async ({ question, scope, audience, allowCrossProfile, limit }) => {
+			logger.info('ask called', { question: question.slice(0, 100), scope, audience, limit });
 
 			if (!isDatabaseConfigured()) {
 				return configError('Database', 'Set DATABASE_URL');
@@ -49,6 +62,9 @@ export function registerAskTool(server: McpServer): void {
 			if (!isEmbeddingsConfigured()) {
 				return configError('Embeddings', 'Configure an embedding provider');
 			}
+
+			// Central privacy/audience enforcement — decides which sources are readable.
+			const access = resolveAccess({ scope, audience, allowCrossProfile });
 
 			try {
 				const queryEmbedding = await generateEmbedding(question);
@@ -59,10 +75,8 @@ export function registerAskTool(server: McpServer): void {
 					data: Record<string, unknown>;
 				}> = [];
 
-				const searchAll = scope === 'auto';
-
 				// Documents
-				if (searchAll || scope === 'documents') {
+				if (access.sources.includes('documents')) {
 					const docs = await hybridSearch({
 						queryText: question,
 						queryEmbedding,
@@ -83,7 +97,7 @@ export function registerAskTool(server: McpServer): void {
 				}
 
 				// Memory
-				if ((searchAll || scope === 'memory') && config.ENABLE_MEMORY) {
+				if (access.sources.includes('memory') && config.ENABLE_MEMORY) {
 					const memories = await hybridMemorySearch(question, queryEmbedding, {
 						limit,
 					});
@@ -103,7 +117,7 @@ export function registerAskTool(server: McpServer): void {
 				}
 
 				// Conversations
-				if ((searchAll || scope === 'conversations') && config.ENABLE_CONVERSATIONS) {
+				if (access.sources.includes('conversations') && config.ENABLE_CONVERSATIONS) {
 					const convos = await hybridConversationSearch(question, queryEmbedding, { limit });
 					for (const conv of convos) {
 						allResults.push({
@@ -120,7 +134,7 @@ export function registerAskTool(server: McpServer): void {
 				}
 
 				// Insights
-				if ((searchAll || scope === 'insights') && config.ENABLE_INSIGHTS) {
+				if (access.sources.includes('insights') && config.ENABLE_INSIGHTS) {
 					const insights = await searchInsights(queryEmbedding, {
 						limit,
 					});
@@ -164,6 +178,8 @@ export function registerAskTool(server: McpServer): void {
 						score: r.score,
 						...r.data,
 					})),
+					sensitivity: access.sensitivity,
+					...(access.warnings.length > 0 ? { warnings: access.warnings } : {}),
 				};
 
 				return {

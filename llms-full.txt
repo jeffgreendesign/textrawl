@@ -137,6 +137,27 @@ Parameters:
 - content (string, REQUIRED): Markdown content (max 1MB)
 - tags (string[]): Tags for organization
 
+### capture
+
+Workflow tool exposed on the compact `normal` surface (MCP_TOOLSET=normal). Saves content to the knowledge base, consolidating add_note + save_url behind one content-acquisition workflow. Reuses the same chunk/embed/persist pipeline as the legacy tools.
+
+Parameters:
+- kind (enum, REQUIRED): "note" or "url"
+- title (string): note title (required for kind=note) or override for kind=url
+- content (string): markdown body (required for kind=note, max 1MB)
+- url (string): web page URL (required for kind=url)
+- tags (string[]): tags for organization
+- audience (enum): private_jeff | family_shared | public_safe — stored in metadata
+- extractMemories (boolean): default false; requires ENABLE_MEMORY_EXTRACTION
+
+### remember
+
+Workflow tool exposed on the compact `normal` surface. Writes structured knowledge to the memory graph, consolidating remember_fact + build_knowledge + relate_entities. At least one of facts/relations is required; per-item failures are reported as partial success.
+
+Parameters:
+- facts (array, max 50): [{ entityName, entityType, observation, source? }] — a single fact is a one-element array
+- relations (array, max 50): [{ fromEntity, relation, toEntity, fromEntityType?, toEntityType? }]
+
 ## Memory Tools (Persistent Memory)
 
 Enable with ENABLE_MEMORY=true (default). Requires setup-db-memory.sql (OpenAI) or setup-db-memory-ollama.sql (Ollama).

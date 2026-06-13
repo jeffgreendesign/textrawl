@@ -423,6 +423,103 @@
 			}
 		},
 		{
+			"name": "capture",
+			"description": "Workflow tool (compact surface): save content to the knowledge base. kind=note stores a markdown note (title+content); kind=url fetches and clips a web page (url). Consolidates add_note + save_url.",
+			"inputSchema": {
+				"type": "object",
+				"required": ["kind"],
+				"properties": {
+					"kind": {
+						"type": "string",
+						"enum": ["note", "url"],
+						"description": "What to capture: a note or a url"
+					},
+					"title": {
+						"type": "string",
+						"maxLength": 500,
+						"description": "Note title (required for kind=note); optional override for kind=url"
+					},
+					"content": {
+						"type": "string",
+						"maxLength": 1000000,
+						"description": "Note body in markdown (required for kind=note)"
+					},
+					"url": {
+						"type": "string",
+						"description": "Web page URL (required for kind=url)"
+					},
+					"tags": {
+						"type": "array",
+						"items": {
+							"type": "string"
+						},
+						"description": "Optional tags for organization"
+					},
+					"audience": {
+						"type": "string",
+						"enum": ["private_jeff", "family_shared", "public_safe"],
+						"description": "Audience tag stored in document metadata"
+					},
+					"extractMemories": {
+						"type": "boolean",
+						"description": "Extract entities/facts as memories (requires ENABLE_MEMORY_EXTRACTION)"
+					}
+				}
+			}
+		},
+		{
+			"name": "remember",
+			"description": "Workflow tool (compact surface): write structured knowledge to the memory graph. Provide facts and/or relations (at least one). Consolidates remember_fact + build_knowledge + relate_entities.",
+			"inputSchema": {
+				"type": "object",
+				"properties": {
+					"facts": {
+						"type": "array",
+						"maxItems": 50,
+						"description": "Facts to remember (a single fact is a one-element array)",
+						"items": {
+							"type": "object",
+							"required": ["entityName", "entityType", "observation"],
+							"properties": {
+								"entityName": { "type": "string" },
+								"entityType": {
+									"type": "string",
+									"enum": [
+										"person",
+										"concept",
+										"project",
+										"preference",
+										"fact",
+										"location",
+										"organization"
+									]
+								},
+								"observation": { "type": "string" },
+								"source": {
+									"type": "string",
+									"enum": ["conversation", "note", "document", "manual"]
+								}
+							}
+						}
+					},
+					"relations": {
+						"type": "array",
+						"maxItems": 50,
+						"description": "Directed relations to create",
+						"items": {
+							"type": "object",
+							"required": ["fromEntity", "relation", "toEntity"],
+							"properties": {
+								"fromEntity": { "type": "string" },
+								"relation": { "type": "string" },
+								"toEntity": { "type": "string" }
+							}
+						}
+					}
+				}
+			}
+		},
+		{
 			"name": "remember_fact",
 			"description": "Store facts about entities (people, projects, concepts) with automatic semantic embedding",
 			"featureFlag": "ENABLE_MEMORY",

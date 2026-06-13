@@ -78,6 +78,22 @@ const envSchema = z.object({
 		.default('true')
 		.transform((val) => val.toLowerCase() === 'true'),
 
+	// Tool surface (which MCP tools are advertised). The MCP spec defines no
+	// standard tool-filtering primitive, so this is a server-local convention.
+	// - normal: compact workflow surface (ask, search, get_document, capture,
+	//   remember, daily_briefing, timeline) — recommended for personal/family bots.
+	// - full: workflow surface + admin tools + the original granular tools.
+	// - legacy: exactly the original tool set (strict backward compatibility).
+	MCP_TOOLSET: z.enum(['normal', 'full', 'legacy']).default('normal'),
+
+	// Expose admin/maintenance tools (health_check, get_stats, insight maintenance,
+	// destructive forget/delete, Postgres analysis) in the `normal` surface. Always
+	// on under `full`/`legacy`. Keep false for family/personal assistants.
+	EXPOSE_ADMIN_TOOLS: z
+		.string()
+		.default('false')
+		.transform((val) => val.toLowerCase() === 'true'),
+
 	// OAuth (optional - enables OAuth flow when all are set)
 	GOOGLE_CLIENT_ID: z.string().optional(),
 	GOOGLE_CLIENT_SECRET: z.string().optional(),
