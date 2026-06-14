@@ -896,6 +896,69 @@ const spec = {
 				},
 			},
 		},
+		'/api/insights/scan': {
+			post: {
+				tags: ['Insights'],
+				summary: 'Run an insight scan',
+				description:
+					'Run a proactive-insight scan synchronously and return the result. Intended to be driven by an external scheduler (e.g. Cloud Scheduler) on a cron. Requires ENABLE_INSIGHTS.',
+				requestBody: {
+					required: false,
+					content: {
+						'application/json': {
+							schema: {
+								type: 'object',
+								properties: {
+									fullScan: {
+										type: 'boolean',
+										default: false,
+										description: 'Analyze all chunks, not just those added since the last scan',
+									},
+									maxChunks: {
+										type: 'integer',
+										minimum: 10,
+										maximum: 1000,
+										default: 200,
+										description: 'Maximum chunks to analyze in this scan',
+									},
+								},
+							},
+						},
+					},
+				},
+				responses: {
+					'200': {
+						description: 'Scan result',
+						content: {
+							'application/json': {
+								schema: {
+									type: 'object',
+									properties: {
+										insightsCreated: { type: 'integer' },
+										chunksAnalyzed: { type: 'integer' },
+										batchId: { type: 'string' },
+									},
+									required: ['insightsCreated', 'chunksAnalyzed', 'batchId'],
+								},
+							},
+						},
+					},
+					'400': {
+						description: 'Invalid maxChunks',
+						content: { 'application/json': { schema: { $ref: '#/components/schemas/Error' } } },
+					},
+					'401': { description: 'Unauthorized' },
+					'404': {
+						description: 'Insights feature not enabled',
+						content: { 'application/json': { schema: { $ref: '#/components/schemas/Error' } } },
+					},
+					'503': {
+						description: 'Database not available',
+						content: { 'application/json': { schema: { $ref: '#/components/schemas/Error' } } },
+					},
+				},
+			},
+		},
 		'/api/insights/stats': {
 			get: {
 				tags: ['Insights'],

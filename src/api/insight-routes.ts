@@ -2,6 +2,7 @@ import { Router, type Router as RouterType } from 'express';
 import { getInsightStats, getInsights, updateInsightStatus } from '../db/insights.js';
 import type { InsightStatus, InsightType } from '../db/insights.js';
 import { isDatabaseConfigured } from '../db/pg-client.js';
+import { events } from '../services/events.js';
 import { config } from '../utils/config.js';
 import { logger } from '../utils/logger.js';
 import { bearerAuth } from './middleware/auth.js';
@@ -68,6 +69,52 @@ insightRoutes.get('/insights', bearerAuth, async (req, res) => {
 			error: error instanceof Error ? error.message : String(error),
 		});
 		res.status(500).json({ error: 'Failed to list insights' });
+	}
+});
+
+// ---------------------------------------------------------------------------
+// POST /api/insights/scan — run an insight scan synchronously
+//
+// Runs inside the request so it survives on CPU-throttled / scale-to-zero
+// serverless (unlike fire-and-forget background work). Intended to be driven by
+// an external scheduler (e.g. Cloud Scheduler) hitting this endpoint on a cron.
+// ---------------------------------------------------------------------------
+
+insightRoutes.post('/insights/scan', bearerAuth, async (req, res) => {
+	try {
+		if (!isDatabaseConfigured()) {
+			res.status(503).json({ error: 'Database not available' });
+			return;
+		}
+
+		const body = (req.body ?? {}) as { fullScan?: boolean; maxChunks?: number };
+		const fullScan = body.fullScan === true;
+		let maxChunks: number | undefined;
+		if (body.maxChunks !== undefined) {
+			const parsed = Number(body.maxChunks);
+			if (!Number.isFinite(parsed) || parsed < 10 || parsed > 1000) {
+				res.status(400).json({ error: 'maxChunks must be an integer between 10 and 1000' });
+				return;
+			}
+			maxChunks = Math.floor(parsed);
+		}
+
+		const { runInsightScan } = await import('../services/insight-analysis.js');
+		const result = await runInsightScan({ fullScan, maxChunks });
+
+		if (result.insightsCreated > 0) {
+			events.emit('insight_discovered', {
+				insightCount: result.insightsCreated,
+				batchId: result.batchId,
+			});
+		}
+
+		res.json(result);
+	} catch (error) {
+		logger.error('REST insight scan failed', {
+			error: error instanceof Error ? error.message : String(error),
+		});
+		res.status(500).json({ error: 'Failed to run insight scan' });
 	}
 });
 
