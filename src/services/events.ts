@@ -30,6 +30,6 @@ class TextrawlEventEmitter {
 
 /**
  * Global event emitter singleton.
- * Used to coordinate between the upload pipeline, WebSocket server, and scheduler.
+ * Used to coordinate between the upload pipeline and the WebSocket server.
  */
 export const events = new TextrawlEventEmitter();

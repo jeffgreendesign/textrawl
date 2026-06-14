@@ -6,7 +6,6 @@ import {
 	type ProactiveInsight,
 	getInsights,
 	searchInsights,
-	shouldRunInsightScan,
 	updateInsightStatus,
 	validateInsightSchema,
 } from '../db/insights.js';

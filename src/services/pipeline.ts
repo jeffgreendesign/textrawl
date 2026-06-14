@@ -1,4 +1,3 @@
-import { shouldRunInsightScan } from '../db/insights.js';
 import { config } from '../utils/config.js';
 import { logger } from '../utils/logger.js';
 import { events } from './events.js';
@@ -71,26 +70,9 @@ export async function onDocumentIngested(
 		}
 	}
 
-	// Check if insight scan should run
-	if (config.ENABLE_INSIGHTS) {
-		try {
-			const { shouldScan } = await shouldRunInsightScan(
-				config.INSIGHT_BATCH_THRESHOLD,
-				config.INSIGHT_DEBOUNCE_SECONDS,
-			);
-			if (shouldScan) {
-				// Dynamic import to avoid circular dependency
-				const { runInsightScan } = await import('./insight-analysis.js');
-				runInsightScan().catch((err) =>
-					logger.error('Pipeline: background insight scan failed', {
-						error: err instanceof Error ? err.message : String(err),
-					}),
-				);
-			}
-		} catch (error) {
-			logger.error('Pipeline: insight scan check failed', {
-				error: error instanceof Error ? error.message : String(error),
-			});
-		}
-	}
+	// NOTE: insight scanning is intentionally NOT triggered here. Fire-and-forget
+	// background work does not survive on CPU-throttled / scale-to-zero serverless
+	// (the instance freezes once the upload response returns, leaving the queue's
+	// is_processing flag stuck). Scans are driven externally via POST /api/insights/scan
+	// (see src/api/insight-routes.ts), called on a cron by an external scheduler.
 }
