@@ -246,6 +246,35 @@ function cosineSimilarity(a: number[], b: number[]): number {
 	return dot / (Math.sqrt(normA) * Math.sqrt(normB));
 }
 
+/**
+ * Find the nearest chunks from OTHER documents for a given embedding.
+ *
+ * This excludes same-document neighbors in SQL rather than fetching a global
+ * top-K and filtering afterward — for multi-chunk documents the global top-K is
+ * dominated by adjacent same-document chunks, which would crowd out the genuine
+ * cross-document matches the insight scan is looking for. The `similarity` column
+ * is aliased to `score` to match the SearchResult shape the callers read.
+ */
+async function findCrossDocumentNeighbors(
+	embedding: number[],
+	documentId: string,
+	limit: number,
+): Promise<SearchResult[]> {
+	const result = await pgQuery<SearchResult>(
+		`SELECT c.id AS chunk_id, c.document_id, c.content,
+			d.title AS document_title, d.source_type, d.metadata AS document_metadata,
+			1 - (c.embedding <=> $1::vector) AS score
+		FROM chunks c
+		JOIN documents d ON c.document_id = d.id
+		WHERE c.embedding IS NOT NULL
+			AND c.document_id <> $2::uuid
+		ORDER BY c.embedding <=> $1::vector
+		LIMIT $3`,
+		[JSON.stringify(embedding), documentId, limit],
+	);
+	return result.rows;
+}
+
 async function findCrossSourceConnections(chunks: ChunkWithContext[]): Promise<ConnectionPair[]> {
 	const connections: ConnectionPair[] = [];
 
@@ -255,14 +284,10 @@ async function findCrossSourceConnections(chunks: ChunkWithContext[]): Promise<C
 	for (const chunk of chunks) {
 		if (!chunk.embedding) continue;
 
-		// Semantic search for nearest neighbors (excluding same document)
+		// Nearest neighbors from other documents (same-document excluded in SQL)
 		let matches: SearchResult[];
 		try {
-			const result = await pgQuery<SearchResult>('SELECT * FROM semantic_search($1::vector, $2)', [
-				JSON.stringify(chunk.embedding),
-				5,
-			]);
-			matches = result.rows;
+			matches = await findCrossDocumentNeighbors(chunk.embedding, chunk.document_id, 5);
 		} catch (error) {
 			logger.error('Semantic search failed during insight scan', {
 				error: error instanceof Error ? error.message : String(error),
@@ -271,9 +296,6 @@ async function findCrossSourceConnections(chunks: ChunkWithContext[]): Promise<C
 		}
 
 		for (const match of matches) {
-			// Skip same document
-			if (match.document_id === chunk.document_id) continue;
-
 			const similarity = match.score ?? 0;
 			if (similarity >= CONNECTION_THRESHOLD) {
 				connections.push({
@@ -310,21 +332,15 @@ async function findOutliers(chunks: ChunkWithContext[]): Promise<ChunkWithContex
 	for (const chunk of chunks) {
 		if (!chunk.embedding) continue;
 
-		let searchResults: SearchResult[];
+		let otherDocMatches: SearchResult[];
 		try {
-			const result = await pgQuery<SearchResult>('SELECT * FROM semantic_search($1::vector, $2)', [
-				JSON.stringify(chunk.embedding),
-				3,
-			]);
-			searchResults = result.rows;
+			otherDocMatches = await findCrossDocumentNeighbors(chunk.embedding, chunk.document_id, 3);
 		} catch {
 			continue;
 		}
 
-		// Filter out same-document matches
-		const otherDocMatches = searchResults.filter((m) => m.document_id !== chunk.document_id);
-
-		// If best match from another document is low similarity, it's an outlier
+		// If the best match from another document is low similarity, it's an outlier.
+		// An empty result (no other-document chunks at all) is treated as an outlier.
 		const bestScore = otherDocMatches[0]?.score ?? 0;
 		if (bestScore < OUTLIER_MAX_SIMILARITY) {
 			outliers.push(chunk);

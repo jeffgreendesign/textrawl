@@ -208,7 +208,7 @@ export async function createInsights(inputs: CreateInsightInput[]): Promise<void
 			input.title,
 			input.summary,
 			JSON.stringify(input.evidence),
-			input.entities ?? [],
+			JSON.stringify(input.entities ?? []),
 			input.embedding ? JSON.stringify(input.embedding) : null,
 			input.batchId ?? null,
 		);
