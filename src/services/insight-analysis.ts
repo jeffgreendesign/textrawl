@@ -1,8 +1,10 @@
 import { randomUUID } from 'node:crypto';
 import Anthropic from '@anthropic-ai/sdk';
+import pLimit from 'p-limit';
 import {
 	type CreateInsightInput,
 	createInsights,
+	searchInsights,
 	setInsightQueueProcessing,
 } from '../db/insights.js';
 import { isDatabaseConfigured, pgQuery, queryOne } from '../db/pg-client.js';
@@ -53,6 +55,12 @@ const MAX_PAIRS_FOR_LLM = 15;
 /** Minimum similarity gap between a chunk and its nearest neighbor to flag as outlier */
 const OUTLIER_MAX_SIMILARITY = 0.65;
 
+/** Default concurrency for the per-chunk nearest-neighbor queries (read-only, runs on Postgres) */
+const DEFAULT_NEIGHBOR_CONCURRENCY = 8;
+
+/** Cosine similarity at/above which a new insight is treated as a duplicate of an existing one */
+const DEDUP_THRESHOLD = 0.92;
+
 // ---------------------------------------------------------------------------
 // Core analysis pipeline
 // ---------------------------------------------------------------------------
@@ -86,7 +94,6 @@ export async function runInsightScan(options?: {
 	try {
 		await setInsightQueueProcessing(true);
 
-		// 1. Fetch recent chunks with document context
 		const recentChunks = await fetchRecentChunks(maxChunks, options?.fullScan);
 		if (recentChunks.length === 0) {
 			logger.info('No chunks to analyze');
@@ -94,59 +101,17 @@ export async function runInsightScan(options?: {
 			return { insightsCreated: 0, chunksAnalyzed: 0, batchId };
 		}
 
-		logger.info('Fetched chunks for analysis', { count: recentChunks.length });
-
-		// 2. Find cross-source connections
-		const connections = await findCrossSourceConnections(recentChunks);
-		logger.info('Found cross-source connections', { count: connections.length });
-
-		// 3. Find outliers
-		const outliers = await findOutliers(recentChunks);
-		logger.info('Found outliers', { count: outliers.length });
-
-		// 4. Synthesize insights via LLM
-		const insights: CreateInsightInput[] = [];
-
-		if (connections.length > 0 || outliers.length > 0) {
-			const llmInsights = await synthesizeInsights(connections, outliers);
-
-			// 5. Generate embeddings for insights and store
-			for (const insight of llmInsights) {
-				const embedding = await generateEmbedding(`${insight.title} ${insight.summary}`);
-
-				// Build evidence from the pairs that contributed to this insight
-				const evidence = buildEvidence(insight, connections, outliers);
-
-				insights.push({
-					insightType: insight.type,
-					title: insight.title,
-					summary: insight.summary,
-					evidence,
-					entities: insight.entities,
-					embedding,
-					batchId,
-				});
-			}
-		}
-
-		// 6. Store insights
-		if (insights.length > 0) {
-			await createInsights(insights);
-		}
+		const result = await analyzeAndStoreInsights(recentChunks, batchId);
 
 		await setInsightQueueProcessing(false);
 
 		logger.info('Insight scan complete', {
 			batchId,
-			chunksAnalyzed: recentChunks.length,
-			insightsCreated: insights.length,
+			chunksAnalyzed: result.chunksAnalyzed,
+			insightsCreated: result.insightsCreated,
 		});
 
-		return {
-			insightsCreated: insights.length,
-			chunksAnalyzed: recentChunks.length,
-			batchId,
-		};
+		return result;
 	} catch (error) {
 		await setInsightQueueProcessing(false);
 		logger.error('Insight scan failed', {
@@ -154,6 +119,111 @@ export async function runInsightScan(options?: {
 		});
 		throw error;
 	}
+}
+
+/**
+ * Analyze a set of chunks: find cross-document connections and outliers, synthesize
+ * insights via the LLM, embed them, drop near-duplicates, and store the rest.
+ *
+ * This is the queue-state-free core shared by the live scan (runInsightScan) and the
+ * offline backfill CLI. It deliberately does NOT touch the insight_queue, so a backfill
+ * can run over the whole corpus without disturbing the incremental scheduler's
+ * last_scan_at / chunks_pending bookkeeping.
+ */
+export async function analyzeAndStoreInsights(
+	chunks: ChunkWithContext[],
+	batchId: string,
+	opts?: { concurrency?: number; dedupThreshold?: number },
+): Promise<{ insightsCreated: number; chunksAnalyzed: number; batchId: string }> {
+	if (chunks.length === 0) {
+		return { insightsCreated: 0, chunksAnalyzed: 0, batchId };
+	}
+
+	const concurrency = opts?.concurrency ?? DEFAULT_NEIGHBOR_CONCURRENCY;
+	const dedupThreshold = opts?.dedupThreshold ?? DEDUP_THRESHOLD;
+
+	logger.info('Analyzing chunks for insights', { count: chunks.length, concurrency });
+
+	const connections = await findCrossSourceConnections(chunks, concurrency);
+	logger.info('Found cross-source connections', { count: connections.length });
+
+	const outliers = await findOutliers(chunks, concurrency);
+	logger.info('Found outliers', { count: outliers.length });
+
+	const insights: CreateInsightInput[] = [];
+	if (connections.length > 0 || outliers.length > 0) {
+		const llmInsights = await synthesizeInsights(connections, outliers);
+		for (const insight of llmInsights) {
+			const embedding = await generateEmbedding(`${insight.title} ${insight.summary}`);
+			const evidence = buildEvidence(insight, connections, outliers);
+			insights.push({
+				insightType: insight.type,
+				title: insight.title,
+				summary: insight.summary,
+				evidence,
+				entities: insight.entities,
+				embedding,
+				batchId,
+			});
+		}
+	}
+
+	const deduped = dedupThreshold > 0 ? await dedupeInsights(insights, dedupThreshold) : insights;
+	if (deduped.length < insights.length) {
+		logger.info('Dropped duplicate insights', { dropped: insights.length - deduped.length });
+	}
+	if (deduped.length > 0) {
+		await createInsights(deduped);
+	}
+
+	return { insightsCreated: deduped.length, chunksAnalyzed: chunks.length, batchId };
+}
+
+/**
+ * Drop insights that are near-duplicates of (a) insights already stored in the DB or
+ * (b) earlier insights kept in this same batch. Similarity is cosine distance on the
+ * insight embedding; an insight is a duplicate when its similarity to an existing/kept
+ * insight is >= threshold. Insights without an embedding are always kept.
+ */
+export async function dedupeInsights(
+	candidates: CreateInsightInput[],
+	threshold: number,
+): Promise<CreateInsightInput[]> {
+	const kept: CreateInsightInput[] = [];
+
+	for (const candidate of candidates) {
+		if (!candidate.embedding) {
+			kept.push(candidate);
+			continue;
+		}
+
+		let isDuplicate = false;
+
+		// (a) Against insights already stored in the database.
+		try {
+			const existing = await searchInsights(candidate.embedding, { limit: 1 });
+			const topScore = (existing[0] as { score?: number } | undefined)?.score ?? 0;
+			if (topScore >= threshold) isDuplicate = true;
+		} catch (error) {
+			logger.warn('Insight dedup DB lookup failed; keeping candidate', {
+				error: error instanceof Error ? error.message : String(error),
+			});
+		}
+
+		// (b) Against insights already kept in this batch.
+		if (!isDuplicate) {
+			for (const k of kept) {
+				if (k.embedding && cosineSimilarity(candidate.embedding, k.embedding) >= threshold) {
+					isDuplicate = true;
+					break;
+				}
+			}
+		}
+
+		if (!isDuplicate) kept.push(candidate);
+	}
+
+	return kept;
 }
 
 // ---------------------------------------------------------------------------
@@ -209,25 +279,60 @@ async function fetchRecentChunks(limit: number, fullScan?: boolean): Promise<Chu
 
 	try {
 		const { rows } = await pgQuery<Record<string, unknown>>(sql, params);
-		return rows.map((row) => {
-			const docMeta = (row.document_metadata ?? {}) as Record<string, unknown>;
-			return {
-				id: row.id as string,
-				document_id: row.document_id as string,
-				document_title: (row.document_title ?? 'Untitled') as string,
-				content: row.content as string,
-				source_type: (row.source_type ?? 'note') as string,
-				content_type: (docMeta?.content_type as string) ?? null,
-				embedding: parseEmbedding(row.embedding),
-				created_at: row.created_at as string,
-			};
-		});
+		return rows.map(mapRowToChunk);
 	} catch (error) {
 		logger.error('Failed to fetch chunks for analysis', {
 			error: error instanceof Error ? error.message : String(error),
 		});
 		throw new Error('Failed to fetch chunks');
 	}
+}
+
+/** Map a chunk+document join row into a ChunkWithContext (parsing the pgvector embedding). */
+function mapRowToChunk(row: Record<string, unknown>): ChunkWithContext {
+	const docMeta = (row.document_metadata ?? {}) as Record<string, unknown>;
+	return {
+		id: row.id as string,
+		document_id: row.document_id as string,
+		document_title: (row.document_title ?? 'Untitled') as string,
+		content: row.content as string,
+		source_type: (row.source_type ?? 'note') as string,
+		content_type: (docMeta?.content_type as string) ?? null,
+		embedding: parseEmbedding(row.embedding),
+		created_at: row.created_at as string,
+	};
+}
+
+/**
+ * Fetch a window of embedded chunks (with document context) for the offline backfill,
+ * using keyset pagination by (created_at, id) DESC. Pass the last chunk of the previous
+ * window as the cursor to retrieve the next, older window. Used by
+ * scripts/cli/backfill-insights.ts.
+ */
+export async function fetchChunkWindow(
+	limit: number,
+	cursor?: { createdAt: string; id: string },
+): Promise<ChunkWithContext[]> {
+	const conditions = ['c.embedding IS NOT NULL'];
+	const params: unknown[] = [];
+	if (cursor) {
+		conditions.push('(c.created_at, c.id) < ($1::timestamptz, $2::uuid)');
+		params.push(cursor.createdAt, cursor.id);
+	}
+	params.push(limit);
+
+	const sql = `
+		SELECT c.id, c.document_id, c.content, c.embedding, c.created_at, c.metadata,
+			d.title AS document_title, d.source_type, d.metadata AS document_metadata
+		FROM chunks c
+		JOIN documents d ON c.document_id = d.id
+		WHERE ${conditions.join(' AND ')}
+		ORDER BY c.created_at DESC, c.id DESC
+		LIMIT $${params.length}
+	`;
+
+	const { rows } = await pgQuery<Record<string, unknown>>(sql, params);
+	return rows.map(mapRowToChunk);
 }
 
 // ---------------------------------------------------------------------------
@@ -275,50 +380,57 @@ async function findCrossDocumentNeighbors(
 	return result.rows;
 }
 
-async function findCrossSourceConnections(chunks: ChunkWithContext[]): Promise<ConnectionPair[]> {
-	const connections: ConnectionPair[] = [];
+async function findCrossSourceConnections(
+	chunks: ChunkWithContext[],
+	concurrency = DEFAULT_NEIGHBOR_CONCURRENCY,
+): Promise<ConnectionPair[]> {
+	const limit = pLimit(concurrency);
 
-	// For each recent chunk, find similar chunks from DIFFERENT documents
-	// Use the DB for efficiency on large datasets
+	// For each chunk, find similar chunks from DIFFERENT documents (excluded in SQL).
+	// Queries are read-only and run on Postgres, so we fan them out concurrently.
+	const perChunk = await Promise.all(
+		chunks.map((chunk) =>
+			limit(async (): Promise<ConnectionPair[]> => {
+				if (!chunk.embedding) return [];
 
-	for (const chunk of chunks) {
-		if (!chunk.embedding) continue;
+				let matches: SearchResult[];
+				try {
+					matches = await findCrossDocumentNeighbors(chunk.embedding, chunk.document_id, 5);
+				} catch (error) {
+					logger.error('Semantic search failed during insight scan', {
+						error: error instanceof Error ? error.message : String(error),
+					});
+					return [];
+				}
 
-		// Nearest neighbors from other documents (same-document excluded in SQL)
-		let matches: SearchResult[];
-		try {
-			matches = await findCrossDocumentNeighbors(chunk.embedding, chunk.document_id, 5);
-		} catch (error) {
-			logger.error('Semantic search failed during insight scan', {
-				error: error instanceof Error ? error.message : String(error),
-			});
-			continue;
-		}
-
-		for (const match of matches) {
-			const similarity = match.score ?? 0;
-			if (similarity >= CONNECTION_THRESHOLD) {
-				connections.push({
-					a: chunk,
-					b: {
-						id: match.chunk_id,
-						document_id: match.document_id,
-						document_title: match.document_title,
-						content: match.content,
-						source_type: match.source_type,
-						content_type: (match.document_metadata?.content_type as string) ?? null,
-						embedding: [],
-						created_at: '',
-					},
-					similarity,
-				});
-			}
-		}
-	}
+				const pairs: ConnectionPair[] = [];
+				for (const match of matches) {
+					const similarity = match.score ?? 0;
+					if (similarity >= CONNECTION_THRESHOLD) {
+						pairs.push({
+							a: chunk,
+							b: {
+								id: match.chunk_id,
+								document_id: match.document_id,
+								document_title: match.document_title,
+								content: match.content,
+								source_type: match.source_type,
+								content_type: (match.document_metadata?.content_type as string) ?? null,
+								embedding: [],
+								created_at: '',
+							},
+							similarity,
+						});
+					}
+				}
+				return pairs;
+			}),
+		),
+	);
 
 	// Deduplicate (A→B and B→A)
 	const seen = new Set<string>();
-	return connections.filter((c) => {
+	return perChunk.flat().filter((c) => {
 		const key = [c.a.id, c.b.id].sort().join(':');
 		if (seen.has(key)) return false;
 		seen.add(key);
@@ -326,28 +438,33 @@ async function findCrossSourceConnections(chunks: ChunkWithContext[]): Promise<C
 	});
 }
 
-async function findOutliers(chunks: ChunkWithContext[]): Promise<ChunkWithContext[]> {
-	const outliers: ChunkWithContext[] = [];
+async function findOutliers(
+	chunks: ChunkWithContext[],
+	concurrency = DEFAULT_NEIGHBOR_CONCURRENCY,
+): Promise<ChunkWithContext[]> {
+	const limit = pLimit(concurrency);
 
-	for (const chunk of chunks) {
-		if (!chunk.embedding) continue;
+	const flagged = await Promise.all(
+		chunks.map((chunk) =>
+			limit(async (): Promise<ChunkWithContext | null> => {
+				if (!chunk.embedding) return null;
 
-		let otherDocMatches: SearchResult[];
-		try {
-			otherDocMatches = await findCrossDocumentNeighbors(chunk.embedding, chunk.document_id, 3);
-		} catch {
-			continue;
-		}
+				let otherDocMatches: SearchResult[];
+				try {
+					otherDocMatches = await findCrossDocumentNeighbors(chunk.embedding, chunk.document_id, 3);
+				} catch {
+					return null;
+				}
 
-		// If the best match from another document is low similarity, it's an outlier.
-		// An empty result (no other-document chunks at all) is treated as an outlier.
-		const bestScore = otherDocMatches[0]?.score ?? 0;
-		if (bestScore < OUTLIER_MAX_SIMILARITY) {
-			outliers.push(chunk);
-		}
-	}
+				// If the best match from another document is low similarity, it's an outlier.
+				// An empty result (no other-document chunks at all) is treated as an outlier.
+				const bestScore = otherDocMatches[0]?.score ?? 0;
+				return bestScore < OUTLIER_MAX_SIMILARITY ? chunk : null;
+			}),
+		),
+	);
 
-	return outliers;
+	return flagged.filter((c): c is ChunkWithContext => c !== null);
 }
 
 // ---------------------------------------------------------------------------
