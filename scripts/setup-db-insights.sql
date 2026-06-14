@@ -18,11 +18,15 @@ CREATE TABLE IF NOT EXISTS insight_queue (
   last_insert_at  TIMESTAMPTZ,
   last_scan_at    TIMESTAMPTZ,
   is_processing   BOOLEAN   NOT NULL DEFAULT FALSE,
+  processing_started_at TIMESTAMPTZ,   -- when the current scan acquired the lock (NULL when idle)
   created_at      TIMESTAMPTZ DEFAULT now()
 );
 
 -- Seed the singleton row
 INSERT INTO insight_queue (id) VALUES (1) ON CONFLICT (id) DO NOTHING;
+
+-- Migration: add processing_started_at to pre-existing deployments
+ALTER TABLE insight_queue ADD COLUMN IF NOT EXISTS processing_started_at TIMESTAMPTZ;
 
 -- ---------------------------------------------------------------------------
 -- 2. Proactive insights table
@@ -75,9 +79,14 @@ $$;
 -- ---------------------------------------------------------------------------
 -- 4. Check if a scan should run (threshold reached + debounce elapsed)
 -- ---------------------------------------------------------------------------
+-- Drop the older 2-arg signature so a 2-arg call cannot become ambiguous
+-- against the 3-arg version below (both would match via the stale_seconds default).
+DROP FUNCTION IF EXISTS public.insight_queue_check(INTEGER, INTEGER);
+
 CREATE OR REPLACE FUNCTION public.insight_queue_check(
   threshold INTEGER DEFAULT 50,
-  debounce_seconds INTEGER DEFAULT 300
+  debounce_seconds INTEGER DEFAULT 300,
+  stale_seconds INTEGER DEFAULT 1800
 )
 RETURNS TABLE (should_scan BOOLEAN, pending INTEGER)
 LANGUAGE plpgsql
@@ -87,7 +96,11 @@ BEGIN
   RETURN QUERY
   SELECT
     (q.chunks_pending >= threshold
-     AND q.is_processing = FALSE
+     -- Not currently processing, OR the lock is stale (a prior scan was killed
+     -- mid-flight and never cleared the flag — common on CPU-throttled serverless).
+     AND (q.is_processing = FALSE
+          OR q.processing_started_at IS NULL
+          OR q.processing_started_at < now() - (stale_seconds || ' seconds')::interval)
      AND (q.last_insert_at IS NULL
           OR q.last_insert_at < now() - (debounce_seconds || ' seconds')::interval)
     ) AS should_scan,

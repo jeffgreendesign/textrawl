@@ -119,6 +119,14 @@ const envSchema = z.object({
 		.default('300')
 		.transform((val) => parseInt(val, 10)),
 
+	// Stale-lock recovery — if an insight scan marked the queue as processing but
+	// never cleared the flag (e.g. the process was killed mid-scan), treat the lock
+	// as stale after this many seconds so future scans are not blocked forever.
+	INSIGHT_STALE_SECONDS: z
+		.string()
+		.default('1800')
+		.transform((val) => parseInt(val, 10)),
+
 	// Chunking strategy
 	// - fixed: Paragraph-aware splitting at ~512 tokens (fast, no extra API calls)
 	// - semantic: Embedding-based splitting at topic boundaries (better retrieval, slower)

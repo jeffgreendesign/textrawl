@@ -121,13 +121,14 @@ export async function getInsightQueueState(): Promise<InsightQueueState | null> 
 export async function shouldRunInsightScan(
 	threshold = 50,
 	debounceSeconds = 300,
+	staleSeconds = 1800,
 ): Promise<{ shouldScan: boolean; pending: number }> {
 	if (!isDatabaseConfigured()) return { shouldScan: false, pending: 0 };
 
 	try {
 		const { rows } = await pgQuery<{ should_scan: boolean; pending: number }>(
-			'SELECT * FROM insight_queue_check($1, $2)',
-			[threshold, debounceSeconds],
+			'SELECT * FROM insight_queue_check($1, $2, $3)',
+			[threshold, debounceSeconds, staleSeconds],
 		);
 
 		const row = rows[0];
@@ -155,10 +156,15 @@ export async function setInsightQueueProcessing(processing: boolean): Promise<vo
 
 	try {
 		if (processing) {
-			await pgQuery('UPDATE insight_queue SET is_processing = $1 WHERE id = 1', [true]);
+			// Stamp when the lock was acquired so a killed-mid-scan flag can be detected
+			// as stale by insight_queue_check (see INSIGHT_STALE_SECONDS).
+			await pgQuery(
+				'UPDATE insight_queue SET is_processing = $1, processing_started_at = now() WHERE id = 1',
+				[true],
+			);
 		} else {
 			await pgQuery(
-				'UPDATE insight_queue SET is_processing = $1, chunks_pending = 0, last_scan_at = $2 WHERE id = 1',
+				'UPDATE insight_queue SET is_processing = $1, processing_started_at = NULL, chunks_pending = 0, last_scan_at = $2 WHERE id = 1',
 				[false, new Date().toISOString()],
 			);
 		}
