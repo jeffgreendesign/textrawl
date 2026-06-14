@@ -42,7 +42,8 @@
 		"desktop:build": "pnpm --filter textrawl-desktop build",
 		"desktop:dist": "pnpm --filter textrawl-desktop dist",
 		"generate:favicons": "node scripts/generate-favicons.js",
-		"pg:analyze": "tsx scripts/cli/pg-analyze.ts"
+		"pg:analyze": "tsx scripts/cli/pg-analyze.ts",
+		"insights:backfill": "tsx scripts/cli/backfill-insights.ts"
 	},
 	"packageManager": "pnpm@9.15.0",
 	"dependencies": {

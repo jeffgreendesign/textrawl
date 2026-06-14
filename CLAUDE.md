@@ -34,6 +34,7 @@ Textrawl is a personal knowledge MCP server: hybrid (vector + FTS) search over i
 | CLI convert | `pnpm convert -- <subcommand> ...` |
 | CLI upload | `pnpm upload -- <path>` |
 | Postgres analysis | `pnpm pg:analyze` |
+| Insights backfill | `pnpm insights:backfill` (windowed scan over whole corpus) |
 
 The `verify` gates invoke three shell scripts directly: `scripts/security-check.sh` (secret/RLS scan; also exposed as `pnpm security-check`), `scripts/docs-check.sh` (doc freshness; no pnpm alias), and `scripts/tool-sync-check.sh` (also exposed as `pnpm tool-sync`; asserts the MCP tool list stays in sync between `src/tools/`, `README.md`, and `AGENTS.md`).
 
