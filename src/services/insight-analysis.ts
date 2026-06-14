@@ -160,6 +160,26 @@ export async function runInsightScan(options?: {
 // Data fetching
 // ---------------------------------------------------------------------------
 
+/**
+ * Normalize a pgvector column value into a number[]. The pg/Neon driver returns
+ * a `vector` column as its text representation (e.g. "[0.1,0.2]"), NOT a parsed
+ * array. Callers that re-pass an embedding read from the DB into a `::vector`
+ * param MUST parse it first — otherwise JSON.stringify double-encodes the string
+ * (→ `"[0.1,0.2]"`) and Postgres rejects it as invalid vector syntax, which
+ * silently breaks the whole scan (every semantic_search throws → 0 insights).
+ */
+export function parseEmbedding(value: unknown): number[] {
+	if (Array.isArray(value)) return value as number[];
+	if (typeof value === 'string' && value.length > 0) {
+		try {
+			return JSON.parse(value) as number[];
+		} catch {
+			return [];
+		}
+	}
+	return [];
+}
+
 async function fetchRecentChunks(limit: number, fullScan?: boolean): Promise<ChunkWithContext[]> {
 	const conditions = ['c.embedding IS NOT NULL'];
 	const params: unknown[] = [];
@@ -198,7 +218,7 @@ async function fetchRecentChunks(limit: number, fullScan?: boolean): Promise<Chu
 				content: row.content as string,
 				source_type: (row.source_type ?? 'note') as string,
 				content_type: (docMeta?.content_type as string) ?? null,
-				embedding: row.embedding as number[],
+				embedding: parseEmbedding(row.embedding),
 				created_at: row.created_at as string,
 			};
 		});
