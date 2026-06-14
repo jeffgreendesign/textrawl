@@ -67,3 +67,28 @@ export async function bearerAuth(req: Request, _res: Response, next: NextFunctio
 	logger.warn('Invalid token attempt', { path: req.path });
 	throw new AuthorizationError('Invalid token');
 }
+
+/**
+ * Auth for the insight-scan endpoint. Accepts a dedicated, narrowly-scoped
+ * INSIGHT_SCAN_TOKEN (used by the external scheduler) OR any credential the
+ * standard bearerAuth accepts (master API token / OAuth JWT). Keeping a separate
+ * token means the scheduler job config never has to hold the master API token.
+ */
+export function insightScanAuth(req: Request, res: Response, next: NextFunction): unknown {
+	if (config.INSIGHT_SCAN_TOKEN) {
+		const [scheme, token] = req.headers.authorization?.split(' ') ?? [];
+		if (scheme === 'Bearer' && token) {
+			const tokenBuffer = Buffer.from(token);
+			const expectedBuffer = Buffer.from(config.INSIGHT_SCAN_TOKEN);
+			if (
+				tokenBuffer.length === expectedBuffer.length &&
+				timingSafeEqual(tokenBuffer, expectedBuffer)
+			) {
+				next();
+				return;
+			}
+		}
+	}
+	// Fall back to the standard bearer/OAuth auth (Express 5 handles the rejection).
+	return bearerAuth(req, res, next);
+}

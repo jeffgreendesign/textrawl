@@ -23,6 +23,7 @@ vi.mock('../../utils/logger.js', () => ({
 
 vi.mock('../middleware/auth.js', () => ({
 	bearerAuth: (_req: unknown, _res: unknown, next: () => void) => next(),
+	insightScanAuth: (_req: unknown, _res: unknown, next: () => void) => next(),
 }));
 
 vi.mock('../../db/pg-client.js', () => ({

@@ -127,6 +127,12 @@ const envSchema = z.object({
 		.default('1800')
 		.transform((val) => parseInt(val, 10)),
 
+	// Dedicated, narrowly-scoped token for POST /api/insights/scan, used by the
+	// external scheduler. Kept separate from API_BEARER_TOKEN so the scheduler job
+	// config never holds the master token. When unset, the endpoint falls back to
+	// the normal bearer/OAuth auth.
+	INSIGHT_SCAN_TOKEN: z.string().optional(),
+
 	// Chunking strategy
 	// - fixed: Paragraph-aware splitting at ~512 tokens (fast, no extra API calls)
 	// - semantic: Embedding-based splitting at topic boundaries (better retrieval, slower)

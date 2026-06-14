@@ -5,7 +5,7 @@ import { isDatabaseConfigured } from '../db/pg-client.js';
 import { events } from '../services/events.js';
 import { config } from '../utils/config.js';
 import { logger } from '../utils/logger.js';
-import { bearerAuth } from './middleware/auth.js';
+import { bearerAuth, insightScanAuth } from './middleware/auth.js';
 
 export const insightRoutes: RouterType = Router();
 
@@ -80,7 +80,7 @@ insightRoutes.get('/insights', bearerAuth, async (req, res) => {
 // an external scheduler (e.g. Cloud Scheduler) hitting this endpoint on a cron.
 // ---------------------------------------------------------------------------
 
-insightRoutes.post('/insights/scan', bearerAuth, async (req, res) => {
+insightRoutes.post('/insights/scan', insightScanAuth, async (req, res) => {
 	try {
 		if (!isDatabaseConfigured()) {
 			res.status(503).json({ error: 'Database not available' });
