@@ -62,8 +62,16 @@ describe('setup-db-claims*.sql shape', () => {
 				for (const v of SENSITIVITY_VALUES) expect(set).toContain(`'${v}'`);
 			});
 
-			it('anchors every claim to a chunk via a NOT NULL cascading FK', () => {
-				expect(flat).toMatch(/chunk_id\s+uuid not null references chunks\(id\) on delete cascade/);
+			it('creates the composite-unique FK target on chunks(document_id, id)', () => {
+				expect(flat).toMatch(/create unique index if not exists \w+ on chunks\(document_id, id\)/);
+			});
+
+			it('anchors every claim to a chunk via a NOT NULL composite FK to its document', () => {
+				// chunk_id is NOT NULL but carries no standalone FK — the pair is enforced below.
+				expect(flat).toMatch(/chunk_id\s+uuid not null/);
+				expect(flat).toMatch(
+					/foreign key \(document_id, chunk_id\) references chunks\(document_id, id\) on delete cascade/,
+				);
 			});
 
 			it('links to a document via a NOT NULL cascading FK', () => {
@@ -119,8 +127,9 @@ describe('setup-db-claims*.sql shape', () => {
 				expect(flat).not.toMatch(new RegExp(`embedding vector\\(${dimension}\\) not null`));
 			});
 
-			it('enables RLS and denies anon/authenticated', () => {
+			it('enables RLS and denies anon/authenticated (idempotently)', () => {
 				expect(flat).toContain('alter table claims enable row level security');
+				expect(flat).toContain('drop policy if exists claims_deny_anon on claims');
 				expect(flat).toMatch(
 					/create policy \w+ on claims for all to anon, authenticated using \(false\)/,
 				);
