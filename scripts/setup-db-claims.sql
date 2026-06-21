@@ -22,6 +22,17 @@
 -- =============================================================================
 
 -- ---------------------------------------------------------------------------
+-- Prerequisite: composite-unique target on chunks.
+-- A claim's (document_id, chunk_id) must be a real pair, not two independently
+-- valid ids. Enforcing that with a foreign key requires a unique index on the
+-- referenced (document_id, id) columns. chunks.id is already unique (PK), so
+-- this index always builds and only adds the composite the FK below targets.
+-- Owned by the claims feature so the base setup-db*.sql ingestion path is
+-- untouched for deployments that do not enable claims.
+-- ---------------------------------------------------------------------------
+CREATE UNIQUE INDEX IF NOT EXISTS chunks_document_id_id_key ON chunks(document_id, id);
+
+-- ---------------------------------------------------------------------------
 -- Claims table
 -- ---------------------------------------------------------------------------
 CREATE TABLE IF NOT EXISTS claims (
@@ -33,7 +44,7 @@ CREATE TABLE IF NOT EXISTS claims (
 
   -- Provenance (anchored to a verified span in chunks.content)
   document_id         UUID NOT NULL REFERENCES documents(id) ON DELETE CASCADE,
-  chunk_id            UUID NOT NULL REFERENCES chunks(id)    ON DELETE CASCADE,
+  chunk_id            UUID NOT NULL,              -- FK is the composite (document_id, chunk_id) below
   source_quote        TEXT    NOT NULL,
   source_start_offset INTEGER NOT NULL,           -- UTF-16 index into chunks.content (inclusive)
   source_end_offset   INTEGER NOT NULL,           -- UTF-16 index into chunks.content (exclusive)
@@ -65,6 +76,12 @@ CREATE TABLE IF NOT EXISTS claims (
   metadata            JSONB NOT NULL DEFAULT '{}',
   created_at          TIMESTAMPTZ NOT NULL DEFAULT now(),
   updated_at          TIMESTAMPTZ NOT NULL DEFAULT now(),
+
+  -- Provenance pair integrity: chunk_id must belong to document_id. The composite
+  -- FK enforces the pair (not just each column independently) and cascades when
+  -- the anchoring chunk — or its document — is removed.
+  CONSTRAINT claims_chunk_in_document FOREIGN KEY (document_id, chunk_id)
+    REFERENCES chunks(document_id, id) ON DELETE CASCADE,
 
   -- Light, non-speculative constraints
   CONSTRAINT claims_offsets_valid CHECK (source_start_offset >= 0
@@ -100,6 +117,7 @@ CREATE TRIGGER claims_updated_at
 -- ---------------------------------------------------------------------------
 ALTER TABLE claims ENABLE ROW LEVEL SECURITY;
 
+DROP POLICY IF EXISTS claims_deny_anon ON claims;
 CREATE POLICY claims_deny_anon ON claims
   FOR ALL TO anon, authenticated USING (false);
 
