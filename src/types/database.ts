@@ -230,6 +230,52 @@ export interface ProactiveInsight {
 }
 
 // ============================================================================
+// Claims types (table: claims)
+// ============================================================================
+
+/** Review status of a claim. */
+export type ClaimStatus = 'unreviewed' | 'approved' | 'rejected';
+
+/** Lifecycle state of a claim relative to newer knowledge. */
+export type ClaimState = 'current' | 'stale' | 'conflicting' | 'superseded';
+
+/** Privacy classification for a claim. */
+export type ClaimSensitivity = 'normal' | 'sensitive' | 'restricted';
+
+/**
+ * A source-backed claim packet.
+ *
+ * Anchored to a single chunk: `source_quote` is a verbatim slice of
+ * `chunks.content`, and `source_start_offset`/`source_end_offset` are UTF-16
+ * code-unit indices into `chunks.content` (not `documents.raw_content`) — the
+ * provenance invariant enforced by `src/utils/source-span.ts`.
+ *
+ * `embedding` is nullable: no embedding pipeline writes claims yet; a future
+ * retrieval PR backfills it. The generated `fts` column is intentionally omitted.
+ */
+export interface Claim {
+	id: string;
+	claim_text: string;
+	question: string | null;
+	document_id: string;
+	chunk_id: string;
+	source_quote: string;
+	source_start_offset: number;
+	source_end_offset: number;
+	confidence: number | null;
+	status: ClaimStatus;
+	state: ClaimState;
+	superseded_by: string | null;
+	tags: string[];
+	entities: Array<Record<string, unknown>>;
+	sensitivity: ClaimSensitivity;
+	embedding: number[] | null;
+	metadata: Record<string, unknown>;
+	created_at: string;
+	updated_at: string;
+}
+
+// ============================================================================
 // Stats types
 // ============================================================================
 
