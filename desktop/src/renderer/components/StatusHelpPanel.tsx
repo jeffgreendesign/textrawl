@@ -25,16 +25,16 @@ const STATUS_HELP: Record<
 	converted: {
 		title: 'Converted',
 		description:
-			'Successfully converted to markdown and ready for upload to Supabase. Click "Upload Converted" to index them for search.',
+			'Successfully converted to markdown and ready for upload. Click "Upload Converted" to index them for search.',
 	},
 	uploading: {
 		title: 'Uploading',
-		description: 'Files currently being uploaded to Supabase.',
+		description: 'Files currently being uploaded and indexed.',
 	},
 	uploaded: {
 		title: 'Uploaded',
 		description:
-			'Successfully uploaded to Supabase and indexed for search. These files are available via MCP tools.',
+			'Successfully uploaded and indexed for search. These files are available via MCP tools.',
 	},
 	error: {
 		title: 'Failed',

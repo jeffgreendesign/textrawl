@@ -1,9 +1,10 @@
 /**
  * Settings Store - Persistent app settings with OS keychain encryption
  *
- * Sensitive values (Supabase credentials) are encrypted via Electron's safeStorage API,
- * which delegates to the OS keychain (macOS Keychain, Windows DPAPI, Linux libsecret).
- * Non-sensitive values are stored as plaintext in electron-store.
+ * Sensitive values (Neon connection string, embedding API keys) are encrypted via
+ * Electron's safeStorage API, which delegates to the OS keychain (macOS Keychain,
+ * Windows DPAPI, Linux libsecret). Non-sensitive values are stored as plaintext in
+ * electron-store.
  *
  * IMPORTANT: Must be constructed and init()'d after app.whenReady() resolves,
  * because safeStorage requires the app to be ready before encryption is available.
@@ -12,7 +13,7 @@
  * ```ts
  * app.whenReady().then(() => {
  *   const store = new SettingsStore();
- *   store.init(); // Runs legacy migration
+ *   store.init(); // Removes dead Supabase-era credentials
  * });
  * ```
  */
@@ -20,7 +21,7 @@ import { unlinkSync } from 'node:fs';
 import { join } from 'node:path';
 import { app, safeStorage } from 'electron';
 import Store from 'electron-store';
-import type { AppSettings } from '../../shared/types.js';
+import type { AppSettings, EmbeddingProvider } from '../../shared/types.js';
 import { logger } from '../utils/logger.js';
 
 // Internal store schema — sensitive fields stored as safeStorage-encrypted base64
@@ -29,8 +30,11 @@ interface StoreSchema {
 	defaultTags: string[];
 	autoUpload: boolean;
 	verboseLogging: boolean;
-	_supabaseUrl: string; // safeStorage-encrypted base64
-	_supabaseKey: string; // safeStorage-encrypted base64
+	embeddingProvider: EmbeddingProvider;
+	ollamaBaseUrl: string;
+	_databaseUrl: string; // safeStorage-encrypted base64 (Neon DATABASE_URL)
+	_openaiApiKey: string; // safeStorage-encrypted base64
+	_googleApiKey: string; // safeStorage-encrypted base64
 }
 
 const defaults: StoreSchema = {
@@ -38,8 +42,11 @@ const defaults: StoreSchema = {
 	defaultTags: [],
 	autoUpload: false,
 	verboseLogging: false,
-	_supabaseUrl: '',
-	_supabaseKey: '',
+	embeddingProvider: 'openai',
+	ollamaBaseUrl: '',
+	_databaseUrl: '',
+	_openaiApiKey: '',
+	_googleApiKey: '',
 };
 
 export class SettingsStore {
@@ -70,11 +77,11 @@ export class SettingsStore {
 	}
 
 	/**
-	 * Initialize after app.whenReady() — migrates legacy credentials to safeStorage.
-	 * Must be called before get()/set() to ensure migration has run.
+	 * Initialize after app.whenReady() — removes dead Supabase-era credentials.
+	 * Must be called before get()/set().
 	 */
 	init(): void {
-		this.migrateFromLegacy();
+		this.cleanupLegacySupabase();
 	}
 
 	/**
@@ -113,30 +120,22 @@ export class SettingsStore {
 	}
 
 	/**
-	 * Migrate credentials from legacy obfuscated storage to safeStorage.
-	 * The old store used encryptionKey: 'textrawl-desktop-v1' with field names
-	 * 'supabaseUrl' and 'supabaseKey'. The new store uses safeStorage-encrypted
-	 * '_supabaseUrl' and '_supabaseKey' fields without an encryptionKey.
+	 * Remove dead Supabase credentials left by older versions. The project moved off
+	 * Supabase to Neon Postgres, so these values are no longer usable by the upload CLI.
+	 * Only operates on the live store (this.store) — it must NOT open a second Store with
+	 * an encryptionKey on the same file, which would rewrite textrawl-settings in the
+	 * legacy encrypted format and corrupt the active settings.
 	 */
-	private migrateFromLegacy(): void {
+	private cleanupLegacySupabase(): void {
 		try {
-			const oldStore = new Store({
-				name: 'textrawl-settings',
-				encryptionKey: 'textrawl-desktop-v1',
-			});
-			const oldUrl = oldStore.get('supabaseUrl') as string | undefined;
-			const oldKey = oldStore.get('supabaseKey') as string | undefined;
-
-			if (oldUrl || oldKey) {
-				if (oldUrl) this.store.set('_supabaseUrl', this.encrypt(oldUrl));
-				if (oldKey) this.store.set('_supabaseKey', this.encrypt(oldKey));
-				// Delete legacy fields
-				oldStore.delete('supabaseUrl' as never);
-				oldStore.delete('supabaseKey' as never);
-				logger.info('[settings] Migrated credentials to safeStorage');
-			}
+			// safeStorage-encrypted fields from the intermediate version, plus any
+			// plaintext legacy fields that may linger in the same file.
+			this.store.delete('_supabaseUrl' as never);
+			this.store.delete('_supabaseKey' as never);
+			this.store.delete('supabaseUrl' as never);
+			this.store.delete('supabaseKey' as never);
 		} catch (err) {
-			logger.error('[settings] Legacy migration failed (may be clean install):', err);
+			logger.debug('[settings] Supabase field cleanup skipped:', err);
 		}
 	}
 
@@ -145,16 +144,20 @@ export class SettingsStore {
 	 */
 	get(): AppSettings {
 		logger.debug('[settings] Loading settings');
-		const supabaseUrl = this.decrypt(this.store.get('_supabaseUrl'));
-		const supabaseKey = this.decrypt(this.store.get('_supabaseKey'));
+		const databaseUrl = this.decrypt(this.store.get('_databaseUrl'));
+		const openaiApiKey = this.decrypt(this.store.get('_openaiApiKey'));
+		const googleApiKey = this.decrypt(this.store.get('_googleApiKey'));
 
 		return {
 			outputDir: this.store.get('outputDir'),
 			defaultTags: this.store.get('defaultTags'),
 			autoUpload: this.store.get('autoUpload'),
 			verboseLogging: this.store.get('verboseLogging'),
-			supabaseUrl: supabaseUrl || undefined,
-			supabaseKey: supabaseKey || undefined,
+			embeddingProvider: this.store.get('embeddingProvider'),
+			databaseUrl: databaseUrl || undefined,
+			openaiApiKey: openaiApiKey || undefined,
+			googleApiKey: googleApiKey || undefined,
+			ollamaBaseUrl: this.store.get('ollamaBaseUrl') || undefined,
 		};
 	}
 
@@ -175,11 +178,20 @@ export class SettingsStore {
 		if (settings.verboseLogging !== undefined) {
 			this.store.set('verboseLogging', settings.verboseLogging);
 		}
-		if (settings.supabaseUrl !== undefined) {
-			this.store.set('_supabaseUrl', this.encrypt(settings.supabaseUrl));
+		if (settings.embeddingProvider !== undefined) {
+			this.store.set('embeddingProvider', settings.embeddingProvider);
 		}
-		if (settings.supabaseKey !== undefined) {
-			this.store.set('_supabaseKey', this.encrypt(settings.supabaseKey));
+		if (settings.ollamaBaseUrl !== undefined) {
+			this.store.set('ollamaBaseUrl', settings.ollamaBaseUrl);
+		}
+		if (settings.databaseUrl !== undefined) {
+			this.store.set('_databaseUrl', this.encrypt(settings.databaseUrl));
+		}
+		if (settings.openaiApiKey !== undefined) {
+			this.store.set('_openaiApiKey', this.encrypt(settings.openaiApiKey));
+		}
+		if (settings.googleApiKey !== undefined) {
+			this.store.set('_googleApiKey', this.encrypt(settings.googleApiKey));
 		}
 	}
 

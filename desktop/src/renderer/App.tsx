@@ -1,6 +1,7 @@
 import { useCallback, useEffect, useState } from 'preact/hooks';
 import type {
 	AppSettings,
+	EmbeddingProvider,
 	FileProgress,
 	LogEntry,
 	OverallProgress,
@@ -45,6 +46,12 @@ export function App() {
 	});
 	const [outputDir, setOutputDir] = useState('');
 	const [tags, setTags] = useState('');
+	// Connection settings (passed through to the upload CLI)
+	const [databaseUrl, setDatabaseUrl] = useState('');
+	const [embeddingProvider, setEmbeddingProvider] = useState<EmbeddingProvider>('openai');
+	const [openaiApiKey, setOpenaiApiKey] = useState('');
+	const [googleApiKey, setGoogleApiKey] = useState('');
+	const [ollamaBaseUrl, setOllamaBaseUrl] = useState('');
 
 	// Load settings on mount
 	useEffect(() => {
@@ -52,6 +59,11 @@ export function App() {
 			setSettings(loaded);
 			setOutputDir(loaded.outputDir || '');
 			setTags(loaded.defaultTags?.join(', ') || '');
+			setDatabaseUrl(loaded.databaseUrl || '');
+			setEmbeddingProvider(loaded.embeddingProvider || 'openai');
+			setOpenaiApiKey(loaded.openaiApiKey || '');
+			setGoogleApiKey(loaded.googleApiKey || '');
+			setOllamaBaseUrl(loaded.ollamaBaseUrl || '');
 		});
 
 		// Set up event listeners
@@ -206,6 +218,22 @@ export function App() {
 		}
 	};
 
+	const handleSaveConnection = async () => {
+		try {
+			await window.electronAPI.saveSettings({
+				...settings,
+				databaseUrl,
+				embeddingProvider,
+				openaiApiKey,
+				googleApiKey,
+				ollamaBaseUrl,
+			});
+			addLog('info', 'Connection settings saved');
+		} catch (error) {
+			addLog('error', 'Failed to save connection settings', String(error));
+		}
+	};
+
 	const handleClearFiles = () => {
 		setFiles([]);
 		setFileProgress(new Map());
@@ -264,6 +292,17 @@ export function App() {
 									onOutputDirChange={setOutputDir}
 									onTagsChange={setTags}
 									onSelectFolder={handleSelectFolder}
+									databaseUrl={databaseUrl}
+									embeddingProvider={embeddingProvider}
+									openaiApiKey={openaiApiKey}
+									googleApiKey={googleApiKey}
+									ollamaBaseUrl={ollamaBaseUrl}
+									onDatabaseUrlChange={setDatabaseUrl}
+									onEmbeddingProviderChange={setEmbeddingProvider}
+									onOpenaiApiKeyChange={setOpenaiApiKey}
+									onGoogleApiKeyChange={setGoogleApiKey}
+									onOllamaBaseUrlChange={setOllamaBaseUrl}
+									onSaveConnection={handleSaveConnection}
 								/>
 
 								<div class="actions">
@@ -282,7 +321,7 @@ export function App() {
 									{state === 'complete' && (
 										<>
 											<button type="button" class="btn btn-primary" onClick={handleUpload}>
-												Upload to Supabase
+												Upload to Textrawl
 											</button>
 											<button type="button" class="btn btn-secondary" onClick={handleClearFiles}>
 												Start Over

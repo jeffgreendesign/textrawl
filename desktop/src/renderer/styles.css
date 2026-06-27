@@ -252,7 +252,9 @@ main {
 	min-width: 120px;
 }
 
-.setting-row input[type="text"] {
+.setting-row input[type="text"],
+.setting-row input[type="password"],
+.setting-row select {
 	flex: 1;
 	background: var(--bg);
 	border: 1px solid var(--border);
@@ -263,9 +265,21 @@ main {
 	font-size: inherit;
 }
 
-.setting-row input[type="text"]:focus {
+.setting-row input[type="text"]:focus,
+.setting-row input[type="password"]:focus,
+.setting-row select:focus {
 	outline: none;
 	border-color: var(--accent);
+}
+
+.setting-section {
+	font-size: 0.8rem;
+	font-weight: 600;
+	text-transform: uppercase;
+	letter-spacing: 0.05em;
+	color: var(--text-muted);
+	border-top: 1px solid var(--border);
+	padding-top: 0.75rem;
 }
 
 /* Buttons */

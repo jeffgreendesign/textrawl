@@ -181,14 +181,23 @@ export interface UploadOptions {
 	tags: string[];
 }
 
+// Embedding provider for the upload pipeline — mirrors the server/CLI EMBEDDING_PROVIDER.
+// Must stay in sync with scripts/cli/lib/config.ts and src/utils/config.ts.
+export type EmbeddingProvider = 'openai' | 'google' | 'ollama';
+
 // App settings
 export interface AppSettings {
 	outputDir: string;
 	defaultTags: string[];
 	autoUpload: boolean;
-	supabaseUrl?: string;
-	supabaseKey?: string;
 	verboseLogging?: boolean;
+	// Upload/ingest connection — passed through to the upload CLI as env vars so the
+	// desktop writes to the same Neon database the dashboard/server use.
+	databaseUrl?: string; // Neon DATABASE_URL
+	embeddingProvider?: EmbeddingProvider;
+	openaiApiKey?: string; // OPENAI_API_KEY (provider=openai)
+	googleApiKey?: string; // GOOGLE_AI_API_KEY (provider=google)
+	ollamaBaseUrl?: string; // OLLAMA_BASE_URL (provider=ollama)
 }
 
 // Status report for oversized/unsupported file breakdown

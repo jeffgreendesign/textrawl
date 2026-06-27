@@ -79,15 +79,19 @@ export class UploadManager {
 		this.maxCurrent = 0;
 		this.sendLog('info', `Uploading files from ${options.directory}...`);
 
-		// Inject credentials from settings store so the CLI child process
-		// has SUPABASE_URL/SUPABASE_SERVICE_KEY without relying on .env
+		// Inject connection settings so the upload CLI writes to the same Neon database
+		// the server/dashboard use, without relying on a repo-local .env. These env var
+		// names mirror scripts/cli/lib/config.ts. Anything left unset falls back to .env.
 		const settings = this.settingsStore.get();
 		const env: Record<string, string> = {
 			// Give the upload process 8 GB heap and enable manual GC between batches
 			NODE_OPTIONS: '--max-old-space-size=8192 --expose-gc',
 		};
-		if (settings.supabaseUrl) env.SUPABASE_URL = settings.supabaseUrl;
-		if (settings.supabaseKey) env.SUPABASE_SERVICE_KEY = settings.supabaseKey;
+		if (settings.databaseUrl) env.DATABASE_URL = settings.databaseUrl;
+		if (settings.embeddingProvider) env.EMBEDDING_PROVIDER = settings.embeddingProvider;
+		if (settings.openaiApiKey) env.OPENAI_API_KEY = settings.openaiApiKey;
+		if (settings.googleApiKey) env.GOOGLE_AI_API_KEY = settings.googleApiKey;
+		if (settings.ollamaBaseUrl) env.OLLAMA_BASE_URL = settings.ollamaBaseUrl;
 
 		const args = [options.directory, '--auto-split', '--skip-large'];
 		if (options.tags.length > 0) {
