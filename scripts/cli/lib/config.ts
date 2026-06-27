@@ -14,10 +14,12 @@ import { config as dotenvConfig } from 'dotenv';
 export interface CLIConfig {
 	/** Neon PostgreSQL connection URL */
 	databaseUrl: string;
-	/** Embedding provider: openai or ollama */
-	embeddingProvider: 'openai' | 'ollama';
+	/** Embedding provider: openai, google, or ollama */
+	embeddingProvider: 'openai' | 'google' | 'ollama';
 	/** OpenAI API key (if using OpenAI) */
 	openaiApiKey?: string;
+	/** Google AI API key (if using Google) */
+	googleApiKey?: string;
 	/** Ollama base URL (if using Ollama) */
 	ollamaBaseUrl?: string;
 	/** Ollama model (if using Ollama) */
@@ -48,11 +50,18 @@ export function loadCLIConfig(envPath = '.env'): CLIConfig {
 	}
 
 	// Determine embedding provider
-	const embeddingProvider = (process.env.EMBEDDING_PROVIDER || 'openai') as 'openai' | 'ollama';
+	const embeddingProvider = (process.env.EMBEDDING_PROVIDER || 'openai') as
+		| 'openai'
+		| 'google'
+		| 'ollama';
 
 	if (embeddingProvider === 'openai') {
 		if (!process.env.OPENAI_API_KEY) {
 			throw new Error('OPENAI_API_KEY is required when using OpenAI embeddings');
+		}
+	} else if (embeddingProvider === 'google') {
+		if (!process.env.GOOGLE_AI_API_KEY) {
+			throw new Error('GOOGLE_AI_API_KEY is required when using Google AI embeddings');
 		}
 	} else if (embeddingProvider === 'ollama') {
 		if (!process.env.OLLAMA_BASE_URL) {
@@ -60,7 +69,7 @@ export function loadCLIConfig(envPath = '.env'): CLIConfig {
 		}
 	} else {
 		throw new Error(
-			`Invalid EMBEDDING_PROVIDER: ${embeddingProvider}. Must be 'openai' or 'ollama'`,
+			`Invalid EMBEDDING_PROVIDER: ${embeddingProvider}. Must be 'openai', 'google', or 'ollama'`,
 		);
 	}
 
@@ -68,6 +77,7 @@ export function loadCLIConfig(envPath = '.env'): CLIConfig {
 		databaseUrl,
 		embeddingProvider,
 		openaiApiKey: process.env.OPENAI_API_KEY,
+		googleApiKey: process.env.GOOGLE_AI_API_KEY,
 		ollamaBaseUrl: process.env.OLLAMA_BASE_URL,
 		ollamaModel: process.env.OLLAMA_MODEL || 'nomic-embed-text',
 	};
@@ -82,6 +92,10 @@ export function isUploadConfigured(config: CLIConfig): boolean {
 	}
 
 	if (config.embeddingProvider === 'openai' && !config.openaiApiKey) {
+		return false;
+	}
+
+	if (config.embeddingProvider === 'google' && !config.googleApiKey) {
 		return false;
 	}
 
