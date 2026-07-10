@@ -5,7 +5,8 @@ import { hybridSearch } from '../db/search.js';
 import { config } from '../utils/config.js';
 import { ServiceUnavailableError } from '../utils/errors.js';
 import { logger } from '../utils/logger.js';
-import { generateEmbedding, isEmbeddingsConfigured } from './embeddings.js';
+import { getQueryEmbedding } from '../utils/query-embedding-cache.js';
+import { isEmbeddingsConfigured } from './embeddings.js';
 
 // ---------------------------------------------------------------------------
 // Types
@@ -84,20 +85,34 @@ export async function unifiedSearch(options: SearchOptions): Promise<SearchRespo
 		throw new ServiceUnavailableError('Embedding provider not configured');
 	}
 
-	const queryEmbedding = await generateEmbedding(query);
+	const queryEmbedding = await getQueryEmbedding(query);
 
 	// Request extra results to allow for post-filtering
 	const hasFilters = !!(tags || sourceType || contentType || minScore);
 	const fetchLimit = hasFilters ? limit * 3 : limit;
 
-	// --- Document search ---
-	let docResults = await hybridSearch({
-		queryText: query,
-		queryEmbedding,
-		limit: fetchLimit,
-		fullTextWeight,
-		semanticWeight,
-	});
+	// The document, memory, and conversation searches each depend only on the
+	// query embedding, not on one another — launch them together so their DB
+	// round-trips overlap instead of running serially.
+	const wantMemories = includeMemories && config.ENABLE_MEMORY;
+	const wantConversations = includeConversations && config.ENABLE_CONVERSATIONS;
+
+	const [docResultsRaw, memories, convos] = await Promise.all([
+		hybridSearch({
+			queryText: query,
+			queryEmbedding,
+			limit: fetchLimit,
+			fullTextWeight,
+			semanticWeight,
+		}),
+		wantMemories ? hybridMemorySearch(query, queryEmbedding, { limit }) : Promise.resolve([]),
+		wantConversations
+			? hybridConversationSearch(query, queryEmbedding, { limit })
+			: Promise.resolve([]),
+	]);
+
+	// --- Document search (post-filtering) ---
+	let docResults = docResultsRaw;
 
 	if (sourceType) {
 		docResults = docResults.filter((r) => r.source_type === sourceType);
@@ -145,8 +160,7 @@ export async function unifiedSearch(options: SearchOptions): Promise<SearchRespo
 		content: r.content.slice(0, 500),
 	}));
 
-	if (includeMemories && config.ENABLE_MEMORY) {
-		const memories = await hybridMemorySearch(query, queryEmbedding, { limit });
+	if (wantMemories) {
 		for (const mem of memories) {
 			allResults.push({
 				type: 'memory',
@@ -159,8 +173,7 @@ export async function unifiedSearch(options: SearchOptions): Promise<SearchRespo
 		}
 	}
 
-	if (includeConversations && config.ENABLE_CONVERSATIONS) {
-		const convos = await hybridConversationSearch(query, queryEmbedding, { limit });
+	if (wantConversations) {
 		for (const conv of convos) {
 			allResults.push({
 				type: 'conversation',
