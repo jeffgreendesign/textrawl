@@ -8,6 +8,13 @@ neonConfig.useSecureWebSocket = true;
 
 let pool: Pool | null = null;
 
+/** Read a positive-integer env var, falling back on missing/invalid values. */
+function envInt(name: string, fallback: number): number {
+	const raw = process.env[name];
+	const n = raw ? Number.parseInt(raw, 10) : Number.NaN;
+	return Number.isFinite(n) && n >= 1 ? n : fallback;
+}
+
 /**
  * Get or create a Neon Postgres connection pool.
  * Uses DATABASE_URL from environment.
@@ -31,18 +38,25 @@ export function getPgPool(connectionString?: string): Pool {
 		logger.error('Unexpected pg pool error', { error: err.message });
 	});
 
-	// Enable pgvector 0.8 iterative index scans per connection so that filtered
-	// vector searches (hybrid_search's pushed-down predicates, memory search's
-	// entity_types) keep scanning the HNSW graph until the LIMIT is satisfied
-	// instead of silently under-returning. Wrapped in an exception-guarded DO
-	// block so older pgvector (which lacks this GUC) still connects cleanly.
+	// Tune pgvector HNSW behaviour per connection:
+	//  - iterative_scan (0.8+): keep scanning the HNSW graph until the LIMIT is
+	//    satisfied, so filtered vector searches (hybrid_search's pushed-down
+	//    predicates, memory search's entity_types) don't silently under-return.
+	//  - ef_search: candidate list size; higher = better recall at some latency
+	//    cost. pgvector's built-in default is 40; raise it for a personal corpus.
+	// efSearch is a validated integer so interpolation is injection-safe. The DO
+	// block is exception-guarded so older pgvector (no such GUCs) still connects.
+	const efSearch = envInt('HNSW_EF_SEARCH', 100);
 	pool.on('connect', (client: PoolClient) => {
 		client
 			.query(
-				"DO $$ BEGIN PERFORM set_config('hnsw.iterative_scan', 'relaxed_order', false); EXCEPTION WHEN others THEN NULL; END $$;",
+				`DO $$ BEGIN
+					PERFORM set_config('hnsw.iterative_scan', 'relaxed_order', false);
+					PERFORM set_config('hnsw.ef_search', '${efSearch}', false);
+				EXCEPTION WHEN others THEN NULL; END $$;`,
 			)
 			.catch((err: Error) => {
-				logger.debug('Could not set hnsw.iterative_scan (pgvector < 0.8?)', {
+				logger.debug('Could not set hnsw.* tuning GUCs (pgvector < 0.8?)', {
 					error: err.message,
 				});
 			});

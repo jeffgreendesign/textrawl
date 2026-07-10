@@ -45,6 +45,23 @@ const envSchema = z.object({
 	// - mxbai-embed-large (1024d) - Alternative, use setup-db-ollama.sql
 	OLLAMA_MODEL: z.string().default('nomic-embed-text'),
 
+	// Ingest concurrency. Peak concurrent provider requests during ingest is roughly
+	// EMBED_WINDOW_CONCURRENCY * EMBEDDING_BATCH_CONCURRENCY; withRetry absorbs 429s.
+	// Concurrent provider batches within a single generateEmbeddings call (speeds up
+	// semantic chunking and any large embed that splits into many batches).
+	EMBEDDING_BATCH_CONCURRENCY: z
+		.string()
+		.default('2')
+		.transform((val) => parseInt(val, 10))
+		.refine((val) => val >= 1, 'Must be at least 1'),
+	// Concurrent 128-chunk embed+insert windows (overlaps embed and insert across
+	// windows for large documents). Peak memory scales with this value.
+	EMBED_WINDOW_CONCURRENCY: z
+		.string()
+		.default('2')
+		.transform((val) => parseInt(val, 10))
+		.refine((val) => val >= 1, 'Must be at least 1'),
+
 	// Feature flags
 	ENABLE_MEMORY: z
 		.string()

@@ -27,6 +27,8 @@ const { storage, mockConfig } = vi.hoisted(() => ({
 		MAX_UPLOAD_SIZE_MB: 500,
 		CHUNKING_MODE: 'fixed',
 		EMBEDDING_PROVIDER: 'openai',
+		EMBEDDING_BATCH_CONCURRENCY: 2,
+		EMBED_WINDOW_CONCURRENCY: 2,
 	},
 }));
 

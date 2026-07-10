@@ -1,5 +1,6 @@
 import { GoogleGenerativeAI } from '@google/generative-ai';
 import OpenAI from 'openai';
+import pLimit from 'p-limit';
 import { config } from '../utils/config.js';
 import { ExternalServiceError, ProviderHttpError } from '../utils/errors.js';
 import { logger } from '../utils/logger.js';
@@ -128,6 +129,22 @@ export function buildTokenBoundedBatches(
 		batches.push(current);
 	}
 	return batches;
+}
+
+/**
+ * Embed independent batches with bounded concurrency, preserving input order.
+ * `Promise.all` keeps array order regardless of settle order, so `.flat()` on the
+ * per-batch results reconstructs the original input order for free — the caller
+ * (`embedAndStoreChunks`) positionally zips embeddings back to their chunks.
+ */
+export async function embedBatchesConcurrently(
+	batches: string[][],
+	embedBatch: (batch: string[]) => Promise<number[][]>,
+	concurrency = config.EMBEDDING_BATCH_CONCURRENCY,
+): Promise<number[][]> {
+	const limit = pLimit(Math.max(1, concurrency));
+	const perBatch = await Promise.all(batches.map((batch) => limit(() => embedBatch(batch))));
+	return perBatch.flat();
 }
 
 // Ollama API response type
@@ -266,9 +283,7 @@ async function generateOllamaEmbeddings(texts: string[]): Promise<number[][]> {
 	);
 
 	try {
-		const allEmbeddings: number[][] = [];
-
-		for (const batch of batches) {
+		return await embedBatchesConcurrently(batches, async (batch) => {
 			const data = await withRetry(
 				async () => {
 					const response = await fetch(url, {
@@ -294,14 +309,11 @@ async function generateOllamaEmbeddings(texts: string[]): Promise<number[][]> {
 				{ label: 'Ollama embeddings' },
 			);
 
-			if (data.embeddings) {
-				allEmbeddings.push(...data.embeddings);
-			} else {
+			if (!data.embeddings) {
 				throw new Error('Invalid response format from Ollama');
 			}
-		}
-
-		return allEmbeddings;
+			return data.embeddings;
+		});
 	} catch (error) {
 		if (error instanceof Error && error.message.includes('ECONNREFUSED')) {
 			throw new ExternalServiceError(
@@ -375,9 +387,7 @@ async function generateOpenAIEmbeddings(texts: string[]): Promise<number[][]> {
 	}
 
 	try {
-		const allEmbeddings: number[][] = [];
-
-		for (const batch of batches) {
+		return await embedBatchesConcurrently(batches, async (batch) => {
 			const response = await withRetry(
 				() =>
 					client.embeddings.create({
@@ -389,10 +399,8 @@ async function generateOpenAIEmbeddings(texts: string[]): Promise<number[][]> {
 			);
 
 			const sortedData = response.data.sort((a, b) => a.index - b.index);
-			allEmbeddings.push(...sortedData.map((item) => item.embedding));
-		}
-
-		return allEmbeddings;
+			return sortedData.map((item) => item.embedding);
+		});
 	} catch (error) {
 		throw new ExternalServiceError(
 			`OpenAI batch embedding generation failed: ${error instanceof Error ? error.message : String(error)}`,
@@ -438,9 +446,7 @@ async function generateGoogleEmbeddings(texts: string[]): Promise<number[][]> {
 	);
 
 	try {
-		const allEmbeddings: number[][] = [];
-
-		for (const batch of batches) {
+		return await embedBatchesConcurrently(batches, async (batch) => {
 			const result = await withRetry(
 				() =>
 					model.batchEmbedContents({
@@ -450,10 +456,8 @@ async function generateGoogleEmbeddings(texts: string[]): Promise<number[][]> {
 					}),
 				{ label: 'Google embeddings' },
 			);
-			allEmbeddings.push(...result.embeddings.map((e) => e.values));
-		}
-
-		return allEmbeddings;
+			return result.embeddings.map((e) => e.values);
+		});
 	} catch (error) {
 		throw new ExternalServiceError(
 			`Google AI batch embedding failed: ${error instanceof Error ? error.message : String(error)}`,
