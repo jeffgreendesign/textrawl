@@ -47,14 +47,24 @@ create index if not exists chunks_chunk_index_idx on chunks(document_id, chunk_i
 create index if not exists chunks_embedding_idx on chunks
   using hnsw (embedding vector_cosine_ops);
 
--- Hybrid search function using Reciprocal Rank Fusion (RRF)
+-- GIN index on documents.metadata backs the tag/content_type predicates that
+-- hybrid_search pushes down (JSONB containment `@>` and `->>` key lookups).
+create index if not exists documents_metadata_gin_idx on documents using gin (metadata jsonb_path_ops);
+
+-- Hybrid search function using Reciprocal Rank Fusion (RRF).
+-- Drop the old 6-arg signature first: adding filter args creates a NEW overload,
+-- which makes existing 5-/6-arg calls ambiguous. Drop, then recreate in full.
+drop function if exists public.hybrid_search(text, vector(1536), int, float, float, int);
 create or replace function public.hybrid_search(
   query_text text,
   query_embedding vector(1536),
   match_count int default 10,
   full_text_weight float default 1.0,
   semantic_weight float default 1.0,
-  rrf_k int default 60
+  rrf_k int default 60,
+  filter_source_type text default null,
+  filter_content_type text default null,
+  filter_tags jsonb default null
 )
 returns table (
   chunk_id uuid,
@@ -77,17 +87,27 @@ with full_text as (
   from public.chunks c
   join public.documents d on c.document_id = d.id
   where d.fts @@ websearch_to_tsquery(query_text)
+    and (filter_source_type is null or d.source_type = filter_source_type)
+    and (filter_content_type is null or d.metadata->>'content_type' = filter_content_type)
+    and (filter_tags is null or d.metadata->'tags' @> filter_tags)
   limit match_count * 2
 ),
 semantic as (
-  -- Semantic search ranked results
+  -- Semantic search ranked results. Filters are applied inside this CTE (not
+  -- after fusion) so a selective filter is never starved by the match_count*2
+  -- window. On pgvector >= 0.8, hnsw.iterative_scan (set on the connection)
+  -- keeps the HNSW scan going until the filtered limit is met.
   select
-    id,
-    document_id,
-    row_number() over (order by embedding <=> query_embedding) as rank_ix
-  from public.chunks
-  where embedding is not null
-  order by embedding <=> query_embedding
+    c.id,
+    c.document_id,
+    row_number() over (order by c.embedding <=> query_embedding) as rank_ix
+  from public.chunks c
+  join public.documents d on c.document_id = d.id
+  where c.embedding is not null
+    and (filter_source_type is null or d.source_type = filter_source_type)
+    and (filter_content_type is null or d.metadata->>'content_type' = filter_content_type)
+    and (filter_tags is null or d.metadata->'tags' @> filter_tags)
+  order by c.embedding <=> query_embedding
   limit match_count * 2
 )
 -- Combine with RRF scoring

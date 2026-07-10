@@ -1,4 +1,4 @@
-import { Pool, type QueryResultRow, neonConfig } from '@neondatabase/serverless';
+import { Pool, type PoolClient, type QueryResultRow, neonConfig } from '@neondatabase/serverless';
 import { DatabaseError, NotFoundError } from '../utils/errors.js';
 import { logger } from '../utils/logger.js';
 
@@ -29,6 +29,23 @@ export function getPgPool(connectionString?: string): Pool {
 
 	pool.on('error', (err: Error) => {
 		logger.error('Unexpected pg pool error', { error: err.message });
+	});
+
+	// Enable pgvector 0.8 iterative index scans per connection so that filtered
+	// vector searches (hybrid_search's pushed-down predicates, memory search's
+	// entity_types) keep scanning the HNSW graph until the LIMIT is satisfied
+	// instead of silently under-returning. Wrapped in an exception-guarded DO
+	// block so older pgvector (which lacks this GUC) still connects cleanly.
+	pool.on('connect', (client: PoolClient) => {
+		client
+			.query(
+				"DO $$ BEGIN PERFORM set_config('hnsw.iterative_scan', 'relaxed_order', false); EXCEPTION WHEN others THEN NULL; END $$;",
+			)
+			.catch((err: Error) => {
+				logger.debug('Could not set hnsw.iterative_scan (pgvector < 0.8?)', {
+					error: err.message,
+				});
+			});
 	});
 
 	return pool;
