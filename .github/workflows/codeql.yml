@@ -14,6 +14,11 @@ permissions:
   security-events: write
   actions: read
 
+# Cancel superseded runs on the same ref so rapid pushes don't pile up on runners.
+concurrency:
+  group: ${{ github.workflow }}-${{ github.ref }}
+  cancel-in-progress: true
+
 jobs:
   analyze:
     name: Analyze

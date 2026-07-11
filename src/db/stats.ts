@@ -1,6 +1,5 @@
 import type { KnowledgeStats } from '../types/database.js';
 import { DatabaseError } from '../utils/errors.js';
-import { logger } from '../utils/logger.js';
 import { isDatabaseConfigured, pgQuery, queryCount } from './pg-client.js';
 
 export type { KnowledgeStats } from '../types/database.js';

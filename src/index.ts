@@ -14,7 +14,6 @@ import { apiRoutes } from './api/routes.js';
 import { statusRouter } from './api/status.js';
 import { checkDatabaseConnection, isDatabaseConfigured } from './db/pg-client.js';
 import { createMcpServer } from './server.js';
-import { isOpenAIConfigured } from './services/embeddings.js';
 import { config } from './utils/config.js';
 import { logger } from './utils/logger.js';
 

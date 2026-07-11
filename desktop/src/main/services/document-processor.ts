@@ -2,7 +2,7 @@ import { createHash } from 'node:crypto';
 /**
  * Document Processor - Extract text from various document formats
  */
-import { mkdirSync, readFileSync, readdirSync, writeFileSync } from 'node:fs';
+import { mkdirSync, readFileSync, writeFileSync } from 'node:fs';
 import { basename, extname, join } from 'node:path';
 import type { ConversionResult, FileType } from '../../shared/types.js';
 

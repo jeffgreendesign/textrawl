@@ -1,4 +1,4 @@
-import { existsSync, readFileSync, readdirSync, statSync } from 'node:fs';
+import { existsSync, readdirSync, readFileSync, statSync } from 'node:fs';
 /**
  * ProjectManager - Core main-process service for the directory browser.
  *
@@ -14,7 +14,7 @@ import { existsSync, readFileSync, readdirSync, statSync } from 'node:fs';
  *  - Dirty-set IPC: only changed nodes sent via PROJECT_FILE_UPDATE;
  *    full tree sync only for structural changes (add/remove)
  */
-import { readFile, readdir, stat } from 'node:fs/promises';
+import { readdir, readFile, stat } from 'node:fs/promises';
 import { basename, extname, join, relative, sep } from 'node:path';
 import type { BrowserWindow } from 'electron';
 import matter from 'gray-matter';

@@ -1,11 +1,11 @@
-import { dirname, join } from 'node:path';
+import { join } from 'node:path';
 /**
  * Textrawl Desktop - Electron Main Process
  *
  * Note: ELECTRON_RUN_AS_NODE must be unset for Electron to work properly.
  * The npm scripts in package.json handle this automatically.
  */
-import { BrowserWindow, app, dialog, ipcMain, safeStorage } from 'electron';
+import { app, BrowserWindow, dialog, ipcMain, safeStorage } from 'electron';
 import { IPC } from '../shared/ipc-channels.js';
 import type {
 	AppSettings,

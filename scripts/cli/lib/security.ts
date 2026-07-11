@@ -6,7 +6,7 @@
 
 import { existsSync, realpathSync, statSync } from 'node:fs';
 import { homedir, tmpdir } from 'node:os';
-import { isAbsolute, normalize, relative, resolve, sep } from 'node:path';
+import { isAbsolute, normalize, relative, resolve } from 'node:path';
 
 /**
  * Options for path validation

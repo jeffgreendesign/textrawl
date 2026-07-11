@@ -1,10 +1,10 @@
+import Link from 'next/link';
+import type { ReactNode } from 'react';
 import { Features } from '@/components/landing/features';
 import { Hero } from '@/components/landing/hero';
 import { MCPShowcase } from '@/components/landing/mcp-showcase';
 import { QuickStart } from '@/components/landing/quick-start';
 import { MakerNote } from '@/components/maker-note';
-import Link from 'next/link';
-import type { ReactNode } from 'react';
 
 export default function LandingPage(): ReactNode {
 	return (

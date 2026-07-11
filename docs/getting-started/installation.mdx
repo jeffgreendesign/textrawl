@@ -65,6 +65,8 @@ docker compose -f docker-compose.local.yml --profile admin up -d
 
 textrawl requires PostgreSQL with the `pgvector` extension. Use a managed Postgres provider with `pgvector` (Neon recommended — `pgvector` is included on all Neon tiers, including Free), or self-host.
 
+**pgvector 0.8 or newer is recommended.** Filtered hybrid searches (by `source_type`, `content_type`, or tags) rely on pgvector's iterative index scans to keep results complete under selective filters. textrawl enables them automatically when available and degrades gracefully on older versions; Neon ships pgvector ≥ 0.8.
+
 For compute tier recommendations and storage estimates, see the
 [Database Requirements](/docs/guides/database-requirements) guide.
 

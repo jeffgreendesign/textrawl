@@ -52,6 +52,9 @@ This file centralizes runtime configuration for Textrawl server, MCP tools, CLI,
 | `GOOGLE_CLIENT_ID`, `GOOGLE_CLIENT_SECRET`, `OAUTH_JWT_SECRET`, `OAUTH_SERVER_URL` | OAuth support |
 | `OAUTH_ALLOWED_EMAILS` | Optional OAuth email allowlist |
 | `CHUNKING_MODE`, `SEMANTIC_SIMILARITY_THRESHOLD` | Chunking strategy tuning |
+| `EMBEDDING_BATCH_CONCURRENCY` | Concurrent provider batches per embedding call (default: `2`) |
+| `EMBED_WINDOW_CONCURRENCY` | Concurrent 128-chunk embed+insert windows during ingest (default: `2`; higher raises peak memory) |
+| `HNSW_EF_SEARCH` | pgvector HNSW `ef_search` candidate list size — higher = better recall, more latency (default: `100`; pgvector built-in is `40`) |
 | `PG_REPORT_DIR` | Directory for analysis reports (default: `./reports/pg-analysis`) |
 | `INSIGHT_BATCH_THRESHOLD` | Insight scan tuning (default: `50`) |
 | `INSIGHT_DEBOUNCE_SECONDS` | Insight scan debounce (default: `300`) |

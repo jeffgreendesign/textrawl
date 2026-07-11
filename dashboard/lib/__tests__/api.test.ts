@@ -1,10 +1,6 @@
 import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest';
 
 import {
-	SUPPORTED_UPLOAD_EXTENSIONS,
-	UPLOAD_ACCEPT_ATTR,
-	UPLOAD_THRESHOLD_MB,
-	UploadError,
 	cancelUpload,
 	completeUpload,
 	describeUploadError,
@@ -15,6 +11,10 @@ import {
 	pollUploadStatus,
 	putResumable,
 	resumableUpload,
+	SUPPORTED_UPLOAD_EXTENSIONS,
+	UPLOAD_ACCEPT_ATTR,
+	UPLOAD_THRESHOLD_MB,
+	UploadError,
 } from '../api.js';
 
 /** Minimal Response-like stub — the real client only touches these members. */

@@ -15,8 +15,8 @@ import { createHash } from 'node:crypto';
 import {
 	existsSync,
 	mkdirSync,
-	readFileSync,
 	readdirSync,
+	readFileSync,
 	rmSync,
 	statSync,
 	writeFileSync,
@@ -24,30 +24,31 @@ import {
 import { tmpdir } from 'node:os';
 import { basename, dirname, extname, join, resolve } from 'node:path';
 import { promisify } from 'node:util';
-// @ts-ignore - unzipper types
+// @ts-expect-error - unzipper types
 import * as unzipper from 'unzipper';
 
-// Catch unhandled promise rejections from libraries like pdf-parse that throw
+// Catch unhandled promise rejections from parser libraries that throw
 // internally without proper error propagation. Log and continue instead of crashing.
 process.on('unhandledRejection', (reason) => {
-	console.error(`[WARN] Unhandled rejection (continuing): ${reason}`);
+	// ESM imports are hoisted, so `logger` (imported below) is initialized by the
+	// time this handler ever fires.
+	logger.error(`Unhandled rejection (continuing): ${reason}`);
 });
 
 import { analyzeTakeout } from '../lib/analyze.js';
-import { type TakeoutOptions, addTakeoutOptions, createBaseCommand } from '../lib/args.js';
+import { addTakeoutOptions, createBaseCommand, type TakeoutOptions } from '../lib/args.js';
 import { createFrontmatter, serializeFrontmatter } from '../lib/frontmatter.js';
 import { slugify } from '../lib/normalizer.js';
-import { ProgressReporter, logger } from '../lib/progress.js';
+import { logger, ProgressReporter } from '../lib/progress.js';
 import { validateOutputPath } from '../lib/security.js';
 import type {
 	CalendarMetadata,
 	ContactMetadata,
-	ConversionResult,
 	DriveFileMetadata,
 	YouTubeMetadata,
 } from '../lib/types.js';
 
-const execAsync = promisify(exec);
+const _execAsync = promisify(exec);
 
 /**
  * YouTube watch history entry from Takeout JSON
@@ -818,9 +819,9 @@ async function extractDriveFileText(filePath: string, ext: string): Promise<stri
 
 	switch (ext) {
 		case '.pdf': {
-			const pdf = await import('pdf-parse');
-			const data = await pdf.default(buffer);
-			return data.text;
+			const { extractText } = await import('unpdf');
+			const { text } = await extractText(new Uint8Array(buffer), { mergePages: true });
+			return text;
 		}
 		case '.docx':
 		case '.doc': {

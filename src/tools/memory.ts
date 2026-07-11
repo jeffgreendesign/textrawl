@@ -1,14 +1,14 @@
 import type { McpServer } from '@modelcontextprotocol/sdk/server/mcp.js';
 import { z } from 'zod';
 import {
-	type EntityType,
 	deleteEntity,
+	type EntityType,
 	findEntityByName,
 	getOrCreateEntity,
 	listEntities,
 } from '../db/memory-entities.js';
 import { createObservation, findSimilarObservation } from '../db/memory-observations.js';
-import { RELATION_TYPES, getOrCreateRelation } from '../db/memory-relations.js';
+import { getOrCreateRelation, RELATION_TYPES } from '../db/memory-relations.js';
 import { getEntityContext, hybridMemorySearch, semanticMemorySearch } from '../db/memory-search.js';
 import { isDatabaseConfigured } from '../db/pg-client.js';
 import { generateEmbedding, isOpenAIConfigured } from '../services/embeddings.js';

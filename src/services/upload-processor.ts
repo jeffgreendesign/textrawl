@@ -3,13 +3,13 @@ import type { Readable } from 'node:stream';
 import { createDocument } from '../db/documents.js';
 import { isDatabaseConfigured } from '../db/pg-client.js';
 import {
-	type Upload,
-	type UploadState,
 	getUpload,
 	listUploadEntries,
 	recordUploadEntry,
 	recordUploadProcessingResult,
 	transitionUploadState,
+	type Upload,
+	type UploadState,
 } from '../db/uploads.js';
 import { config } from '../utils/config.js';
 import {
@@ -25,9 +25,9 @@ import { smartChunk } from './chunker.js';
 import { embedAndStoreChunks } from './embed-store.js';
 import { generateEmbeddings, isEmbeddingsConfigured } from './embeddings.js';
 import { onDocumentIngested } from './pipeline.js';
-import { extractText, isSupportedType, validateFileType } from './processor.js';
 import { validateZip } from './processor/handlers/archive-zip.js';
 import { resolveForEntry } from './processor/registry.js';
+import { extractText, isSupportedType, validateFileType } from './processor.js';
 import { getStorageService } from './storage/index.js';
 
 /** ZIP MIME types this processor extracts (mirrors the `/init` accept-list). */

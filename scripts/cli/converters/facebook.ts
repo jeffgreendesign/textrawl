@@ -15,24 +15,24 @@ import {
 	createReadStream,
 	existsSync,
 	mkdirSync,
-	readFileSync,
 	readdirSync,
+	readFileSync,
 	rmSync,
 	statSync,
 	writeFileSync,
 } from 'node:fs';
 import { tmpdir } from 'node:os';
 import { basename, join, resolve } from 'node:path';
-// @ts-ignore - unzipper types
+// @ts-expect-error - unzipper types
 import * as unzipper from 'unzipper';
 
 import { analyzeFacebook } from '../lib/analyze.js';
 import { type CommonOptions, createBaseCommand } from '../lib/args.js';
 import { createFrontmatter, serializeFrontmatter } from '../lib/frontmatter.js';
-import { slugify, stripHtml } from '../lib/normalizer.js';
-import { ProgressReporter, logger } from '../lib/progress.js';
+import { slugify } from '../lib/normalizer.js';
+import { logger, ProgressReporter } from '../lib/progress.js';
 import { validateOutputPath } from '../lib/security.js';
-import type { ContentType, ConversionResult } from '../lib/types.js';
+import type { ContentType } from '../lib/types.js';
 
 /**
  * Facebook converter options

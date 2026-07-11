@@ -9,15 +9,14 @@
  *   npx tsx scripts/cli/converters/mbox.ts <mbox-file> [options]
  */
 
-import { createHash } from 'node:crypto';
 import { createReadStream, existsSync, mkdirSync, statSync, writeFileSync } from 'node:fs';
 import { dirname, resolve } from 'node:path';
 import { createInterface } from 'node:readline';
 import { type ParsedMail, simpleParser } from 'mailparser';
 
-import { type MboxOptions, addMboxOptions, createBaseCommand } from '../lib/args.js';
+import { addMboxOptions, createBaseCommand, type MboxOptions } from '../lib/args.js';
 import { serializeFrontmatter } from '../lib/frontmatter.js';
-import { ProgressReporter, logger } from '../lib/progress.js';
+import { logger, ProgressReporter } from '../lib/progress.js';
 import { sanitizeFilename, validateOutputPath } from '../lib/security.js';
 import type { ConversionResult } from '../lib/types.js';
 import { convertEmail, generateOutputPath } from './eml.js';
@@ -76,13 +75,11 @@ async function countMboxMessages(filePath: string): Promise<number> {
 	const rl = createInterface({ input: stream, crlfDelay: Infinity });
 
 	let count = 0;
-	let prevLineEmpty = true;
 
 	for await (const line of rl) {
 		if (line.startsWith('From ') && line.match(/^From \S+.*\d{4}$/)) {
 			count++;
 		}
-		prevLineEmpty = line.trim() === '';
 	}
 
 	return count;

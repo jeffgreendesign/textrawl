@@ -9,6 +9,12 @@ export interface HybridSearchOptions {
 	limit?: number;
 	fullTextWeight?: number;
 	semanticWeight?: number;
+	/** Restrict to a single top-level source_type ('note' | 'file' | 'url'). */
+	sourceType?: string;
+	/** Restrict to a metadata.content_type value (e.g. 'email', 'webpage'). */
+	contentType?: string;
+	/** Require all of these tags (metadata.tags @> filter, AND semantics). */
+	tags?: string[];
 }
 
 /**
@@ -35,6 +41,9 @@ export async function hybridSearch(options: HybridSearchOptions): Promise<Search
 		limit = 10,
 		fullTextWeight = 1.0,
 		semanticWeight = 1.0,
+		sourceType,
+		contentType,
+		tags,
 	} = options;
 
 	logger.debug('Performing hybrid search', {
@@ -42,11 +51,26 @@ export async function hybridSearch(options: HybridSearchOptions): Promise<Search
 		limit,
 		fullTextWeight,
 		semanticWeight,
+		sourceType,
+		contentType,
+		tagCount: tags?.length,
 	});
 
+	// rrf_k ($6) must be passed explicitly to reach the trailing filter args.
+	// tags map to a JSONB array for the `metadata->'tags' @> $9` containment check.
 	const { rows } = await pgQuery<SearchResult>(
-		'SELECT * FROM hybrid_search($1, $2::vector, $3, $4, $5)',
-		[queryText, JSON.stringify(queryEmbedding), limit, fullTextWeight, semanticWeight],
+		'SELECT * FROM hybrid_search($1, $2::vector, $3, $4, $5, $6, $7, $8, $9)',
+		[
+			queryText,
+			JSON.stringify(queryEmbedding),
+			limit,
+			fullTextWeight,
+			semanticWeight,
+			60,
+			sourceType ?? null,
+			contentType ?? null,
+			tags && tags.length > 0 ? JSON.stringify(tags) : null,
+		],
 	);
 
 	logger.info('Hybrid search completed', { resultCount: rows.length });

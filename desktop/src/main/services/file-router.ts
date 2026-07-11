@@ -499,7 +499,9 @@ export function scanDirectory(dirPath: string): ScannedFile[] {
  */
 export async function scanPaths(paths: string[]): Promise<ScannedFile[]> {
 	logger.debug(`[file-router] scanPaths called with ${paths.length} path(s):`);
-	paths.forEach((p, i) => logger.debug(`[file-router]   [${i}] ${p}`));
+	paths.forEach((p, i) => {
+		logger.debug(`[file-router]   [${i}] ${p}`);
+	});
 
 	const results: ScannedFile[] = [];
 

@@ -38,12 +38,29 @@ const envSchema = z.object({
 	GOOGLE_EMBEDDING_MODEL: z.string().default('gemini-embedding-2-preview'),
 
 	// Ollama
-	OLLAMA_BASE_URL: z.string().url().default('http://localhost:11434'),
+	OLLAMA_BASE_URL: z.url().default('http://localhost:11434'),
 	// Supported models and their dimensions:
 	// - nomic-embed-text (1024d) - Original, use setup-db-ollama.sql
 	// - nomic-embed-text-v2-moe (768d) - MoE, multilingual, use setup-db-ollama-v2.sql
 	// - mxbai-embed-large (1024d) - Alternative, use setup-db-ollama.sql
 	OLLAMA_MODEL: z.string().default('nomic-embed-text'),
+
+	// Ingest concurrency. Peak concurrent provider requests during ingest is roughly
+	// EMBED_WINDOW_CONCURRENCY * EMBEDDING_BATCH_CONCURRENCY; withRetry absorbs 429s.
+	// Concurrent provider batches within a single generateEmbeddings call (speeds up
+	// semantic chunking and any large embed that splits into many batches).
+	EMBEDDING_BATCH_CONCURRENCY: z
+		.string()
+		.default('2')
+		.transform((val) => parseInt(val, 10))
+		.refine((val) => val >= 1, 'Must be at least 1'),
+	// Concurrent 128-chunk embed+insert windows (overlaps embed and insert across
+	// windows for large documents). Peak memory scales with this value.
+	EMBED_WINDOW_CONCURRENCY: z
+		.string()
+		.default('2')
+		.transform((val) => parseInt(val, 10))
+		.refine((val) => val >= 1, 'Must be at least 1'),
 
 	// Feature flags
 	ENABLE_MEMORY: z
@@ -99,7 +116,7 @@ const envSchema = z.object({
 	GOOGLE_CLIENT_SECRET: z.string().optional(),
 	OAUTH_JWT_SECRET: z.string().min(32).optional(),
 	OAUTH_ALLOWED_EMAILS: z.string().optional(),
-	OAUTH_SERVER_URL: z.string().url().optional(),
+	OAUTH_SERVER_URL: z.url().optional(),
 
 	// Proactive insights
 	ENABLE_INSIGHTS: z
@@ -152,7 +169,7 @@ const envSchema = z.object({
 	PG_REPORT_DIR: z.string().default('./reports/pg-analysis'),
 
 	// Redis (optional - enables shared rate limiting across instances)
-	REDIS_URL: z.string().url().optional(),
+	REDIS_URL: z.url().optional(),
 
 	// File size limits
 	MAX_SINGLE_FILE_SIZE_MB: z
@@ -230,7 +247,7 @@ const envSchema = z.object({
 
 	// Internal processing endpoint base URL. Task target is `<url>/<uploadId>` and
 	// the URL doubles as the OIDC audience the endpoint verifies.
-	UPLOAD_PROCESS_URL: z.string().url().optional(),
+	UPLOAD_PROCESS_URL: z.url().optional(),
 
 	// Safe-ZIP extraction limits (plan §7 / §9). Enforced against the central
 	// directory *before* decompressing, so bomb/oversize archives are rejected up
@@ -298,7 +315,7 @@ export function loadConfig(): Config {
 
 	if (!result.success) {
 		logger.error('Configuration validation failed', {
-			errors: result.error.format(),
+			errors: z.treeifyError(result.error),
 		});
 		process.exit(1);
 	}

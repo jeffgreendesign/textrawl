@@ -22,14 +22,14 @@ import {
 import { useCallback, useRef, useState } from 'react';
 
 import {
-	SUPPORTED_UPLOAD_COPY,
-	UPLOAD_ACCEPT_ATTR,
-	UPLOAD_THRESHOLD_MB,
 	cancelUpload,
 	describeUploadError,
 	friendlyUploadCode,
 	getApiBase,
 	resumableUpload,
+	SUPPORTED_UPLOAD_COPY,
+	UPLOAD_ACCEPT_ATTR,
+	UPLOAD_THRESHOLD_MB,
 	uploadErrorFromResponse,
 } from '@/lib/api';
 

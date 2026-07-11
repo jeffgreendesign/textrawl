@@ -1,21 +1,27 @@
 {
-	"$schema": "https://biomejs.dev/schemas/1.9.4/schema.json",
-	"organizeImports": {
-		"enabled": true
-	},
+	"$schema": "https://biomejs.dev/schemas/2.5.3/schema.json",
+	"assist": { "actions": { "source": { "organizeImports": "on" } } },
 	"linter": {
 		"enabled": true,
 		"rules": {
-			"recommended": true,
+			"preset": "recommended",
 			"style": {
 				"useNumberNamespace": "off",
 				"noNonNullAssertion": "warn"
 			},
 			"complexity": {
-				"noForEach": "warn"
+				"noForEach": "warn",
+				"noImportantStyles": "off"
 			},
 			"suspicious": {
-				"noExplicitAny": "warn"
+				"noExplicitAny": "warn",
+				"noArrayIndexKey": "warn"
+			},
+			"a11y": {
+				"useButtonType": "warn",
+				"noStaticElementInteractions": "warn",
+				"noAmbiguousAnchorText": "warn",
+				"noSvgWithoutTitle": "warn"
 			}
 		}
 	},
@@ -31,20 +37,23 @@
 		}
 	},
 	"files": {
-		"ignore": [
-			"node_modules",
-			".next",
-			".source",
-			"dist",
-			".vercel",
-			"*.min.js",
-			"*.d.ts",
-			".claude"
+		"includes": [
+			"**",
+			"!**/node_modules",
+			"!**/.next",
+			"!**/.source",
+			"!**/dist",
+			"!**/.vercel",
+			"!**/*.min.js",
+			"!**/*.d.ts",
+			"!**/.claude",
+			"!**/public",
+			"!**/__tests__/fixtures"
 		]
 	},
 	"overrides": [
 		{
-			"include": ["desktop/**", "scripts/**"],
+			"includes": ["**/desktop/**", "**/scripts/**"],
 			"linter": {
 				"rules": {
 					"suspicious": {

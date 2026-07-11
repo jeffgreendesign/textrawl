@@ -6,27 +6,27 @@
  */
 
 export type {
-	// Document & Search
-	Document,
 	Chunk,
-	SearchResult,
-	// Memory
-	EntityType,
-	MemoryEntity,
-	ObservationSource,
-	MemoryObservation,
-	MemoryRelation,
-	MemorySearchResult,
-	EntityContext,
+	ConversationSearchResult,
 	// Conversations
 	ConversationSession,
 	ConversationTurn,
-	ConversationSearchResult,
-	TurnSearchResult,
+	// Document & Search
+	Document,
+	EntityContext,
+	// Memory
+	EntityType,
+	InsightStatus,
 	// Insights
 	InsightType,
-	InsightStatus,
-	ProactiveInsight,
 	// Stats
 	KnowledgeStats,
+	MemoryEntity,
+	MemoryObservation,
+	MemoryRelation,
+	MemorySearchResult,
+	ObservationSource,
+	ProactiveInsight,
+	SearchResult,
+	TurnSearchResult,
 } from './database.js';

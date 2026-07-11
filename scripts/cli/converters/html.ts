@@ -11,20 +11,16 @@
 
 import { createHash } from 'node:crypto';
 import { existsSync, mkdirSync, readFileSync, statSync, writeFileSync } from 'node:fs';
-import { basename, dirname, extname, join, resolve } from 'node:path';
+import { basename, extname, join, resolve } from 'node:path';
 import { glob } from 'glob';
 import { JSDOM } from 'jsdom';
 import TurndownService from 'turndown';
 import { gfm } from 'turndown-plugin-gfm';
 
-import { type HtmlOptions, addHtmlOptions, createBaseCommand } from '../lib/args.js';
-import {
-	type ParsedDocument,
-	createFrontmatter,
-	serializeFrontmatter,
-} from '../lib/frontmatter.js';
+import { addHtmlOptions, createBaseCommand, type HtmlOptions } from '../lib/args.js';
+import { createFrontmatter, serializeFrontmatter } from '../lib/frontmatter.js';
 import { normalizeText, slugify } from '../lib/normalizer.js';
-import { ProgressReporter, logger } from '../lib/progress.js';
+import { logger, ProgressReporter } from '../lib/progress.js';
 import { validateOutputPath } from '../lib/security.js';
 import type { ConversionResult, WebpageMetadata } from '../lib/types.js';
 
@@ -162,7 +158,9 @@ function removeBoilerplate(doc: Document): void {
 
 	selectorsToRemove.forEach((selector) => {
 		try {
-			doc.querySelectorAll(selector).forEach((el) => el.remove());
+			doc.querySelectorAll(selector).forEach((el) => {
+				el.remove();
+			});
 		} catch {
 			// Invalid selector or element not found, ignore
 		}
@@ -171,7 +169,9 @@ function removeBoilerplate(doc: Document): void {
 	// Remove hidden elements
 	doc
 		.querySelectorAll('[hidden], [style*="display:none"], [style*="display: none"]')
-		.forEach((el) => el.remove());
+		.forEach((el) => {
+			el.remove();
+		});
 
 	// Remove tracking pixels (1x1 images)
 	doc.querySelectorAll('img').forEach((img) => {

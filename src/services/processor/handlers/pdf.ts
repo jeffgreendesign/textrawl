@@ -1,14 +1,15 @@
-import pdf from 'pdf-parse';
+import { extractText } from 'unpdf';
 import type { FileHandler } from '../types.js';
 
-/** PDF documents — text extracted via `pdf-parse`. */
+/** PDF documents — text extracted via `unpdf` (maintained, pdfjs-based). */
 export const pdfHandler: FileHandler = {
 	key: 'pdf',
 	extensions: ['pdf'],
 	mimeTypes: ['application/pdf'],
 	magicMimes: ['application/pdf'],
 	async extract(buffer: Buffer): Promise<string> {
-		const data = await pdf(buffer);
-		return data.text;
+		// mergePages: true returns the whole document as one string.
+		const { text } = await extractText(new Uint8Array(buffer), { mergePages: true });
+		return text;
 	},
 };

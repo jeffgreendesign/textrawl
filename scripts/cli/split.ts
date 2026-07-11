@@ -15,7 +15,7 @@ import { existsSync, statSync } from 'node:fs';
 import { basename, relative, resolve } from 'node:path';
 import { glob } from 'glob';
 
-import { type SplitCliOptions, addSplitOptions, createBaseCommand } from './lib/args.js';
+import { addSplitOptions, createBaseCommand, type SplitCliOptions } from './lib/args.js';
 import { logger } from './lib/progress.js';
 import { type SplitOptions, splitFile } from './lib/splitter.js';
 import type { SplitFileResult } from './lib/types.js';

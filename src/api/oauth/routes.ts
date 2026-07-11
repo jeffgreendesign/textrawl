@@ -1,4 +1,4 @@
-import express, { type Router as RouterType, Router } from 'express';
+import express, { Router, type Router as RouterType } from 'express';
 import { config } from '../../utils/config.js';
 import { ValidationError } from '../../utils/errors.js';
 import { logger } from '../../utils/logger.js';
@@ -7,8 +7,8 @@ import { signJwt, verifyJwt } from './jwt.js';
 import { verifyPkce } from './pkce.js';
 import type {
 	AuthCodePayload,
-	AuthSessionPayload,
 	AuthorizeParams,
+	AuthSessionPayload,
 	TokenRequest,
 } from './types.js';
 

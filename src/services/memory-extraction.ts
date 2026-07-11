@@ -1,9 +1,9 @@
 import Anthropic from '@anthropic-ai/sdk';
 import { type EntityType, getOrCreateEntity } from '../db/memory-entities.js';
 import {
-	type ObservationSource,
 	createObservation,
 	findSimilarObservation,
+	type ObservationSource,
 } from '../db/memory-observations.js';
 import { getOrCreateRelation } from '../db/memory-relations.js';
 import { config } from '../utils/config.js';

@@ -7,9 +7,9 @@ import { unifiedSearch } from '../services/search.js';
 import { config } from '../utils/config.js';
 import { logger } from '../utils/logger.js';
 import { bearerAuth } from './middleware/auth.js';
+import { uploadRouter } from './upload.js';
 import { uploadProcessRouter } from './upload-process.js';
 import { uploadSessionsRouter } from './upload-sessions.js';
-import { uploadRouter } from './upload.js';
 
 // ---------------------------------------------------------------------------
 // Query validation schemas

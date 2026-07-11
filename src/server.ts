@@ -1,4 +1,5 @@
 import { McpServer } from '@modelcontextprotocol/sdk/server/mcp.js';
+import pkg from '../package.json' with { type: 'json' };
 import { registerAskTool } from './tools/ask.js';
 import { registerBriefingTool } from './tools/briefing.js';
 import { registerCaptureTool } from './tools/capture.js';
@@ -22,7 +23,6 @@ import { getKnowledgeStatsHTML, getSearchResultsHTML } from './ui/index.js';
 import { config } from './utils/config.js';
 import { logger } from './utils/logger.js';
 
-import pkg from '../package.json' with { type: 'json' };
 const PKG_VERSION: string = pkg.version;
 
 /**

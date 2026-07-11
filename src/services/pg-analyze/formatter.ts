@@ -1,4 +1,4 @@
-import type { AnalysisReport, Recommendation, Severity } from './types.js';
+import type { AnalysisReport, Severity } from './types.js';
 
 const SEVERITY_ICONS: Record<Severity, string> = {
 	critical: '[CRITICAL]',
