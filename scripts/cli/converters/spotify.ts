@@ -10,16 +10,16 @@
  */
 
 import { createHash } from 'node:crypto';
-import { existsSync, mkdirSync, readFileSync, readdirSync, statSync, writeFileSync } from 'node:fs';
-import { basename, dirname, join, resolve } from 'node:path';
+import { existsSync, mkdirSync, readdirSync, readFileSync, statSync, writeFileSync } from 'node:fs';
+import { basename, join, resolve } from 'node:path';
 
 import { analyzeSpotify } from '../lib/analyze.js';
 import { type CommonOptions, createBaseCommand } from '../lib/args.js';
 import { createFrontmatter, serializeFrontmatter } from '../lib/frontmatter.js';
 import { slugify } from '../lib/normalizer.js';
-import { ProgressReporter, logger } from '../lib/progress.js';
+import { logger, ProgressReporter } from '../lib/progress.js';
 import { validateOutputPath } from '../lib/security.js';
-import type { ContentType, ConversionResult, DocumentFrontMatter } from '../lib/types.js';
+import type { ContentType } from '../lib/types.js';
 
 /**
  * Spotify streaming history entry

@@ -1,10 +1,10 @@
 import type { McpServer } from '@modelcontextprotocol/sdk/server/mcp.js';
 import { z } from 'zod';
 import {
+	getInsights,
 	type InsightStatus,
 	type InsightType,
 	type ProactiveInsight,
-	getInsights,
 	searchInsights,
 	updateInsightStatus,
 	validateInsightSchema,

@@ -1,5 +1,5 @@
-import { AuthorBadge } from '@/components/author-badge';
 import type { BaseLayoutProps } from 'fumadocs-ui/layouts/shared';
+import { AuthorBadge } from '@/components/author-badge';
 
 export const baseOptions: BaseLayoutProps = {
 	nav: {

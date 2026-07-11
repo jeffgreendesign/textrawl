@@ -1,6 +1,6 @@
 import { Router, type Router as RouterType } from 'express';
 import { isDatabaseConfigured } from '../db/pg-client.js';
-import { type UploadState, getUpload, transitionUploadState } from '../db/uploads.js';
+import { getUpload, transitionUploadState, type UploadState } from '../db/uploads.js';
 import { processUpload } from '../services/upload-processor.js';
 import { InvalidUploadStateError, NotFoundError } from '../utils/errors.js';
 import { logger } from '../utils/logger.js';

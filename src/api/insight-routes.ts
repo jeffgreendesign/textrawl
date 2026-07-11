@@ -1,6 +1,6 @@
 import { Router, type Router as RouterType } from 'express';
-import { getInsightStats, getInsights, updateInsightStatus } from '../db/insights.js';
 import type { InsightStatus, InsightType } from '../db/insights.js';
+import { getInsightStats, getInsights, updateInsightStatus } from '../db/insights.js';
 import { isDatabaseConfigured } from '../db/pg-client.js';
 import { events } from '../services/events.js';
 import { config } from '../utils/config.js';

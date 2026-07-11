@@ -47,7 +47,7 @@ const SIGNATURE_PATTERNS = [
 /**
  * Quoted reply patterns
  */
-const QUOTE_PATTERNS = [
+const _QUOTE_PATTERNS = [
 	/^>+\s*.*/gm, // Standard quote markers
 	/^On .+ wrote:$/m, // Gmail quote header
 	/^-+\s*Original Message\s*-+$/m, // Outlook quote header

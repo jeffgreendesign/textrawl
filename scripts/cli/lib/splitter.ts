@@ -7,7 +7,7 @@
 
 import { createHash } from 'node:crypto';
 import { mkdirSync, readFileSync, statSync, writeFileSync } from 'node:fs';
-import { basename, dirname, join, relative } from 'node:path';
+import { basename, dirname, join } from 'node:path';
 import { parseFrontmatter, serializeFrontmatter } from './frontmatter.js';
 import { extractHeadings, suggestSplitPoints } from './scanner.js';
 import type { DocumentFrontMatter, SplitFileResult, SplitMetadata } from './types.js';

@@ -337,10 +337,7 @@ export async function deleteRelation(id: string): Promise<void> {
  * Used by the memory graph REST endpoint to fetch all edges in one query.
  */
 export async function listRelations(
-	options: {
-		entityIds?: string[];
-		limit?: number;
-	} = {},
+	options: { entityIds?: string[]; limit?: number } = {},
 ): Promise<MemoryRelation[]> {
 	if (!isDatabaseConfigured()) {
 		throw new DatabaseError('Database not configured');

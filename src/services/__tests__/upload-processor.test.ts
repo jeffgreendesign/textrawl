@@ -84,9 +84,9 @@ import {
 } from '../../db/uploads.js';
 import { ZipPathTraversalError } from '../../utils/errors.js';
 import { onDocumentIngested } from '../pipeline.js';
-import { extractText, isSupportedType } from '../processor.js';
 import { validateZip } from '../processor/handlers/archive-zip.js';
 import { resolveForEntry } from '../processor/registry.js';
+import { extractText, isSupportedType } from '../processor.js';
 import { processUpload } from '../upload-processor.js';
 
 const m = {

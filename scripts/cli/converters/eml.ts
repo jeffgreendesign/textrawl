@@ -11,16 +11,16 @@
 
 import { createHash } from 'node:crypto';
 import { existsSync, mkdirSync, readFileSync, statSync, writeFileSync } from 'node:fs';
-import { basename, dirname, extname, join, resolve } from 'node:path';
+import { basename, dirname, join, resolve } from 'node:path';
 import { glob } from 'glob';
 import { type AddressObject, type HeaderValue, type ParsedMail, simpleParser } from 'mailparser';
 import TurndownService from 'turndown';
 import { gfm } from 'turndown-plugin-gfm';
 
-import { type MboxOptions, addMboxOptions, createBaseCommand } from '../lib/args.js';
+import { addMboxOptions, createBaseCommand, type MboxOptions } from '../lib/args.js';
 import { createFrontmatter, serializeFrontmatter } from '../lib/frontmatter.js';
-import { normalizeText, slugify, stripHtml } from '../lib/normalizer.js';
-import { ProgressReporter, logger } from '../lib/progress.js';
+import { normalizeText, slugify } from '../lib/normalizer.js';
+import { logger, ProgressReporter } from '../lib/progress.js';
 import { sanitizeFilename, validateOutputPath } from '../lib/security.js';
 import type { ConversionResult, EmailMetadata } from '../lib/types.js';
 

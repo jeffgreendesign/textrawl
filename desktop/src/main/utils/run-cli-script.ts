@@ -209,7 +209,7 @@ export function runCliScript(options: RunCliScriptOptions): Promise<void> {
 			};
 			signal.addEventListener('abort', onAbort, { once: true });
 			// Clean up listener when we settle normally
-			const originalSettle = settle;
+			const _originalSettle = settle;
 			// We can't reassign settle (const), so use a wrapper pattern
 			// Instead, remove the listener in the close/error handlers below
 			child.on('close', () => signal.removeEventListener('abort', onAbort));

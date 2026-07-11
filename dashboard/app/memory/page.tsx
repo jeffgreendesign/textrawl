@@ -6,7 +6,7 @@
 import { AlertCircle, ArrowLeft, ArrowRight, Brain, Loader2, X } from 'lucide-react';
 import { useCallback, useEffect, useMemo, useRef, useState } from 'react';
 
-import type { EntityContext, MemoryGraph, MemoryGraphEdge, MemoryGraphNode } from '@/lib/api';
+import type { MemoryGraphEdge, MemoryGraphNode } from '@/lib/api';
 import { useMemoryEntity, useMemoryGraph } from '@/lib/queries';
 
 // --- Constants ---
@@ -72,7 +72,7 @@ function timeAgo(dateStr: string): string {
 
 // --- Shimmer for loading ---
 
-const shimmerStyle = {
+const _shimmerStyle = {
 	background:
 		'linear-gradient(90deg, var(--bg-tertiary) 25%, var(--bg-hover) 50%, var(--bg-tertiary) 75%)',
 	backgroundSize: '200% 100%',

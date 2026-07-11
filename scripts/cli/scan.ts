@@ -15,7 +15,7 @@ import { existsSync, statSync } from 'node:fs';
 import { resolve } from 'node:path';
 import { glob } from 'glob';
 
-import { type ScanOptions, addScanOptions, createBaseCommand } from './lib/args.js';
+import { addScanOptions, createBaseCommand, type ScanOptions } from './lib/args.js';
 import { logger } from './lib/progress.js';
 import { scanFile, scanFiles } from './lib/scanner.js';
 import type { ScanFileResult, ScanSummary } from './lib/types.js';

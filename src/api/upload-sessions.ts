@@ -3,12 +3,12 @@ import { Router, type Router as RouterType } from 'express';
 import { z } from 'zod';
 import { isDatabaseConfigured } from '../db/pg-client.js';
 import {
-	type UploadState,
 	createUpload,
 	getUpload,
 	getUploadStatus,
 	recordUploadObjectMetadata,
 	transitionUploadState,
+	type UploadState,
 } from '../db/uploads.js';
 import { isSupportedType } from '../services/processor.js';
 import { getStorageService } from '../services/storage/index.js';

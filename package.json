@@ -78,7 +78,7 @@
 		"zod": "^4.4.3"
 	},
 	"devDependencies": {
-		"@biomejs/biome": "1.9.4",
+		"@biomejs/biome": "^2.0.0",
 		"@types/cli-progress": "^3.11.0",
 		"@types/cors": "^2.8.19",
 		"@types/express": "^5.0.0",
@@ -123,7 +123,13 @@
 			"uuid": ">=11.1.1"
 		}
 	},
-	"keywords": ["mcp", "rag", "knowledge-base", "semantic-search", "claude"],
+	"keywords": [
+		"mcp",
+		"rag",
+		"knowledge-base",
+		"semantic-search",
+		"claude"
+	],
 	"author": "Jeff",
 	"license": "MIT"
 }

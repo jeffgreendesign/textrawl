@@ -799,12 +799,7 @@ export interface InsightStats {
 }
 
 export async function fetchInsights(
-	options: {
-		status?: string;
-		type?: string;
-		limit?: number;
-		offset?: number;
-	} = {},
+	options: { status?: string; type?: string; limit?: number; offset?: number } = {},
 ): Promise<{ insights: InsightItem[]; total: number }> {
 	const params = new URLSearchParams();
 	if (options.status) params.set('status', options.status);

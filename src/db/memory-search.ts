@@ -261,11 +261,7 @@ export async function searchEntitiesByName(
  * Get recent memories (most recently created observations)
  */
 export async function getRecentMemories(
-	options: {
-		limit?: number;
-		entityTypes?: EntityType[];
-		sources?: ObservationSource[];
-	} = {},
+	options: { limit?: number; entityTypes?: EntityType[]; sources?: ObservationSource[] } = {},
 ): Promise<MemorySearchResult[]> {
 	if (!isDatabaseConfigured()) {
 		throw new DatabaseError('Database not configured');

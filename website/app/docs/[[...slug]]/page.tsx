@@ -1,9 +1,9 @@
-import { source } from '@/lib/source';
 import defaultMdxComponents from 'fumadocs-ui/mdx';
 import { DocsBody, DocsDescription, DocsPage, DocsTitle } from 'fumadocs-ui/page';
 import type { Metadata } from 'next';
 import { notFound } from 'next/navigation';
 import type { ReactNode } from 'react';
+import { source } from '@/lib/source';
 
 type PageProps = {
 	params: Promise<{ slug?: string[] }>;

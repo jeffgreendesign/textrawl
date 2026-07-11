@@ -1,5 +1,5 @@
-import rateLimit from 'express-rate-limit';
 import type { Store } from 'express-rate-limit';
+import rateLimit from 'express-rate-limit';
 import { RedisStore } from 'rate-limit-redis';
 import { createClient } from 'redis';
 import { config } from '../../utils/config.js';

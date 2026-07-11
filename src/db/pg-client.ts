@@ -1,4 +1,4 @@
-import { Pool, type PoolClient, type QueryResultRow, neonConfig } from '@neondatabase/serverless';
+import { neonConfig, Pool, type PoolClient, type QueryResultRow } from '@neondatabase/serverless';
 import { DatabaseError, NotFoundError } from '../utils/errors.js';
 import { logger } from '../utils/logger.js';
 

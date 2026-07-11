@@ -10,16 +10,16 @@
  */
 
 import { createHash } from 'node:crypto';
-import { existsSync, mkdirSync, readFileSync, readdirSync, statSync, writeFileSync } from 'node:fs';
+import { existsSync, mkdirSync, readdirSync, readFileSync, statSync, writeFileSync } from 'node:fs';
 import { basename, dirname, join, resolve } from 'node:path';
 
 import { analyzeInstagram } from '../lib/analyze.js';
 import { type CommonOptions, createBaseCommand } from '../lib/args.js';
 import { createFrontmatter, serializeFrontmatter } from '../lib/frontmatter.js';
-import { slugify, stripHtml } from '../lib/normalizer.js';
-import { ProgressReporter, logger } from '../lib/progress.js';
+import { slugify } from '../lib/normalizer.js';
+import { logger, ProgressReporter } from '../lib/progress.js';
 import { validateOutputPath } from '../lib/security.js';
-import type { ContentType, ConversionResult } from '../lib/types.js';
+import type { ContentType } from '../lib/types.js';
 
 /**
  * Instagram converter options
@@ -138,9 +138,9 @@ function parseInstagramMessages(filePath: string): InstagramConversation | null 
 
 	// Regex to find message blocks
 	// Pattern: sender div followed by content div followed by timestamp div
-	const senderPattern = /<div class="[^"]*_2lel[^"]*">([^<]+)<\/div>/g;
-	const contentPattern = /<div class="[^"]*_2let[^"]*">[\s\S]*?<\/div>/g;
-	const timestampPattern = /<div class="[^"]*_2lem[^"]*">([^<]+)<\/div>/g;
+	const _senderPattern = /<div class="[^"]*_2lel[^"]*">([^<]+)<\/div>/g;
+	const _contentPattern = /<div class="[^"]*_2let[^"]*">[\s\S]*?<\/div>/g;
+	const _timestampPattern = /<div class="[^"]*_2lem[^"]*">([^<]+)<\/div>/g;
 
 	// Simpler approach: extract all message blocks
 	// Each message is in a div with class containing "uiBoxWhite"

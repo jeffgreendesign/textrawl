@@ -1,7 +1,7 @@
 import type { McpServer } from '@modelcontextprotocol/sdk/server/mcp.js';
 import { z } from 'zod';
 import { isPgConfigured } from '../db/pg-client.js';
-import { formatCompact, formatMarkdown } from '../services/pg-analyze/formatter.js';
+import { formatCompact } from '../services/pg-analyze/formatter.js';
 import {
 	compareReports,
 	formatDiff,

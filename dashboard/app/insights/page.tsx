@@ -3,6 +3,7 @@
  */
 'use client';
 
+import { useQueryClient } from '@tanstack/react-query';
 import {
 	AlertCircle,
 	ChevronDown,
@@ -16,14 +17,11 @@ import {
 	Sparkles,
 	Tag,
 	Timer,
-	X,
 } from 'lucide-react';
 import { useState } from 'react';
-
 import type { InsightItem } from '@/lib/api';
 import { patchInsightStatus } from '@/lib/api';
 import { useInsightStats, useInsights } from '@/lib/queries';
-import { useQueryClient } from '@tanstack/react-query';
 
 /* ── Constants ── */
 

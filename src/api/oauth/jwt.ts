@@ -1,4 +1,4 @@
-import { type JWTPayload, SignJWT, jwtVerify } from 'jose';
+import { type JWTPayload, jwtVerify, SignJWT } from 'jose';
 import { config } from '../../utils/config.js';
 
 function getSecret(): Uint8Array {

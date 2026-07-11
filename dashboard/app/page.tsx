@@ -7,7 +7,7 @@ import { Brain, FileText, Lightbulb, MessageSquare, Upload, Wifi, WifiOff } from
 import { useEffect, useRef, useState } from 'react';
 import { Area, AreaChart, ResponsiveContainer } from 'recharts';
 
-import { type StatusResponse, connectWebSocket } from '@/lib/api';
+import { connectWebSocket, type StatusResponse } from '@/lib/api';
 import { useStats, useStatus } from '@/lib/queries';
 
 // --- Helpers ---

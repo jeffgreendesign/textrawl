@@ -18,16 +18,6 @@ import { existsSync, readFileSync, statSync } from 'node:fs';
 import { relative, resolve } from 'node:path';
 import { glob } from 'glob';
 import pLimit from 'p-limit';
-
-import { type UploadOptions, addUploadOptions, createBaseCommand } from './lib/args.js';
-import { isUploadConfigured, loadCLIConfig } from './lib/config.js';
-import { parseFrontmatter, readFrontmatterHash } from './lib/frontmatter.js';
-import { ManifestManager } from './lib/manifest.js';
-import { ProgressReporter, logger } from './lib/progress.js';
-import { isRateLimitError, isRetryableError, withRetry } from './lib/retry.js';
-import { splitFile } from './lib/splitter.js';
-import type { DocumentFrontMatter, UploadResult } from './lib/types.js';
-
 import { type CreateChunkInput, createChunks } from '../../src/db/chunks.js';
 import { createDocument } from '../../src/db/documents.js';
 import { pgQuery } from '../../src/db/pg-client.js';
@@ -36,6 +26,14 @@ import { pgQuery } from '../../src/db/pg-client.js';
 import { chunkText, smartChunk } from '../../src/services/chunker.js';
 import { generateEmbeddings } from '../../src/services/embeddings.js';
 import { config } from '../../src/utils/config.js';
+import { addUploadOptions, createBaseCommand, type UploadOptions } from './lib/args.js';
+import { isUploadConfigured, loadCLIConfig } from './lib/config.js';
+import { parseFrontmatter, readFrontmatterHash } from './lib/frontmatter.js';
+import { ManifestManager } from './lib/manifest.js';
+import { logger, ProgressReporter } from './lib/progress.js';
+import { isRateLimitError, isRetryableError, withRetry } from './lib/retry.js';
+import { splitFile } from './lib/splitter.js';
+import type { DocumentFrontMatter, UploadResult } from './lib/types.js';
 
 /** Manifest save interval (every N successful uploads) */
 const MANIFEST_SAVE_INTERVAL = 50;

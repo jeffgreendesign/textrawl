@@ -145,17 +145,20 @@ describe('POST /upload/process/:uploadId — processing', () => {
 		expect(pipeline).not.toHaveBeenCalled();
 	});
 
-	it.each(['completed', 'partial', 'failed', 'cancelled', 'expired'])(
-		'is a no-op 200 when already terminal (%s) — pipeline not invoked',
-		async (state) => {
-			db.getUpload.mockResolvedValueOnce(buildUpload(state));
-			const res = await call('good-token');
-			expect(res.status).toBe(200);
-			expect(res.body.state).toBe(state);
-			expect(db.transitionUploadState).not.toHaveBeenCalled();
-			expect(pipeline).not.toHaveBeenCalled();
-		},
-	);
+	it.each([
+		'completed',
+		'partial',
+		'failed',
+		'cancelled',
+		'expired',
+	])('is a no-op 200 when already terminal (%s) — pipeline not invoked', async (state) => {
+		db.getUpload.mockResolvedValueOnce(buildUpload(state));
+		const res = await call('good-token');
+		expect(res.status).toBe(200);
+		expect(res.body.state).toBe(state);
+		expect(db.transitionUploadState).not.toHaveBeenCalled();
+		expect(pipeline).not.toHaveBeenCalled();
+	});
 
 	it('transitions queued → processing (CAS) and invokes the pipeline', async () => {
 		db.getUpload.mockResolvedValueOnce(buildUpload('queued'));

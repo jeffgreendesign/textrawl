@@ -4,5 +4,5 @@
  * This module exports HTML templates for interactive tool UIs.
  */
 
-export { getSearchResultsHTML } from './search-results.js';
 export { getKnowledgeStatsHTML } from './knowledge-stats.js';
+export { getSearchResultsHTML } from './search-results.js';

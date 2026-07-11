@@ -1,10 +1,10 @@
 import { describe, expect, it } from 'vitest';
 import { ValidationError } from '../errors.js';
 import {
-	type SpanResolution,
 	isQuoteSupported,
 	requireSourceSpan,
 	resolveSourceSpan,
+	type SpanResolution,
 } from '../source-span.js';
 
 /** Assert a resolution matched and return its span (narrows the discriminated union). */
