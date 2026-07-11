@@ -248,7 +248,7 @@ export function registerUrlTool(server: McpServer): void {
 			description:
 				'Fetch a web page, extract its content as markdown, and save it to the knowledge base with automatic chunking, embedding, and optional memory extraction.',
 			inputSchema: {
-				url: z.string().url().describe('URL of the web page to save'),
+				url: z.url().describe('URL of the web page to save'),
 				title: z
 					.string()
 					.max(500)
