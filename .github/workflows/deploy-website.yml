@@ -52,5 +52,8 @@ jobs:
           vercel-token: ${{ secrets.VERCEL_TOKEN }}
           vercel-org-id: ${{ secrets.VERCEL_ORG_ID }}
           vercel-project-id: ${{ secrets.VERCEL_PROJECT_ID }}
+          # amondnet/vercel-action@v25 pins Vercel CLI 25.1.0, which Vercel's API now
+          # rejects ("requires version 47.2.2 or later"). Install a current CLI instead.
+          vercel-version: latest
           working-directory: website
           vercel-args: '--prod'
