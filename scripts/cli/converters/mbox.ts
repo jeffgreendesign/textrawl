@@ -75,13 +75,11 @@ async function countMboxMessages(filePath: string): Promise<number> {
 	const rl = createInterface({ input: stream, crlfDelay: Infinity });
 
 	let count = 0;
-	let _prevLineEmpty = true;
 
 	for await (const line of rl) {
 		if (line.startsWith('From ') && line.match(/^From \S+.*\d{4}$/)) {
 			count++;
 		}
-		_prevLineEmpty = line.trim() === '';
 	}
 
 	return count;

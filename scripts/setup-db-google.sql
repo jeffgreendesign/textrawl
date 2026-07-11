@@ -105,8 +105,8 @@ with full_text as (
   join public.documents d on c.document_id = d.id
   where d.fts @@ websearch_to_tsquery(query_text)
     and (filter_source_type is null or d.source_type = filter_source_type)
-    and (filter_content_type is null or d.metadata->>'content_type' = filter_content_type)
-    and (filter_tags is null or d.metadata->'tags' @> filter_tags)
+    and (filter_content_type is null or d.metadata @> jsonb_build_object('content_type', filter_content_type))
+    and (filter_tags is null or d.metadata @> jsonb_build_object('tags', filter_tags))
   limit match_count * 2
 ),
 semantic as (
@@ -122,8 +122,8 @@ semantic as (
   join public.documents d on c.document_id = d.id
   where c.embedding is not null
     and (filter_source_type is null or d.source_type = filter_source_type)
-    and (filter_content_type is null or d.metadata->>'content_type' = filter_content_type)
-    and (filter_tags is null or d.metadata->'tags' @> filter_tags)
+    and (filter_content_type is null or d.metadata @> jsonb_build_object('content_type', filter_content_type))
+    and (filter_tags is null or d.metadata @> jsonb_build_object('tags', filter_tags))
   order by c.embedding <=> query_embedding
   limit match_count * 2
 )

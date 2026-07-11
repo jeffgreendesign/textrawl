@@ -30,7 +30,9 @@ import * as unzipper from 'unzipper';
 // Catch unhandled promise rejections from parser libraries that throw
 // internally without proper error propagation. Log and continue instead of crashing.
 process.on('unhandledRejection', (reason) => {
-	console.error(`[WARN] Unhandled rejection (continuing): ${reason}`);
+	// ESM imports are hoisted, so `logger` (imported below) is initialized by the
+	// time this handler ever fires.
+	logger.error(`Unhandled rejection (continuing): ${reason}`);
 });
 
 import { analyzeTakeout } from '../lib/analyze.js';

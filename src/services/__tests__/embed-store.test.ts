@@ -52,5 +52,7 @@ describe('embedAndStoreChunks', () => {
 		await expect(embedAndStoreChunks('doc-2', makeChunks(10), generateEmbeddings)).rejects.toThrow(
 			/Embedding count mismatch/,
 		);
+		// The guard must fire before any rows are persisted.
+		expect(createChunks).not.toHaveBeenCalled();
 	});
 });
