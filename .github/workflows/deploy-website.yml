@@ -52,5 +52,10 @@ jobs:
           vercel-token: ${{ secrets.VERCEL_TOKEN }}
           vercel-org-id: ${{ secrets.VERCEL_ORG_ID }}
           vercel-project-id: ${{ secrets.VERCEL_PROJECT_ID }}
-          working-directory: website
+          # amondnet/vercel-action@v25 pins Vercel CLI 25.1.0, which Vercel's API now
+          # rejects ("requires version 47.2.2 or later"). Install a current CLI instead.
+          vercel-version: latest
+          # Run from the repo root: the Vercel project's Root Directory is already set to
+          # `website`. Also setting working-directory: website double-applies it and Vercel
+          # looks for `website/website`, which does not exist.
           vercel-args: '--prod'
