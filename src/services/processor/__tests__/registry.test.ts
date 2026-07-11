@@ -4,15 +4,17 @@
  * Pins the registry contract the `processor.ts` façade delegates to: resolution
  * by MIME, by extension, and by extension-plus-magic (`resolveForEntry`, the ZIP
  * path); the original four types (pdf/docx/txt/md) still extract; and the newly
- * wired csv/xlsx/json types extract their expected text. `pdf-parse`/`mammoth`
- * are mocked (binary-parser behaviour is third-party, not ours, and `pdf-parse`
- * runs a self-test on import) — text/csv/json/xlsx use real fixtures.
+ * wired csv/xlsx/json types extract their expected text. `unpdf`/`mammoth`
+ * are mocked (binary-parser behaviour is third-party, not ours) —
+ * text/csv/json/xlsx use real fixtures.
  */
 import { readFileSync } from 'node:fs';
 import { join } from 'node:path';
 import { describe, expect, it, vi } from 'vitest';
 
-vi.mock('pdf-parse', () => ({ default: vi.fn(async () => ({ text: 'PDF EXTRACTED' })) }));
+vi.mock('unpdf', () => ({
+	extractText: vi.fn(async () => ({ text: 'PDF EXTRACTED', totalPages: 1 })),
+}));
 vi.mock('mammoth', () => ({
 	default: { extractRawText: vi.fn(async () => ({ value: 'DOCX EXTRACTED' })) },
 }));

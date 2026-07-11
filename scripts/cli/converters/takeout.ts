@@ -27,7 +27,7 @@ import { promisify } from 'node:util';
 // @ts-ignore - unzipper types
 import * as unzipper from 'unzipper';
 
-// Catch unhandled promise rejections from libraries like pdf-parse that throw
+// Catch unhandled promise rejections from parser libraries that throw
 // internally without proper error propagation. Log and continue instead of crashing.
 process.on('unhandledRejection', (reason) => {
 	console.error(`[WARN] Unhandled rejection (continuing): ${reason}`);
@@ -818,9 +818,9 @@ async function extractDriveFileText(filePath: string, ext: string): Promise<stri
 
 	switch (ext) {
 		case '.pdf': {
-			const pdf = await import('pdf-parse');
-			const data = await pdf.default(buffer);
-			return data.text;
+			const { extractText } = await import('unpdf');
+			const { text } = await extractText(new Uint8Array(buffer), { mergePages: true });
+			return text;
 		}
 		case '.docx':
 		case '.doc': {
