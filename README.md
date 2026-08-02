@@ -48,7 +48,7 @@ Textrawl is a personal knowledge server with persistent memory, searchable docum
 
 **Your data, your choice.** Use OpenAI's embeddings for best accuracy, Google AI for multimodal support, or run locally with Ollama and local Postgres to keep document text and embeddings on your machine.
 
-**Import everything.** Emails from Gmail exports, PDFs from your research, saved web pages, images, audio files, Google Takeout archives — Textrawl converts them into searchable knowledge where the relevant converter/provider is configured.
+**Import everything.** Emails from Gmail exports, PDFs from your research, saved web pages, spreadsheets, Google Takeout archives — Textrawl converts them into searchable knowledge where the relevant converter is configured.
 
 ## Features
 
@@ -61,9 +61,8 @@ Textrawl is a personal knowledge server with persistent memory, searchable docum
 | **Daily Briefing** | Summary of recent additions, new insights, and resurfaced knowledge |
 | **Unified RAG** | `ask` tool searches documents, memory, and conversations in one query |
 | **Web Dashboard** | Command center with knowledge explorer, timeline, agent orchestration, and applets |
-| **Multimodal** | Process images (Claude vision) and audio (Whisper transcription) alongside documents |
 | **Desktop App** | Drag-and-drop file conversion and upload (macOS, Windows, Linux) |
-| **Multi-Format** | PDF, DOCX, XLSX, PPTX, HTML, MBOX/EML emails, Google Takeout |
+| **Multi-Format** | PDF, DOCX, XLSX, CSV, JSON, HTML, Markdown/text, ZIP archives, MBOX/EML emails, Google Takeout |
 | **MCP + REST + WebSocket** | MCP tools, REST API, and real-time WebSocket events |
 | **Agent Discovery** | A2A protocol at `/.well-known/agent.json` for agent-to-agent interaction |
 | **Flexible Embeddings** | OpenAI, Google AI, or Ollama (free, local) |
@@ -73,7 +72,7 @@ Textrawl is a personal knowledge server with persistent memory, searchable docum
 
 ## Privacy Model
 
-Textrawl is self-hosted, but data leaves your machine when you configure cloud services. Document text, chunks, embeddings, extracted memories, conversation summaries, images, or audio may be sent to providers such as OpenAI/Google embeddings, Anthropic/OpenAI/Google extraction, Neon/Supabase/RDS, Cloud Run, or GCS. For sensitive data, prefer Ollama/local Postgres and disable cloud LLM extraction/insights.
+Textrawl is self-hosted, but data leaves your machine when you configure cloud services. Document text, chunks, embeddings, extracted memories, and conversation summaries may be sent to providers such as OpenAI/Google embeddings, Anthropic extraction, Neon/Supabase/RDS, Cloud Run, or GCS. For sensitive data, prefer Ollama/local Postgres and disable cloud LLM extraction/insights.
 
 ## Quick Start
 
