@@ -40,6 +40,7 @@ vi.mock('@neondatabase/serverless', () => {
 							pendingTuning.push(() => resolve({ rows: [], rowCount: 0 }));
 						});
 					}
+					if (sql === 'BOOM') return Promise.reject(new Error('query failed'));
 					return Promise.resolve({ rows: [{ ok: true }], rowCount: 1 });
 				},
 				release: () => {
@@ -109,9 +110,12 @@ describe('pgQuery tuning barrier', () => {
 
 	it('releases the client even when the query throws', async () => {
 		const inFlight = pgQuery('BOOM');
+		// Attach the rejection handler before draining, so the pending rejection is
+		// never briefly unhandled.
+		const settled = expect(inFlight).rejects.toThrow('query failed');
 		await Promise.resolve();
 		for (const resolve of pendingTuning) resolve();
-		await inFlight.catch(() => undefined);
+		await settled;
 
 		expect(mocks.released).toBe(1);
 	});

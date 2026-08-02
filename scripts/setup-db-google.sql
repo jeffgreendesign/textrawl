@@ -15,20 +15,52 @@
 -- BREAKING CHANGE from any earlier dimension (text-embedding-004 vector(768), or the
 -- vector(3072) column this file declared before the 1536 fix):
 --   These are different vector spaces; old embeddings cannot be resized or reused.
+--   This file is idempotent and self-migrating — just re-run it. The migration block
+--   below detects a mismatched dimension, drops the column and its index, and
+--   recreates both at vector(1536). Then re-run security-rls.sql and re-embed all
+--   documents (existing rows keep a NULL embedding until they are re-embedded).
 --
---   Option A — fresh database: run this file as-is, then security-rls.sql.
---   Option B — existing database: drop the embedding column, recreate it as vector(1536),
---     then trigger re-embedding for all documents. Example:
---       DROP INDEX IF EXISTS chunks_embedding_idx;
---       ALTER TABLE chunks DROP COLUMN embedding;
---       ALTER TABLE chunks ADD COLUMN embedding vector(1536);
---     Then re-run security-rls.sql and re-upload/re-embed all documents.
+--   Re-running matters especially for anyone who applied an earlier revision of this
+--   file: the CREATE INDEX on the old vector(3072) column failed, leaving the tables
+--   in place but unindexed. CREATE TABLE IF NOT EXISTS would not have widened or
+--   narrowed that column, so without this block a re-run would fail the same way.
 --
 -- Verify EMBEDDING_PROVIDER=google and GOOGLE_EMBEDDING_MODEL=gemini-embedding-2
 -- are set before applying this schema.
 
 -- Enable required extensions
 create extension if not exists vector with schema extensions;
+
+-- ============================================
+-- Migration: resize chunks.embedding to vector(1536)
+-- ============================================
+-- CREATE TABLE IF NOT EXISTS below will not alter an existing chunks.embedding, so
+-- an install made from an earlier revision of this file keeps its vector(3072)
+-- column — and the HNSW index would keep failing, since pgvector caps `vector` at
+-- 2000 dimensions. Detect a mismatched dimension and recreate the column; the
+-- `create index if not exists chunks_embedding_idx` further down then rebuilds the
+-- index that this block drops.
+-- NOTE: a different dimension means a different vector space, so old vectors cannot
+-- be meaningfully resized. They are dropped and re-embedding is required.
+do $$
+begin
+  if exists (
+    select 1 from pg_attribute a
+    join pg_class c on c.oid = a.attrelid
+    join pg_namespace n on n.oid = c.relnamespace
+    where n.nspname = 'public'
+      and c.relname = 'chunks'
+      and a.attname = 'embedding'
+      and a.atttypmod <> 1536
+      and a.attnum > 0
+      and not a.attisdropped
+  ) then
+    drop index if exists chunks_embedding_idx;
+    alter table chunks drop column embedding;
+    alter table chunks add column embedding vector(1536);
+    raise notice 'Resized chunks.embedding to vector(1536). Re-embedding required.';
+  end if;
+end $$;
 
 -- Documents table (source of truth)
 create table if not exists documents (

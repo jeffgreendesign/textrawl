@@ -335,22 +335,28 @@ ALTER TABLE conversation_sessions FORCE ROW LEVEL SECURITY;
 ALTER TABLE conversation_turns FORCE ROW LEVEL SECURITY;
 
 -- Permissive policies scoped to service_role
+DROP POLICY IF EXISTS "Service role access to conversation_sessions" ON conversation_sessions;
 CREATE POLICY "Service role access to conversation_sessions"
   ON conversation_sessions FOR ALL TO service_role USING (true) WITH CHECK (true);
 
+DROP POLICY IF EXISTS "Service role access to conversation_turns" ON conversation_turns;
 CREATE POLICY "Service role access to conversation_turns"
   ON conversation_turns FOR ALL TO service_role USING (true) WITH CHECK (true);
 
 -- Restrictive policies to block anon and authenticated roles
+DROP POLICY IF EXISTS "Deny anon access to conversation_sessions" ON conversation_sessions;
 CREATE POLICY "Deny anon access to conversation_sessions"
   ON conversation_sessions AS RESTRICTIVE FOR ALL TO anon USING (false);
 
+DROP POLICY IF EXISTS "Deny authenticated access to conversation_sessions" ON conversation_sessions;
 CREATE POLICY "Deny authenticated access to conversation_sessions"
   ON conversation_sessions AS RESTRICTIVE FOR ALL TO authenticated USING (false);
 
+DROP POLICY IF EXISTS "Deny anon access to conversation_turns" ON conversation_turns;
 CREATE POLICY "Deny anon access to conversation_turns"
   ON conversation_turns AS RESTRICTIVE FOR ALL TO anon USING (false);
 
+DROP POLICY IF EXISTS "Deny authenticated access to conversation_turns" ON conversation_turns;
 CREATE POLICY "Deny authenticated access to conversation_turns"
   ON conversation_turns AS RESTRICTIVE FOR ALL TO authenticated USING (false);
 
