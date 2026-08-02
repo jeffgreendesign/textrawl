@@ -31,17 +31,20 @@ vi.mock('@neondatabase/serverless', () => {
 		}
 		async connect() {
 			const client = {
-				query: (sql: string) => {
+				query: async (sql: string) => {
 					callLog.push(sql);
 					if (sql.startsWith('SET')) {
-						if (mocks.tuningShouldFail) return Promise.reject(new Error('unrecognized parameter'));
-						// Stays pending until the test releases it.
+						if (mocks.tuningShouldFail) throw new Error('unrecognized parameter');
+						// Deliberately a raw Promise, not an await: it must stay PENDING until
+						// the test resolves it, which is how these tests control exactly when
+						// the tuning lands relative to the query. The executor still runs
+						// synchronously, so pendingTuning is populated before this returns.
 						return new Promise((resolve) => {
 							pendingTuning.push(() => resolve({ rows: [], rowCount: 0 }));
 						});
 					}
-					if (sql === 'BOOM') return Promise.reject(new Error('query failed'));
-					return Promise.resolve({ rows: [{ ok: true }], rowCount: 1 });
+					if (sql === 'BOOM') throw new Error('query failed');
+					return { rows: [{ ok: true }], rowCount: 1 };
 				},
 				release: () => {
 					mocks.released += 1;
