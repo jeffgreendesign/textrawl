@@ -158,9 +158,11 @@ $$;
 ALTER TABLE insight_queue ENABLE ROW LEVEL SECURITY;
 ALTER TABLE proactive_insights ENABLE ROW LEVEL SECURITY;
 
+DROP POLICY IF EXISTS insight_queue_deny_anon ON insight_queue;
 CREATE POLICY insight_queue_deny_anon ON insight_queue
   FOR ALL TO anon, authenticated USING (false);
 
+DROP POLICY IF EXISTS proactive_insights_deny_anon ON proactive_insights;
 CREATE POLICY proactive_insights_deny_anon ON proactive_insights
   FOR ALL TO anon, authenticated USING (false);
 

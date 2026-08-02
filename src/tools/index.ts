@@ -17,6 +17,7 @@ export { registerHealthTool } from './health.js';
 export { registerInsightTools } from './insights.js';
 export { registerMemoryTools } from './memory.js';
 export { registerNoteTool } from './note.js';
+export { registerPgAnalyzeTools } from './pg-analyze.js';
 export { registerRememberTool } from './remember.js';
 export { registerSearchTool } from './search.js';
 export { registerStatsTools } from './stats.js';

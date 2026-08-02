@@ -30,7 +30,7 @@ Choose between OpenAI (cloud), Google AI (cloud), or Ollama (local):
 | `EMBEDDING_PROVIDER` | No | `openai` (default), `ollama`, or `google` |
 | `OPENAI_API_KEY` | If OpenAI | Your OpenAI API key |
 | `GOOGLE_AI_API_KEY` | If Google | Your Google AI API key |
-| `GOOGLE_EMBEDDING_MODEL` | If Google | Model name (default: `gemini-embedding-2-preview`) |
+| `GOOGLE_EMBEDDING_MODEL` | If Google | Model name (default: `gemini-embedding-2`) |
 | `OLLAMA_BASE_URL` | If Ollama | Ollama server URL |
 | `OLLAMA_MODEL` | If Ollama | Model name (default: `nomic-embed-text`) |
 
@@ -50,11 +50,11 @@ OPENAI_API_KEY=sk-proj-...
 ```bash
 EMBEDDING_PROVIDER=google
 GOOGLE_AI_API_KEY=your-google-ai-api-key
-GOOGLE_EMBEDDING_MODEL=gemini-embedding-2-preview
+GOOGLE_EMBEDDING_MODEL=gemini-embedding-2
 ```
 
-- Model: `gemini-embedding-2-preview`
-- Dimensions: 3072
+- Model: `gemini-embedding-2`
+- Dimensions: 1536 (requested via outputDimensionality; the model is natively 3072d)
 - Schema: `scripts/setup-db-google.sql`
 
 **Ollama Configuration:**
@@ -137,12 +137,12 @@ Required only when `ENABLE_MEMORY_EXTRACTION=true`:
 | Variable | Required | Default | Description |
 |----------|----------|---------|-------------|
 | `ANTHROPIC_API_KEY` | If extraction | - | Anthropic API key for Claude |
-| `EXTRACTION_MODEL` | No | `claude-haiku-4-5-20251001` | Model for entity extraction |
+| `EXTRACTION_MODEL` | No | `claude-haiku-4-5` | Model for entity extraction |
 
 ```bash
 ENABLE_MEMORY_EXTRACTION=true
 ANTHROPIC_API_KEY=sk-ant-...
-EXTRACTION_MODEL=claude-haiku-4-5-20251001
+EXTRACTION_MODEL=claude-haiku-4-5
 ```
 
 ### Insight Configuration
@@ -151,12 +151,12 @@ Controls the LLM model used for proactive insight synthesis (`discover_connectio
 
 | Variable | Required | Default | Description |
 |----------|----------|---------|-------------|
-| `INSIGHT_MODEL` | No | `claude-sonnet-4-6-20250514` | Model for insight synthesis |
+| `INSIGHT_MODEL` | No | `claude-sonnet-5` | Model for insight synthesis |
 | `INSIGHT_BATCH_THRESHOLD` | No | `50` | Minimum new chunks before triggering an insight scan |
 | `INSIGHT_DEBOUNCE_SECONDS` | No | `300` | Cooldown between automatic insight scans (seconds) |
 
 ```bash
-INSIGHT_MODEL=claude-sonnet-4-6-20250514
+INSIGHT_MODEL=claude-sonnet-5
 INSIGHT_BATCH_THRESHOLD=50
 INSIGHT_DEBOUNCE_SECONDS=300
 ```

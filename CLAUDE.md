@@ -57,7 +57,7 @@ The `verify` gates invoke three shell scripts directly: `scripts/security-check.
 
 - **Knowledge search/documents**: one of
   - OpenAI 1536d: `scripts/setup-db.sql`
-  - Google AI 3072d: `scripts/setup-db-google.sql`
+  - Google AI 1536d: `scripts/setup-db-google.sql`
   - Ollama 1024d: `scripts/setup-db-ollama.sql`
   - Ollama 768d: `scripts/setup-db-ollama-v2.sql`
 - **Memory graph**:
@@ -69,13 +69,13 @@ The `verify` gates invoke three shell scripts directly: `scripts/security-check.
   - Ollama 768d: `scripts/setup-db-conversation-ollama-v2.sql`
 - **Insights**:
   - OpenAI: `scripts/setup-db-insights.sql`
-  - Google AI 3072d: `scripts/setup-db-insights-google.sql`
+  - Google AI 1536d: `scripts/setup-db-insights-google.sql`
   - Ollama 1024d: `scripts/setup-db-insights-ollama.sql`
   - Ollama 768d: `scripts/setup-db-insights-ollama-v2.sql`
 - **Large uploads** (metadata/state only; provider-agnostic, no embeddings): `scripts/setup-db-uploads.sql`
 - **Claims** (inert source-backed claim storage; chunk-anchored spans, nullable embedding, no vector index / tools / routes yet):
   - OpenAI 1536d: `scripts/setup-db-claims.sql`
-  - Google AI 3072d: `scripts/setup-db-claims-google.sql`
+  - Google AI 1536d: `scripts/setup-db-claims-google.sql`
   - Ollama 1024d: `scripts/setup-db-claims-ollama.sql`
   - Ollama 768d: `scripts/setup-db-claims-ollama-v2.sql`
 - **Security hardening**: `scripts/security-rls.sql` (+ `scripts/security-rls-memory.sql`)
@@ -127,7 +127,7 @@ extracted core functions, so behavior stays identical.
 
 - ESM imports require explicit `.js` extension (even for `.ts` source).
 - **Never `console.log`** in server code — stdout is reserved for MCP JSON-RPC. Use `logger` from `src/utils/logger.js` (routes everything to stderr).
-- Embedding dimensions and schema must match: OpenAI 1536d, Google 3072d, Ollama 1024d (`nomic-embed-text`) or 768d (`nomic-embed-text-v2-moe`). Switching providers requires re-embedding all documents.
+- Embedding dimensions and schema must match: OpenAI 1536d, Google 1536d, Ollama 1024d (`nomic-embed-text`) or 768d (`nomic-embed-text-v2-moe`). Switching providers requires re-embedding all documents.
 - Biome enforces single quotes, tabs, 100-char width, no unused template literals.
 - Prefer small, PR-shaped changes and keep tool schemas backward compatible.
 - MCP tool handlers MUST return plain JSON-serializable values. Handlers MUST NOT return raw Date, BigInt, Buffer, or class instances. All date fields MUST be ISO 8601 strings or null. All aggregate queries (COUNT, MIN, MAX) MUST handle the empty-table case with sensible defaults (0, null, []). Every scope in get_stats MUST be wrapped in its own try/catch so partial failures MUST NOT cause a crash for scope=all.

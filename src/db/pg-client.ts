@@ -8,6 +8,13 @@ neonConfig.useSecureWebSocket = true;
 
 let pool: Pool | null = null;
 
+/**
+ * Per-connection pgvector tuning, keyed by the client it was applied to.
+ * Settled (never rejected) — a failure is logged and the connection still
+ * serves queries, just with the server's default HNSW behaviour.
+ */
+const clientTuning = new WeakMap<PoolClient, Promise<void>>();
+
 /** Read a positive-integer env var, falling back on missing/invalid values. */
 function envInt(name: string, fallback: number): number {
 	const raw = process.env[name];
@@ -44,22 +51,30 @@ export function getPgPool(connectionString?: string): Pool {
 	//    predicates, memory search's entity_types) don't silently under-return.
 	//  - ef_search: candidate list size; higher = better recall at some latency
 	//    cost. pgvector's built-in default is 40; raise it for a personal corpus.
-	// efSearch is a validated integer so interpolation is injection-safe. The DO
-	// block is exception-guarded so older pgvector (no such GUCs) still connects.
+	// efSearch is a validated integer so interpolation is injection-safe.
+	//
+	// Each SET runs as its own statement so an older pgvector that rejects one
+	// still gets the other, and failures reject (rather than being swallowed by a
+	// DO ... EXCEPTION WHEN others THEN NULL block) so they can be logged. The
+	// resulting promise is recorded per client and awaited by pgQuery: 'connect'
+	// fires before the client is handed to a waiter, so without that barrier the
+	// first query on a fresh connection could run before these land — silently
+	// falling back to ef_search=40 and non-iterative scans.
 	const efSearch = envInt('HNSW_EF_SEARCH', 100);
 	pool.on('connect', (client: PoolClient) => {
-		client
-			.query(
-				`DO $$ BEGIN
-					PERFORM set_config('hnsw.iterative_scan', 'relaxed_order', false);
-					PERFORM set_config('hnsw.ef_search', '${efSearch}', false);
-				EXCEPTION WHEN others THEN NULL; END $$;`,
-			)
-			.catch((err: Error) => {
-				logger.debug('Could not set hnsw.* tuning GUCs (pgvector < 0.8?)', {
-					error: err.message,
-				});
-			});
+		const applied = Promise.allSettled([
+			client.query(`SET hnsw.iterative_scan = 'relaxed_order'`),
+			client.query(`SET hnsw.ef_search = ${efSearch}`),
+		]).then((results) => {
+			for (const result of results) {
+				if (result.status === 'rejected') {
+					logger.warn('Could not apply pgvector HNSW tuning; using server defaults', {
+						error: result.reason instanceof Error ? result.reason.message : String(result.reason),
+					});
+				}
+			}
+		});
+		clientTuning.set(client, applied);
 	});
 
 	return pool;
@@ -73,7 +88,16 @@ export async function pgQuery<T extends QueryResultRow = Record<string, unknown>
 	params?: unknown[],
 ): Promise<{ rows: T[]; rowCount: number | null }> {
 	const p = getPgPool();
-	return p.query<T>(text, params);
+	const client = await p.connect();
+	try {
+		// Barrier: see the 'connect' handler in getPgPool(). Awaiting here — rather
+		// than using pool.query() — is what guarantees the HNSW GUCs are in effect
+		// before the first query on a freshly opened connection.
+		await clientTuning.get(client);
+		return await client.query<T>(text, params);
+	} finally {
+		client.release();
+	}
 }
 
 /**

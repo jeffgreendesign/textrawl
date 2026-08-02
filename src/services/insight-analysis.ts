@@ -548,7 +548,16 @@ async function synthesizeInsights(
 	try {
 		const response = await anthropic.messages.create({
 			model: config.INSIGHT_MODEL,
-			max_tokens: 2000,
+			// Synthesis must return a parseable JSON array; a truncated response falls
+			// through to generateRuleBasedInsights() below, degrading silently. Two
+			// guards against that:
+			//  - thinking disabled: Claude Sonnet 5 and later run adaptive thinking when
+			//    `thinking` is omitted, and max_tokens bounds thinking PLUS output — so
+			//    the default would spend this budget before emitting any JSON.
+			//  - 4096, not 2000: the Sonnet 5 tokenizer produces ~30% more tokens for the
+			//    same text. Mirrors the same fix already made in memory-extraction.ts.
+			thinking: { type: 'disabled' },
+			max_tokens: 4096,
 			system: INSIGHT_SYNTHESIS_PROMPT,
 			messages: [{ role: 'user', content: parts.join('\n') }],
 		});

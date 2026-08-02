@@ -155,15 +155,13 @@ describe('validateZip — path safety (archive-level)', () => {
 });
 
 describe('validateZip — nested archives (archive-level)', () => {
-	it.each([
-		'inner.zip',
-		'bundle.tar',
-		'data.gz',
-		'archive.7z',
-	])('rejects nested %s with ZIP_NESTED_ARCHIVE', async (path) => {
-		mockZip([entry(path)]);
-		await expect(validateZip(BUF)).rejects.toMatchObject({ code: 'ZIP_NESTED_ARCHIVE' });
-	});
+	it.each(['inner.zip', 'bundle.tar', 'data.gz', 'archive.7z'])(
+		'rejects nested %s with ZIP_NESTED_ARCHIVE',
+		async (path) => {
+			mockZip([entry(path)]);
+			await expect(validateZip(BUF)).rejects.toMatchObject({ code: 'ZIP_NESTED_ARCHIVE' });
+		},
+	);
 });
 
 describe('validateZip — bomb / size limits (archive-level)', () => {

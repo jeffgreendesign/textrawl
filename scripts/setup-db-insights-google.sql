@@ -7,7 +7,38 @@
 --   - insight_queue: tracks batch processing state (counter + debounce)
 --   - proactive_insights: stores discovered cross-source connections
 --   - insight_queue_increment(): atomically bumps the counter on chunk insert
+--
+-- Idempotent and self-migrating: the block below resizes an existing
+-- proactive_insights.embedding to vector(1536). See setup-db-google.sql for why
+-- that matters — CREATE TABLE IF NOT EXISTS leaves an older vector(3072) column
+-- in place, and pgvector cannot build an HNSW index above 2000 dimensions.
 -- =============================================================================
+
+-- ---------------------------------------------------------------------------
+-- 0. Migration: resize proactive_insights.embedding to vector(1536)
+-- ---------------------------------------------------------------------------
+-- Drops the index too; the CREATE INDEX IF NOT EXISTS further down rebuilds it.
+-- A different dimension is a different vector space, so old vectors are dropped
+-- and insights must be re-embedded (pnpm insights:backfill).
+DO $$
+BEGIN
+  IF EXISTS (
+    SELECT 1 FROM pg_attribute a
+    JOIN pg_class c ON c.oid = a.attrelid
+    JOIN pg_namespace n ON n.oid = c.relnamespace
+    WHERE n.nspname = 'public'
+      AND c.relname = 'proactive_insights'
+      AND a.attname = 'embedding'
+      AND a.atttypmod <> 1536
+      AND a.attnum > 0
+      AND NOT a.attisdropped
+  ) THEN
+    DROP INDEX IF EXISTS idx_proactive_insights_embedding;
+    ALTER TABLE proactive_insights DROP COLUMN embedding;
+    ALTER TABLE proactive_insights ADD COLUMN embedding vector(1536);
+    RAISE NOTICE 'Resized proactive_insights.embedding to vector(1536). Re-embedding required.';
+  END IF;
+END $$;
 
 -- ---------------------------------------------------------------------------
 -- 1. Insight queue (singleton row tracks pending batch state)
@@ -44,7 +75,7 @@ CREATE TABLE IF NOT EXISTS proactive_insights (
   summary       TEXT NOT NULL,
   evidence      JSONB NOT NULL DEFAULT '[]',   -- array of {chunkId, documentId, content, score}
   entities      JSONB DEFAULT '[]',            -- related entity names
-  embedding     vector(3072),                  -- for semantic retrieval (Google gemini-embedding-2-preview 3072d)
+  embedding     vector(1536),                  -- for semantic retrieval (Google gemini-embedding-2 @ 1536d)
   batch_id      UUID,                          -- groups insights from the same scan
   status        TEXT NOT NULL DEFAULT 'new' CHECK (status IN ('new', 'seen', 'dismissed')),
   created_at    TIMESTAMPTZ DEFAULT now()
@@ -114,7 +145,7 @@ $$;
 -- 5. Semantic search over insights
 -- ---------------------------------------------------------------------------
 CREATE OR REPLACE FUNCTION public.insight_semantic_search(
-  query_embedding vector(3072),
+  query_embedding vector(1536),
   match_count INTEGER DEFAULT 10,
   status_filter TEXT DEFAULT NULL
 )
@@ -158,9 +189,11 @@ $$;
 ALTER TABLE insight_queue ENABLE ROW LEVEL SECURITY;
 ALTER TABLE proactive_insights ENABLE ROW LEVEL SECURITY;
 
+DROP POLICY IF EXISTS insight_queue_deny_anon ON insight_queue;
 CREATE POLICY insight_queue_deny_anon ON insight_queue
   FOR ALL TO anon, authenticated USING (false);
 
+DROP POLICY IF EXISTS proactive_insights_deny_anon ON proactive_insights;
 CREATE POLICY proactive_insights_deny_anon ON proactive_insights
   FOR ALL TO anon, authenticated USING (false);
 

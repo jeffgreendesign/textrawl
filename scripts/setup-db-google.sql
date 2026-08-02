@@ -1,25 +1,66 @@
 -- Textrawl Database Schema (Google AI Version)
--- Use this when using gemini-embedding-2-preview (3072 dimensions)
+-- Use this when using gemini-embedding-2 (1536 dimensions)
 -- Run this in Supabase SQL Editor after creating your project
 -- IMPORTANT: After running this schema, run scripts/security-rls.sql to enable Row Level Security
 --
--- BREAKING CHANGE from text-embedding-004 (vector(768)):
---   Switching to gemini-embedding-2-preview changes embedding dimensions from 768 to 3072.
+-- WHY 1536 AND NOT THE MODEL'S NATIVE 3072:
+--   gemini-embedding-2 emits 3072 dimensions by default, but pgvector's HNSW index
+--   caps the `vector` type at 2000 dimensions — a vector(3072) column cannot be
+--   indexed at all, only sequentially scanned. The model is Matryoshka-trained, so
+--   the server requests 1536 directly via outputDimensionality (see GOOGLE_DIMENSIONS
+--   in src/services/embeddings.ts) and gemini-embedding-2 auto-normalizes the
+--   truncated output. Do not widen this column without also changing that constant —
+--   and note that widening it back to 3072 would break index creation outright.
+--
+-- BREAKING CHANGE from any earlier dimension (text-embedding-004 vector(768), or the
+-- vector(3072) column this file declared before the 1536 fix):
 --   These are different vector spaces; old embeddings cannot be resized or reused.
+--   This file is idempotent and self-migrating — just re-run it. The migration block
+--   below detects a mismatched dimension, drops the column and its index, and
+--   recreates both at vector(1536). Then re-run security-rls.sql and re-embed all
+--   documents (existing rows keep a NULL embedding until they are re-embedded).
 --
---   Option A — fresh database: run this file as-is, then security-rls.sql.
---   Option B — existing database: drop the embedding column, recreate it as vector(3072),
---     then trigger re-embedding for all documents. Example:
---       DROP INDEX IF EXISTS chunks_embedding_idx;
---       ALTER TABLE chunks DROP COLUMN embedding;
---       ALTER TABLE chunks ADD COLUMN embedding vector(3072);
---     Then re-run security-rls.sql and re-upload/re-embed all documents.
+--   Re-running matters especially for anyone who applied an earlier revision of this
+--   file: the CREATE INDEX on the old vector(3072) column failed, leaving the tables
+--   in place but unindexed. CREATE TABLE IF NOT EXISTS would not have widened or
+--   narrowed that column, so without this block a re-run would fail the same way.
 --
--- Verify EMBEDDING_PROVIDER=google and GOOGLE_EMBEDDING_MODEL=gemini-embedding-2-preview
+-- Verify EMBEDDING_PROVIDER=google and GOOGLE_EMBEDDING_MODEL=gemini-embedding-2
 -- are set before applying this schema.
 
 -- Enable required extensions
 create extension if not exists vector with schema extensions;
+
+-- ============================================
+-- Migration: resize chunks.embedding to vector(1536)
+-- ============================================
+-- CREATE TABLE IF NOT EXISTS below will not alter an existing chunks.embedding, so
+-- an install made from an earlier revision of this file keeps its vector(3072)
+-- column — and the HNSW index would keep failing, since pgvector caps `vector` at
+-- 2000 dimensions. Detect a mismatched dimension and recreate the column; the
+-- `create index if not exists chunks_embedding_idx` further down then rebuilds the
+-- index that this block drops.
+-- NOTE: a different dimension means a different vector space, so old vectors cannot
+-- be meaningfully resized. They are dropped and re-embedding is required.
+do $$
+begin
+  if exists (
+    select 1 from pg_attribute a
+    join pg_class c on c.oid = a.attrelid
+    join pg_namespace n on n.oid = c.relnamespace
+    where n.nspname = 'public'
+      and c.relname = 'chunks'
+      and a.attname = 'embedding'
+      and a.atttypmod <> 1536
+      and a.attnum > 0
+      and not a.attisdropped
+  ) then
+    drop index if exists chunks_embedding_idx;
+    alter table chunks drop column embedding;
+    alter table chunks add column embedding vector(1536);
+    raise notice 'Resized chunks.embedding to vector(1536). Re-embedding required.';
+  end if;
+end $$;
 
 -- Documents table (source of truth)
 create table if not exists documents (
@@ -39,7 +80,7 @@ create table if not exists documents (
   updated_at timestamptz default now()
 );
 
--- Chunks table with embeddings (3072 dimensions for gemini-embedding-2-preview)
+-- Chunks table with embeddings (1536 dimensions for gemini-embedding-2)
 create table if not exists chunks (
   id uuid primary key default gen_random_uuid(),
   document_id uuid not null references documents(id) on delete cascade,
@@ -47,7 +88,7 @@ create table if not exists chunks (
   chunk_index integer not null,
   start_offset integer,
   end_offset integer,
-  embedding vector(3072), -- gemini-embedding-2-preview dimension (Matryoshka: supports 3072, 1536, 768)
+  embedding vector(1536), -- requested via outputDimensionality (Matryoshka: 3072, 1536, 768)
   metadata jsonb default '{}',
   created_at timestamptz default now()
 );
@@ -71,10 +112,10 @@ create index if not exists documents_metadata_gin_idx on documents using gin (me
 -- Hybrid search function using Reciprocal Rank Fusion (RRF).
 -- Drop the old 6-arg signature first: adding filter args creates a NEW overload,
 -- which makes existing 5-/6-arg calls ambiguous. Drop, then recreate in full.
-drop function if exists public.hybrid_search(text, vector(3072), int, float, float, int);
+drop function if exists public.hybrid_search(text, vector(1536), int, float, float, int);
 create or replace function public.hybrid_search(
   query_text text,
-  query_embedding vector(3072),
+  query_embedding vector(1536),
   match_count int default 10,
   full_text_weight float default 1.0,
   semantic_weight float default 1.0,
@@ -149,7 +190,7 @@ $$;
 
 -- Semantic-only search function (when full-text query is empty)
 create or replace function public.semantic_search(
-  query_embedding vector(3072),
+  query_embedding vector(1536),
   match_count int default 10
 )
 returns table (

@@ -15,8 +15,8 @@ This file centralizes runtime configuration for Textrawl server, MCP tools, CLI,
 | `DATABASE_URL` | Yes (DB features) | Neon (or any PostgreSQL) pooled connection string |
 | `EMBEDDING_PROVIDER` | No | `openai` (default), `ollama`, or `google` |
 | `OPENAI_API_KEY` | Required for OpenAI | Embedding API key (`text-embedding-3-small`, 1536d) |
-| `GOOGLE_AI_API_KEY` | Required for Google | Google AI API key (`gemini-embedding-2-preview`, 3072d) |
-| `GOOGLE_EMBEDDING_MODEL` | No | Google embedding model (default: `gemini-embedding-2-preview`) |
+| `GOOGLE_AI_API_KEY` | Required for Google | Google AI API key (`gemini-embedding-2`, 1536d) |
+| `GOOGLE_EMBEDDING_MODEL` | No | Google embedding model (default: `gemini-embedding-2`) |
 | `OLLAMA_BASE_URL` | Required for Ollama | Local/remote Ollama base URL |
 | `OLLAMA_MODEL` | Required for Ollama | Embedding model (e.g. `nomic-embed-text`) |
 | `API_BEARER_TOKEN` | Strongly recommended; required in prod unless OAuth | Bearer auth for `/mcp` and `/api/upload` |
@@ -40,8 +40,8 @@ This file centralizes runtime configuration for Textrawl server, MCP tools, CLI,
 | Variable | Required | Notes |
 |---|---|---|
 | `ANTHROPIC_API_KEY` | If extraction enabled | Key for `extract_memories` |
-| `EXTRACTION_MODEL` | No | Default: `claude-haiku-4-5-20251001` |
-| `INSIGHT_MODEL` | No | Default: `claude-sonnet-4-6-20250514` |
+| `EXTRACTION_MODEL` | No | Default: `claude-haiku-4-5` |
+| `INSIGHT_MODEL` | No | Default: `claude-sonnet-5` |
 
 ## Optional / advanced
 

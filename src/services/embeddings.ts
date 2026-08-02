@@ -1,4 +1,4 @@
-import { GoogleGenerativeAI } from '@google/generative-ai';
+import { GoogleGenAI } from '@google/genai';
 import OpenAI from 'openai';
 import pLimit from 'p-limit';
 import { config } from '../utils/config.js';
@@ -89,9 +89,16 @@ function getOllamaDimensions(model: string): number {
 }
 
 // Google AI constants
-const GOOGLE_DIMENSIONS = 3072;
+// gemini-embedding-2 emits 3072d by default, but pgvector's HNSW index caps the `vector`
+// type at 2000 dimensions — a 3072d column cannot be indexed, only sequentially scanned.
+// The model is Matryoshka-trained, so we REQUEST 1536d via outputDimensionality (below)
+// rather than storing 3072 and reducing later. Because the dimension is requested rather
+// than inferred from the model name, this constant stays correct across model changes.
+// Truncated output is auto-normalized by gemini-embedding-2, so cosine distance is valid
+// with no client-side renormalization.
+const GOOGLE_DIMENSIONS = 1536;
 const GOOGLE_MAX_BATCH_SIZE = 100;
-const GOOGLE_MAX_INPUT_CHARS = 30_000; // gemini-embedding-2-preview: 8192 token context (~4 chars/token)
+const GOOGLE_MAX_INPUT_CHARS = 30_000; // gemini-embedding-2: 8192 token context (~4 chars/token)
 // Aggregate token ceiling per batchEmbedContents request (see OPENAI_MAX_BATCH_TOKENS).
 const GOOGLE_MAX_BATCH_TOKENS = 200_000;
 const GOOGLE_EST_CHARS_PER_TOKEN = 3;
@@ -153,7 +160,7 @@ interface OllamaEmbedResponse {
 }
 
 let openai: OpenAI | null = null;
-let googleAI: GoogleGenerativeAI | null = null;
+let googleAI: GoogleGenAI | null = null;
 
 /**
  * Get embedding dimensions for the configured provider
@@ -187,13 +194,13 @@ function getOpenAIClient(): OpenAI {
 /**
  * Get the Google AI client instance (singleton pattern)
  */
-function getGoogleClient(): GoogleGenerativeAI {
+function getGoogleClient(): GoogleGenAI {
 	if (!config.GOOGLE_AI_API_KEY) {
 		throw new ExternalServiceError('Google AI API key not configured. Set GOOGLE_AI_API_KEY.');
 	}
 
 	if (!googleAI) {
-		googleAI = new GoogleGenerativeAI(config.GOOGLE_AI_API_KEY);
+		googleAI = new GoogleGenAI({ apiKey: config.GOOGLE_AI_API_KEY });
 		logger.info('Google AI client initialized');
 	}
 
@@ -409,16 +416,47 @@ async function generateOpenAIEmbeddings(texts: string[]): Promise<number[][]> {
 }
 
 /**
+ * Unwrap the optional `embeddings[].values` fields of an EmbedContentResponse.
+ *
+ * Both `embeddings` and `values` are optional in the @google/genai types, so a
+ * partial response would otherwise flow into the DB as `undefined` vectors and
+ * fail far from the cause. Validate the count and every element up front.
+ */
+function readGoogleEmbeddings(
+	embeddings: { values?: number[] }[] | undefined,
+	expected: number,
+): number[][] {
+	if (!embeddings || embeddings.length !== expected) {
+		throw new ExternalServiceError(
+			`Google AI returned ${embeddings?.length ?? 0} embeddings, expected ${expected}`,
+		);
+	}
+	return embeddings.map((embedding, index) => {
+		if (!embedding.values?.length) {
+			throw new ExternalServiceError(`Google AI returned an empty embedding at index ${index}`);
+		}
+		return embedding.values;
+	});
+}
+
+/**
  * Generate embedding using Google AI
  */
 async function generateGoogleEmbedding(text: string): Promise<number[]> {
 	const client = getGoogleClient();
-	const model = client.getGenerativeModel({ model: config.GOOGLE_EMBEDDING_MODEL });
 	const input = text.length > GOOGLE_MAX_INPUT_CHARS ? text.slice(0, GOOGLE_MAX_INPUT_CHARS) : text;
 
 	try {
-		const result = await withRetry(() => model.embedContent(input), { label: 'Google embedding' });
-		return result.embedding.values;
+		const result = await withRetry(
+			() =>
+				client.models.embedContent({
+					model: config.GOOGLE_EMBEDDING_MODEL,
+					contents: input,
+					config: { outputDimensionality: GOOGLE_DIMENSIONS },
+				}),
+			{ label: 'Google embedding' },
+		);
+		return readGoogleEmbeddings(result.embeddings, 1)[0];
 	} catch (error) {
 		throw new ExternalServiceError(
 			`Google AI embedding failed: ${error instanceof Error ? error.message : String(error)}`,
@@ -431,7 +469,6 @@ async function generateGoogleEmbedding(text: string): Promise<number[]> {
  */
 async function generateGoogleEmbeddings(texts: string[]): Promise<number[][]> {
 	const client = getGoogleClient();
-	const model = client.getGenerativeModel({ model: config.GOOGLE_EMBEDDING_MODEL });
 
 	// Truncate oversized inputs
 	const safeTexts = texts.map((t) =>
@@ -449,14 +486,16 @@ async function generateGoogleEmbeddings(texts: string[]): Promise<number[][]> {
 		return await embedBatchesConcurrently(batches, async (batch) => {
 			const result = await withRetry(
 				() =>
-					model.batchEmbedContents({
-						requests: batch.map((text) => ({
-							content: { role: 'user', parts: [{ text }] },
-						})),
+					client.models.embedContent({
+						model: config.GOOGLE_EMBEDDING_MODEL,
+						// One Content per text yields one embedding per text, in order.
+						// Passing bare strings would instead aggregate them into a single vector.
+						contents: batch.map((text) => ({ role: 'user', parts: [{ text }] })),
+						config: { outputDimensionality: GOOGLE_DIMENSIONS },
 					}),
 				{ label: 'Google embeddings' },
 			);
-			return result.embeddings.map((e) => e.values);
+			return readGoogleEmbeddings(result.embeddings, batch.length);
 		});
 	} catch (error) {
 		throw new ExternalServiceError(

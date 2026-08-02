@@ -31,7 +31,7 @@ if (config.REDIS_URL) {
 
 export const apiLimiter = rateLimit({
 	windowMs: 60 * 1000,
-	max: 100,
+	limit: 100,
 	standardHeaders: true,
 	legacyHeaders: false,
 	...(store ? { store } : {}),
@@ -40,7 +40,7 @@ export const apiLimiter = rateLimit({
 
 export const uploadLimiter = rateLimit({
 	windowMs: 60 * 1000,
-	max: 10,
+	limit: 10,
 	standardHeaders: true,
 	legacyHeaders: false,
 	...(store ? { store } : {}),
@@ -50,7 +50,7 @@ export const uploadLimiter = rateLimit({
 // OAuth endpoint rate limiter (stricter to prevent brute-force and abuse)
 export const oauthLimiter = rateLimit({
 	windowMs: 60 * 1000,
-	max: 20,
+	limit: 20,
 	standardHeaders: true,
 	legacyHeaders: false,
 	...(store ? { store } : {}),
@@ -60,7 +60,7 @@ export const oauthLimiter = rateLimit({
 // Health endpoint rate limiter (more permissive but still prevents DoS)
 export const healthLimiter = rateLimit({
 	windowMs: 60 * 1000,
-	max: 300, // Allow more requests for health checks (monitoring systems poll frequently)
+	limit: 300, // Allow more requests for health checks (monitoring systems poll frequently)
 	standardHeaders: true,
 	legacyHeaders: false,
 	...(store ? { store } : {}),

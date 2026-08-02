@@ -48,7 +48,7 @@ Textrawl is a personal knowledge server with persistent memory, searchable docum
 
 **Your data, your choice.** Use OpenAI's embeddings for best accuracy, Google AI for multimodal support, or run locally with Ollama and local Postgres to keep document text and embeddings on your machine.
 
-**Import everything.** Emails from Gmail exports, PDFs from your research, saved web pages, images, audio files, Google Takeout archives — Textrawl converts them into searchable knowledge where the relevant converter/provider is configured.
+**Import everything.** Emails from Gmail exports, PDFs from your research, saved web pages, spreadsheets, Google Takeout archives — Textrawl converts them into searchable knowledge where the relevant converter is configured.
 
 ## Features
 
@@ -61,9 +61,8 @@ Textrawl is a personal knowledge server with persistent memory, searchable docum
 | **Daily Briefing** | Summary of recent additions, new insights, and resurfaced knowledge |
 | **Unified RAG** | `ask` tool searches documents, memory, and conversations in one query |
 | **Web Dashboard** | Command center with knowledge explorer, timeline, agent orchestration, and applets |
-| **Multimodal** | Process images (Claude vision) and audio (Whisper transcription) alongside documents |
 | **Desktop App** | Drag-and-drop file conversion and upload (macOS, Windows, Linux) |
-| **Multi-Format** | PDF, DOCX, XLSX, PPTX, HTML, MBOX/EML emails, Google Takeout |
+| **Multi-Format** | PDF, DOCX, XLSX, CSV, JSON, HTML, Markdown/text, ZIP archives, MBOX/EML emails, Google Takeout |
 | **MCP + REST + WebSocket** | MCP tools, REST API, and real-time WebSocket events |
 | **Agent Discovery** | A2A protocol at `/.well-known/agent.json` for agent-to-agent interaction |
 | **Flexible Embeddings** | OpenAI, Google AI, or Ollama (free, local) |
@@ -73,7 +72,7 @@ Textrawl is a personal knowledge server with persistent memory, searchable docum
 
 ## Privacy Model
 
-Textrawl is self-hosted, but data leaves your machine when you configure cloud services. Document text, chunks, embeddings, extracted memories, conversation summaries, images, or audio may be sent to providers such as OpenAI/Google embeddings, Anthropic/OpenAI/Google extraction, Neon/Supabase/RDS, Cloud Run, or GCS. For sensitive data, prefer Ollama/local Postgres and disable cloud LLM extraction/insights.
+Textrawl is self-hosted, but data leaves your machine when you configure cloud services. Document text, chunks, embeddings, extracted memories, and conversation summaries may be sent to providers such as OpenAI/Google embeddings, Anthropic extraction, Neon/Supabase/RDS, Cloud Run, or GCS. For sensitive data, prefer Ollama/local Postgres and disable cloud LLM extraction/insights.
 
 ## Quick Start
 
@@ -182,8 +181,8 @@ pnpm upload -- ./converted/
 | `OPENAI_API_KEY` | If OpenAI | For text-embedding-3-small (1536d) |
 | `OLLAMA_BASE_URL` | If Ollama | Default: `http://localhost:11434` |
 | `OLLAMA_MODEL` | If Ollama | Default: `nomic-embed-text` |
-| `GOOGLE_AI_API_KEY` | If Google | For gemini-embedding-2-preview (3072d) |
-| `GOOGLE_EMBEDDING_MODEL` | If Google | Default: `gemini-embedding-2-preview` |
+| `GOOGLE_AI_API_KEY` | If Google | For gemini-embedding-2 (1536d) |
+| `GOOGLE_EMBEDDING_MODEL` | If Google | Default: `gemini-embedding-2` |
 | `API_BEARER_TOKEN` | Prod only | Min 32 chars (`openssl rand -hex 32`) |
 | `PORT` | No | Default: 3000 |
 | `LOG_LEVEL` | No | debug, info, warn, error |
@@ -193,8 +192,8 @@ pnpm upload -- ./converted/
 | `ENABLE_INSIGHTS` | No | Enable proactive insight tools (default: true) |
 | `ENABLE_MEMORY_EXTRACTION` | No | Enable LLM-based memory extraction (default: false) |
 | `ANTHROPIC_API_KEY` | If extraction | Required for `extract_memories` tool |
-| `EXTRACTION_MODEL` | No | Model for extraction (default: claude-haiku-4-5-20251001) |
-| `INSIGHT_MODEL` | No | Model for insight synthesis (default: claude-sonnet-4-6) |
+| `EXTRACTION_MODEL` | No | Model for extraction (default: claude-haiku-4-5) |
+| `INSIGHT_MODEL` | No | Model for insight synthesis (default: claude-sonnet-5) |
 | `COMPACT_RESPONSES` | No | Token-efficient responses (default: true) |
 | `CHUNKING_MODE` | No | `fixed` (default) or `semantic` (embedding-based splits) |
 | `SEMANTIC_SIMILARITY_THRESHOLD` | No | Semantic split sensitivity 0–1 (default: 0.5) |
@@ -281,7 +280,7 @@ Enable with `ENABLE_CONVERSATIONS=true` (default). Requires running one of the c
 - `scripts/setup-db-conversation.sql` (OpenAI embeddings, 1536d)
 - `scripts/setup-db-conversation-ollama.sql` (Ollama v1 - nomic-embed-text, 1024d)
 - `scripts/setup-db-conversation-ollama-v2.sql` (Ollama v2 - nomic-embed-text-v2-moe, 768d)
-- `scripts/setup-db-conversation-google.sql` (Google AI - gemini-embedding-2-preview, 3072d)
+- `scripts/setup-db-conversation-google.sql` (Google AI - gemini-embedding-2, 1536d)
 
 | Tool | Description |
 |------|-------------|
@@ -442,7 +441,7 @@ OLLAMA_MODEL=nomic-embed-text
 
 **Supported Ollama models:** `nomic-embed-text` (1024d), `nomic-embed-text-v2-moe` (768d, recommended for new installs), `mxbai-embed-large` (1024d)
 
-> **Note:** Each provider uses different embedding dimensions: OpenAI 1536d, Ollama 1024d (or 768d for v2-moe), Google AI 3072d. Use the matching schema: `setup-db.sql` (OpenAI), `setup-db-ollama.sql` (Ollama 1024d), `setup-db-ollama-v2.sql` (Ollama 768d), or `setup-db-google.sql` (Google AI). You cannot mix providers without re-embedding all documents.
+> **Note:** Embedding dimensions per provider: OpenAI 1536d, Google AI 1536d, Ollama 1024d (or 768d for v2-moe). Use the matching schema: `setup-db.sql` (OpenAI), `setup-db-google.sql` (Google AI), `setup-db-ollama.sql` (Ollama 1024d), or `setup-db-ollama-v2.sql` (Ollama 768d). OpenAI and Google AI share a dimension but **not** a vector space — the schemas are not interchangeable, and you cannot switch providers without re-embedding all documents.
 
 ## Troubleshooting
 
