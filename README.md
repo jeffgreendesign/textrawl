@@ -193,8 +193,8 @@ pnpm upload -- ./converted/
 | `ENABLE_INSIGHTS` | No | Enable proactive insight tools (default: true) |
 | `ENABLE_MEMORY_EXTRACTION` | No | Enable LLM-based memory extraction (default: false) |
 | `ANTHROPIC_API_KEY` | If extraction | Required for `extract_memories` tool |
-| `EXTRACTION_MODEL` | No | Model for extraction (default: claude-haiku-4-5-20251001) |
-| `INSIGHT_MODEL` | No | Model for insight synthesis (default: claude-sonnet-4-6) |
+| `EXTRACTION_MODEL` | No | Model for extraction (default: claude-haiku-4-5) |
+| `INSIGHT_MODEL` | No | Model for insight synthesis (default: claude-sonnet-5) |
 | `COMPACT_RESPONSES` | No | Token-efficient responses (default: true) |
 | `CHUNKING_MODE` | No | `fixed` (default) or `semantic` (embedding-based splits) |
 | `SEMANTIC_SIMILARITY_THRESHOLD` | No | Semantic split sensitivity 0–1 (default: 0.5) |

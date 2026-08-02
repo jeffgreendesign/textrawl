@@ -40,8 +40,8 @@ This file centralizes runtime configuration for Textrawl server, MCP tools, CLI,
 | Variable | Required | Notes |
 |---|---|---|
 | `ANTHROPIC_API_KEY` | If extraction enabled | Key for `extract_memories` |
-| `EXTRACTION_MODEL` | No | Default: `claude-haiku-4-5-20251001` |
-| `INSIGHT_MODEL` | No | Default: `claude-sonnet-4-6-20250514` |
+| `EXTRACTION_MODEL` | No | Default: `claude-haiku-4-5` |
+| `INSIGHT_MODEL` | No | Default: `claude-sonnet-5` |
 
 ## Optional / advanced
 

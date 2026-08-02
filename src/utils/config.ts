@@ -86,10 +86,12 @@ const envSchema = z.object({
 	ANTHROPIC_API_KEY: z.string().startsWith('sk-ant-').optional(),
 
 	// Model for memory extraction (fast, cheap model recommended)
-	EXTRACTION_MODEL: z.string().default('claude-haiku-4-5-20251001'),
+	EXTRACTION_MODEL: z.string().default('claude-haiku-4-5'),
 
-	// Model for insight synthesis (benefits from more capable reasoning)
-	INSIGHT_MODEL: z.string().default('claude-sonnet-4-6'),
+	// Model for insight synthesis (benefits from more capable reasoning).
+	// Sonnet 5 runs adaptive thinking unless told otherwise — see the explicit
+	// `thinking` setting in src/services/insight-analysis.ts before changing this.
+	INSIGHT_MODEL: z.string().default('claude-sonnet-5'),
 
 	// Response format - compact saves 40-60% tokens but uses short keys
 	COMPACT_RESPONSES: z
