@@ -5,7 +5,7 @@ import { beforeEach, describe, expect, it, vi } from 'vitest';
 const mockConfig = vi.hoisted(() => ({
 	EMBEDDING_PROVIDER: 'openai' as 'openai' | 'ollama' | 'google',
 	OLLAMA_MODEL: 'nomic-embed-text',
-	GOOGLE_EMBEDDING_MODEL: 'gemini-embedding-2-preview',
+	GOOGLE_EMBEDDING_MODEL: 'gemini-embedding-2',
 }));
 
 vi.mock('../config.js', () => ({ config: mockConfig }));

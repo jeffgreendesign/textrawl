@@ -20,7 +20,7 @@ import { describe, expect, it } from 'vitest';
 // Provider variant -> expected embedding dimension.
 const VARIANTS: Record<string, number> = {
 	'setup-db-claims.sql': 1536,
-	'setup-db-claims-google.sql': 3072,
+	'setup-db-claims-google.sql': 1536,
 	'setup-db-claims-ollama.sql': 1024,
 	'setup-db-claims-ollama-v2.sql': 768,
 };

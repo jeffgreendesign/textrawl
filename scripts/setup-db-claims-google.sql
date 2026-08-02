@@ -1,5 +1,5 @@
 -- =============================================================================
--- Source-Backed Claims Schema (Google, 3072d)
+-- Source-Backed Claims Schema (Google, 1536d)
 -- =============================================================================
 -- Run this in the Supabase SQL Editor / via psql AFTER setup-db-google.sql.
 --
@@ -15,10 +15,10 @@
 -- The chunker normalizes (\r\n -> \n) and trims before computing chunk offsets,
 -- so only chunks.content offsets round-trip (see src/utils/source-span.ts).
 --
--- NOTE: embedding is kept as a nullable vector(3072) column for forward
+-- NOTE: embedding is kept as a nullable vector(1536) column for forward
 -- compatibility, but NO vector (HNSW) index is created here. Provider-safe
--- vector indexes are deferred to the future retrieval PR (this also sidesteps
--- the pgvector >2000-dim HNSW limit on the Google 3072d variant).
+-- vector indexes are deferred to the future retrieval PR. Every provider variant
+-- is now <= 1536d, so all of them are HNSW-indexable when that PR lands.
 -- =============================================================================
 
 -- ---------------------------------------------------------------------------
@@ -64,7 +64,7 @@ CREATE TABLE IF NOT EXISTS claims (
                         CHECK (sensitivity IN ('normal', 'sensitive', 'restricted')),
 
   -- Retrieval (unused this PR; nullable, backfilled by a future retrieval PR)
-  embedding           vector(3072),               -- Google gemini-embedding-2-preview
+  embedding           vector(1536),               -- Google gemini-embedding-2
 
   -- Full-text search (auto-generated; weighted claim > question > quote)
   fts tsvector GENERATED ALWAYS AS (

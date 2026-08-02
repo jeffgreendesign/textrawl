@@ -30,7 +30,7 @@ Choose between OpenAI (cloud), Google AI (cloud), or Ollama (local):
 | `EMBEDDING_PROVIDER` | No | `openai` (default), `ollama`, or `google` |
 | `OPENAI_API_KEY` | If OpenAI | Your OpenAI API key |
 | `GOOGLE_AI_API_KEY` | If Google | Your Google AI API key |
-| `GOOGLE_EMBEDDING_MODEL` | If Google | Model name (default: `gemini-embedding-2-preview`) |
+| `GOOGLE_EMBEDDING_MODEL` | If Google | Model name (default: `gemini-embedding-2`) |
 | `OLLAMA_BASE_URL` | If Ollama | Ollama server URL |
 | `OLLAMA_MODEL` | If Ollama | Model name (default: `nomic-embed-text`) |
 
@@ -50,11 +50,11 @@ OPENAI_API_KEY=sk-proj-...
 ```bash
 EMBEDDING_PROVIDER=google
 GOOGLE_AI_API_KEY=your-google-ai-api-key
-GOOGLE_EMBEDDING_MODEL=gemini-embedding-2-preview
+GOOGLE_EMBEDDING_MODEL=gemini-embedding-2
 ```
 
-- Model: `gemini-embedding-2-preview`
-- Dimensions: 3072
+- Model: `gemini-embedding-2`
+- Dimensions: 1536 (requested via outputDimensionality; the model is natively 3072d)
 - Schema: `scripts/setup-db-google.sql`
 
 **Ollama Configuration:**

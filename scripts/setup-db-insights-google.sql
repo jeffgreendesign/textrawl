@@ -44,7 +44,7 @@ CREATE TABLE IF NOT EXISTS proactive_insights (
   summary       TEXT NOT NULL,
   evidence      JSONB NOT NULL DEFAULT '[]',   -- array of {chunkId, documentId, content, score}
   entities      JSONB DEFAULT '[]',            -- related entity names
-  embedding     vector(3072),                  -- for semantic retrieval (Google gemini-embedding-2-preview 3072d)
+  embedding     vector(1536),                  -- for semantic retrieval (Google gemini-embedding-2 @ 1536d)
   batch_id      UUID,                          -- groups insights from the same scan
   status        TEXT NOT NULL DEFAULT 'new' CHECK (status IN ('new', 'seen', 'dismissed')),
   created_at    TIMESTAMPTZ DEFAULT now()
@@ -114,7 +114,7 @@ $$;
 -- 5. Semantic search over insights
 -- ---------------------------------------------------------------------------
 CREATE OR REPLACE FUNCTION public.insight_semantic_search(
-  query_embedding vector(3072),
+  query_embedding vector(1536),
   match_count INTEGER DEFAULT 10,
   status_filter TEXT DEFAULT NULL
 )

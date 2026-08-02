@@ -10,7 +10,7 @@
 -- PROVIDER NOTE: the function below is the OpenAI 1536-dim variant. On other
 -- providers, either re-run your matching scripts/setup-db*.sql (idempotent), or
 -- change BOTH vector(1536) occurrences below to your dimension:
---   Google gemini-embedding      -> vector(3072)
+--   Google gemini-embedding-2     -> vector(1536)  (same as OpenAI; no change needed)
 --   Ollama nomic-embed-text       -> vector(1024)
 --   Ollama nomic-embed-text-v2-moe-> vector(768)
 --

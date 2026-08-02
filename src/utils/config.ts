@@ -35,7 +35,9 @@ const envSchema = z.object({
 
 	// Google AI
 	GOOGLE_AI_API_KEY: z.string().optional(),
-	GOOGLE_EMBEDDING_MODEL: z.string().default('gemini-embedding-2-preview'),
+	// Embeddings are requested at 1536d (Matryoshka) so the vectors fit pgvector's
+	// 2000-dimension HNSW limit. See GOOGLE_DIMENSIONS in src/services/embeddings.ts.
+	GOOGLE_EMBEDDING_MODEL: z.string().default('gemini-embedding-2'),
 
 	// Ollama
 	OLLAMA_BASE_URL: z.url().default('http://localhost:11434'),

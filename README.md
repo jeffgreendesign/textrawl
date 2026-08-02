@@ -182,8 +182,8 @@ pnpm upload -- ./converted/
 | `OPENAI_API_KEY` | If OpenAI | For text-embedding-3-small (1536d) |
 | `OLLAMA_BASE_URL` | If Ollama | Default: `http://localhost:11434` |
 | `OLLAMA_MODEL` | If Ollama | Default: `nomic-embed-text` |
-| `GOOGLE_AI_API_KEY` | If Google | For gemini-embedding-2-preview (3072d) |
-| `GOOGLE_EMBEDDING_MODEL` | If Google | Default: `gemini-embedding-2-preview` |
+| `GOOGLE_AI_API_KEY` | If Google | For gemini-embedding-2 (1536d) |
+| `GOOGLE_EMBEDDING_MODEL` | If Google | Default: `gemini-embedding-2` |
 | `API_BEARER_TOKEN` | Prod only | Min 32 chars (`openssl rand -hex 32`) |
 | `PORT` | No | Default: 3000 |
 | `LOG_LEVEL` | No | debug, info, warn, error |
@@ -281,7 +281,7 @@ Enable with `ENABLE_CONVERSATIONS=true` (default). Requires running one of the c
 - `scripts/setup-db-conversation.sql` (OpenAI embeddings, 1536d)
 - `scripts/setup-db-conversation-ollama.sql` (Ollama v1 - nomic-embed-text, 1024d)
 - `scripts/setup-db-conversation-ollama-v2.sql` (Ollama v2 - nomic-embed-text-v2-moe, 768d)
-- `scripts/setup-db-conversation-google.sql` (Google AI - gemini-embedding-2-preview, 3072d)
+- `scripts/setup-db-conversation-google.sql` (Google AI - gemini-embedding-2, 1536d)
 
 | Tool | Description |
 |------|-------------|
@@ -442,7 +442,7 @@ OLLAMA_MODEL=nomic-embed-text
 
 **Supported Ollama models:** `nomic-embed-text` (1024d), `nomic-embed-text-v2-moe` (768d, recommended for new installs), `mxbai-embed-large` (1024d)
 
-> **Note:** Each provider uses different embedding dimensions: OpenAI 1536d, Ollama 1024d (or 768d for v2-moe), Google AI 3072d. Use the matching schema: `setup-db.sql` (OpenAI), `setup-db-ollama.sql` (Ollama 1024d), `setup-db-ollama-v2.sql` (Ollama 768d), or `setup-db-google.sql` (Google AI). You cannot mix providers without re-embedding all documents.
+> **Note:** Embedding dimensions per provider: OpenAI 1536d, Google AI 1536d, Ollama 1024d (or 768d for v2-moe). Use the matching schema: `setup-db.sql` (OpenAI), `setup-db-google.sql` (Google AI), `setup-db-ollama.sql` (Ollama 1024d), or `setup-db-ollama-v2.sql` (Ollama 768d). OpenAI and Google AI share a dimension but **not** a vector space — the schemas are not interchangeable, and you cannot switch providers without re-embedding all documents.
 
 ## Troubleshooting
 

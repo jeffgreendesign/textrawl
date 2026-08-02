@@ -289,7 +289,7 @@ Path-traversal protection per Anthropic's guidance (paths must start with `/memo
 
 ## Provider-agnostic implementation notes
 
-**Embeddings.** Textrawl already abstracts these in `src/services/embeddings.ts` across OpenAI (1536d), Google AI (3072d), Ollama (1024d), and Ollama v2 (768d). The `scripts/setup-db-memory*.sql` variants match. None of the recommendations above change embedding dimensions; all are additive on top of the existing vector column.
+**Embeddings.** Textrawl already abstracts these in `src/services/embeddings.ts` across OpenAI (1536d), Google AI (1536d), Ollama (1024d), and Ollama v2 (768d). The `scripts/setup-db-memory*.sql` variants match. None of the recommendations above change embedding dimensions; all are additive on top of the existing vector column.
 
 **Extraction LLM.** Every recommendation that needs an LLM (Mem0 pipeline, consolidation cron, A-MEM link revision) should respect a `MEMORY_LLM` env var resolved by a dedicated extraction provider abstraction. Defaults: GPT-4.1-mini (OpenAI), Gemini 2.5 Flash (Google), Llama 3.1 8B Instruct (Ollama). Keep cost-sensitive — these are background jobs that fire on every memory write.
 

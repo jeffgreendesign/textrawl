@@ -17,8 +17,8 @@
 --
 -- NOTE: embedding is kept as a nullable vector(1024) column for forward
 -- compatibility, but NO vector (HNSW) index is created here. Provider-safe
--- vector indexes are deferred to the future retrieval PR (this also sidesteps
--- the pgvector >2000-dim HNSW limit on the Google 3072d variant).
+-- vector indexes are deferred to the future retrieval PR. Every provider variant
+-- is now <= 1536d, so all of them are HNSW-indexable when that PR lands.
 -- =============================================================================
 
 -- ---------------------------------------------------------------------------
