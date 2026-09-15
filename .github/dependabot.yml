@@ -12,14 +12,21 @@ updates:
     schedule:
       interval: "weekly"
     open-pull-requests-limit: 5
-    # Without grouping, a repo this size saturates the PR limit with one PR
-    # per dependency and nothing else gets through.
+    # Grouping stops a repo this size from saturating the PR limit with one PR
+    # per dependency. Groups are bounded to minor/patch so that major bumps
+    # fall outside them and arrive as individual PRs: a framework major such as
+    # next 15 -> 16 or fumadocs 15 -> 16 needs migration work and its own
+    # review, not a 37-package all-or-nothing sweep that cannot be landed.
     groups:
       production-dependencies:
         dependency-type: "production"
+        update-types: ["minor", "patch"]
       development-dependencies:
         dependency-type: "development"
+        update-types: ["minor", "patch"]
 
+  # GitHub Actions majors are left grouped: they are small, self-contained
+  # version pins, and the 7-major sweep in #129 passed every CI gate.
   - package-ecosystem: "github-actions"
     directory: "/"
     schedule:
