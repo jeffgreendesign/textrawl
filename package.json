@@ -65,7 +65,7 @@
 		"jose": "^6.2.7",
 		"jsdom": "^30.0.1",
 		"mammoth": "^1.8.0",
-		"multer": "^2.2.0",
+		"multer": "^2.4.0",
 		"openai": "^7.3.0",
 		"rate-limit-redis": "^6.0.0",
 		"redis": "^6.2.0",
