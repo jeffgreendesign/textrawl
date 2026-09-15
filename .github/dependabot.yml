@@ -1,13 +1,31 @@
 version: 2
 updates:
+  # pnpm workspace. Each workspace package needs its own entry: with a single
+  # `directory: "/"`, Dependabot does not reliably pick up nested workspace
+  # manifests, so desktop/dashboard/website updates would be missed.
   - package-ecosystem: "npm"
-    directory: "/"
+    directories:
+      - "/"
+      - "/desktop"
+      - "/dashboard"
+      - "/website"
     schedule:
       interval: "weekly"
     open-pull-requests-limit: 5
+    # Without grouping, a repo this size saturates the PR limit with one PR
+    # per dependency and nothing else gets through.
+    groups:
+      production-dependencies:
+        dependency-type: "production"
+      development-dependencies:
+        dependency-type: "development"
 
   - package-ecosystem: "github-actions"
     directory: "/"
     schedule:
       interval: "weekly"
     open-pull-requests-limit: 5
+    groups:
+      github-actions:
+        patterns:
+          - "*"
