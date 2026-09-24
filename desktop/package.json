@@ -21,7 +21,7 @@
 		"typecheck": "tsc --noEmit -p tsconfig.main.json && tsc --noEmit -p tsconfig.preload.json"
 	},
 	"dependencies": {
-		"csv-parse": "^5.5.6",
+		"csv-parse": "^7.0.2",
 		"electron-store": "^8.2.0",
 		"fast-xml-parser": "^5.3.4",
 		"gray-matter": "^4.0.3",
