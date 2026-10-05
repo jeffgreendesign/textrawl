@@ -8,6 +8,17 @@ permissions:
   contents: write
   pull-requests: write
 
+# Serialize runs. Each run reads package.json from main, bumps its version and
+# writes the whole file to the release branch, so overlapping runs (several
+# merges in quick succession) race: one fails with `"sha" wasn't supplied`,
+# and another can commit a stale package.json whose dependency ranges no
+# longer match pnpm-lock.yaml. Queue instead of cancelling so a run is never
+# killed mid-write; GitHub keeps only the newest pending run, which then
+# finishes last against the newest main.
+concurrency:
+  group: release-please
+  cancel-in-progress: false
+
 jobs:
   release-please:
     runs-on: ubuntu-latest
