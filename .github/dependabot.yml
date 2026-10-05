@@ -1,14 +1,12 @@
 version: 2
 updates:
-  # pnpm workspace. Each workspace package needs its own entry: with a single
-  # `directory: "/"`, Dependabot does not reliably pick up nested workspace
-  # manifests, so desktop/dashboard/website updates would be missed.
+  # pnpm workspace. The root entry alone covers every workspace package: it
+  # reads pnpm-workspace.yaml and updates nested manifests together with the
+  # single root pnpm-lock.yaml. Do not add the workspace directories as extra
+  # entries - they raise duplicate PRs that change only the nested
+  # package.json, never the lockfile, and fail `pnpm install --frozen-lockfile`.
   - package-ecosystem: "npm"
-    directories:
-      - "/"
-      - "/desktop"
-      - "/dashboard"
-      - "/website"
+    directory: "/"
     schedule:
       interval: "weekly"
     open-pull-requests-limit: 5
