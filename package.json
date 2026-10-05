@@ -108,7 +108,7 @@
 		"tsx": "^4.23.4",
 		"turndown-plugin-gfm": "^1.0.2",
 		"typescript": "^7.0.2",
-		"vitest": "^4.1.10"
+		"vitest": "^4.1.11"
 	},
 	"pnpm": {
 		"overrides": {
