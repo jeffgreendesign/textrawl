@@ -35,7 +35,7 @@
 	},
 	"devDependencies": {
 		"electron": "^41.10.6",
-		"@preact/preset-vite": "^2.9.3",
+		"@preact/preset-vite": "^2.10.6",
 		"@types/node": "^22.10.2",
 		"@types/unzipper": "^0.10.11",
 		"electron-builder": "^25.1.8",
