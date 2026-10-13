@@ -26,7 +26,9 @@ async function toolsFor(env: Record<string, string>): Promise<string[]> {
 	return Object.keys(registered).sort();
 }
 
-describe('MCP tool surfaces', () => {
+// Each case re-imports the full server module graph after vi.resetModules(); the
+// first, cold import can exceed vitest's 5s default on a fresh install.
+describe('MCP tool surfaces', { timeout: 30_000 }, () => {
 	afterEach(() => vi.unstubAllEnvs());
 
 	it('normal surface exposes only the 7 workflow tools', async () => {
