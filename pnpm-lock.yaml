@@ -79,6 +79,9 @@ importers:
       openai:
         specifier: ^7.27.0
         version: 7.27.0(undici@8.11.2)(ws@8.22.0)(zod@4.6.5)
+      p-limit:
+        specifier: ^7.3.1
+        version: 7.3.1
       rate-limit-redis:
         specifier: ^6.0.1
         version: 6.0.1(express-rate-limit@8.7.0(express@5.2.1))
@@ -176,9 +179,6 @@ importers:
       node-mbox:
         specifier: ^2.0.0
         version: 2.0.0
-      p-limit:
-        specifier: ^7.3.1
-        version: 7.3.1
       sanitize-html:
         specifier: ^2.18.0
         version: 2.18.0
