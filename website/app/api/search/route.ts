@@ -4,16 +4,22 @@ import { source } from '@/lib/source';
 
 export const revalidate = false;
 
-export const { GET } = createFromSource(
-	source,
-	(page) => {
+/** File name without directory or extension, e.g. `guides/setup.mdx` -> `setup`. */
+function fileStem(path: string): string {
+	const name = path.slice(path.lastIndexOf('/') + 1);
+	const dot = name.lastIndexOf('.');
+	return dot > 0 ? name.slice(0, dot) : name;
+}
+
+export const { GET } = createFromSource(source, {
+	buildIndex(page) {
 		const structuredData =
 			'structuredData' in page.data && page.data.structuredData
 				? page.data.structuredData
 				: { headings: [], contents: [] };
 
 		const index: AdvancedIndex = {
-			title: page.data.title ?? page.file.name,
+			title: page.data.title ?? fileStem(page.path),
 			url: page.url,
 			id: page.url,
 			structuredData,
@@ -25,13 +31,10 @@ export const { GET } = createFromSource(
 
 		return index;
 	},
-	{
-		search: {
-			tolerance: 1,
-			boost: {
-				content: 1,
-				keywords: 2,
-			},
+	search: {
+		tolerance: 1,
+		boost: {
+			content: 1,
 		},
 	},
-);
+});

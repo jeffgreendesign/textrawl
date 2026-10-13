@@ -9,7 +9,6 @@ export const docs = defineDocs({
 
 export default defineConfig({
 	mdxOptions: {
-		valueToExport: ['structuredData'],
 		rehypeCodeOptions: {
 			themes: {
 				light: 'github-light',
