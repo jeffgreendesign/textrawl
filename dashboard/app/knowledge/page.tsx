@@ -5,11 +5,13 @@
 
 import {
 	createColumnHelper,
+	createSortedRowModel,
 	flexRender,
-	getCoreRowModel,
-	getSortedRowModel,
+	rowSortingFeature,
 	type SortingState,
-	useReactTable,
+	sortFns,
+	tableFeatures,
+	useTable,
 } from '@tanstack/react-table';
 import {
 	AlertCircle,
@@ -555,9 +557,15 @@ function CardView({ documents }: { documents: Document[] }) {
 
 /* ── Table View ── */
 
-const columnHelper = createColumnHelper<Document>();
+const tableViewFeatures = tableFeatures({
+	rowSortingFeature,
+	sortedRowModel: createSortedRowModel(),
+	sortFns,
+});
 
-const tableColumns = [
+const columnHelper = createColumnHelper<typeof tableViewFeatures, Document>();
+
+const tableColumns = columnHelper.columns([
 	columnHelper.accessor('title', {
 		header: 'Title',
 		cell: (info) => (
@@ -618,18 +626,17 @@ const tableColumns = [
 			</span>
 		),
 	}),
-];
+]);
 
 function TableView({ documents }: { documents: Document[] }) {
 	const [sorting, setSorting] = useState<SortingState>([]);
 
-	const table = useReactTable({
+	const table = useTable({
+		features: tableViewFeatures,
 		data: documents,
 		columns: tableColumns,
 		state: { sorting },
 		onSortingChange: setSorting,
-		getCoreRowModel: getCoreRowModel(),
-		getSortedRowModel: getSortedRowModel(),
 	});
 
 	if (documents.length === 0) return <EmptyState />;
@@ -685,7 +692,7 @@ function TableView({ documents }: { documents: Document[] }) {
 				<tbody>
 					{table.getRowModel().rows.map((row) => (
 						<tr key={row.id} style={{ borderBottom: '1px solid var(--border-default)' }}>
-							{row.getVisibleCells().map((cell) => (
+							{row.getAllCells().map((cell) => (
 								<td
 									key={cell.id}
 									style={{
