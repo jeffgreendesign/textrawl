@@ -42,7 +42,7 @@
 		"esbuild": "^0.28.2",
 		"preact": "^10.25.4",
 		"typescript": "^5.7.2",
-		"vite": "^6.4.3"
+		"vite": "^8.3.4"
 	},
 	"build": {
 		"extends": "./electron-builder.yml"
