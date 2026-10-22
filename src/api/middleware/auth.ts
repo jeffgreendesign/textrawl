@@ -1,5 +1,6 @@
 import { timingSafeEqual } from 'node:crypto';
 import type { NextFunction, Request, Response } from 'express';
+import { isAuthConfigured, isNoAuthAllowed } from '../../utils/auth-guard.js';
 import { config } from '../../utils/config.js';
 import { AuthenticationError, AuthorizationError } from '../../utils/errors.js';
 import { logger } from '../../utils/logger.js';
@@ -20,11 +21,15 @@ async function getJwtVerifier() {
  * Supports both static API tokens and OAuth JWTs.
  */
 export async function bearerAuth(req: Request, _res: Response, next: NextFunction): Promise<void> {
-	// Skip auth if neither bearer token nor OAuth is configured (development mode)
-	if (!config.API_BEARER_TOKEN && !config.GOOGLE_CLIENT_ID) {
-		logger.debug('Auth skipped - no auth configured');
-		next();
-		return;
+	// No auth configured: only pass through on the explicit local-dev opt-in.
+	// Otherwise fail closed (startup should already have been refused).
+	if (!isAuthConfigured(config)) {
+		if (isNoAuthAllowed(config)) {
+			logger.debug('Auth skipped - TEXTRAWL_ALLOW_NO_AUTH=true');
+			next();
+			return;
+		}
+		throw new AuthenticationError('Server authentication is not configured');
 	}
 
 	const authHeader = req.headers.authorization;

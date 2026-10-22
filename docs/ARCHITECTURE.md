@@ -18,7 +18,8 @@
 ## Auth and rate limiting
 
 - `bearerAuth` on `/mcp` and `/api/upload`.
-- In production, auth is required (`API_BEARER_TOKEN` or OAuth).
+- Auth is required in every environment (`API_BEARER_TOKEN` or OAuth): the server refuses to start without it. Local dev can opt out explicitly with `TEXTRAWL_ALLOW_NO_AUTH=true` (ignored in production).
+- `GET /status` is public and returns only `{ "status": "ok" | "down" }`. Detailed status (services, tools, embedding model) is at `GET /api/status` and requires auth.
 - Rate limits:
   - API: 100 req/min
   - Upload: 10 req/min

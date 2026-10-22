@@ -19,7 +19,8 @@ This file centralizes runtime configuration for Textrawl server, MCP tools, CLI,
 | `GOOGLE_EMBEDDING_MODEL` | No | Google embedding model (default: `gemini-embedding-2`) |
 | `OLLAMA_BASE_URL` | Required for Ollama | Local/remote Ollama base URL |
 | `OLLAMA_MODEL` | Required for Ollama | Embedding model (e.g. `nomic-embed-text`) |
-| `API_BEARER_TOKEN` | Strongly recommended; required in prod unless OAuth | Bearer auth for `/mcp` and `/api/upload` |
+| `API_BEARER_TOKEN` | Required unless OAuth is configured | Bearer auth for `/mcp`, `/api/*`, and `/api/status`. With neither this nor OAuth set, the server refuses to start |
+| `TEXTRAWL_ALLOW_NO_AUTH` | No (default `false`) | Explicit local-dev opt-in to run with no auth. Ignored when `NODE_ENV=production` |
 | `ALLOWED_ORIGINS` | No | Comma-separated CORS allowlist |
 | `PORT` | No | HTTP port (default 3000) |
 | `NODE_ENV` | No | `development` / `production` / `test` |

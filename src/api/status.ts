@@ -5,6 +5,7 @@ import { isEmbeddingsConfigured } from '../services/embeddings.js';
 import { config } from '../utils/config.js';
 import { checkTable, serverStartTime, timed } from '../utils/health-helpers.js';
 import { logger } from '../utils/logger.js';
+import { bearerAuth } from './middleware/auth.js';
 
 // ---------------------------------------------------------------------------
 // Types
@@ -149,260 +150,285 @@ const TOOL_DEFINITIONS: ToolDef[] = [
 
 export const statusRouter: RouterType = Router();
 
-statusRouter.get('/status', async (_req, res) => {
-	logger.debug('Status check requested');
+/**
+ * Build the full, detailed status report (services, tools, features, embedding
+ * model, version). This exposes configuration detail, so it is only served
+ * behind auth at GET /api/status.
+ */
+export async function buildStatusReport(): Promise<StatusResponse> {
+	// --- Service checks ---
+	const services: ServiceCheck[] = [];
 
-	try {
-		// --- Service checks ---
-		const services: ServiceCheck[] = [];
+	// 1. Database
+	const dbConfigured = isDatabaseConfigured();
+	if (dbConfigured) {
+		const [dbConnected, dbLatency] = await timed(checkDatabaseConnection);
+		services.push({
+			name: 'Database',
+			status: dbConnected ? 'operational' : 'down',
+			message: dbConnected ? 'Connected' : 'Connection failed',
+			latencyMs: dbLatency,
+		});
+	} else {
+		services.push({
+			name: 'Database',
+			status: 'down',
+			message: 'Not configured',
+		});
+	}
 
-		// 1. Database
-		const dbConfigured = isDatabaseConfigured();
-		if (dbConfigured) {
-			const [dbConnected, dbLatency] = await timed(checkDatabaseConnection);
-			services.push({
-				name: 'Database',
-				status: dbConnected ? 'operational' : 'down',
-				message: dbConnected ? 'Connected' : 'Connection failed',
-				latencyMs: dbLatency,
-			});
-		} else {
-			services.push({
-				name: 'Database',
-				status: 'down',
-				message: 'Not configured',
-			});
-		}
-
-		// 2. Embeddings
-		const embeddingsConfigured = isEmbeddingsConfigured();
-		if (config.EMBEDDING_PROVIDER === 'ollama') {
-			// Try to reach Ollama
-			if (embeddingsConfigured) {
-				try {
-					const [response, latency] = await timed(async () =>
-						fetch(`${config.OLLAMA_BASE_URL}/api/tags`, {
-							signal: AbortSignal.timeout(5000),
-						}),
-					);
-					services.push({
-						name: 'Embeddings',
-						status: response.ok ? 'operational' : 'degraded',
-						message: response.ok
-							? `Ollama (${config.OLLAMA_MODEL})`
-							: `Ollama returned ${response.status}`,
-						latencyMs: latency,
-					});
-				} catch {
-					services.push({
-						name: 'Embeddings',
-						status: 'down',
-						message: 'Cannot reach Ollama at configured URL',
-					});
-				}
-			}
-		} else if (config.EMBEDDING_PROVIDER === 'google') {
-			services.push({
-				name: 'Embeddings',
-				status: embeddingsConfigured ? 'operational' : 'down',
-				message: embeddingsConfigured
-					? `Google AI (${config.GOOGLE_EMBEDDING_MODEL})`
-					: 'Google AI API key not set',
-			});
-		} else {
-			services.push({
-				name: 'Embeddings',
-				status: embeddingsConfigured ? 'operational' : 'down',
-				message: embeddingsConfigured ? 'OpenAI configured' : 'OpenAI API key not set',
-			});
-		}
-
-		// 3. Feature-specific table checks (run in parallel)
-		const tableChecks = new Map<string, boolean>();
-		const tablesToCheck = new Set<string>();
-		for (const tool of TOOL_DEFINITIONS) {
-			if (tool.requiredTable) tablesToCheck.add(tool.requiredTable);
-		}
-
-		if (dbConfigured && tablesToCheck.size > 0) {
-			const entries = [...tablesToCheck];
-			const results = await Promise.all(entries.map((t) => checkTable(t)));
-			for (let i = 0; i < entries.length; i++) {
-				tableChecks.set(entries[i], results[i]);
+	// 2. Embeddings
+	const embeddingsConfigured = isEmbeddingsConfigured();
+	if (config.EMBEDDING_PROVIDER === 'ollama') {
+		// Try to reach Ollama
+		if (embeddingsConfigured) {
+			try {
+				const [response, latency] = await timed(async () =>
+					fetch(`${config.OLLAMA_BASE_URL}/api/tags`, {
+						signal: AbortSignal.timeout(5000),
+					}),
+				);
+				services.push({
+					name: 'Embeddings',
+					status: response.ok ? 'operational' : 'degraded',
+					message: response.ok
+						? `Ollama (${config.OLLAMA_MODEL})`
+						: `Ollama returned ${response.status}`,
+					latencyMs: latency,
+				});
+			} catch {
+				services.push({
+					name: 'Embeddings',
+					status: 'down',
+					message: 'Cannot reach Ollama at configured URL',
+				});
 			}
 		}
+	} else if (config.EMBEDDING_PROVIDER === 'google') {
+		services.push({
+			name: 'Embeddings',
+			status: embeddingsConfigured ? 'operational' : 'down',
+			message: embeddingsConfigured
+				? `Google AI (${config.GOOGLE_EMBEDDING_MODEL})`
+				: 'Google AI API key not set',
+		});
+	} else {
+		services.push({
+			name: 'Embeddings',
+			status: embeddingsConfigured ? 'operational' : 'down',
+			message: embeddingsConfigured ? 'OpenAI configured' : 'OpenAI API key not set',
+		});
+	}
 
-		// Memory schema
-		if (config.ENABLE_MEMORY) {
-			const memoryOk = tableChecks.get('memory_entities') ?? false;
-			services.push({
-				name: 'Memory Schema',
-				status: memoryOk ? 'operational' : 'down',
-				message: memoryOk ? 'Tables accessible' : 'Schema not initialized',
-			});
-		} else {
-			services.push({
-				name: 'Memory Schema',
-				status: 'disabled',
-				message: 'ENABLE_MEMORY=false',
-			});
+	// 3. Feature-specific table checks (run in parallel)
+	const tableChecks = new Map<string, boolean>();
+	const tablesToCheck = new Set<string>();
+	for (const tool of TOOL_DEFINITIONS) {
+		if (tool.requiredTable) tablesToCheck.add(tool.requiredTable);
+	}
+
+	if (dbConfigured && tablesToCheck.size > 0) {
+		const entries = [...tablesToCheck];
+		const results = await Promise.all(entries.map((t) => checkTable(t)));
+		for (let i = 0; i < entries.length; i++) {
+			tableChecks.set(entries[i], results[i]);
+		}
+	}
+
+	// Memory schema
+	if (config.ENABLE_MEMORY) {
+		const memoryOk = tableChecks.get('memory_entities') ?? false;
+		services.push({
+			name: 'Memory Schema',
+			status: memoryOk ? 'operational' : 'down',
+			message: memoryOk ? 'Tables accessible' : 'Schema not initialized',
+		});
+	} else {
+		services.push({
+			name: 'Memory Schema',
+			status: 'disabled',
+			message: 'ENABLE_MEMORY=false',
+		});
+	}
+
+	// Conversation schema
+	if (config.ENABLE_CONVERSATIONS) {
+		const convOk = tableChecks.get('conversation_sessions') ?? false;
+		services.push({
+			name: 'Conversation Schema',
+			status: convOk ? 'operational' : 'down',
+			message: convOk ? 'Tables accessible' : 'Schema not initialized',
+		});
+	} else {
+		services.push({
+			name: 'Conversation Schema',
+			status: 'disabled',
+			message: 'ENABLE_CONVERSATIONS=false',
+		});
+	}
+
+	// Insights schema
+	if (config.ENABLE_INSIGHTS) {
+		const insightsOk = tableChecks.get('proactive_insights') ?? false;
+		services.push({
+			name: 'Insights Schema',
+			status: insightsOk ? 'operational' : 'down',
+			message: insightsOk ? 'Tables accessible' : 'Schema not initialized',
+		});
+	} else {
+		services.push({
+			name: 'Insights Schema',
+			status: 'disabled',
+			message: 'ENABLE_INSIGHTS=false',
+		});
+	}
+
+	// --- Tool statuses ---
+	const embeddingsService = services.find((s) => s.name === 'Embeddings');
+	const embeddingsHealthy = embeddingsService?.status === 'operational';
+
+	const tools: ToolStatus[] = TOOL_DEFINITIONS.map((def) => {
+		// Check feature flag
+		if (def.featureFlag && !config[def.featureFlag]) {
+			return {
+				name: def.name,
+				group: def.group,
+				status: 'disabled' as ServiceStatus,
+				message: `${def.featureFlag}=false`,
+			};
 		}
 
-		// Conversation schema
-		if (config.ENABLE_CONVERSATIONS) {
-			const convOk = tableChecks.get('conversation_sessions') ?? false;
-			services.push({
-				name: 'Conversation Schema',
-				status: convOk ? 'operational' : 'down',
-				message: convOk ? 'Tables accessible' : 'Schema not initialized',
-			});
-		} else {
-			services.push({
-				name: 'Conversation Schema',
-				status: 'disabled',
-				message: 'ENABLE_CONVERSATIONS=false',
-			});
+		// Check extraction requirement
+		if (def.requiresExtraction && !config.ENABLE_MEMORY_EXTRACTION) {
+			return {
+				name: def.name,
+				group: def.group,
+				status: 'disabled' as ServiceStatus,
+				message: 'ENABLE_MEMORY_EXTRACTION=false',
+			};
 		}
 
-		// Insights schema
-		if (config.ENABLE_INSIGHTS) {
-			const insightsOk = tableChecks.get('proactive_insights') ?? false;
-			services.push({
-				name: 'Insights Schema',
-				status: insightsOk ? 'operational' : 'down',
-				message: insightsOk ? 'Tables accessible' : 'Schema not initialized',
-			});
-		} else {
-			services.push({
-				name: 'Insights Schema',
-				status: 'disabled',
-				message: 'ENABLE_INSIGHTS=false',
-			});
+		// Check database
+		if (!dbConfigured) {
+			return {
+				name: def.name,
+				group: def.group,
+				status: 'down' as ServiceStatus,
+				message: 'Database not configured',
+			};
 		}
 
-		// --- Tool statuses ---
-		const embeddingsService = services.find((s) => s.name === 'Embeddings');
-		const embeddingsHealthy = embeddingsService?.status === 'operational';
-
-		const tools: ToolStatus[] = TOOL_DEFINITIONS.map((def) => {
-			// Check feature flag
-			if (def.featureFlag && !config[def.featureFlag]) {
-				return {
-					name: def.name,
-					group: def.group,
-					status: 'disabled' as ServiceStatus,
-					message: `${def.featureFlag}=false`,
-				};
-			}
-
-			// Check extraction requirement
-			if (def.requiresExtraction && !config.ENABLE_MEMORY_EXTRACTION) {
-				return {
-					name: def.name,
-					group: def.group,
-					status: 'disabled' as ServiceStatus,
-					message: 'ENABLE_MEMORY_EXTRACTION=false',
-				};
-			}
-
-			// Check database
-			if (!dbConfigured) {
+		// Check required table
+		if (def.requiredTable) {
+			const tableOk = tableChecks.get(def.requiredTable) ?? false;
+			if (!tableOk) {
 				return {
 					name: def.name,
 					group: def.group,
 					status: 'down' as ServiceStatus,
-					message: 'Database not configured',
+					message: `Table "${def.requiredTable}" not found`,
 				};
 			}
-
-			// Check required table
-			if (def.requiredTable) {
-				const tableOk = tableChecks.get(def.requiredTable) ?? false;
-				if (!tableOk) {
-					return {
-						name: def.name,
-						group: def.group,
-						status: 'down' as ServiceStatus,
-						message: `Table "${def.requiredTable}" not found`,
-					};
-				}
-			}
-
-			// Check embeddings for search-dependent tools
-			if (def.name === 'search' || def.name === 'add_note') {
-				if (!embeddingsConfigured) {
-					return {
-						name: def.name,
-						group: def.group,
-						status: 'degraded' as ServiceStatus,
-						message: 'Embeddings not configured (full-text only)',
-					};
-				}
-				if (!embeddingsHealthy) {
-					return {
-						name: def.name,
-						group: def.group,
-						status: 'degraded' as ServiceStatus,
-						message: `Embeddings ${embeddingsService?.status ?? 'unavailable'} (full-text only)`,
-					};
-				}
-			}
-
-			return {
-				name: def.name,
-				group: def.group,
-				status: 'operational' as ServiceStatus,
-			};
-		});
-
-		// --- Overall status ---
-		const dbDown = services.some((s) => s.name === 'Database' && s.status === 'down');
-		const hasDegradedService = services.some((s) => s.status === 'degraded');
-		const hasDownCoreTools = tools.some(
-			(t) => t.status === 'down' && !t.group.match(/Memory|Conversation|Insight/),
-		);
-
-		let overall: ServiceStatus = 'operational';
-		if (dbDown) {
-			overall = 'down';
-		} else if (hasDegradedService || hasDownCoreTools) {
-			overall = 'degraded';
 		}
 
-		// --- Features ---
-		const features: Record<string, boolean> = {
-			memory: config.ENABLE_MEMORY,
-			conversations: config.ENABLE_CONVERSATIONS,
-			insights: config.ENABLE_INSIGHTS,
-			memoryExtraction: config.ENABLE_MEMORY_EXTRACTION,
-			compactResponses: config.COMPACT_RESPONSES,
-			oauth: !!config.GOOGLE_CLIENT_ID,
-		};
+		// Check embeddings for search-dependent tools
+		if (def.name === 'search' || def.name === 'add_note') {
+			if (!embeddingsConfigured) {
+				return {
+					name: def.name,
+					group: def.group,
+					status: 'degraded' as ServiceStatus,
+					message: 'Embeddings not configured (full-text only)',
+				};
+			}
+			if (!embeddingsHealthy) {
+				return {
+					name: def.name,
+					group: def.group,
+					status: 'degraded' as ServiceStatus,
+					message: `Embeddings ${embeddingsService?.status ?? 'unavailable'} (full-text only)`,
+				};
+			}
+		}
 
-		// --- Embedding info ---
-		const embeddingModelMap: Record<string, string> = {
-			ollama: config.OLLAMA_MODEL,
-			google: config.GOOGLE_EMBEDDING_MODEL,
-			openai: 'text-embedding-3-small',
+		return {
+			name: def.name,
+			group: def.group,
+			status: 'operational' as ServiceStatus,
 		};
-		const embedding = {
-			provider: config.EMBEDDING_PROVIDER,
-			model: embeddingModelMap[config.EMBEDDING_PROVIDER] ?? 'unknown',
-			configured: embeddingsConfigured,
-		};
+	});
 
-		const response: StatusResponse = {
-			overall,
-			version: '0.2.0',
-			uptime: Math.round((Date.now() - serverStartTime) / 1000),
-			timestamp: new Date().toISOString(),
-			services,
-			features,
-			tools,
-			embedding,
-		};
+	// --- Overall status ---
+	const dbDown = services.some((s) => s.name === 'Database' && s.status === 'down');
+	const hasDegradedService = services.some((s) => s.status === 'degraded');
+	const hasDownCoreTools = tools.some(
+		(t) => t.status === 'down' && !t.group.match(/Memory|Conversation|Insight/),
+	);
 
-		res.json(response);
+	let overall: ServiceStatus = 'operational';
+	if (dbDown) {
+		overall = 'down';
+	} else if (hasDegradedService || hasDownCoreTools) {
+		overall = 'degraded';
+	}
+
+	// --- Features ---
+	const features: Record<string, boolean> = {
+		memory: config.ENABLE_MEMORY,
+		conversations: config.ENABLE_CONVERSATIONS,
+		insights: config.ENABLE_INSIGHTS,
+		memoryExtraction: config.ENABLE_MEMORY_EXTRACTION,
+		compactResponses: config.COMPACT_RESPONSES,
+		oauth: !!config.GOOGLE_CLIENT_ID,
+	};
+
+	// --- Embedding info ---
+	const embeddingModelMap: Record<string, string> = {
+		ollama: config.OLLAMA_MODEL,
+		google: config.GOOGLE_EMBEDDING_MODEL,
+		openai: 'text-embedding-3-small',
+	};
+	const embedding = {
+		provider: config.EMBEDDING_PROVIDER,
+		model: embeddingModelMap[config.EMBEDDING_PROVIDER] ?? 'unknown',
+		configured: embeddingsConfigured,
+	};
+
+	return {
+		overall,
+		version: '0.2.0',
+		uptime: Math.round((Date.now() - serverStartTime) / 1000),
+		timestamp: new Date().toISOString(),
+		services,
+		features,
+		tools,
+		embedding,
+	};
+}
+
+/**
+ * Public, unauthenticated up/down check. Deliberately returns no version,
+ * tool names, or embedding model. Full detail lives at GET /api/status (auth).
+ */
+statusRouter.get('/status', async (_req, res) => {
+	logger.debug('Public status check requested');
+	try {
+		const report = await buildStatusReport();
+		const up = report.overall !== 'down';
+		res.status(up ? 200 : 503).json({ status: up ? 'ok' : 'down' });
+	} catch (error) {
+		logger.error('Status check failed', {
+			error: error instanceof Error ? error.message : String(error),
+		});
+		res.status(503).json({ status: 'down' });
+	}
+});
+
+/** Detailed status for the dashboards. Requires the same auth as the REST API. */
+statusRouter.get('/api/status', bearerAuth, async (_req, res) => {
+	logger.debug('Detailed status check requested');
+	try {
+		res.json(await buildStatusReport());
 	} catch (error) {
 		logger.error('Status check failed', {
 			error: error instanceof Error ? error.message : String(error),
@@ -701,6 +727,7 @@ h1 {
 	<header>
 		<h1>Textrawl Service Monitor</h1>
 		<div class="header-right">
+			<input class="btn" id="tokenInput" type="password" placeholder="API token" autocomplete="off" aria-label="API token">
 			<span class="refresh-info" id="lastCheck">Checking...</span>
 			<button class="btn" id="refreshBtn">Refresh</button>
 			<select class="btn" id="autoRefresh">
@@ -830,7 +857,10 @@ async function refresh() {
 	const info = document.getElementById('lastCheck');
 	info.textContent = 'Checking...';
 	try {
-		const r = await fetch('../status', { signal: AbortSignal.timeout(15000) });
+		const token = sessionStorage.getItem('textrawl_token') || '';
+		const headers = token ? { Authorization: 'Bearer ' + token } : {};
+		const r = await fetch('../api/status', { headers, signal: AbortSignal.timeout(15000) });
+		if (r.status === 401 || r.status === 403) throw new Error('Enter a valid API token to view status details');
 		if (!r.ok) throw new Error('HTTP ' + r.status);
 		const data = await r.json();
 		render(data);
@@ -848,6 +878,13 @@ function setAutoRefresh(seconds) {
 }
 
 // Bind event listeners
+const tokenInput = document.getElementById('tokenInput');
+tokenInput.value = sessionStorage.getItem('textrawl_token') || '';
+tokenInput.addEventListener('change', function() {
+	if (this.value) { sessionStorage.setItem('textrawl_token', this.value); }
+	else { sessionStorage.removeItem('textrawl_token'); }
+	refresh();
+});
 document.getElementById('refreshBtn').addEventListener('click', refresh);
 document.getElementById('autoRefresh').addEventListener('change', function() {
 	setAutoRefresh(this.value);

@@ -37,7 +37,7 @@ async function apiFetch<T>(path: string, init?: RequestInit): Promise<T> {
 	return res.json() as Promise<T>;
 }
 
-// --- Server base (for non-API routes like /health, /status) ---
+// --- Server base (for non-API routes like /health) ---
 
 /** Server origin without /api suffix. Used for health checks and status. */
 export function getServerBase(): string {
@@ -107,12 +107,9 @@ export interface StatusResponse {
 	embedding: { provider: string; model: string; configured: boolean };
 }
 
+/** Detailed server status. Requires auth (GET /api/status); public /status is up/down only. */
 export async function fetchStatus(): Promise<StatusResponse> {
-	const res = await fetch(`${getServerBase()}/status`, {
-		signal: AbortSignal.timeout(15000),
-	});
-	if (!res.ok) throw new Error(`Status ${res.status}`);
-	return res.json() as Promise<StatusResponse>;
+	return apiFetch<StatusResponse>('/status', { signal: AbortSignal.timeout(15000) });
 }
 
 // --- Search ---

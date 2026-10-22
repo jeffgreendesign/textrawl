@@ -183,7 +183,8 @@ pnpm upload -- ./converted/
 | `OLLAMA_MODEL` | If Ollama | Default: `nomic-embed-text` |
 | `GOOGLE_AI_API_KEY` | If Google | For gemini-embedding-2 (1536d) |
 | `GOOGLE_EMBEDDING_MODEL` | If Google | Default: `gemini-embedding-2` |
-| `API_BEARER_TOKEN` | Prod only | Min 32 chars (`openssl rand -hex 32`) |
+| `API_BEARER_TOKEN` | Yes, unless OAuth | Min 32 chars (`openssl rand -hex 32`). The server refuses to start with no auth configured |
+| `TEXTRAWL_ALLOW_NO_AUTH` | No | `true` runs the server with no auth. Local dev only, never the default, ignored in production |
 | `PORT` | No | Default: 3000 |
 | `LOG_LEVEL` | No | debug, info, warn, error |
 | `ALLOWED_ORIGINS` | No | Comma-separated CORS origins |
