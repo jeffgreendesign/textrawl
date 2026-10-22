@@ -88,7 +88,8 @@ ALLOWED_ORIGINS=http://localhost:3000,https://myapp.com
 
 | Variable | Required | Description |
 |----------|----------|-------------|
-| `API_BEARER_TOKEN` | Production | Auth token (min 32 characters) |
+| `API_BEARER_TOKEN` | Yes, unless OAuth | Auth token (min 32 characters). The server refuses to start with no auth configured |
+| `TEXTRAWL_ALLOW_NO_AUTH` | No | `true` runs with no auth for local dev only (ignored in production) |
 
 ```bash
 API_BEARER_TOKEN=your-very-secure-token-with-at-least-32-characters

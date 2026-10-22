@@ -116,6 +116,12 @@ const envSchema = z.object({
 		.transform((val) => val.toLowerCase() === 'true'),
 
 	// OAuth (optional - enables OAuth flow when all are set)
+	// Explicit local-dev opt-in to run the HTTP server with no auth at all.
+	// Never the default; ignored (startup refused) when NODE_ENV=production.
+	TEXTRAWL_ALLOW_NO_AUTH: z
+		.string()
+		.default('false')
+		.transform((val) => val.toLowerCase() === 'true'),
 	GOOGLE_CLIENT_ID: z.string().optional(),
 	GOOGLE_CLIENT_SECRET: z.string().optional(),
 	OAUTH_JWT_SECRET: z.string().min(32).optional(),
@@ -353,8 +359,12 @@ export function loadConfig(): Config {
 
 	// Log warnings for missing optional config in development
 	if (result.data.NODE_ENV === 'development') {
-		if (!result.data.API_BEARER_TOKEN) {
-			logger.warn('API_BEARER_TOKEN not set - auth will be disabled');
+		if (!result.data.API_BEARER_TOKEN && !result.data.GOOGLE_CLIENT_ID) {
+			logger.warn(
+				result.data.TEXTRAWL_ALLOW_NO_AUTH
+					? 'No auth configured - TEXTRAWL_ALLOW_NO_AUTH=true, server will run without auth'
+					: 'No auth configured - the HTTP server will refuse to start (set API_BEARER_TOKEN)',
+			);
 		}
 		if (!result.data.DATABASE_URL) {
 			logger.warn('DATABASE_URL not set - database features disabled');

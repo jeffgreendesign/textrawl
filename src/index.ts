@@ -14,8 +14,21 @@ import { apiRoutes } from './api/routes.js';
 import { statusRouter } from './api/status.js';
 import { checkDatabaseConnection, isDatabaseConfigured } from './db/pg-client.js';
 import { createMcpServer } from './server.js';
+import { getStartupAuthError, isNoAuthAllowed } from './utils/auth-guard.js';
 import { config } from './utils/config.js';
 import { logger } from './utils/logger.js';
+
+// Fail closed: never serve without auth unless explicitly opted in for local dev.
+const startupAuthError = getStartupAuthError(config);
+if (startupAuthError) {
+	logger.error(startupAuthError);
+	process.exit(1);
+}
+if (isNoAuthAllowed(config)) {
+	logger.warn(
+		'TEXTRAWL_ALLOW_NO_AUTH=true: running WITHOUT authentication. Local development only.',
+	);
+}
 
 const app = express();
 
