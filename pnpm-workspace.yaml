@@ -1,4 +1,4 @@
 packages:
-  - 'website'
-  - 'desktop'
-  - 'dashboard'
+  - "website"
+  - "desktop"
+  - "dashboard"

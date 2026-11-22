@@ -20,12 +20,12 @@ Implement **PR 3: Consolidate read/query tools** to reduce the tool count from ~
 
 ### Merge plan (clean break — no deprecated aliases)
 
-| New Tool | Replaces | Dispatch |
-|----------|----------|----------|
-| `search` | `search_knowledge` + `search_with_context` | `includeMemories` / `includeConversations` boolean flags (default false) |
-| `query_memory` | `recall_memories` + `get_entity_context` + `list_entities` | `mode: 'search' \| 'entity' \| 'list'` |
-| `get_stats` | `knowledge_stats` + `memory_stats` + `conversation_stats` + `insight_stats` | `scope: 'all' \| 'knowledge' \| 'memory' \| 'conversations' \| 'insights'` |
-| `query_conversations` | `recall_conversation` + `get_conversation` + `list_conversations` | `mode: 'search' \| 'get' \| 'list'` |
+| New Tool              | Replaces                                                                    | Dispatch                                                                   |
+| --------------------- | --------------------------------------------------------------------------- | -------------------------------------------------------------------------- |
+| `search`              | `search_knowledge` + `search_with_context`                                  | `includeMemories` / `includeConversations` boolean flags (default false)   |
+| `query_memory`        | `recall_memories` + `get_entity_context` + `list_entities`                  | `mode: 'search' \| 'entity' \| 'list'`                                     |
+| `get_stats`           | `knowledge_stats` + `memory_stats` + `conversation_stats` + `insight_stats` | `scope: 'all' \| 'knowledge' \| 'memory' \| 'conversations' \| 'insights'` |
+| `query_conversations` | `recall_conversation` + `get_conversation` + `list_conversations`           | `mode: 'search' \| 'get' \| 'list'`                                        |
 
 ### Unchanged tools (14)
 

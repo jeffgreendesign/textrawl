@@ -1,4 +1,5 @@
 ---
+
 title: Persistent Memory Analysis
 description: Research and implementation analysis for persistent memory in Textrawl
 ---
@@ -189,43 +190,59 @@ CREATE INDEX memory_observations_entity_idx ON memory_observations(entity_id);
 ```typescript
 // Tool: remember_fact
 // Stores a fact about an entity (creates entity if needed)
-server.tool('remember_fact', {
-  entityName: z.string().describe('Name of the entity (e.g., "Ada", "Project Alpha")'),
-  entityType: z.string().describe('Type: person, concept, project, preference, fact'),
-  observation: z.string().describe('The fact to remember'),
-  validUntil: z.string().optional().describe('ISO date if this fact expires'),
-}, async ({ entityName, entityType, observation, validUntil }) => {
-  // Create/find entity, add observation with embedding
-});
+server.tool(
+  'remember_fact',
+  {
+    entityName: z.string().describe('Name of the entity (e.g., "Ada", "Project Alpha")'),
+    entityType: z.string().describe('Type: person, concept, project, preference, fact'),
+    observation: z.string().describe('The fact to remember'),
+    validUntil: z.string().optional().describe('ISO date if this fact expires'),
+  },
+  async ({ entityName, entityType, observation, validUntil }) => {
+    // Create/find entity, add observation with embedding
+  },
+);
 
 // Tool: recall_memories
 // Semantic search across memories
-server.tool('recall_memories', {
-  query: z.string().describe('What to remember about'),
-  entityTypes: z.array(z.string()).optional().describe('Filter by entity types'),
-  limit: z.number().default(10),
-}, async ({ query, entityTypes, limit }) => {
-  // Hybrid search across entities and observations
-});
+server.tool(
+  'recall_memories',
+  {
+    query: z.string().describe('What to remember about'),
+    entityTypes: z.array(z.string()).optional().describe('Filter by entity types'),
+    limit: z.number().default(10),
+  },
+  async ({ query, entityTypes, limit }) => {
+    // Hybrid search across entities and observations
+  },
+);
 
 // Tool: relate_entities
 // Create relationships between entities
-server.tool('relate_entities', {
-  fromEntity: z.string(),
-  relation: z.string().describe('Active voice relation (e.g., "works_at", "prefers")'),
-  toEntity: z.string(),
-}, async ({ fromEntity, relation, toEntity }) => {
-  // Create or update relation
-});
+server.tool(
+  'relate_entities',
+  {
+    fromEntity: z.string(),
+    relation: z.string().describe('Active voice relation (e.g., "works_at", "prefers")'),
+    toEntity: z.string(),
+  },
+  async ({ fromEntity, relation, toEntity }) => {
+    // Create or update relation
+  },
+);
 
 // Tool: get_entity_context
 // Get full context about an entity including relations
-server.tool('get_entity_context', {
-  entityName: z.string(),
-  includeRelated: z.boolean().default(true),
-}, async ({ entityName, includeRelated }) => {
-  // Return entity with observations and related entities
-});
+server.tool(
+  'get_entity_context',
+  {
+    entityName: z.string(),
+    includeRelated: z.boolean().default(true),
+  },
+  async ({ entityName, includeRelated }) => {
+    // Return entity with observations and related entities
+  },
+);
 ```
 
 ---
@@ -269,22 +286,30 @@ CREATE INDEX conversation_turns_embedding_idx ON conversation_turns
 ```typescript
 // Tool: save_conversation_context
 // Periodically save conversation summary
-server.tool('save_conversation_context', {
-  sessionKey: z.string().optional(),
-  summary: z.string().describe('Summary of recent conversation'),
-  keyFacts: z.array(z.string()).optional().describe('Key facts to extract as memories'),
-}, async ({ sessionKey, summary, keyFacts }) => {
-  // Save summary, optionally extract facts to memory_observations
-});
+server.tool(
+  'save_conversation_context',
+  {
+    sessionKey: z.string().optional(),
+    summary: z.string().describe('Summary of recent conversation'),
+    keyFacts: z.array(z.string()).optional().describe('Key facts to extract as memories'),
+  },
+  async ({ sessionKey, summary, keyFacts }) => {
+    // Save summary, optionally extract facts to memory_observations
+  },
+);
 
 // Tool: recall_conversation
 // Find relevant past conversations
-server.tool('recall_conversation', {
-  query: z.string().describe('What to find in past conversations'),
-  limit: z.number().default(5),
-}, async ({ query, limit }) => {
-  // Semantic search across conversation summaries and turns
-});
+server.tool(
+  'recall_conversation',
+  {
+    query: z.string().describe('What to find in past conversations'),
+    limit: z.number().default(5),
+  },
+  async ({ query, limit }) => {
+    // Semantic search across conversation summaries and turns
+  },
+);
 ```
 
 ---
@@ -334,18 +359,22 @@ Use patterns to extract:
 Enhance `add_note` to optionally trigger memory extraction:
 
 ```typescript
-server.tool('add_note', {
-  title: z.string(),
-  content: z.string(),
-  tags: z.array(z.string()).optional(),
-  extractMemories: z.boolean().default(false), // NEW
-}, async ({ title, content, tags, extractMemories }) => {
-  // Existing logic...
+server.tool(
+  'add_note',
+  {
+    title: z.string(),
+    content: z.string(),
+    tags: z.array(z.string()).optional(),
+    extractMemories: z.boolean().default(false), // NEW
+  },
+  async ({ title, content, tags, extractMemories }) => {
+    // Existing logic...
 
-  if (extractMemories) {
-    await queueMemoryExtraction(documentId);
-  }
-});
+    if (extractMemories) {
+      await queueMemoryExtraction(documentId);
+    }
+  },
+);
 ```
 
 ---
@@ -357,39 +386,43 @@ server.tool('add_note', {
 ### Enhanced Search Tool
 
 ```typescript
-server.tool('search_with_context', {
-  query: z.string(),
-  includeMemories: z.boolean().default(true),
-  includeDocuments: z.boolean().default(true),
-  memoryWeight: z.number().default(0.3),
-}, async ({ query, includeMemories, includeDocuments, memoryWeight }) => {
-  const results = [];
+server.tool(
+  'search_with_context',
+  {
+    query: z.string(),
+    includeMemories: z.boolean().default(true),
+    includeDocuments: z.boolean().default(true),
+    memoryWeight: z.number().default(0.3),
+  },
+  async ({ query, includeMemories, includeDocuments, memoryWeight }) => {
+    const results = [];
 
-  if (includeDocuments) {
-    results.push(...await hybridSearch(query));
-  }
+    if (includeDocuments) {
+      results.push(...(await hybridSearch(query)));
+    }
 
-  if (includeMemories) {
-    results.push(...await memorySearch(query));
-  }
+    if (includeMemories) {
+      results.push(...(await memorySearch(query)));
+    }
 
-  // Fuse and rank results
-  return fuseResults(results, memoryWeight);
-});
+    // Fuse and rank results
+    return fuseResults(results, memoryWeight);
+  },
+);
 ```
 
 ---
 
 ## Implementation Priorities
 
-| Priority | Feature | Effort | Value |
-|----------|---------|--------|-------|
-| 1 | Entity memory schema + tools | Medium | High |
-| 2 | `remember_fact` / `recall_memories` tools | Medium | High |
-| 3 | Entity relationships | Low | Medium |
-| 4 | Conversation session storage | Medium | Medium |
-| 5 | Automatic memory extraction | High | High |
-| 6 | Memory-aware search fusion | Medium | Medium |
+| Priority | Feature                                   | Effort | Value  |
+| -------- | ----------------------------------------- | ------ | ------ |
+| 1        | Entity memory schema + tools              | Medium | High   |
+| 2        | `remember_fact` / `recall_memories` tools | Medium | High   |
+| 3        | Entity relationships                      | Low    | Medium |
+| 4        | Conversation session storage              | Medium | Medium |
+| 5        | Automatic memory extraction               | High   | High   |
+| 6        | Memory-aware search fusion                | Medium | Medium |
 
 ---
 
@@ -403,24 +436,34 @@ import { Memory } from 'mem0ai';
 const memory = new Memory({
   vector_store: {
     provider: 'supabase', // Use existing Supabase
-    config: { /* existing config */ }
-  }
+    config: {
+      /* existing config */
+    },
+  },
 });
 
 // In MCP tool
-server.tool('remember', {
-  content: z.string(),
-  userId: z.string().optional(),
-}, async ({ content, userId }) => {
-  await memory.add(content, { user_id: userId });
-});
+server.tool(
+  'remember',
+  {
+    content: z.string(),
+    userId: z.string().optional(),
+  },
+  async ({ content, userId }) => {
+    await memory.add(content, { user_id: userId });
+  },
+);
 
-server.tool('recall', {
-  query: z.string(),
-  userId: z.string().optional(),
-}, async ({ query, userId }) => {
-  return await memory.search(query, { user_id: userId });
-});
+server.tool(
+  'recall',
+  {
+    query: z.string(),
+    userId: z.string().optional(),
+  },
+  async ({ query, userId }) => {
+    return await memory.search(query, { user_id: userId });
+  },
+);
 ```
 
 **Pros:** Production-tested, 26% better retrieval, handles deduplication
@@ -601,40 +644,40 @@ The current implementation does NOT automatically extract memories from:
 
 ### Cloud: OpenAI Embeddings
 
-| Component | Cost | Notes |
-|-----------|------|-------|
-| Embeddings | ~$0.02 / 1M tokens | text-embedding-3-small |
-| Per `remember_fact` | ~$0.00001 | ~50 tokens avg |
-| Per `recall_memories` | ~$0.00001 | Query embedding |
-| 1,000 memories/month | ~$0.02 | Negligible |
-| 100,000 memories/month | ~$2.00 | Still cheap |
+| Component              | Cost               | Notes                  |
+| ---------------------- | ------------------ | ---------------------- |
+| Embeddings             | ~$0.02 / 1M tokens | text-embedding-3-small |
+| Per `remember_fact`    | ~$0.00001          | ~50 tokens avg         |
+| Per `recall_memories`  | ~$0.00001          | Query embedding        |
+| 1,000 memories/month   | ~$0.02             | Negligible             |
+| 100,000 memories/month | ~$2.00             | Still cheap            |
 
 ### Cloud: Supabase
 
-| Tier | Cost | Limits |
-|------|------|--------|
-| Free | $0 | 500MB DB, 50K rows |
-| Pro | $25/month | 8GB DB, unlimited rows |
+| Tier | Cost       | Limits                     |
+| ---- | ---------- | -------------------------- |
+| Free | $0         | 500MB DB, 50K rows         |
+| Pro  | $25/month  | 8GB DB, unlimited rows     |
 | Team | $599/month | 128GB DB, priority support |
 
 **Recommendation:** Free tier sufficient for personal use (thousands of memories).
 
 ### Local: Ollama Embeddings
 
-| Component | Cost | Notes |
-|-----------|------|-------|
-| Embeddings | **$0** | Runs locally |
-| Hardware | Existing | CPU works, GPU faster |
-| Electricity | ~$0.10/day | If running 24/7 |
+| Component   | Cost       | Notes                 |
+| ----------- | ---------- | --------------------- |
+| Embeddings  | **$0**     | Runs locally          |
+| Hardware    | Existing   | CPU works, GPU faster |
+| Electricity | ~$0.10/day | If running 24/7       |
 
 ### Total Monthly Cost Examples
 
-| Scenario | OpenAI + Supabase Free | Ollama + Supabase Free |
-|----------|------------------------|------------------------|
-| Light (100 memories) | ~$0.01 | $0 |
-| Moderate (10K memories) | ~$0.25 | $0 |
-| Heavy (100K memories) | ~$2.50 | $0 |
-| Production (1M memories) | ~$25 + $25 Supabase | $0 + $25 Supabase |
+| Scenario                 | OpenAI + Supabase Free | Ollama + Supabase Free |
+| ------------------------ | ---------------------- | ---------------------- |
+| Light (100 memories)     | ~$0.01                 | $0                     |
+| Moderate (10K memories)  | ~$0.25                 | $0                     |
+| Heavy (100K memories)    | ~$2.50                 | $0                     |
+| Production (1M memories) | ~$25 + $25 Supabase    | $0 + $25 Supabase      |
 
 ---
 
@@ -642,23 +685,23 @@ The current implementation does NOT automatically extract memories from:
 
 ### Minimum Hardware (Ollama)
 
-| Component | Minimum | Recommended |
-|-----------|---------|-------------|
-| CPU | 4 cores | 8+ cores |
-| RAM | 8GB | 16GB+ |
-| Storage | 10GB | 50GB+ |
-| GPU | Not required | NVIDIA 8GB+ VRAM |
+| Component | Minimum      | Recommended      |
+| --------- | ------------ | ---------------- |
+| CPU       | 4 cores      | 8+ cores         |
+| RAM       | 8GB          | 16GB+            |
+| Storage   | 10GB         | 50GB+            |
+| GPU       | Not required | NVIDIA 8GB+ VRAM |
 
 **Note:** `nomic-embed-text` is a small model (~270MB). Runs fine on CPU.
 
 ### Ollama Performance (Embeddings)
 
-| Hardware | Embeddings/sec | Latency |
-|----------|----------------|---------|
-| M1 MacBook Air | ~50/sec | 20ms |
-| Intel i7 (CPU) | ~30/sec | 35ms |
-| NVIDIA RTX 3060 | ~200/sec | 5ms |
-| NVIDIA RTX 4090 | ~500/sec | 2ms |
+| Hardware        | Embeddings/sec | Latency |
+| --------------- | -------------- | ------- |
+| M1 MacBook Air  | ~50/sec        | 20ms    |
+| Intel i7 (CPU)  | ~30/sec        | 35ms    |
+| NVIDIA RTX 3060 | ~200/sec       | 5ms     |
+| NVIDIA RTX 4090 | ~500/sec       | 2ms     |
 
 ### Self-Hosted Supabase Alternative
 
@@ -682,14 +725,14 @@ SUPABASE_URL=http://localhost:5432
 
 ## DX Decision Matrix
 
-| Situation | Recommended Setup |
-|-----------|-------------------|
-| Quick prototype | OpenAI + Supabase Free |
-| Privacy-focused | Ollama + Supabase Free |
-| Offline development | Ollama + local Postgres |
-| Production (low volume) | OpenAI + Supabase Free |
-| Production (high volume) | Ollama on GPU + Supabase Pro |
-| Enterprise | Ollama on-prem + self-hosted Postgres |
+| Situation                | Recommended Setup                     |
+| ------------------------ | ------------------------------------- |
+| Quick prototype          | OpenAI + Supabase Free                |
+| Privacy-focused          | Ollama + Supabase Free                |
+| Offline development      | Ollama + local Postgres               |
+| Production (low volume)  | OpenAI + Supabase Free                |
+| Production (high volume) | Ollama on GPU + Supabase Pro          |
+| Enterprise               | Ollama on-prem + self-hosted Postgres |
 
 ---
 

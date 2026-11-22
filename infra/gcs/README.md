@@ -5,16 +5,16 @@ Infra-as-config for the resumable large-upload workflow
 
 ## Resource
 
-| Setting | Value |
-|---|---|
-| Bucket | `gs://<your-upload-bucket>` |
-| Project | `<your-project>` (`<your-project-number>`) |
-| Location | `<your-region>` (colocated with the Cloud Run service) |
-| Uniform bucket-level access | enabled |
-| Public access prevention | enforced |
-| Soft-delete | disabled (transient bytes; avoids paying to retain deleted upload objects) |
-| Lifecycle | delete objects ≥ 1 day old (abandoned-upload cleanup; `UPLOAD_CLEANUP_TTL_HOURS=24`) |
-| IAM | `<runtime-sa>@<project>.iam.gserviceaccount.com` → `roles/storage.objectAdmin` (bucket-scoped) |
+| Setting                     | Value                                                                                          |
+| --------------------------- | ---------------------------------------------------------------------------------------------- |
+| Bucket                      | `gs://<your-upload-bucket>`                                                                    |
+| Project                     | `<your-project>` (`<your-project-number>`)                                                     |
+| Location                    | `<your-region>` (colocated with the Cloud Run service)                                         |
+| Uniform bucket-level access | enabled                                                                                        |
+| Public access prevention    | enforced                                                                                       |
+| Soft-delete                 | disabled (transient bytes; avoids paying to retain deleted upload objects)                     |
+| Lifecycle                   | delete objects ≥ 1 day old (abandoned-upload cleanup; `UPLOAD_CLEANUP_TTL_HOURS=24`)           |
+| IAM                         | `<runtime-sa>@<project>.iam.gserviceaccount.com` → `roles/storage.objectAdmin` (bucket-scoped) |
 
 The Cloud Run runtime SA (the default compute SA) reads/writes via ADC — no
 service-account keys.

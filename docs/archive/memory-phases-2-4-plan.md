@@ -1,4 +1,5 @@
 ---
+
 title: Memory Phases 2-4 Implementation Plan
 description: Implementation plan for conversation memory, automatic extraction, and memory-aware search
 ---
@@ -139,19 +140,23 @@ EXTRACTION_MAX_TOKENS=1000
 ### Enhanced add_note Tool
 
 ```typescript
-server.tool('add_note', {
-  title: z.string(),
-  content: z.string(),
-  tags: z.array(z.string()).optional(),
-  extractMemories: z.boolean().default(false),  // NEW
-}, async ({ title, content, tags, extractMemories }) => {
-  // ... existing logic ...
+server.tool(
+  'add_note',
+  {
+    title: z.string(),
+    content: z.string(),
+    tags: z.array(z.string()).optional(),
+    extractMemories: z.boolean().default(false), // NEW
+  },
+  async ({ title, content, tags, extractMemories }) => {
+    // ... existing logic ...
 
-  if (extractMemories && config.ENABLE_MEMORY_EXTRACTION) {
-    const extracted = await extractMemoriesFromText(content);
-    await storeExtractedMemories(extracted);
-  }
-});
+    if (extractMemories && config.ENABLE_MEMORY_EXTRACTION) {
+      const extracted = await extractMemoriesFromText(content);
+      await storeExtractedMemories(extracted);
+    }
+  },
+);
 ```
 
 ### New MCP Tool
@@ -179,36 +184,40 @@ Fuse document search and memory search results for comprehensive context retriev
 **search_with_context** - Combined document + memory search
 
 ```typescript
-server.tool('search_with_context', {
-  query: z.string(),
-  limit: z.number().default(10),
-  includeDocuments: z.boolean().default(true),
-  includeMemories: z.boolean().default(true),
-  includeConversations: z.boolean().default(false),
-  memoryWeight: z.number().min(0).max(2).default(1.0),
-  documentWeight: z.number().min(0).max(2).default(1.0),
-  conversationWeight: z.number().min(0).max(2).default(0.5),
-}, async (params) => {
-  const results = [];
+server.tool(
+  'search_with_context',
+  {
+    query: z.string(),
+    limit: z.number().default(10),
+    includeDocuments: z.boolean().default(true),
+    includeMemories: z.boolean().default(true),
+    includeConversations: z.boolean().default(false),
+    memoryWeight: z.number().min(0).max(2).default(1.0),
+    documentWeight: z.number().min(0).max(2).default(1.0),
+    conversationWeight: z.number().min(0).max(2).default(0.5),
+  },
+  async (params) => {
+    const results = [];
 
-  if (params.includeDocuments) {
-    const docs = await hybridSearch(query, embedding, { limit });
-    results.push(...docs.map(d => ({ type: 'document', ...d })));
-  }
+    if (params.includeDocuments) {
+      const docs = await hybridSearch(query, embedding, { limit });
+      results.push(...docs.map((d) => ({ type: 'document', ...d })));
+    }
 
-  if (params.includeMemories) {
-    const memories = await hybridMemorySearch(query, embedding, { limit });
-    results.push(...memories.map(m => ({ type: 'memory', ...m })));
-  }
+    if (params.includeMemories) {
+      const memories = await hybridMemorySearch(query, embedding, { limit });
+      results.push(...memories.map((m) => ({ type: 'memory', ...m })));
+    }
 
-  if (params.includeConversations) {
-    const convos = await searchConversations(query, embedding, { limit });
-    results.push(...convos.map(c => ({ type: 'conversation', ...c })));
-  }
+    if (params.includeConversations) {
+      const convos = await searchConversations(query, embedding, { limit });
+      results.push(...convos.map((c) => ({ type: 'conversation', ...c })));
+    }
 
-  // Fuse with weighted RRF
-  return fuseResults(results, params);
-});
+    // Fuse with weighted RRF
+    return fuseResults(results, params);
+  },
+);
 ```
 
 ### Implementation Files

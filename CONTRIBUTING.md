@@ -92,14 +92,18 @@ throw new ValidationError('Invalid input');
 Tools are registered with inline Zod schemas and return structured content:
 
 ```typescript
-server.tool('tool_name', {
-  param: z.string().describe('Description'),
-}, async ({ param }) => {
-  const result = await doSomething(param);
-  return {
-    content: [{ type: 'text', text: JSON.stringify(result, null, 2) }]
-  };
-});
+server.tool(
+  'tool_name',
+  {
+    param: z.string().describe('Description'),
+  },
+  async ({ param }) => {
+    const result = await doSomething(param);
+    return {
+      content: [{ type: 'text', text: JSON.stringify(result, null, 2) }],
+    };
+  },
+);
 ```
 
 ## Project Structure

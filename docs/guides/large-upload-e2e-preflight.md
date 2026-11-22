@@ -4,7 +4,7 @@ A single copy-paste runbook that gates the live end-to-end validation of the
 resumable large-upload feature (browser → GCS resumable → Cloud Tasks → status).
 It **assembles** the infra steps that already live in the repo and adds the
 read-only checks and the **gate ordering** so a CORS/resume mistake is caught
-*before* the expensive Cloud Tasks activation.
+_before_ the expensive Cloud Tasks activation.
 
 > **Placeholders only.** Every identifier below (`YOUR_PROJECT`,
 > `textrawl-uploads`, `https://dashboard.example.com`, region, service, queue) is

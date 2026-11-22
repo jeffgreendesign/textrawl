@@ -1,4 +1,5 @@
 ---
+
 title: Data Import Checklist
 description: Guide to common personal data exports you can import into Textrawl
 ---
@@ -11,13 +12,13 @@ This guide helps you identify personal data exports you can import into Textrawl
 
 These sources offer the best combination of value and ease:
 
-| Source | Format | Difficulty | Why It's Valuable |
-|--------|--------|------------|-------------------|
-| Gmail | MBOX | Easy | Receipts, confirmations, conversations |
-| Google Drive | DOCX/PDF | Easy | Documents, notes, files |
-| Obsidian | Markdown | Trivial | Already local files |
-| Notion | Markdown | Easy | Notes, wikis, databases |
-| Kindle Highlights | TXT/HTML | Easy | Your annotations and insights |
+| Source            | Format   | Difficulty | Why It's Valuable                      |
+| ----------------- | -------- | ---------- | -------------------------------------- |
+| Gmail             | MBOX     | Easy       | Receipts, confirmations, conversations |
+| Google Drive      | DOCX/PDF | Easy       | Documents, notes, files                |
+| Obsidian          | Markdown | Trivial    | Already local files                    |
+| Notion            | Markdown | Easy       | Notes, wikis, databases                |
+| Kindle Highlights | TXT/HTML | Easy       | Your annotations and insights          |
 
 ---
 

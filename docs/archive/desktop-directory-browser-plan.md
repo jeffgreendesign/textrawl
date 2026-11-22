@@ -1,6 +1,6 @@
 ---
-title: Desktop Directory Browser & Security Hardening Plan
----
+
+## title: Desktop Directory Browser & Security Hardening Plan
 
 # Desktop Directory Browser & Security Hardening Plan
 
@@ -9,16 +9,16 @@ title: Desktop Directory Browser & Security Hardening Plan
 
 ## Progress
 
-| Phase | Description | Status |
-|-------|-------------|--------|
-| 1 | safeStorage migration | Done |
-| 2 | Data model + types | Done |
-| 3 | ProjectManager service | Done |
-| 4 | IPC layer | Done |
-| 5 | Directory tree UI | Done |
-| 5.1 | Post-review fixes | Done |
-| 6 | chokidar file watching | Done |
-| 7 | Pipeline integration | Done |
+| Phase | Description            | Status |
+| ----- | ---------------------- | ------ |
+| 1     | safeStorage migration  | Done   |
+| 2     | Data model + types     | Done   |
+| 3     | ProjectManager service | Done   |
+| 4     | IPC layer              | Done   |
+| 5     | Directory tree UI      | Done   |
+| 5.1   | Post-review fixes      | Done   |
+| 6     | chokidar file watching | Done   |
+| 7     | Pipeline integration   | Done   |
 
 ### Post-review Fixes (Phase 3/4)
 
@@ -146,8 +146,8 @@ interface PublicSchema {
   defaultTags: string[];
   autoUpload: boolean;
   // Encrypted blobs stored as base64 strings
-  _supabaseUrl: string;   // safeStorage-encrypted
-  _supabaseKey: string;   // safeStorage-encrypted
+  _supabaseUrl: string; // safeStorage-encrypted
+  _supabaseKey: string; // safeStorage-encrypted
 }
 
 export class SettingsStore {
@@ -205,8 +205,10 @@ export class SettingsStore {
     if (settings.outputDir !== undefined) this.store.set('outputDir', settings.outputDir);
     if (settings.defaultTags !== undefined) this.store.set('defaultTags', settings.defaultTags);
     if (settings.autoUpload !== undefined) this.store.set('autoUpload', settings.autoUpload);
-    if (settings.supabaseUrl !== undefined) this.store.set('_supabaseUrl', this.encrypt(settings.supabaseUrl));
-    if (settings.supabaseKey !== undefined) this.store.set('_supabaseKey', this.encrypt(settings.supabaseKey));
+    if (settings.supabaseUrl !== undefined)
+      this.store.set('_supabaseUrl', this.encrypt(settings.supabaseUrl));
+    if (settings.supabaseKey !== undefined)
+      this.store.set('_supabaseKey', this.encrypt(settings.supabaseKey));
   }
 }
 ```
@@ -281,19 +283,19 @@ Add to `desktop/src/shared/types.ts`:
 ```typescript
 // Pipeline status for a file across sessions
 export type PipelineStatus =
-  | 'pending'       // Source exists, not yet converted
-  | 'converting'    // Conversion in progress (current session only)
-  | 'converted'     // .md output exists but not uploaded
-  | 'uploading'     // Upload in progress (current session only)
-  | 'uploaded'      // In manifest, successfully uploaded to Supabase
-  | 'error'         // Last operation failed
-  | 'oversized'     // Exceeds size threshold for its type
-  | 'unsupported';  // No converter available
+  | 'pending' // Source exists, not yet converted
+  | 'converting' // Conversion in progress (current session only)
+  | 'converted' // .md output exists but not uploaded
+  | 'uploading' // Upload in progress (current session only)
+  | 'uploaded' // In manifest, successfully uploaded to Supabase
+  | 'error' // Last operation failed
+  | 'oversized' // Exceeds size threshold for its type
+  | 'unsupported'; // No converter available
 
 // A file in the directory tree
 export interface TreeFile {
   // Identity
-  relativePath: string;       // Relative to project source dir
+  relativePath: string; // Relative to project source dir
   name: string;
   isDirectory: boolean;
 
@@ -306,18 +308,18 @@ export interface TreeFile {
 
   // Pipeline state
   pipelineStatus: PipelineStatus;
-  convertedPath?: string;     // Relative path to .md in output dir
-  documentId?: string;        // Supabase doc ID (from manifest)
-  uploadedAt?: string;        // ISO timestamp (from manifest)
-  error?: string;             // Last error message
-  lastProcessed?: string;     // ISO timestamp of last operation
+  convertedPath?: string; // Relative path to .md in output dir
+  documentId?: string; // Supabase doc ID (from manifest)
+  uploadedAt?: string; // ISO timestamp (from manifest)
+  error?: string; // Last error message
+  lastProcessed?: string; // ISO timestamp of last operation
 }
 
 // A loaded project directory
 export interface ProjectState {
-  sourceDir: string;          // Absolute path to source directory
-  outputDir: string;          // Absolute path to output directory
-  lastScanned: string;        // ISO timestamp
+  sourceDir: string; // Absolute path to source directory
+  outputDir: string; // Absolute path to output directory
+  lastScanned: string; // ISO timestamp
   stats: {
     total: number;
     pending: number;
@@ -519,17 +521,17 @@ Recommended: Create a local copy or wrapper to avoid coupling the desktop build 
 // Security: only watch user-selected directories
 // Never watch system paths or follow symlinks outside the tree
 chokidar.watch([sourceDir, outputDir], {
-  followSymlinks: false,        // Don't traverse into symlinked dirs
+  followSymlinks: false, // Don't traverse into symlinked dirs
   ignored: [
-    /(^|[\/\\])\./,             // Dotfiles (.git, .DS_Store, .env, .ssh)
-    '**/node_modules/**',        // Never watch node_modules
-    '**/.manifest.json',         // Don't react to our own manifest writes
+    /(^|[\/\\])\./, // Dotfiles (.git, .DS_Store, .env, .ssh)
+    '**/node_modules/**', // Never watch node_modules
+    '**/.manifest.json', // Don't react to our own manifest writes
   ],
-  depth: 20,                     // Reasonable depth limit
-  ignoreInitial: true,           // We do our own initial scan
-  persistent: true,              // Keep watching
+  depth: 20, // Reasonable depth limit
+  ignoreInitial: true, // We do our own initial scan
+  persistent: true, // Keep watching
   awaitWriteFinish: {
-    stabilityThreshold: 2000,    // Wait for writes to finish (large files)
+    stabilityThreshold: 2000, // Wait for writes to finish (large files)
     pollInterval: 100,
   },
 });
@@ -556,17 +558,17 @@ export const IPC = {
   // ... existing channels ...
 
   // Project channels (invoke)
-  PROJECT_LOAD: 'project:load',           // (sourceDir, outputDir) → ProjectState
-  PROJECT_UNLOAD: 'project:unload',       // → void
-  PROJECT_REFRESH: 'project:refresh',     // → ProjectState
-  PROJECT_GET_TREE: 'project:getTree',    // → TreeFile[]
-  PROJECT_CONVERT: 'project:convert',     // relativePaths[] → void
-  PROJECT_UPLOAD: 'project:upload',       // → void
-  PROJECT_RETRY: 'project:retry',         // relativePaths[] → void
+  PROJECT_LOAD: 'project:load', // (sourceDir, outputDir) → ProjectState
+  PROJECT_UNLOAD: 'project:unload', // → void
+  PROJECT_REFRESH: 'project:refresh', // → ProjectState
+  PROJECT_GET_TREE: 'project:getTree', // → TreeFile[]
+  PROJECT_CONVERT: 'project:convert', // relativePaths[] → void
+  PROJECT_UPLOAD: 'project:upload', // → void
+  PROJECT_RETRY: 'project:retry', // relativePaths[] → void
 
   // Project channels (send/events)
-  PROJECT_FILE_UPDATE: 'project:fileUpdate',     // TreeFile (single file changed)
-  PROJECT_STATS_UPDATE: 'project:statsUpdate',   // ProjectState.stats
+  PROJECT_FILE_UPDATE: 'project:fileUpdate', // TreeFile (single file changed)
+  PROJECT_STATS_UPDATE: 'project:statsUpdate', // ProjectState.stats
 } as const;
 ```
 
@@ -675,7 +677,13 @@ interface DirectoryTreeProps {
   onSelectionChange: (paths: Set<string>) => void;
 }
 
-export function DirectoryTree({ tree, onConvert, onRetry, selectedPaths, onSelectionChange }: DirectoryTreeProps) {
+export function DirectoryTree({
+  tree,
+  onConvert,
+  onRetry,
+  selectedPaths,
+  onSelectionChange,
+}: DirectoryTreeProps) {
   // Build headless-tree data provider from TreeFile[]
   // Custom node renderer with:
   //   - Folder expand/collapse
