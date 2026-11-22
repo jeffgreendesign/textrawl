@@ -1,4 +1,5 @@
 ---
+
 title: Recent Advancements (January 2026)
 description: Research on recent technology advancements relevant to Textrawl
 ---
@@ -55,13 +56,13 @@ The pgvectorscale extension with DiskANN is the 2026 game-changer for vector dat
 
 ### New Approaches (January 2026)
 
-| Technique | Description | Textrawl Relevance |
-|-----------|-------------|-------------------|
-| **HiFi-RAG** | Multi-stage filtering with query reformulation before generation | Could improve `hybrid_search()` |
-| **QuCo-RAG** | Dynamic retrieval based on entity rarity - flags rare entities to reduce hallucinations | Relevant to memory tools |
-| **Bidirectional RAG** | Write-back to corpus with grounding checks (NLI entailment, source attribution) | Relevant to `add_note` tool |
-| **MiA-RAG** | Mindscape-Aware - builds high-level summaries for long documents | Could improve document processing |
-| **MegaRAG** | Multimodal knowledge graphs for long documents | Future consideration |
+| Technique             | Description                                                                             | Textrawl Relevance                |
+| --------------------- | --------------------------------------------------------------------------------------- | --------------------------------- |
+| **HiFi-RAG**          | Multi-stage filtering with query reformulation before generation                        | Could improve `hybrid_search()`   |
+| **QuCo-RAG**          | Dynamic retrieval based on entity rarity - flags rare entities to reduce hallucinations | Relevant to memory tools          |
+| **Bidirectional RAG** | Write-back to corpus with grounding checks (NLI entailment, source attribution)         | Relevant to `add_note` tool       |
+| **MiA-RAG**           | Mindscape-Aware - builds high-level summaries for long documents                        | Could improve document processing |
+| **MegaRAG**           | Multimodal knowledge graphs for long documents                                          | Future consideration              |
 
 ### Google's "Sufficient Context" Research
 
@@ -156,13 +157,13 @@ No new models in past 30 days. text-embedding-3-small and text-embedding-3-large
 
 Major upgrade from current nomic-embed-text:
 
-| Feature | v1 | v2-moe |
-|---------|-----|--------|
-| Architecture | Standard | Mixture of Experts |
-| Parameters | - | 475M total, 305M active |
-| Languages | English-focused | ~100 languages |
-| Dimensions | 1024 fixed | 768 (flexible to 256 via Matryoshka) |
-| Performance | Good | Outperforms models 2x its size |
+| Feature      | v1              | v2-moe                               |
+| ------------ | --------------- | ------------------------------------ |
+| Architecture | Standard        | Mixture of Experts                   |
+| Parameters   | -               | 475M total, 305M active              |
+| Languages    | English-focused | ~100 languages                       |
+| Dimensions   | 1024 fixed      | 768 (flexible to 256 via Matryoshka) |
+| Performance  | Good            | Outperforms models 2x its size       |
 
 **Matryoshka Embeddings:** Can reduce dimensions from 768 to 256 with minimal performance loss = 3x storage reduction.
 

@@ -8,13 +8,13 @@ token itself (the service is public for MCP/API, so this is the access control).
 
 ## Resources created by `setup.sh`
 
-| Resource | Value |
-|---|---|
-| Cloud Tasks queue | `<your-upload-processing-queue>` (colocated with Cloud Run + the GCS bucket) |
-| OIDC invoker SA | `textrawl-tasks@<project>.iam.gserviceaccount.com` (identity in the task's OIDC token) |
-| Enqueuer | the Cloud Run runtime SA (default compute SA) — granted `cloudtasks.enqueuer` (queue-scoped) |
-| actAs | runtime SA granted `iam.serviceAccountUser` on the invoker SA |
-| token mint | Cloud Tasks service agent granted `iam.serviceAccountTokenCreator` on the invoker SA |
+| Resource          | Value                                                                                        |
+| ----------------- | -------------------------------------------------------------------------------------------- |
+| Cloud Tasks queue | `<your-upload-processing-queue>` (colocated with Cloud Run + the GCS bucket)                 |
+| OIDC invoker SA   | `textrawl-tasks@<project>.iam.gserviceaccount.com` (identity in the task's OIDC token)       |
+| Enqueuer          | the Cloud Run runtime SA (default compute SA) — granted `cloudtasks.enqueuer` (queue-scoped) |
+| actAs             | runtime SA granted `iam.serviceAccountUser` on the invoker SA                                |
+| token mint        | Cloud Tasks service agent granted `iam.serviceAccountTokenCreator` on the invoker SA         |
 
 Queue location is `us-east4` (the plan's `us-central1` default is overridden to
 colocate with the Cloud Run service and bucket). Cost is effectively $0 — Cloud

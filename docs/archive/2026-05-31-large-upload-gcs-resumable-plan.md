@@ -46,29 +46,29 @@ Resolved design decisions (2026-06-01):
 
 ## Confirmed repo facts (grounding)
 
-| Area | Fact | Location |
-|---|---|---|
-| Upload route | multer `memoryStorage()`, **hardcoded 10 MB**, fileFilter via `isSupportedType` | `src/api/upload.ts:14-24` |
-| Unused config | `MAX_SINGLE_FILE_SIZE` (default 20), `WARN_FILE_SIZE_MB`, `MAX_CHUNKS_PER_FILE` defined, never read | `src/utils/config.ts:128-144` |
-| Config pattern | Zod `envSchema`, `string → transform(parseInt) → refine`; singleton `config` | `src/utils/config.ts` |
-| Error handler | Maps `TextrawlError` only; **MulterError / 413 falls through to generic 500** | `src/api/middleware/error.ts` |
-| Error classes | `ValidationError`, `AuthenticationError`, `AuthorizationError`, `NotFoundError`, `DatabaseError`, etc. | `src/utils/errors.ts` |
-| DB client | Neon `@neondatabase/serverless` Pool via `DATABASE_URL`; helpers `pgQuery/queryOne/queryOneOrThrow/queryCount` | `src/db/pg-client.ts` |
-| Document insert | `createDocument({title, sourceType, rawContent, sourceUrl, filePath, metadata})` `INSERT ... RETURNING *` | `src/db/documents.ts:33-60` |
-| Chunk insert | `createChunks(...)` batched (50/INSERT) | `src/db/chunks.ts` |
-| Extraction | `extractText(buffer, mimetype)`; `SUPPORTED_TYPES` = pdf/docx/txt/md; `validateFileType` magic check | `src/services/processor.ts` |
-| Chunking | `smartChunk(text, generateEmbeddings, options)` | `src/services/chunker.ts` |
-| Embeddings | `generateEmbeddings(texts)`, `isOpenAIConfigured()` | `src/services/embeddings.ts` |
-| Pipeline hook | `onDocumentIngested()` exists but **not called** from upload | `src/services/pipeline.ts` |
-| Schema | Hand-run SQL; `gen_random_uuid()`, `timestamptz default now()`, `jsonb default '{}'`, `on delete cascade`, trigger `updated_at` | `scripts/setup-db.sql` |
-| RLS / ownership | `service_role` full access; anon/authenticated denied. **No `owner_id` columns** anywhere | `scripts/security-rls.sql` |
-| Auth | `bearerAuth`: static `API_BEARER_TOKEN` or OAuth JWT (`GOOGLE_CLIENT_ID`+`OAUTH_JWT_SECRET`) | `src/api/middleware/auth.ts` |
-| Dashboard upload | `dashboard/app/upload/page.tsx` POSTs `FormData` to `${apiBase}/upload`; **fake progress** (30→100); token from `localStorage['textrawl_token']` | + `dashboard/components/upload-zone.tsx` |
-| Dashboard API base | `getApiBase()` → `NEXT_PUBLIC_API_URL` (default `http://localhost:3000/api`) | `dashboard/lib/api.ts` |
-| UI over-promises | "PDF, DOCX, TXT, MD, HTML, images, audio, MBOX, EML, ZIP" advertised; server does 4 types | `dashboard/app/upload/page.tsx:188` |
-| Deploy | distroless Node22, `PORT=8080`; Cloud Run **512Mi / 1 vCPU / 60s / min 0 / max 10**; `express.json({limit:'1mb'})` | `Dockerfile`, `docs/guides/cloud-run-deployment.mdx`, `src/index.ts:58` |
-| Deps present | `multer`, `unzipper@0.12.0` (devDeps), `file-type`, `mammoth`, `pdf-parse`, `xlsx`. **No `@google-cloud/storage`** | `package.json` |
-| Tests | `src/**/__tests__/**/*.test.ts` (vitest, `vi.mock`); **no supertest, no fixtures dir, no API tests** | `vitest.config.ts` |
+| Area               | Fact                                                                                                                                             | Location                                                                |
+| ------------------ | ------------------------------------------------------------------------------------------------------------------------------------------------ | ----------------------------------------------------------------------- |
+| Upload route       | multer `memoryStorage()`, **hardcoded 10 MB**, fileFilter via `isSupportedType`                                                                  | `src/api/upload.ts:14-24`                                               |
+| Unused config      | `MAX_SINGLE_FILE_SIZE` (default 20), `WARN_FILE_SIZE_MB`, `MAX_CHUNKS_PER_FILE` defined, never read                                              | `src/utils/config.ts:128-144`                                           |
+| Config pattern     | Zod `envSchema`, `string → transform(parseInt) → refine`; singleton `config`                                                                     | `src/utils/config.ts`                                                   |
+| Error handler      | Maps `TextrawlError` only; **MulterError / 413 falls through to generic 500**                                                                    | `src/api/middleware/error.ts`                                           |
+| Error classes      | `ValidationError`, `AuthenticationError`, `AuthorizationError`, `NotFoundError`, `DatabaseError`, etc.                                           | `src/utils/errors.ts`                                                   |
+| DB client          | Neon `@neondatabase/serverless` Pool via `DATABASE_URL`; helpers `pgQuery/queryOne/queryOneOrThrow/queryCount`                                   | `src/db/pg-client.ts`                                                   |
+| Document insert    | `createDocument({title, sourceType, rawContent, sourceUrl, filePath, metadata})` `INSERT ... RETURNING *`                                        | `src/db/documents.ts:33-60`                                             |
+| Chunk insert       | `createChunks(...)` batched (50/INSERT)                                                                                                          | `src/db/chunks.ts`                                                      |
+| Extraction         | `extractText(buffer, mimetype)`; `SUPPORTED_TYPES` = pdf/docx/txt/md; `validateFileType` magic check                                             | `src/services/processor.ts`                                             |
+| Chunking           | `smartChunk(text, generateEmbeddings, options)`                                                                                                  | `src/services/chunker.ts`                                               |
+| Embeddings         | `generateEmbeddings(texts)`, `isOpenAIConfigured()`                                                                                              | `src/services/embeddings.ts`                                            |
+| Pipeline hook      | `onDocumentIngested()` exists but **not called** from upload                                                                                     | `src/services/pipeline.ts`                                              |
+| Schema             | Hand-run SQL; `gen_random_uuid()`, `timestamptz default now()`, `jsonb default '{}'`, `on delete cascade`, trigger `updated_at`                  | `scripts/setup-db.sql`                                                  |
+| RLS / ownership    | `service_role` full access; anon/authenticated denied. **No `owner_id` columns** anywhere                                                        | `scripts/security-rls.sql`                                              |
+| Auth               | `bearerAuth`: static `API_BEARER_TOKEN` or OAuth JWT (`GOOGLE_CLIENT_ID`+`OAUTH_JWT_SECRET`)                                                     | `src/api/middleware/auth.ts`                                            |
+| Dashboard upload   | `dashboard/app/upload/page.tsx` POSTs `FormData` to `${apiBase}/upload`; **fake progress** (30→100); token from `localStorage['textrawl_token']` | + `dashboard/components/upload-zone.tsx`                                |
+| Dashboard API base | `getApiBase()` → `NEXT_PUBLIC_API_URL` (default `http://localhost:3000/api`)                                                                     | `dashboard/lib/api.ts`                                                  |
+| UI over-promises   | "PDF, DOCX, TXT, MD, HTML, images, audio, MBOX, EML, ZIP" advertised; server does 4 types                                                        | `dashboard/app/upload/page.tsx:188`                                     |
+| Deploy             | distroless Node22, `PORT=8080`; Cloud Run **512Mi / 1 vCPU / 60s / min 0 / max 10**; `express.json({limit:'1mb'})`                               | `Dockerfile`, `docs/guides/cloud-run-deployment.mdx`, `src/index.ts:58` |
+| Deps present       | `multer`, `unzipper@0.12.0` (devDeps), `file-type`, `mammoth`, `pdf-parse`, `xlsx`. **No `@google-cloud/storage`**                               | `package.json`                                                          |
+| Tests              | `src/**/__tests__/**/*.test.ts` (vitest, `vi.mock`); **no supertest, no fixtures dir, no API tests**                                             | `vitest.config.ts`                                                      |
 
 **Assumptions (flagged):** single-tenant token model — `owner_token_hash` is an **interim** binding
 (the repo has no real owner/user model); it must not be over-designed into multi-tenant security and
@@ -205,11 +205,15 @@ the current state without enqueuing a duplicate.
   "filename": "sample.zip",
   "size": 62914560,
   "progress": { "entriesTotal": 42, "entriesProcessed": 17, "entriesFailed": 1 },
-  "documentIds": ["...","..."],
-  "entries": [ { "name": "notes/spring.md", "state": "completed", "documentId": "..." },
-               { "name": "weird.exe", "state": "skipped", "code": "UNSUPPORTED_ENTRY" } ],
-  "error": null,                  // { code, message } when state=failed
-  "createdAt": "...", "updatedAt": "...", "completedAt": null
+  "documentIds": ["...", "..."],
+  "entries": [
+    { "name": "notes/spring.md", "state": "completed", "documentId": "..." },
+    { "name": "weird.exe", "state": "skipped", "code": "UNSUPPORTED_ENTRY" }
+  ],
+  "error": null, // { code, message } when state=failed
+  "createdAt": "...",
+  "updatedAt": "...",
+  "completedAt": null
 }
 ```
 
@@ -253,17 +257,17 @@ Idempotent on `uploadId` (no-op if already `completed`/`failed`).
 States: `initialized → uploading → uploaded → queued → processing → completed | partial | failed`,
 plus `expired` and `cancelled`.
 
-| From | To | Trigger |
-|---|---|---|
-| `initialized` | `uploading` | first byte / first PUT observed (optional; may be inferred) |
-| `initialized`/`uploading` | `uploaded` | `/complete` object-verify passes (pre-enqueue) |
-| `uploaded` | `queued` | Cloud Task enqueued (same txn) |
-| `queued` | `processing` | process endpoint starts (idempotent guard) |
-| `processing` | `completed` | all supported entries succeeded |
-| `processing` | `partial` | ≥1 entry succeeded, ≥1 failed (archives) |
-| `processing` | `failed` | archive-level validation fails, or single-file extract fails, or unrecoverable error |
-| `initialized`/`uploading`/`uploaded` | `expired` | resumable session / TTL elapsed before complete |
-| `initialized`/`uploading`/`uploaded`/`queued` | `cancelled` | `DELETE` |
+| From                                          | To           | Trigger                                                                              |
+| --------------------------------------------- | ------------ | ------------------------------------------------------------------------------------ |
+| `initialized`                                 | `uploading`  | first byte / first PUT observed (optional; may be inferred)                          |
+| `initialized`/`uploading`                     | `uploaded`   | `/complete` object-verify passes (pre-enqueue)                                       |
+| `uploaded`                                    | `queued`     | Cloud Task enqueued (same txn)                                                       |
+| `queued`                                      | `processing` | process endpoint starts (idempotent guard)                                           |
+| `processing`                                  | `completed`  | all supported entries succeeded                                                      |
+| `processing`                                  | `partial`    | ≥1 entry succeeded, ≥1 failed (archives)                                             |
+| `processing`                                  | `failed`     | archive-level validation fails, or single-file extract fails, or unrecoverable error |
+| `initialized`/`uploading`/`uploaded`          | `expired`    | resumable session / TTL elapsed before complete                                      |
+| `initialized`/`uploading`/`uploaded`/`queued` | `cancelled`  | `DELETE`                                                                             |
 
 **Idempotency / duplicates:** `complete` is idempotent per `uploadId`; Cloud Task retries hit the
 `processing`/`completed` guard and do not recreate documents (per-entry results record which documents
@@ -333,7 +337,7 @@ create unique index if not exists upload_entries_uniq on upload_entries(upload_i
 
 Reuse `updated_at` trigger pattern from `scripts/setup-db.sql`. **Ownership note — INTERIM:** the repo
 has no real owner/user model today. `owner_token_hash` is a lightweight, interim binding so a future
-multi-token deployment *can* scope status/cancel; it is **not** a multi-tenant security boundary and
+multi-token deployment _can_ scope status/cancel; it is **not** a multi-tenant security boundary and
 must not be over-designed into one. When auth is disabled it is NULL and ownership checks are skipped.
 Replace with a real user model if/when one lands — do not block this work on it.
 
@@ -342,28 +346,28 @@ Replace with a real user model if/when one lands — do not block this work on i
 Add to `src/utils/config.ts` `envSchema` using the existing `string→transform→refine` pattern;
 document in `.env.example` and `docs/ENV.md`.
 
-| Env | Default | Notes |
-|---|---|---|
-| `MAX_SINGLE_FILE_SIZE_MB` | `20` | direct `/api/upload` cap; **wire into multer** (replaces hardcoded 10 MB). Keep under Cloud Run/`express` body limits. (Reuse/rename existing `MAX_SINGLE_FILE_SIZE`.) |
-| `MAX_UPLOAD_SIZE_MB` | `500` | max size accepted by `/init` resumable workflow |
-| `UPLOAD_THRESHOLD_MB` | `MAX_SINGLE_FILE_SIZE_MB` | dashboard switch point: ≤ → direct, > → resumable |
-| `GCS_UPLOAD_BUCKET` | — (required for large uploads) | bucket name |
-| `GCS_PROJECT_ID` | — | GCP project |
-| `UPLOAD_SESSION_TTL_MIN` | `120` | resumable session + upload row expiry |
-| `CLOUD_TASKS_QUEUE` | `textrawl-upload-processing` | queue id |
-| `CLOUD_TASKS_LOCATION` | `us-central1` | region |
-| `CLOUD_TASKS_SERVICE_ACCOUNT` | — | OIDC identity for task→Cloud Run |
-| `UPLOAD_PROCESS_URL` | — | internal endpoint URL (OIDC audience) |
-| `UPLOAD_PROCESS_TIMEOUT_S` | `600` | Cloud Run request timeout for processing service (raise from 60s) |
-| `UPLOAD_PROCESS_CONCURRENCY` | `1` | low (1–2), protects memory for large archives |
-| `UPLOAD_REQUIRE_CHECKSUM` | `false` | if true, `/complete` requires a client SHA-256; else verified during processing |
-| `ZIP_MAX_ENTRIES` | `2000` | |
-| `ZIP_MAX_COMPRESSED_BYTES` | `MAX_UPLOAD_SIZE_MB` | |
-| `ZIP_MAX_EXPANDED_BYTES` | `2_000_000_000` | bomb guard |
-| `ZIP_MAX_ENTRY_BYTES` | `50_000_000` | per-entry expanded cap |
-| `ZIP_MAX_COMPRESSION_RATIO` | `100` | expanded/compressed guard |
-| `ZIP_MAX_FILENAME_LEN` | `255` | |
-| `UPLOAD_CLEANUP_TTL_HOURS` | `24` | terminal/abandoned object cleanup; backed by GCS lifecycle rule |
+| Env                           | Default                        | Notes                                                                                                                                                                  |
+| ----------------------------- | ------------------------------ | ---------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
+| `MAX_SINGLE_FILE_SIZE_MB`     | `20`                           | direct `/api/upload` cap; **wire into multer** (replaces hardcoded 10 MB). Keep under Cloud Run/`express` body limits. (Reuse/rename existing `MAX_SINGLE_FILE_SIZE`.) |
+| `MAX_UPLOAD_SIZE_MB`          | `500`                          | max size accepted by `/init` resumable workflow                                                                                                                        |
+| `UPLOAD_THRESHOLD_MB`         | `MAX_SINGLE_FILE_SIZE_MB`      | dashboard switch point: ≤ → direct, > → resumable                                                                                                                      |
+| `GCS_UPLOAD_BUCKET`           | — (required for large uploads) | bucket name                                                                                                                                                            |
+| `GCS_PROJECT_ID`              | —                              | GCP project                                                                                                                                                            |
+| `UPLOAD_SESSION_TTL_MIN`      | `120`                          | resumable session + upload row expiry                                                                                                                                  |
+| `CLOUD_TASKS_QUEUE`           | `textrawl-upload-processing`   | queue id                                                                                                                                                               |
+| `CLOUD_TASKS_LOCATION`        | `us-central1`                  | region                                                                                                                                                                 |
+| `CLOUD_TASKS_SERVICE_ACCOUNT` | —                              | OIDC identity for task→Cloud Run                                                                                                                                       |
+| `UPLOAD_PROCESS_URL`          | —                              | internal endpoint URL (OIDC audience)                                                                                                                                  |
+| `UPLOAD_PROCESS_TIMEOUT_S`    | `600`                          | Cloud Run request timeout for processing service (raise from 60s)                                                                                                      |
+| `UPLOAD_PROCESS_CONCURRENCY`  | `1`                            | low (1–2), protects memory for large archives                                                                                                                          |
+| `UPLOAD_REQUIRE_CHECKSUM`     | `false`                        | if true, `/complete` requires a client SHA-256; else verified during processing                                                                                        |
+| `ZIP_MAX_ENTRIES`             | `2000`                         |                                                                                                                                                                        |
+| `ZIP_MAX_COMPRESSED_BYTES`    | `MAX_UPLOAD_SIZE_MB`           |                                                                                                                                                                        |
+| `ZIP_MAX_EXPANDED_BYTES`      | `2_000_000_000`                | bomb guard                                                                                                                                                             |
+| `ZIP_MAX_ENTRY_BYTES`         | `50_000_000`                   | per-entry expanded cap                                                                                                                                                 |
+| `ZIP_MAX_COMPRESSION_RATIO`   | `100`                          | expanded/compressed guard                                                                                                                                              |
+| `ZIP_MAX_FILENAME_LEN`        | `255`                          |                                                                                                                                                                        |
+| `UPLOAD_CLEANUP_TTL_HOURS`    | `24`                           | terminal/abandoned object cleanup; backed by GCS lifecycle rule                                                                                                        |
 
 ## 8. Handler registry + file-type tiers
 
@@ -386,15 +390,15 @@ streaming. `validateFileType` (magic check) folds into the registry's sniff step
 
 **Tier 1 — MVP (conservative; only well-supported parsers ship first):**
 
-| Type | Library | Status |
-|---|---|---|
-| `.txt`, `.md` | native `buffer.toString` | present |
-| `.pdf` | `pdf-parse` | present |
-| `.docx` | `mammoth` | present |
-| `.csv`, `.xlsx` | `xlsx` | present |
-| `.json` | native | present |
-| `.html`/`.htm` | `html-to-text` or `cheerio` | **add dep** |
-| `.zip` of Tier-1 entries | `unzipper` (present) / `yauzl` for stricter streaming | present |
+| Type                     | Library                                               | Status      |
+| ------------------------ | ----------------------------------------------------- | ----------- |
+| `.txt`, `.md`            | native `buffer.toString`                              | present     |
+| `.pdf`                   | `pdf-parse`                                           | present     |
+| `.docx`                  | `mammoth`                                             | present     |
+| `.csv`, `.xlsx`          | `xlsx`                                                | present     |
+| `.json`                  | native                                                | present     |
+| `.html`/`.htm`           | `html-to-text` or `cheerio`                           | **add dep** |
+| `.zip` of Tier-1 entries | `unzipper` (present) / `yauzl` for stricter streaming | present     |
 
 **Tier 1.5 — soon (added once each parser has tests, not bundled into the MVP claim):**
 `.eml` (`mailparser`), `.xml` (`fast-xml-parser`), `.rtf` (lightweight rtf parser), `.pptx`
@@ -413,14 +417,14 @@ document/text files," "more formats planned soon," "OCR/media planned as later h
 Single source of truth for what the product honestly claims; the dashboard accept list + copy MUST be
 generated from / match this. No type is advertised before server support + tests exist.
 
-| File type | Supported now (MVP) | Via ZIP | Planned soon (1.5) | Not yet |
-|---|:--:|:--:|:--:|:--:|
-| `.txt`, `.md`, `.pdf`, `.docx`, `.csv`, `.xlsx`, `.json`, `.html`/`.htm` | ✅ | ✅ | | |
-| `.zip` (of supported entries) | ✅ | n/a | | |
-| `.eml`, `.xml`, `.rtf`, `.pptx`, `.epub` | | | 🔜 | |
-| `.doc`, `.mbox` | | | | ⛔ |
-| images (`.png/.jpg/.heic/.tiff`), scanned-PDF OCR, audio/video | | | | ⛔ |
-| nested archives, `.tar`/`.gz`/`.7z` | | | | ⛔ |
+| File type                                                                | Supported now (MVP) | Via ZIP | Planned soon (1.5) | Not yet |
+| ------------------------------------------------------------------------ | :-----------------: | :-----: | :----------------: | :-----: |
+| `.txt`, `.md`, `.pdf`, `.docx`, `.csv`, `.xlsx`, `.json`, `.html`/`.htm` |         ✅          |   ✅    |                    |         |
+| `.zip` (of supported entries)                                            |         ✅          |   n/a   |                    |         |
+| `.eml`, `.xml`, `.rtf`, `.pptx`, `.epub`                                 |                     |         |         🔜         |         |
+| `.doc`, `.mbox`                                                          |                     |         |                    |   ⛔    |
+| images (`.png/.jpg/.heic/.tiff`), scanned-PDF OCR, audio/video           |                     |         |                    |   ⛔    |
+| nested archives, `.tar`/`.gz`/`.7z`                                      |                     |         |                    |   ⛔    |
 
 - **Supported now:** ingested directly.
 - **Supported through ZIP:** only entries that are themselves "supported now."
@@ -450,7 +454,7 @@ Strict safety (all enforced before/while extracting each entry):
 - Zero supported entries → `failed` with `ZIP_NO_SUPPORTED_ENTRIES`.
 
 **Partial-success policy (chosen):** use **`partial`**. Archive-level validation (traversal/bomb/
-limits/empty) fails the whole ZIP *before* any documents are created. Once extraction begins, per-entry
+limits/empty) fails the whole ZIP _before_ any documents are created. Once extraction begins, per-entry
 failures (e.g. a corrupt PDF) are recorded in `upload_entries` and the upload ends `partial` (or
 `completed` if all succeed). Rationale: after some documents are successfully created, hard-failing the
 whole upload would orphan/confuse already-ingested content; `partial` + per-entry errors is honest,
@@ -593,25 +597,25 @@ at the end of each phase. **Stop gates** are mandatory pauses for human review.
 
 ## 12. Critical files
 
-| Path | Action |
-|---|---|
-| `src/api/upload.ts` | wire config cap; keep small-file path |
-| `src/api/upload-sessions.ts` | **new** init/complete/status/cancel |
-| `src/api/upload-process.ts` | **new** internal Cloud Tasks endpoint (OIDC) |
-| `src/api/routes.ts`, `src/index.ts` | mount new routes; raise processing-path body/timeout as needed |
-| `src/api/middleware/error.ts` | MulterError/413 → JSON; new stable codes |
-| `src/api/middleware/auth.ts` | reuse; add OIDC verify helper for internal endpoint |
-| `src/utils/config.ts`, `.env.example`, `docs/ENV.md` | new config + docs |
-| `src/db/uploads.ts` | **new** metadata/state CRUD (mirror `documents.ts`) |
-| `scripts/setup-db-uploads.sql`, `scripts/security-rls.sql` | **new** schema + RLS |
-| `src/services/storage/gcs.ts` | **new** GCS resumable/head/abort/signed-url |
-| `src/services/tasks/cloud-tasks.ts` | **new** enqueue + OIDC |
-| `src/services/processor/` (registry + handlers) | refactor from `processor.ts`; new handlers |
-| `src/services/chunker.ts`, `embeddings.ts`, `db/chunks.ts`, `db/documents.ts`, `pipeline.ts` | reuse as-is |
-| `dashboard/app/upload/page.tsx`, `dashboard/components/upload-zone.tsx`, `dashboard/lib/api.ts` | resumable client, progress, errors |
-| `Dockerfile`, `docs/guides/cloud-run-deployment.mdx` | processing-service resources/timeout/concurrency; bucket CORS/lifecycle; queue + IAM |
-| `src/**/__tests__/...`, fixtures dir (**new**) | tests + sample files |
-| `package.json` | **MVP:** add `@google-cloud/storage`, `@google-cloud/tasks`, an HTML parser (`html-to-text`/`cheerio`); move `unzipper` to deps (or add `yauzl`). **Tier 1.5 (later slices):** `mailparser`, `fast-xml-parser`, rtf, `officeparser`, epub |
+| Path                                                                                            | Action                                                                                                                                                                                                                                    |
+| ----------------------------------------------------------------------------------------------- | ----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
+| `src/api/upload.ts`                                                                             | wire config cap; keep small-file path                                                                                                                                                                                                     |
+| `src/api/upload-sessions.ts`                                                                    | **new** init/complete/status/cancel                                                                                                                                                                                                       |
+| `src/api/upload-process.ts`                                                                     | **new** internal Cloud Tasks endpoint (OIDC)                                                                                                                                                                                              |
+| `src/api/routes.ts`, `src/index.ts`                                                             | mount new routes; raise processing-path body/timeout as needed                                                                                                                                                                            |
+| `src/api/middleware/error.ts`                                                                   | MulterError/413 → JSON; new stable codes                                                                                                                                                                                                  |
+| `src/api/middleware/auth.ts`                                                                    | reuse; add OIDC verify helper for internal endpoint                                                                                                                                                                                       |
+| `src/utils/config.ts`, `.env.example`, `docs/ENV.md`                                            | new config + docs                                                                                                                                                                                                                         |
+| `src/db/uploads.ts`                                                                             | **new** metadata/state CRUD (mirror `documents.ts`)                                                                                                                                                                                       |
+| `scripts/setup-db-uploads.sql`, `scripts/security-rls.sql`                                      | **new** schema + RLS                                                                                                                                                                                                                      |
+| `src/services/storage/gcs.ts`                                                                   | **new** GCS resumable/head/abort/signed-url                                                                                                                                                                                               |
+| `src/services/tasks/cloud-tasks.ts`                                                             | **new** enqueue + OIDC                                                                                                                                                                                                                    |
+| `src/services/processor/` (registry + handlers)                                                 | refactor from `processor.ts`; new handlers                                                                                                                                                                                                |
+| `src/services/chunker.ts`, `embeddings.ts`, `db/chunks.ts`, `db/documents.ts`, `pipeline.ts`    | reuse as-is                                                                                                                                                                                                                               |
+| `dashboard/app/upload/page.tsx`, `dashboard/components/upload-zone.tsx`, `dashboard/lib/api.ts` | resumable client, progress, errors                                                                                                                                                                                                        |
+| `Dockerfile`, `docs/guides/cloud-run-deployment.mdx`                                            | processing-service resources/timeout/concurrency; bucket CORS/lifecycle; queue + IAM                                                                                                                                                      |
+| `src/**/__tests__/...`, fixtures dir (**new**)                                                  | tests + sample files                                                                                                                                                                                                                      |
+| `package.json`                                                                                  | **MVP:** add `@google-cloud/storage`, `@google-cloud/tasks`, an HTML parser (`html-to-text`/`cheerio`); move `unzipper` to deps (or add `yauzl`). **Tier 1.5 (later slices):** `mailparser`, `fast-xml-parser`, rtf, `officeparser`, epub |
 
 ## 13. Verification plan
 

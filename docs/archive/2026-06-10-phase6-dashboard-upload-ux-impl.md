@@ -10,7 +10,7 @@ Read parent §10 (frontend behaviour) and §8a (support matrix) first.
 
 ## Sequencing
 
-Phase 6 depends on **Phase 5 (server ZIP + widened Tier‑1)** for its accept-list to honestly include ZIP/csv/xlsx/json/html. If Phase 5 is not yet merged+deployed, ship Phase 6 with the accept-list limited to the **currently** processable types (pdf/docx/txt/md) and add the rest when Phase 5 lands. The resumable *plumbing* (T6.1) is independent of Phase 5.
+Phase 6 depends on **Phase 5 (server ZIP + widened Tier‑1)** for its accept-list to honestly include ZIP/csv/xlsx/json/html. If Phase 5 is not yet merged+deployed, ship Phase 6 with the accept-list limited to the **currently** processable types (pdf/docx/txt/md) and add the rest when Phase 5 lands. The resumable _plumbing_ (T6.1) is independent of Phase 5.
 
 ## Decisions
 
@@ -22,7 +22,7 @@ Phase 6 depends on **Phase 5 (server ZIP + widened Tier‑1)** for its accept-li
 **Open — confirm before T6.1:**
 
 - **Resumable PUT strategy:** **chunked** (e.g. 8 MiB chunks, 256 KiB-aligned, honor GCS `308` + `Range`, in-session resume on transient failure, byte progress per chunk) **vs single-shot PUT** with `XMLHttpRequest` `upload.onprogress`. **Recommendation: chunked** — the original failure was a ~60 MB upload dying mid-flight, which single-shot can't resume. ⚠️ **Prerequisite:** bucket CORS must allow `PUT` + `Content-Range` from the dashboard origin **and expose the `Range` response header** (documented in Phase 3 T3.3 — verify it's actually applied to the bucket before building chunked resume).
-- **Threshold source:** a client constant `NEXT_PUBLIC_UPLOAD_THRESHOLD_MB` (default 20, matching server `MAX_SINGLE_FILE_SIZE_MB`) decides direct-vs-resumable *before* any request. **Recommendation: this.** Alternative — always-resumable (simpler, one code path) but loses the snappy synchronous small-file response.
+- **Threshold source:** a client constant `NEXT_PUBLIC_UPLOAD_THRESHOLD_MB` (default 20, matching server `MAX_SINGLE_FILE_SIZE_MB`) decides direct-vs-resumable _before_ any request. **Recommendation: this.** Alternative — always-resumable (simpler, one code path) but loses the snappy synchronous small-file response.
 
 ## Grounding delta — what exists now
 

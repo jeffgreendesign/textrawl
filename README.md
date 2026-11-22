@@ -52,23 +52,23 @@ Textrawl is a personal knowledge server with persistent memory, searchable docum
 
 ## Features
 
-| Feature | Description |
-|---------|-------------|
-| **Hybrid Search** | Vector similarity + full-text search with Reciprocal Rank Fusion |
-| **Persistent Memory** | Remember facts about people, projects, and concepts across sessions |
-| **Conversation Recall** | Save and query past conversation context across sessions |
-| **Proactive Insights** | Automatically discover connections, patterns, and outliers in your knowledge |
-| **Daily Briefing** | Summary of recent additions, new insights, and resurfaced knowledge |
-| **Unified RAG** | `ask` tool searches documents, memory, and conversations in one query |
-| **Web Dashboard** | Command center with knowledge explorer, timeline, agent orchestration, and applets |
-| **Desktop App** | Drag-and-drop file conversion and upload (macOS, Windows, Linux) |
-| **Multi-Format** | PDF, DOCX, XLSX, CSV, JSON, HTML, Markdown/text, ZIP archives, MBOX/EML emails, Google Takeout |
-| **MCP + REST + WebSocket** | MCP tools, REST API, and real-time WebSocket events |
-| **Agent Discovery** | A2A protocol at `/.well-known/agent.json` for agent-to-agent interaction |
-| **Flexible Embeddings** | OpenAI, Google AI, or Ollama (free, local) |
-| **Smart Chunking** | Paragraph-aware splitting with overlap for context |
-| **CLI Tools** | Batch processing for large archives |
-| **Cloud Ready** | Deploy to Docker, Cloud Run, or any container platform; large uploads require GCS/Cloud Tasks configuration |
+| Feature                    | Description                                                                                                 |
+| -------------------------- | ----------------------------------------------------------------------------------------------------------- |
+| **Hybrid Search**          | Vector similarity + full-text search with Reciprocal Rank Fusion                                            |
+| **Persistent Memory**      | Remember facts about people, projects, and concepts across sessions                                         |
+| **Conversation Recall**    | Save and query past conversation context across sessions                                                    |
+| **Proactive Insights**     | Automatically discover connections, patterns, and outliers in your knowledge                                |
+| **Daily Briefing**         | Summary of recent additions, new insights, and resurfaced knowledge                                         |
+| **Unified RAG**            | `ask` tool searches documents, memory, and conversations in one query                                       |
+| **Web Dashboard**          | Command center with knowledge explorer, timeline, agent orchestration, and applets                          |
+| **Desktop App**            | Drag-and-drop file conversion and upload (macOS, Windows, Linux)                                            |
+| **Multi-Format**           | PDF, DOCX, XLSX, CSV, JSON, HTML, Markdown/text, ZIP archives, MBOX/EML emails, Google Takeout              |
+| **MCP + REST + WebSocket** | MCP tools, REST API, and real-time WebSocket events                                                         |
+| **Agent Discovery**        | A2A protocol at `/.well-known/agent.json` for agent-to-agent interaction                                    |
+| **Flexible Embeddings**    | OpenAI, Google AI, or Ollama (free, local)                                                                  |
+| **Smart Chunking**         | Paragraph-aware splitting with overlap for context                                                          |
+| **CLI Tools**              | Batch processing for large archives                                                                         |
+| **Cloud Ready**            | Deploy to Docker, Cloud Run, or any container platform; large uploads require GCS/Cloud Tasks configuration |
 
 ## Privacy Model
 
@@ -163,47 +163,47 @@ pnpm upload -- ./converted/
 
 ## Documentation
 
-| Guide | Description |
-|-------|-------------|
+| Guide                                                    | Description                                                                  |
+| -------------------------------------------------------- | ---------------------------------------------------------------------------- |
 | [Database Sizing](docs/guides/database-requirements.mdx) | Vector dimensions, index counts, and storage estimates by embedding provider |
-| [CLI Tools](docs/cli/) | Batch conversion and upload from command line |
-| [Security](docs/guides/security-hardening.mdx) | Row Level Security and access controls |
+| [CLI Tools](docs/cli/)                                   | Batch conversion and upload from command line                                |
+| [Security](docs/guides/security-hardening.mdx)           | Row Level Security and access controls                                       |
 
 ---
 
 ## Configuration
 
-| Variable | Required | Description |
-|----------|----------|-------------|
-| `DATABASE_URL` | Yes | Neon (or any PostgreSQL) pooled connection string |
-| `DATABASE_URL_UNPOOLED` | No | Direct connection for schema migrations (optional) |
-| `EMBEDDING_PROVIDER` | No | `openai` (default), `ollama`, or `google` |
-| `OPENAI_API_KEY` | If OpenAI | For text-embedding-3-small (1536d) |
-| `OLLAMA_BASE_URL` | If Ollama | Default: `http://localhost:11434` |
-| `OLLAMA_MODEL` | If Ollama | Default: `nomic-embed-text` |
-| `GOOGLE_AI_API_KEY` | If Google | For gemini-embedding-2 (1536d) |
-| `GOOGLE_EMBEDDING_MODEL` | If Google | Default: `gemini-embedding-2` |
-| `API_BEARER_TOKEN` | Prod only | Min 32 chars (`openssl rand -hex 32`) |
-| `PORT` | No | Default: 3000 |
-| `LOG_LEVEL` | No | debug, info, warn, error |
-| `ALLOWED_ORIGINS` | No | Comma-separated CORS origins |
-| `ENABLE_MEMORY` | No | Enable memory tools (default: true); requires `setup-db-memory.sql` |
-| `ENABLE_CONVERSATIONS` | No | Enable conversation memory tools (default: true); requires `setup-db-conversation.sql` |
-| `ENABLE_INSIGHTS` | No | Enable proactive insight tools (default: true) |
-| `ENABLE_MEMORY_EXTRACTION` | No | Enable LLM-based memory extraction (default: false) |
-| `ANTHROPIC_API_KEY` | If extraction | Required for `extract_memories` tool |
-| `EXTRACTION_MODEL` | No | Model for extraction (default: claude-haiku-4-5) |
-| `INSIGHT_MODEL` | No | Model for insight synthesis (default: claude-sonnet-5) |
-| `COMPACT_RESPONSES` | No | Token-efficient responses (default: true) |
-| `CHUNKING_MODE` | No | `fixed` (default) or `semantic` (embedding-based splits) |
-| `SEMANTIC_SIMILARITY_THRESHOLD` | No | Semantic split sensitivity 0–1 (default: 0.5) |
-| `REDIS_URL` | No | Redis URL for shared rate limiting across instances |
-| `GOOGLE_CLIENT_ID` | OAuth | OAuth 2.0 client ID (all four OAuth vars required together) |
-| `GOOGLE_CLIENT_SECRET` | OAuth | OAuth 2.0 client secret |
-| `OAUTH_JWT_SECRET` | OAuth | Min 32-char secret for JWT signing |
-| `OAUTH_ALLOWED_EMAILS` | OAuth | Comma-separated email allowlist (optional) |
-| `OAUTH_SERVER_URL` | OAuth | Public server URL for OAuth redirect |
-| `PG_REPORT_DIR` | No | pg_analyze report directory (default: ./reports/pg-analysis) |
+| Variable                        | Required      | Description                                                                            |
+| ------------------------------- | ------------- | -------------------------------------------------------------------------------------- |
+| `DATABASE_URL`                  | Yes           | Neon (or any PostgreSQL) pooled connection string                                      |
+| `DATABASE_URL_UNPOOLED`         | No            | Direct connection for schema migrations (optional)                                     |
+| `EMBEDDING_PROVIDER`            | No            | `openai` (default), `ollama`, or `google`                                              |
+| `OPENAI_API_KEY`                | If OpenAI     | For text-embedding-3-small (1536d)                                                     |
+| `OLLAMA_BASE_URL`               | If Ollama     | Default: `http://localhost:11434`                                                      |
+| `OLLAMA_MODEL`                  | If Ollama     | Default: `nomic-embed-text`                                                            |
+| `GOOGLE_AI_API_KEY`             | If Google     | For gemini-embedding-2 (1536d)                                                         |
+| `GOOGLE_EMBEDDING_MODEL`        | If Google     | Default: `gemini-embedding-2`                                                          |
+| `API_BEARER_TOKEN`              | Prod only     | Min 32 chars (`openssl rand -hex 32`)                                                  |
+| `PORT`                          | No            | Default: 3000                                                                          |
+| `LOG_LEVEL`                     | No            | debug, info, warn, error                                                               |
+| `ALLOWED_ORIGINS`               | No            | Comma-separated CORS origins                                                           |
+| `ENABLE_MEMORY`                 | No            | Enable memory tools (default: true); requires `setup-db-memory.sql`                    |
+| `ENABLE_CONVERSATIONS`          | No            | Enable conversation memory tools (default: true); requires `setup-db-conversation.sql` |
+| `ENABLE_INSIGHTS`               | No            | Enable proactive insight tools (default: true)                                         |
+| `ENABLE_MEMORY_EXTRACTION`      | No            | Enable LLM-based memory extraction (default: false)                                    |
+| `ANTHROPIC_API_KEY`             | If extraction | Required for `extract_memories` tool                                                   |
+| `EXTRACTION_MODEL`              | No            | Model for extraction (default: claude-haiku-4-5)                                       |
+| `INSIGHT_MODEL`                 | No            | Model for insight synthesis (default: claude-sonnet-5)                                 |
+| `COMPACT_RESPONSES`             | No            | Token-efficient responses (default: true)                                              |
+| `CHUNKING_MODE`                 | No            | `fixed` (default) or `semantic` (embedding-based splits)                               |
+| `SEMANTIC_SIMILARITY_THRESHOLD` | No            | Semantic split sensitivity 0–1 (default: 0.5)                                          |
+| `REDIS_URL`                     | No            | Redis URL for shared rate limiting across instances                                    |
+| `GOOGLE_CLIENT_ID`              | OAuth         | OAuth 2.0 client ID (all four OAuth vars required together)                            |
+| `GOOGLE_CLIENT_SECRET`          | OAuth         | OAuth 2.0 client secret                                                                |
+| `OAUTH_JWT_SECRET`              | OAuth         | Min 32-char secret for JWT signing                                                     |
+| `OAUTH_ALLOWED_EMAILS`          | OAuth         | Comma-separated email allowlist (optional)                                             |
+| `OAUTH_SERVER_URL`              | OAuth         | Public server URL for OAuth redirect                                                   |
+| `PG_REPORT_DIR`                 | No            | pg_analyze report directory (default: ./reports/pg-analysis)                           |
 
 ## Tool surfaces (compact vs full)
 
@@ -217,11 +217,11 @@ the name signals models use to pick tools). The MCP spec defines no standard
 tool-filtering primitive, so `MCP_TOOLSET` is a server-local convention; host/harness
 **lazy tool loading** remains the canonical way to surface fewer tools at a time.
 
-| `MCP_TOOLSET` | Tools advertised |
-|---|---|
+| `MCP_TOOLSET`          | Tools advertised                                                                                                                                                                                                                                               |
+| ---------------------- | -------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
 | `normal` (**default**) | Workflow tools: `ask`, `search`, `get_document`, `capture`, `daily_briefing`, `timeline` (+ `remember` when `ENABLE_MEMORY=true`). Set `EXPOSE_ADMIN_TOOLS=true` to also expose read-only diagnostics (`health_check`, `get_stats`, insight + Postgres tools). |
-| `full` | Workflow tools + diagnostics + all original granular tools (backward compatible). |
-| `legacy` | Exactly the original tool set (no workflow tools). |
+| `full`                 | Workflow tools + diagnostics + all original granular tools (backward compatible).                                                                                                                                                                              |
+| `legacy`               | Exactly the original tool set (no workflow tools).                                                                                                                                                                                                             |
 
 **Recommended exposure:** personal/family bots → `MCP_TOOLSET=normal` and
 `EXPOSE_ADMIN_TOOLS=false` (so destructive `forget_entity`/`delete_conversation` are
@@ -240,9 +240,9 @@ Read-only tools (`search`, `get_document`, `list_documents`, `query_memory`, `qu
 
 ### Workflow Tools (compact `normal` surface)
 
-| Tool | Description |
-|------|-------------|
-| `capture` | Save content to the knowledge base — `kind="note"` (title+content) or `kind="url"` (fetch + clip). Consolidates `add_note` + `save_url`. |
+| Tool       | Description                                                                                                                                        |
+| ---------- | -------------------------------------------------------------------------------------------------------------------------------------------------- |
+| `capture`  | Save content to the knowledge base — `kind="note"` (title+content) or `kind="url"` (fetch + clip). Consolidates `add_note` + `save_url`.           |
 | `remember` | Write structured knowledge to the memory graph — `facts` and/or `relations`. Consolidates `remember_fact` + `build_knowledge` + `relate_entities`. |
 
 `ask`, `search`, `get_document`, `daily_briefing`, and `timeline` (documented below)
@@ -252,26 +252,26 @@ privacy scoping.
 
 ### Document Tools
 
-| Tool | Description |
-|------|-------------|
-| `search` | Hybrid semantic + full-text search. Set `includeMemories`/`includeConversations` for cross-source fusion. `audience` scopes private sources. |
-| `get_document` | Retrieve document by ID |
-| `list_documents` | List with pagination and filtering |
-| `update_document` | Update title and/or tags |
-| `add_note` | Add markdown note to knowledge base |
+| Tool              | Description                                                                                                                                  |
+| ----------------- | -------------------------------------------------------------------------------------------------------------------------------------------- |
+| `search`          | Hybrid semantic + full-text search. Set `includeMemories`/`includeConversations` for cross-source fusion. `audience` scopes private sources. |
+| `get_document`    | Retrieve document by ID                                                                                                                      |
+| `list_documents`  | List with pagination and filtering                                                                                                           |
+| `update_document` | Update title and/or tags                                                                                                                     |
+| `add_note`        | Add markdown note to knowledge base                                                                                                          |
 
 ### Memory Tools (Persistent Memory)
 
 Enable with `ENABLE_MEMORY=true` (default). Requires `scripts/setup-db-memory.sql` or `setup-db-memory-ollama.sql`.
 
-| Tool | Description |
-|------|-------------|
-| `remember_fact` | Store facts about entities (people, projects, concepts) |
-| `build_knowledge` | Store multiple facts and relations in a single batch call |
-| `query_memory` | Query the memory graph (`mode: 'search' \| 'entity' \| 'list'`) |
-| `relate_entities` | Create relationships between entities |
-| `forget_entity` | Delete an entity and all its memories |
-| `extract_memories` | Extract entities and facts from text using LLM |
+| Tool               | Description                                                     |
+| ------------------ | --------------------------------------------------------------- |
+| `remember_fact`    | Store facts about entities (people, projects, concepts)         |
+| `build_knowledge`  | Store multiple facts and relations in a single batch call       |
+| `query_memory`     | Query the memory graph (`mode: 'search' \| 'entity' \| 'list'`) |
+| `relate_entities`  | Create relationships between entities                           |
+| `forget_entity`    | Delete an entity and all its memories                           |
+| `extract_memories` | Extract entities and facts from text using LLM                  |
 
 ### Conversation Tools (Conversation Memory)
 
@@ -282,59 +282,59 @@ Enable with `ENABLE_CONVERSATIONS=true` (default). Requires running one of the c
 - `scripts/setup-db-conversation-ollama-v2.sql` (Ollama v2 - nomic-embed-text-v2-moe, 768d)
 - `scripts/setup-db-conversation-google.sql` (Google AI - gemini-embedding-2, 1536d)
 
-| Tool | Description |
-|------|-------------|
-| `save_conversation_context` | Save conversation summary and turns for recall |
-| `query_conversations` | Query past conversations (`mode: 'search' \| 'get' \| 'list'`) |
-| `delete_conversation` | Delete a conversation session |
+| Tool                        | Description                                                    |
+| --------------------------- | -------------------------------------------------------------- |
+| `save_conversation_context` | Save conversation summary and turns for recall                 |
+| `query_conversations`       | Query past conversations (`mode: 'search' \| 'get' \| 'list'`) |
+| `delete_conversation`       | Delete a conversation session                                  |
 
 ### Insight Tools (Proactive Discovery)
 
 Enable with `ENABLE_INSIGHTS=true` (default).
 
-| Tool | Description |
-|------|-------------|
-| `get_insights` | View discovered cross-source connections and patterns |
-| `discover_connections` | Trigger an insight scan across the knowledge base |
-| `dismiss_insight` | Dismiss an insight from the queue |
+| Tool                   | Description                                           |
+| ---------------------- | ----------------------------------------------------- |
+| `get_insights`         | View discovered cross-source connections and patterns |
+| `discover_connections` | Trigger an insight scan across the knowledge base     |
+| `dismiss_insight`      | Dismiss an insight from the queue                     |
 
 ### Stats
 
-| Tool | Description |
-|------|-------------|
-| `get_stats` | Statistics across all features (`scope: 'all' \| 'knowledge' \| 'memory' \| 'conversations' \| 'insights'`) |
+| Tool           | Description                                                                                                                 |
+| -------------- | --------------------------------------------------------------------------------------------------------------------------- |
+| `get_stats`    | Statistics across all features (`scope: 'all' \| 'knowledge' \| 'memory' \| 'conversations' \| 'insights'`)                 |
 | `health_check` | Check the health of all subsystems — returns pass/fail per component with overall status (`verbose` for latency and counts) |
 
 ### Unified Tools
 
-| Tool | Description |
-|------|-------------|
-| `ask` | Unified RAG search across all knowledge sources (documents, memory, conversations, insights) |
-| `daily_briefing` | Generate a daily briefing with recent additions, new insights, and resurfaced knowledge |
-| `save_url` | Fetch a URL, convert HTML to markdown, extract metadata, and save as a document |
-| `timeline` | Browse knowledge chronologically within a date range, optionally filtered by topic |
+| Tool             | Description                                                                                  |
+| ---------------- | -------------------------------------------------------------------------------------------- |
+| `ask`            | Unified RAG search across all knowledge sources (documents, memory, conversations, insights) |
+| `daily_briefing` | Generate a daily briefing with recent additions, new insights, and resurfaced knowledge      |
+| `save_url`       | Fetch a URL, convert HTML to markdown, extract metadata, and save as a document              |
+| `timeline`       | Browse knowledge chronologically within a date range, optionally filtered by topic           |
 
 ### Postgres Analysis Tools
 
 Enabled when `DATABASE_URL` is configured. Connects directly to Postgres.
 
-| Tool | Description |
-|------|-------------|
-| `pg_analyze` | Run comprehensive Postgres health analysis with table stats, index health, vacuum status, bloat estimates, and Textrawl-specific checks |
-| `pg_recommendations` | Get actionable optimization recommendations filtered by severity |
-| `pg_report_history` | View past analysis reports and compare trends over time |
+| Tool                 | Description                                                                                                                             |
+| -------------------- | --------------------------------------------------------------------------------------------------------------------------------------- |
+| `pg_analyze`         | Run comprehensive Postgres health analysis with table stats, index health, vacuum status, bloat estimates, and Textrawl-specific checks |
+| `pg_recommendations` | Get actionable optimization recommendations filtered by severity                                                                        |
+| `pg_report_history`  | View past analysis reports and compare trends over time                                                                                 |
 
 ### Search Parameters
 
-| Parameter | Type | Default | Description |
-|-----------|------|---------|-------------|
-| `query` | string | required | Search query |
-| `limit` | number | 10 | Max results (1-50) |
-| `fullTextWeight` | number | 1.0 | Keyword weight (0-2) |
-| `semanticWeight` | number | 1.0 | Semantic weight (0-2) |
-| `minScore` | number | 0 | Min relevance threshold (0-1) |
-| `tags` | string[] | - | Filter by tags (AND logic) |
-| `sourceType` | string | - | `note`, `file`, or `url` |
+| Parameter        | Type     | Default  | Description                   |
+| ---------------- | -------- | -------- | ----------------------------- |
+| `query`          | string   | required | Search query                  |
+| `limit`          | number   | 10       | Max results (1-50)            |
+| `fullTextWeight` | number   | 1.0      | Keyword weight (0-2)          |
+| `semanticWeight` | number   | 1.0      | Semantic weight (0-2)         |
+| `minScore`       | number   | 0        | Min relevance threshold (0-1) |
+| `tags`           | string[] | -        | Filter by tags (AND logic)    |
+| `sourceType`     | string   | -        | `note`, `file`, or `url`      |
 
 ## REST API
 
@@ -445,12 +445,12 @@ OLLAMA_MODEL=nomic-embed-text
 
 ## Troubleshooting
 
-| Issue | Solution |
-|-------|----------|
-| Can't connect to database | Check `DATABASE_URL` is set to your Neon pooled connection string |
-| No search results | Check `chunks` table has embeddings; lower `minScore` |
-| MCP tools not in Claude | Restart Claude Desktop; check `curl http://localhost:3000/health` |
-| Rate limit exceeded | API: 100/min, Upload: 10/min |
+| Issue                                                   | Solution                                                                                                                                    |
+| ------------------------------------------------------- | ------------------------------------------------------------------------------------------------------------------------------------------- |
+| Can't connect to database                               | Check `DATABASE_URL` is set to your Neon pooled connection string                                                                           |
+| No search results                                       | Check `chunks` table has embeddings; lower `minScore`                                                                                       |
+| MCP tools not in Claude                                 | Restart Claude Desktop; check `curl http://localhost:3000/health`                                                                           |
+| Rate limit exceeded                                     | API: 100/min, Upload: 10/min                                                                                                                |
 | CodeQL Analyze job fails with SARIF/default setup error | This repo uses advanced CodeQL workflow (`.github/workflows/codeql.yml`); keep GitHub Code Scanning Default Setup disabled in repo settings |
 
 ## Contributing

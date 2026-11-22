@@ -23,17 +23,19 @@ See `docs/IMPROVEMENT_TRACKER.md` for the tracking checklist. Update it after ea
 
 The old pattern:
 
-~~~typescript
+```typescript
 server.tool(
   'search_knowledge',
-  { query: z.string().min(1).max(10000).describe('...'), /* ... */ },
-  async ({ query, limit /* ... */ }) => { /* handler */ }
+  { query: z.string().min(1).max(10000).describe('...') /* ... */ },
+  async ({ query, limit /* ... */ }) => {
+    /* handler */
+  },
 );
-~~~
+```
 
 The new pattern:
 
-~~~typescript
+```typescript
 server.registerTool(
   'search_knowledge',
   {
@@ -44,9 +46,11 @@ server.registerTool(
       // ... rest of params
     },
   },
-  async ({ query, limit /* ... */ }) => { /* handler */ }
+  async ({ query, limit /* ... */ }) => {
+    /* handler */
+  },
 );
-~~~
+```
 
 Migrate every tool. Add a meaningful `title` to each one (this is what MCP clients display in UIs). Keep `description` as the detailed text that LLMs read for tool selection.
 
@@ -62,32 +66,76 @@ After migrating, `grep -r "server\.tool(" src/` should return zero results (only
 
 **Design**:
 
-~~~typescript
-server.registerTool('build_knowledge', {
-  title: 'Build Knowledge Graph',
-  description: 'Create multiple entities with facts and relations in a single call. Use this instead of calling remember_fact and relate_entities separately. Processes all facts first, then creates relations between entities.',
-  inputSchema: {
-    facts: z.array(z.object({
-      entityName: z.string().min(1).max(200),
-      entityType: z.enum(['person', 'concept', 'project', 'preference', 'fact', 'location', 'organization']),
-      observation: z.string().min(1).max(2000),
-      source: z.enum(['conversation', 'note', 'document', 'manual']).default('conversation'),
-      validUntil: z.string().optional(),
-    })).min(1).describe('Array of entity facts to store'),
-    relations: z.array(z.object({
-      fromEntity: z.string().min(1).max(200),
-      fromEntityType: z.enum(['person', 'concept', 'project', 'preference', 'fact', 'location', 'organization']).optional(),
-      relation: z.string().min(1).max(100),
-      toEntity: z.string().min(1).max(200),
-      toEntityType: z.enum(['person', 'concept', 'project', 'preference', 'fact', 'location', 'organization']).optional(),
-    })).optional().default([]).describe('Array of relations between entities'),
+```typescript
+server.registerTool(
+  'build_knowledge',
+  {
+    title: 'Build Knowledge Graph',
+    description:
+      'Create multiple entities with facts and relations in a single call. Use this instead of calling remember_fact and relate_entities separately. Processes all facts first, then creates relations between entities.',
+    inputSchema: {
+      facts: z
+        .array(
+          z.object({
+            entityName: z.string().min(1).max(200),
+            entityType: z.enum([
+              'person',
+              'concept',
+              'project',
+              'preference',
+              'fact',
+              'location',
+              'organization',
+            ]),
+            observation: z.string().min(1).max(2000),
+            source: z.enum(['conversation', 'note', 'document', 'manual']).default('conversation'),
+            validUntil: z.string().optional(),
+          }),
+        )
+        .min(1)
+        .describe('Array of entity facts to store'),
+      relations: z
+        .array(
+          z.object({
+            fromEntity: z.string().min(1).max(200),
+            fromEntityType: z
+              .enum([
+                'person',
+                'concept',
+                'project',
+                'preference',
+                'fact',
+                'location',
+                'organization',
+              ])
+              .optional(),
+            relation: z.string().min(1).max(100),
+            toEntity: z.string().min(1).max(200),
+            toEntityType: z
+              .enum([
+                'person',
+                'concept',
+                'project',
+                'preference',
+                'fact',
+                'location',
+                'organization',
+              ])
+              .optional(),
+          }),
+        )
+        .optional()
+        .default([])
+        .describe('Array of relations between entities'),
+    },
   },
-}, async ({ facts, relations }) => {
-  // 1. Process all facts (creates entities if needed)
-  // 2. Process all relations
-  // 3. Return summary of what was created
-});
-~~~
+  async ({ facts, relations }) => {
+    // 1. Process all facts (creates entities if needed)
+    // 2. Process all relations
+    // 3. Return summary of what was created
+  },
+);
+```
 
 **Bug fix**: The current `relate_entities` tool rejects `null` for optional `fromEntityType`/`toEntityType` params. The Zod schema likely uses `.optional()` but the MCP client sends explicit `null`. Fix by adding `.nullable()` to those fields: `z.enum([...]).optional().nullable()`.
 
@@ -101,13 +149,13 @@ server.registerTool('build_knowledge', {
 
 **Merge candidates** (evaluate each — some may not make sense once you see the current code):
 
-| Current Tools | Proposed Merge | Notes |
-|---|---|---|
-| `search_knowledge`, `search_with_context` | `search` | One tool with `includeDocuments`, `includeMemories`, `includeConversations` booleans |
-| `list_entities`, `get_entity_context`, `recall_memories` | `query_memory` | Mode param: `list`, `entity`, `search` |
-| `knowledge_stats`, `memory_stats`, `conversation_stats`, `insight_stats` | `get_stats` | `scope` param: `all`, `knowledge`, `memory`, `conversations`, `insights` |
-| `list_conversations`, `recall_conversation`, `get_conversation` | `query_conversations` | Mode param: `list`, `search`, `get` |
-| `get_insights`, `discover_connections`, `dismiss_insight`, `insight_stats` | Evaluate — insights may be fine as-is | These are distinct enough actions |
+| Current Tools                                                              | Proposed Merge                        | Notes                                                                                |
+| -------------------------------------------------------------------------- | ------------------------------------- | ------------------------------------------------------------------------------------ |
+| `search_knowledge`, `search_with_context`                                  | `search`                              | One tool with `includeDocuments`, `includeMemories`, `includeConversations` booleans |
+| `list_entities`, `get_entity_context`, `recall_memories`                   | `query_memory`                        | Mode param: `list`, `entity`, `search`                                               |
+| `knowledge_stats`, `memory_stats`, `conversation_stats`, `insight_stats`   | `get_stats`                           | `scope` param: `all`, `knowledge`, `memory`, `conversations`, `insights`             |
+| `list_conversations`, `recall_conversation`, `get_conversation`            | `query_conversations`                 | Mode param: `list`, `search`, `get`                                                  |
+| `get_insights`, `discover_connections`, `dismiss_insight`, `insight_stats` | Evaluate — insights may be fine as-is | These are distinct enough actions                                                    |
 
 **Do NOT merge** tools with fundamentally different write semantics (e.g., `add_note` should stay separate from `remember_fact`/`build_knowledge`).
 
@@ -121,41 +169,47 @@ server.registerTool('build_knowledge', {
 
 **Implementation pattern**:
 
-~~~typescript
-server.registerTool('search', {
-  title: 'Search Knowledge Base',
-  description: '...',
-  inputSchema: { /* ... */ },
-  outputSchema: {
-    type: 'object',
-    properties: {
-      results: {
-        type: 'array',
-        items: {
-          type: 'object',
-          properties: {
-            id: { type: 'string' },
-            title: { type: 'string' },
-            content: { type: 'string' },
-            score: { type: 'number' },
-            sourceType: { type: 'string' },
-          },
-          required: ['id', 'title', 'content', 'score'],
-        },
-      },
-      total: { type: 'integer' },
+```typescript
+server.registerTool(
+  'search',
+  {
+    title: 'Search Knowledge Base',
+    description: '...',
+    inputSchema: {
+      /* ... */
     },
-    required: ['results', 'total'],
+    outputSchema: {
+      type: 'object',
+      properties: {
+        results: {
+          type: 'array',
+          items: {
+            type: 'object',
+            properties: {
+              id: { type: 'string' },
+              title: { type: 'string' },
+              content: { type: 'string' },
+              score: { type: 'number' },
+              sourceType: { type: 'string' },
+            },
+            required: ['id', 'title', 'content', 'score'],
+          },
+        },
+        total: { type: 'integer' },
+      },
+      required: ['results', 'total'],
+    },
   },
-}, async (params) => {
-  const results = await searchService.search(params);
-  const structured = { results, total: results.length };
-  return {
-    content: [{ type: 'text', text: JSON.stringify(structured, null, 2) }],
-    structuredContent: structured,
-  };
-});
-~~~
+  async (params) => {
+    const results = await searchService.search(params);
+    const structured = { results, total: results.length };
+    return {
+      content: [{ type: 'text', text: JSON.stringify(structured, null, 2) }],
+      structuredContent: structured,
+    };
+  },
+);
+```
 
 **Note**: The `outputSchema` must be plain JSON Schema (not Zod). You can use `zodToJsonSchema()` from the `zod-to-json-schema` package if you want to define it in Zod and convert, or just write the JSON Schema directly.
 
@@ -173,11 +227,11 @@ Start with the highest-impact tools: `search_knowledge`/`search`, `recall_memori
 
 **Implementation**:
 
-~~~bash
+```bash
 npm install @express-rate-limit/redis ioredis
-~~~
+```
 
-~~~typescript
+```typescript
 import RedisStore from '@express-rate-limit/redis';
 import Redis from 'ioredis';
 
@@ -190,7 +244,7 @@ const limiter = rateLimit({
   windowMs: 60 * 1000,
   max: 100,
 });
-~~~
+```
 
 Add `REDIS_URL` as an optional env var in your config schema. Document that it's only needed for multi-instance deployments.
 

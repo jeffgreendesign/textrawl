@@ -12,8 +12,8 @@ Read parent §8 (registry + tiers), §8a (honest support matrix), §9 (ZIP safet
 
 **Resolved:**
 
-- **Partial-success policy = `partial`** (parent §9). Archive-level failures (traversal/bomb/limits/empty) fail the whole ZIP *before* any document is created; once extraction begins, per-entry failures are recorded and the upload ends `partial` (or `completed` if all entries succeed). `partial`/`failed` are already legal `processing→` transitions (`src/db/uploads.ts`).
-- **ZIP reader = `unzipper.Open.buffer()`** (already a dep; no new lib). Phase 4 already buffers the whole object in memory (bounded by the verified `size_bytes` ≤ `MAX_UPLOAD_SIZE_MB`), so random-access central-directory reading is available and gives **accurate per-entry uncompressed sizes up front** — essential for enforcing the bomb/size limits *before* decompressing. (True forward-streaming extraction without buffering is a later refinement; out of scope.)
+- **Partial-success policy = `partial`** (parent §9). Archive-level failures (traversal/bomb/limits/empty) fail the whole ZIP _before_ any document is created; once extraction begins, per-entry failures are recorded and the upload ends `partial` (or `completed` if all entries succeed). `partial`/`failed` are already legal `processing→` transitions (`src/db/uploads.ts`).
+- **ZIP reader = `unzipper.Open.buffer()`** (already a dep; no new lib). Phase 4 already buffers the whole object in memory (bounded by the verified `size_bytes` ≤ `MAX_UPLOAD_SIZE_MB`), so random-access central-directory reading is available and gives **accurate per-entry uncompressed sizes up front** — essential for enforcing the bomb/size limits _before_ decompressing. (True forward-streaming extraction without buffering is a later refinement; out of scope.)
 
 **Open — confirm before T5.2 (this is STOP GATE 5a):**
 
@@ -86,4 +86,4 @@ One ZIP → one document per supported entry, with strict safety. Archive-level 
 
 - Per slice: the named test files, then `pnpm verify:fast` before each commit, `pnpm verify` before each PR. Pause for CodeRabbit before each commit/PR.
 - **End-to-end (after PR C merges + deploys):** drive the resumable API (init → GCS PUT → complete → poll) with a real ZIP of mixed supported/unsupported entries; expect `partial` with one document per supported entry and per-entry rows in the status response. (Same direct-API harness used to verify Phase 4; the dashboard can't drive it until Phase 6.)
-- **Honesty:** this unblocks the *server* side of ZIP. The dashboard still can't send ZIP/large files until **Phase 6** (resumable client + accept-list + error mapping). Do not advertise ZIP in the UI before Phase 6.
+- **Honesty:** this unblocks the _server_ side of ZIP. The dashboard still can't send ZIP/large files until **Phase 6** (resumable client + accept-list + error mapping). Do not advertise ZIP in the UI before Phase 6.

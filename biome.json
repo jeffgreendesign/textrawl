@@ -53,6 +53,17 @@
 	},
 	"overrides": [
 		{
+			"includes": ["**/*.md"],
+			"formatter": {
+				"indentStyle": "space",
+				"indentWidth": 2
+			}
+		},
+		{
+			"includes": [".github/workflows/**"],
+			"formatter": { "enabled": false }
+		},
+		{
 			"includes": ["**/desktop/**", "**/scripts/**"],
 			"linter": {
 				"rules": {

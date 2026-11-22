@@ -1,4 +1,5 @@
 ---
+
 title: Memory System Architectures (May 2026)
 description: Survey of modern AI memory systems and recommended improvements for Textrawl
 ---
@@ -35,11 +36,11 @@ Million-token context windows complicate the picture: on most LongMemEval and LO
 
 Textrawl ships three independent memory-adjacent subsystems built in isolation:
 
-| Subsystem | Schema | Surface | Status |
-|---|---|---|---|
-| Memory graph | `scripts/setup-db-memory.sql` (entities/observations/relations) | `src/tools/memory.ts` (`remember_fact`, `extract_memories`, `build_knowledge`, `query_memory`) | Append-only, 0.95-cosine dedup, RRF without rerank |
-| Conversations | `scripts/setup-db-conversation.sql` | `src/tools/conversation.ts:save_conversation_context` | Sessions + turns with embeddings; no extraction pipeline to memory |
-| Insights | `scripts/setup-db-insights.sql` | `src/services/insight-analysis.ts:runInsightScan` | Cross-source/theme/outlier discovery over document chunks only — does not see memory or conversations |
+| Subsystem     | Schema                                                          | Surface                                                                                        | Status                                                                                                |
+| ------------- | --------------------------------------------------------------- | ---------------------------------------------------------------------------------------------- | ----------------------------------------------------------------------------------------------------- |
+| Memory graph  | `scripts/setup-db-memory.sql` (entities/observations/relations) | `src/tools/memory.ts` (`remember_fact`, `extract_memories`, `build_knowledge`, `query_memory`) | Append-only, 0.95-cosine dedup, RRF without rerank                                                    |
+| Conversations | `scripts/setup-db-conversation.sql`                             | `src/tools/conversation.ts:save_conversation_context`                                          | Sessions + turns with embeddings; no extraction pipeline to memory                                    |
+| Insights      | `scripts/setup-db-insights.sql`                                 | `src/services/insight-analysis.ts:runInsightScan`                                              | Cross-source/theme/outlier discovery over document chunks only — does not see memory or conversations |
 
 Gaps as of this writing:
 
@@ -55,7 +56,7 @@ Gaps as of this writing:
 
 ## Vendor-native memory APIs
 
-Textrawl is an MCP server consumed *by* these agents, so the shipped interfaces matter more than any research paper.
+Textrawl is an MCP server consumed _by_ these agents, so the shipped interfaces matter more than any research paper.
 
 ### Anthropic Claude memory tool (`memory_20250818`)
 
@@ -85,7 +86,7 @@ Codex now stores persistent context under `~/.codex/memories/`: summaries, durab
 
 References past chats + saved memories + connected apps (Gmail) for personalization. New in May 2026: a **memory sources** UI that shows which items influenced a response and lets users edit or remove them.
 
-**Relevance to Textrawl:** Provenance is now a user-facing expectation. Today `query_memory` does not return *why* a result surfaced. Adding a `sources` field that lists the contributing observation IDs and their `source_turn_id` / `source_document_id` brings Textrawl in line with the disclosure norm and is a prerequisite for any UI that wants to expose memory edits.
+**Relevance to Textrawl:** Provenance is now a user-facing expectation. Today `query_memory` does not return _why_ a result surfaced. Adding a `sources` field that lists the contributing observation IDs and their `source_turn_id` / `source_document_id` brings Textrawl in line with the disclosure norm and is a prerequisite for any UI that wants to expose memory edits.
 
 ### Gemini Personal Context (January 2026)
 
@@ -159,7 +160,7 @@ Source: <https://github.com/letta-ai/letta>
 
 ### A-MEM — Zettelkasten link evolution
 
-Each new memory gets a structured note with tags and explicit links to existing notes. When a new note is added, an LLM revisits *related* notes and updates their links — so the graph evolves rather than ossifying.
+Each new memory gets a structured note with tags and explicit links to existing notes. When a new note is added, an LLM revisits _related_ notes and updates their links — so the graph evolves rather than ossifying.
 
 **Relevance to Textrawl:** Today `memory_relations` is populated once (or not at all) and never revised. A-MEM's pattern — re-evaluate neighbor links on every write — slots into the Mem0 pipeline as an extra step: after ADD/UPDATE, fetch top-k related entities and let the LLM propose new/revised edges.
 
@@ -199,10 +200,10 @@ Three production memory backends launched or expanded in 2026. Supermemory expos
 
 ## Benchmarks
 
-| Benchmark | Size | Tests | Reference |
-|---|---|---|---|
-| **LongMemEval** | 500 manually-authored questions, avg 50 sessions / ~115k tokens each | Information extraction, multi-session reasoning, temporal reasoning, knowledge updates, abstention | arXiv 2410.10813 |
-| **LOCOMO** | 1,540 questions across multi-session dialogues | Single-hop, multi-hop, open-domain, temporal recall, event summarization | snap-research.github.io/locomo |
+| Benchmark       | Size                                                                 | Tests                                                                                              | Reference                      |
+| --------------- | -------------------------------------------------------------------- | -------------------------------------------------------------------------------------------------- | ------------------------------ |
+| **LongMemEval** | 500 manually-authored questions, avg 50 sessions / ~115k tokens each | Information extraction, multi-session reasoning, temporal reasoning, knowledge updates, abstention | arXiv 2410.10813               |
+| **LOCOMO**      | 1,540 questions across multi-session dialogues                       | Single-hop, multi-hop, open-domain, temporal recall, event summarization                           | snap-research.github.io/locomo |
 
 Caveat: with million-token windows, a "stuff everything into context" baseline scores competitively on most LongMemEval and LOCOMO instances. New memory systems in 2026 lead with token-cost and latency reductions (95.5% input-token cut for ENGRAM-R, 10–40% latency cut for LiCoMemory) rather than raw accuracy.
 
@@ -210,18 +211,18 @@ Caveat: with million-token windows, a "stuff everything into context" baseline s
 
 ## Gap → concept mapping
 
-| Textrawl gap | Concept to adopt | Where it goes |
-|---|---|---|
-| No UPDATE/DELETE for facts | Mem0 ADD/UPDATE/DELETE/NOOP pipeline | `src/services/memory-extraction.ts` |
-| No invalidation lineage / no as-of audit semantics | Zep/Graphiti bi-temporal lineage | additive migration on `memory_observations` |
-| No rerank after RRF | Cross-encoder rerank | new step after `memory_hybrid_search` |
-| No consolidation | Anthropic "Dreaming" / GraphRAG community summaries | new cron mirroring `runInsightScan` |
-| Conversations don't feed memory | Mem0 extraction over saved turns | new hook in `src/tools/conversation.ts:save_conversation_context` |
-| Untyped relations | MAGMA `kind` column (`semantic`/`temporal`/`causal`/`entity`) | additive migration on `memory_relations` |
-| No multi-hop traversal/ranking at query time | HippoRAG PPR / LiCoMemory tier-2 | `memory_hybrid_search` follow-up query |
-| No interop with vendor memory | Anthropic `memory_20250818` backend, Codex export shape | new MCP tool in `src/tools/memory.ts` |
-| No procedural memory | CoALA + Reflexion | new tiny `procedural_skills` table |
-| No provenance in results | ChatGPT "memory sources" pattern | `sources[]` field on `query_memory` output |
+| Textrawl gap                                       | Concept to adopt                                              | Where it goes                                                     |
+| -------------------------------------------------- | ------------------------------------------------------------- | ----------------------------------------------------------------- |
+| No UPDATE/DELETE for facts                         | Mem0 ADD/UPDATE/DELETE/NOOP pipeline                          | `src/services/memory-extraction.ts`                               |
+| No invalidation lineage / no as-of audit semantics | Zep/Graphiti bi-temporal lineage                              | additive migration on `memory_observations`                       |
+| No rerank after RRF                                | Cross-encoder rerank                                          | new step after `memory_hybrid_search`                             |
+| No consolidation                                   | Anthropic "Dreaming" / GraphRAG community summaries           | new cron mirroring `runInsightScan`                               |
+| Conversations don't feed memory                    | Mem0 extraction over saved turns                              | new hook in `src/tools/conversation.ts:save_conversation_context` |
+| Untyped relations                                  | MAGMA `kind` column (`semantic`/`temporal`/`causal`/`entity`) | additive migration on `memory_relations`                          |
+| No multi-hop traversal/ranking at query time       | HippoRAG PPR / LiCoMemory tier-2                              | `memory_hybrid_search` follow-up query                            |
+| No interop with vendor memory                      | Anthropic `memory_20250818` backend, Codex export shape       | new MCP tool in `src/tools/memory.ts`                             |
+| No procedural memory                               | CoALA + Reflexion                                             | new tiny `procedural_skills` table                                |
+| No provenance in results                           | ChatGPT "memory sources" pattern                              | `sources[]` field on `query_memory` output                        |
 
 ---
 

@@ -12,29 +12,29 @@ Textrawl is a personal knowledge MCP server: hybrid (vector + FTS) search over i
 
 ## Commands (from `package.json`)
 
-| Task | Command |
-|---|---|
-| Install deps | `pnpm install` |
-| Interactive env setup | `pnpm setup` (generates `.env` with secure token) |
-| Dev server (watch) | `pnpm dev` |
-| Build server | `pnpm build` (`tsc` + esbuild bundle to `dist/`) |
-| Start built server | `pnpm start` |
-| Typecheck | `pnpm typecheck` |
-| Lint (Biome) | `pnpm lint` / `pnpm lint:fix` |
-| Lint (Markdown) | `pnpm lint:md` |
-| Unit tests | `pnpm test` (vitest, run once) |
-| Single test file | `pnpm test path/to/file.test.ts` |
-| Test watch mode | `pnpm test:watch` |
-| Quick quality | `pnpm quality` (lint + lint:md + typecheck) |
-| Fast local gate | `pnpm verify:fast` (quality + test + security/docs/tool-sync checks) |
-| Canonical CI gate | `pnpm verify` (verify:fast + build + docs build) |
-| MCP inspector | `pnpm inspector` (against running `localhost:3000/mcp`) |
-| Desktop app dev | `pnpm desktop:dev` |
-| Docs site dev | `pnpm docs:dev` |
-| CLI convert | `pnpm convert -- <subcommand> ...` |
-| CLI upload | `pnpm upload -- <path>` |
-| Postgres analysis | `pnpm pg:analyze` |
-| Insights backfill | `pnpm insights:backfill` (windowed scan over whole corpus) |
+| Task                  | Command                                                              |
+| --------------------- | -------------------------------------------------------------------- |
+| Install deps          | `pnpm install`                                                       |
+| Interactive env setup | `pnpm setup` (generates `.env` with secure token)                    |
+| Dev server (watch)    | `pnpm dev`                                                           |
+| Build server          | `pnpm build` (`tsc` + esbuild bundle to `dist/`)                     |
+| Start built server    | `pnpm start`                                                         |
+| Typecheck             | `pnpm typecheck`                                                     |
+| Lint (Biome)          | `pnpm lint` / `pnpm lint:fix`                                        |
+| Lint (Markdown)       | `pnpm lint:md`                                                       |
+| Unit tests            | `pnpm test` (vitest, run once)                                       |
+| Single test file      | `pnpm test path/to/file.test.ts`                                     |
+| Test watch mode       | `pnpm test:watch`                                                    |
+| Quick quality         | `pnpm quality` (lint + lint:md + typecheck)                          |
+| Fast local gate       | `pnpm verify:fast` (quality + test + security/docs/tool-sync checks) |
+| Canonical CI gate     | `pnpm verify` (verify:fast + build + docs build)                     |
+| MCP inspector         | `pnpm inspector` (against running `localhost:3000/mcp`)              |
+| Desktop app dev       | `pnpm desktop:dev`                                                   |
+| Docs site dev         | `pnpm docs:dev`                                                      |
+| CLI convert           | `pnpm convert -- <subcommand> ...`                                   |
+| CLI upload            | `pnpm upload -- <path>`                                              |
+| Postgres analysis     | `pnpm pg:analyze`                                                    |
+| Insights backfill     | `pnpm insights:backfill` (windowed scan over whole corpus)           |
 
 The `verify` gates invoke three shell scripts directly: `scripts/security-check.sh` (secret/RLS scan; also exposed as `pnpm security-check`), `scripts/docs-check.sh` (doc freshness; no pnpm alias), and `scripts/tool-sync-check.sh` (also exposed as `pnpm tool-sync`; asserts the MCP tool list stays in sync between `src/tools/`, `README.md`, and `AGENTS.md`).
 

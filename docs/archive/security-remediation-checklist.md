@@ -1,4 +1,5 @@
 ---
+
 title: Security Remediation Checklist
 description: Self-contained tasks for remediating findings from the security audit, executable in independent context windows
 date: 2026-02-02
@@ -271,8 +272,8 @@ fi
 import { createHash } from 'node:crypto';
 
 export function verifyPkce(codeVerifier: string, codeChallenge: string): boolean {
- const computed = createHash('sha256').update(codeVerifier).digest('base64url');
- return computed === codeChallenge;
+  const computed = createHash('sha256').update(codeVerifier).digest('base64url');
+  return computed === codeChallenge;
 }
 ```
 
@@ -282,11 +283,11 @@ export function verifyPkce(codeVerifier: string, codeChallenge: string): boolean
 import { createHash, timingSafeEqual } from 'node:crypto';
 
 export function verifyPkce(codeVerifier: string, codeChallenge: string): boolean {
- const computed = createHash('sha256').update(codeVerifier).digest('base64url');
- if (computed.length !== codeChallenge.length) {
-  return false;
- }
- return timingSafeEqual(Buffer.from(computed), Buffer.from(codeChallenge));
+  const computed = createHash('sha256').update(codeVerifier).digest('base64url');
+  if (computed.length !== codeChallenge.length) {
+    return false;
+  }
+  return timingSafeEqual(Buffer.from(computed), Buffer.from(codeChallenge));
 }
 ```
 
@@ -449,13 +450,13 @@ OAUTH_ALLOWED_REDIRECT_URIS: z.string().optional(),
 
 ```typescript
 // Validate redirect_uri against allowlist
-const allowedRedirectUris = config.OAUTH_ALLOWED_REDIRECT_URIS
-    ?.split(',')
+const allowedRedirectUris =
+  config.OAUTH_ALLOWED_REDIRECT_URIS?.split(',')
     .map((u) => u.trim())
     .filter(Boolean) ?? [];
 
 if (allowedRedirectUris.length > 0 && !allowedRedirectUris.includes(params.redirect_uri)) {
-    throw new ValidationError('redirect_uri is not in the allowed list');
+  throw new ValidationError('redirect_uri is not in the allowed list');
 }
 ```
 
@@ -517,10 +518,10 @@ import { randomUUID } from 'node:crypto';
 import type { NextFunction, Request, Response } from 'express';
 
 export function requestId(req: Request, res: Response, next: NextFunction): void {
- const id = (req.headers['x-request-id'] as string) || randomUUID();
- res.setHeader('x-request-id', id);
- (req as Request & { id: string }).id = id;
- next();
+  const id = (req.headers['x-request-id'] as string) || randomUUID();
+  res.setHeader('x-request-id', id);
+  (req as Request & { id: string }).id = id;
+  next();
 }
 ```
 
