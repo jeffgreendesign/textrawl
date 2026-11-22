@@ -4,6 +4,19 @@ All notable changes to Textrawl are documented in this file.
 
 The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.1.0/).
 
+## [0.4.2](https://github.com/jeffgreendesign/textrawl/compare/textrawl-v0.4.1...textrawl-v0.4.2) (2026-11-22)
+
+
+### Bug Fixes
+
+* **deps:** override undici for GHSA-4w7w-5xrc-9h26 and GHSA-mqg3-3v4r-cm32 ([#204](https://github.com/jeffgreendesign/textrawl/issues/204)) ([2d3267c](https://github.com/jeffgreendesign/textrawl/commit/2d3267ca16247e879300312db366b05810087cb7))
+* **lint:** format for Biome 2.6 so the [#201](https://github.com/jeffgreendesign/textrawl/issues/201) dev-deps bump can pass quality ([#209](https://github.com/jeffgreendesign/textrawl/issues/209)) ([463a3e7](https://github.com/jeffgreendesign/textrawl/commit/463a3e701c7cab0bc999093198ba33db2ae92fd0))
+
+
+### Miscellaneous
+
+* **deps:** bump the production-dependencies group across 1 directory with 22 updates ([#205](https://github.com/jeffgreendesign/textrawl/issues/205)) ([00fdaa8](https://github.com/jeffgreendesign/textrawl/commit/00fdaa8cb7f6020840e7c88cb2d3fb178b5aebaa))
+
 ## [0.4.1](https://github.com/jeffgreendesign/textrawl/compare/textrawl-v0.4.0...textrawl-v0.4.1) (2026-10-14)
 
 ### Features
